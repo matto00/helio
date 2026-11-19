@@ -18,7 +18,12 @@ import { fetchPanels as fetchPanelsRequest } from "../services/panelService";
 import type { Dashboard } from "../../dashboards/types/dashboard";
 
 jest.mock("../../dashboards/services/publicDashboardService");
-jest.mock("../../pipelines/services/outputService");
+// The pure filter helpers stay real: the per-panel branch composes its (control-column) filter with them.
+jest.mock("../../pipelines/services/outputService", () => ({
+  ...jest.requireActual("../../pipelines/services/outputService"),
+  getOutputRows: jest.fn(),
+  getOutputById: jest.fn(),
+}));
 jest.mock("../services/panelService", () => ({
   ...jest.requireActual("../services/panelService"),
   fetchPanels: jest.fn(),
@@ -92,13 +97,23 @@ describe("fetchPanelPage on a dashboard the caller does not own", () => {
       store,
       fetchPanelPage({
         panelId: "p-shared",
+        dashboardId: "shared",
         outputId: "out-s",
         page: 0,
         pageSize: 200,
         sort: { column: "a", direction: "asc" },
       }),
     );
-    expect(publicRows).toHaveBeenCalledWith("shared", "p-shared", undefined, 0, 200);
+    // HEL-1780 D4: `a` is not one of the panel's own control columns, so the sort is not sent (the table orders loaded rows).
+    expect(publicRows).toHaveBeenCalledWith(
+      "shared",
+      "p-shared",
+      undefined,
+      0,
+      200,
+      undefined,
+      undefined,
+    );
     expect(outputRows).not.toHaveBeenCalled();
     expect(store.getState().panels.paginationState["p-shared"]?.rows).toEqual([{ a: 1 }]);
   });
@@ -108,7 +123,13 @@ describe("fetchPanelPage on a dashboard the caller does not own", () => {
     void run(store, fetchPanels.fulfilled([ownPanel], "r", "own"));
     await run(
       store,
-      fetchPanelPage({ panelId: "p-own", outputId: "out-o", page: 0, pageSize: 200 }),
+      fetchPanelPage({
+        panelId: "p-own",
+        dashboardId: "own",
+        outputId: "out-o",
+        page: 0,
+        pageSize: 200,
+      }),
     );
     expect(outputRows).toHaveBeenCalledTimes(1);
     expect(publicRows).not.toHaveBeenCalled();
@@ -119,10 +140,101 @@ describe("fetchPanelPage on a dashboard the caller does not own", () => {
     void run(store, fetchPanels.fulfilled([sharedPanel], "r", "shared"));
     await run(
       store,
-      fetchPanelPage({ panelId: "p-shared", outputId: "out-s", page: 0, pageSize: 200 }),
+      fetchPanelPage({
+        panelId: "p-shared",
+        dashboardId: "shared",
+        outputId: "out-s",
+        page: 0,
+        pageSize: 200,
+      }),
     );
     expect(publicRows).toHaveBeenCalledTimes(1);
     expect(outputRows).not.toHaveBeenCalled();
+  });
+});
+
+describe("fetchPanelPage is fail-closed (HEL-1780 D1)", () => {
+  it("a panel whose dashboard is absent from the store reads the per-panel route, never the Output route", async () => {
+    const store = makeStore([]);
+    await run(
+      store,
+      fetchPanelPage({
+        panelId: "p-ghost",
+        dashboardId: "ghost",
+        outputId: "out-g",
+        page: 0,
+        pageSize: 200,
+      }),
+    );
+    expect(publicRows).toHaveBeenCalledWith(
+      "ghost",
+      "p-ghost",
+      undefined,
+      0,
+      200,
+      undefined,
+      undefined,
+    );
+    expect(outputRows).not.toHaveBeenCalled();
+  });
+
+  it("the role of the PANEL's dashboard decides, not the selected one", async () => {
+    const store = makeStore([
+      dash("shared", { accessRole: "viewer" }),
+      dash("own", { accessRole: "owner" }),
+    ]);
+    store.dispatch({ type: "dashboards/setSelectedDashboardId", payload: "own" });
+    await run(
+      store,
+      fetchPanelPage({
+        panelId: "p-shared",
+        dashboardId: "shared",
+        outputId: "out-s",
+        page: 0,
+        pageSize: 200,
+      }),
+    );
+    expect(publicRows).toHaveBeenCalledTimes(1);
+    expect(outputRows).not.toHaveBeenCalled();
+  });
+
+  it("sends only the panel's own control-column sort and filter, and never quick", async () => {
+    const store = makeStore([dash("shared", { accessRole: "viewer" })]);
+    const controlled = makeOutputPanel({
+      id: "p-shared",
+      dashboardId: "shared",
+      config: {
+        outputId: "out-s",
+        controls: [{ id: "c1", kind: "dropdown", column: "region", label: "Region" }],
+      },
+    });
+    void run(store, fetchPanels.fulfilled([controlled], "r", "shared"));
+    await run(
+      store,
+      fetchPanelPage({
+        panelId: "p-shared",
+        dashboardId: "shared",
+        outputId: "out-s",
+        page: 0,
+        pageSize: 200,
+        sort: { column: "region", direction: "desc" },
+        filter: {
+          quick: "x",
+          columns: { region: "w", amount: "5" },
+          ops: [{ column: "region", op: "eq", value: "West" }],
+        },
+        crossFilterEq: { column: "amount", value: "5" },
+      }),
+    );
+    expect(publicRows).toHaveBeenCalledWith(
+      "shared",
+      "p-shared",
+      undefined,
+      0,
+      200,
+      { column: "region", direction: "desc" },
+      { columns: { region: "w" }, ops: [{ column: "region", op: "eq", value: "West" }] },
+    );
   });
 });
 

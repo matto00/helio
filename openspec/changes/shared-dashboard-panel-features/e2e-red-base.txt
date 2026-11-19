@@ -1,0 +1,233 @@
+
+Running 5 tests using 1 worker
+
+[1A[2K[1/5] [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:454:7 › HEL-1780 grantees get panel features through per-panel routes › viewer (dashboard-only): every feature through per-panel routes
+[1A[2K[dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:454:7 › HEL-1780 grantees get panel features through per-panel routes › viewer (dashboard-only): every feature through per-panel routes
+[HEL-1300 e2e] throwaway user: hel1780-owner-1795070098613-82094@example.test
+
+[1A[2K[HEL-1300 e2e] throwaway user: hel1780-viewer-1795070099634-56574@example.test
+
+[1A[2K[HEL-1300 e2e] throwaway user: hel1780-editor-1795070099949-6073@example.test
+
+[1A[2K[HEL-1300 e2e] throwaway user: hel1780-dual-1795070100256-79769@example.test
+
+[1A[2K  1) [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:454:7 › HEL-1780 grantees get panel features through per-panel routes › viewer (dashboard-only): every feature through per-panel routes 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m failed
+
+    Locator:  locator('article.panel-grid-card').filter({ has: getByRole('heading', { name: 'HEL1780 table 1795070098472' }) }).getByRole('combobox', { name: 'Team' })
+    Expected: visible
+    Received: <element(s) not found>
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('article.panel-grid-card').filter({ has: getByRole('heading', { name: 'HEL1780 table 1795070098472' }) }).getByRole('combobox', { name: 'Team' })[22m
+
+
+      346 |     );
+      347 |     const team = table.getByRole("combobox", { name: "Team" });
+    > 348 |     await expect(team).toBeVisible();
+          |                        ^
+      349 |     await distinct;
+      350 |     await team.click();
+      351 |     await expect(page.getByRole("option", { name: "team-a" })).toBeVisible();
+        at featurePass (/home/matt/Development/helio/.claude/worktrees/feature/shared-dashboard-panel-features/HEL-1780/e2e/hel1780-shared-dashboard-panel-features.spec.ts:348:24)
+        at /home/matt/Development/helio/.claude/worktrees/feature/shared-dashboard-panel-features/HEL-1780/e2e/hel1780-shared-dashboard-panel-features.spec.ts:455:5
+
+    Error: page.waitForResponse: Target page, context or browser has been closed
+
+      342 |
+      343 |     // 1. Controls: the dropdown's options come from the per-panel distinct-values route; choosing one filters on the server.
+    > 344 |     const distinct = page.waitForResponse(
+          |                           ^
+      345 |       (r) => /\/panels\/[^/]+\/distinct-values/.test(r.url()) && r.status() === 200,
+      346 |     );
+      347 |     const team = table.getByRole("combobox", { name: "Team" });
+        at featurePass (/home/matt/Development/helio/.claude/worktrees/feature/shared-dashboard-panel-features/HEL-1780/e2e/hel1780-shared-dashboard-panel-features.spec.ts:344:27)
+        at /home/matt/Development/helio/.claude/worktrees/feature/shared-dashboard-panel-features/HEL-1780/e2e/hel1780-shared-dashboard-panel-features.spec.ts:455:5
+
+    Error Context: test-results/hel1780-shared-dashboard-p-7f39f-re-through-per-panel-routes-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1780-shared-dashboard-p-7f39f-re-through-per-panel-routes-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1780-shared-dashboard-p-7f39f-re-through-per-panel-routes-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[2/5] [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:459:7 › HEL-1780 grantees get panel features through per-panel routes › viewer: the same dashboard on a phone
+[1A[2K[dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:459:7 › HEL-1780 grantees get panel features through per-panel routes › viewer: the same dashboard on a phone
+[HEL-1300 e2e] throwaway user: hel1780-owner-1795070111319-43425@example.test
+
+[1A[2K[HEL-1300 e2e] throwaway user: hel1780-viewer-1795070111804-89246@example.test
+
+[1A[2K[HEL-1300 e2e] throwaway user: hel1780-editor-1795070112071-24522@example.test
+
+[1A[2K[HEL-1300 e2e] throwaway user: hel1780-dual-1795070112336-63535@example.test
+
+[1A[2K  2) [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:459:7 › HEL-1780 grantees get panel features through per-panel routes › viewer: the same dashboard on a phone 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m failed
+
+    Locator:  getByRole('combobox', { name: 'Team' })
+    Expected: visible
+    Received: <element(s) not found>
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('combobox', { name: 'Team' })[22m
+
+
+      469 |       await expect(page.getByText(NAMES.table)).toBeVisible();
+      470 |       await expect(cell(page, "East").first()).toBeVisible();
+    > 471 |       await expect(page.getByRole("combobox", { name: "Team" })).toBeVisible();
+          |                                                                  ^
+      472 |       await expect(page.getByText(/Orders hold three regions/)).toBeVisible();
+      473 |       await expect(page.getByRole("button", { name: `Refresh ${NAMES.insight}` })).toHaveCount(0);
+      474 |       await expect(page.getByRole("img", { name: /Trend over \d+ data points/ })).toBeVisible();
+        at /home/matt/Development/helio/.claude/worktrees/feature/shared-dashboard-panel-features/HEL-1780/e2e/hel1780-shared-dashboard-panel-features.spec.ts:471:66
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1780-shared-dashboard-p-eb117-e-same-dashboard-on-a-phone-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1780-shared-dashboard-p-eb117-e-same-dashboard-on-a-phone-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[3/5] [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:483:7 › HEL-1780 grantees get panel features through per-panel routes › editor (dashboard-only): every feature, and the binding stays read-only
+[1A[2K[dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:483:7 › HEL-1780 grantees get panel features through per-panel routes › editor (dashboard-only): every feature, and the binding stays read-only
+[HEL-1300 e2e] throwaway user: hel1780-owner-1795070121627-90806@example.test
+
+[1A[2K[HEL-1300 e2e] throwaway user: hel1780-viewer-1795070122121-11307@example.test
+
+[1A[2K[HEL-1300 e2e] throwaway user: hel1780-editor-1795070122401-39972@example.test
+
+[1A[2K[HEL-1300 e2e] throwaway user: hel1780-dual-1795070122678-95404@example.test
+
+[1A[2K  3) [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:483:7 › HEL-1780 grantees get panel features through per-panel routes › editor (dashboard-only): every feature, and the binding stays read-only 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m failed
+
+    Locator:  locator('article.panel-grid-card').filter({ has: getByRole('heading', { name: 'HEL1780 table 1795070121559' }) }).getByRole('combobox', { name: 'Team' })
+    Expected: visible
+    Received: <element(s) not found>
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('article.panel-grid-card').filter({ has: getByRole('heading', { name: 'HEL1780 table 1795070121559' }) }).getByRole('combobox', { name: 'Team' })[22m
+
+
+      346 |     );
+      347 |     const team = table.getByRole("combobox", { name: "Team" });
+    > 348 |     await expect(team).toBeVisible();
+          |                        ^
+      349 |     await distinct;
+      350 |     await team.click();
+      351 |     await expect(page.getByRole("option", { name: "team-a" })).toBeVisible();
+        at featurePass (/home/matt/Development/helio/.claude/worktrees/feature/shared-dashboard-panel-features/HEL-1780/e2e/hel1780-shared-dashboard-panel-features.spec.ts:348:24)
+        at /home/matt/Development/helio/.claude/worktrees/feature/shared-dashboard-panel-features/HEL-1780/e2e/hel1780-shared-dashboard-panel-features.spec.ts:484:5
+
+    Error: page.waitForResponse: Target page, context or browser has been closed
+
+      342 |
+      343 |     // 1. Controls: the dropdown's options come from the per-panel distinct-values route; choosing one filters on the server.
+    > 344 |     const distinct = page.waitForResponse(
+          |                           ^
+      345 |       (r) => /\/panels\/[^/]+\/distinct-values/.test(r.url()) && r.status() === 200,
+      346 |     );
+      347 |     const team = table.getByRole("combobox", { name: "Team" });
+        at featurePass (/home/matt/Development/helio/.claude/worktrees/feature/shared-dashboard-panel-features/HEL-1780/e2e/hel1780-shared-dashboard-panel-features.spec.ts:344:27)
+        at /home/matt/Development/helio/.claude/worktrees/feature/shared-dashboard-panel-features/HEL-1780/e2e/hel1780-shared-dashboard-panel-features.spec.ts:484:5
+
+    Error Context: test-results/hel1780-shared-dashboard-p-61b4f-the-binding-stays-read-only-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1780-shared-dashboard-p-61b4f-the-binding-stays-read-only-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1780-shared-dashboard-p-61b4f-the-binding-stays-read-only-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[4/5] [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:500:7 › HEL-1780 grantees get panel features through per-panel routes › dual-grant user (pipeline grant AND dashboard grant): per-panel routes on the shared dashboard
+[1A[2K[dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:500:7 › HEL-1780 grantees get panel features through per-panel routes › dual-grant user (pipeline grant AND dashboard grant): per-panel routes on the shared dashboard
+[HEL-1300 e2e] throwaway user: hel1780-owner-1795070132390-38212@example.test
+
+[1A[2K[HEL-1300 e2e] throwaway user: hel1780-viewer-1795070132857-68683@example.test
+
+[1A[2K[HEL-1300 e2e] throwaway user: hel1780-editor-1795070133127-58314@example.test
+
+[1A[2K[HEL-1300 e2e] throwaway user: hel1780-dual-1795070133963-93715@example.test
+
+[1A[2K  4) [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:500:7 › HEL-1780 grantees get panel features through per-panel routes › dual-grant user (pipeline grant AND dashboard grant): per-panel routes on the shared dashboard 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m failed
+
+    Locator:  locator('article.panel-grid-card').filter({ has: getByRole('heading', { name: 'HEL1780 table 1795070132331' }) }).getByRole('combobox', { name: 'Team' })
+    Expected: visible
+    Received: <element(s) not found>
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('article.panel-grid-card').filter({ has: getByRole('heading', { name: 'HEL1780 table 1795070132331' }) }).getByRole('combobox', { name: 'Team' })[22m
+
+
+      346 |     );
+      347 |     const team = table.getByRole("combobox", { name: "Team" });
+    > 348 |     await expect(team).toBeVisible();
+          |                        ^
+      349 |     await distinct;
+      350 |     await team.click();
+      351 |     await expect(page.getByRole("option", { name: "team-a" })).toBeVisible();
+        at featurePass (/home/matt/Development/helio/.claude/worktrees/feature/shared-dashboard-panel-features/HEL-1780/e2e/hel1780-shared-dashboard-panel-features.spec.ts:348:24)
+        at /home/matt/Development/helio/.claude/worktrees/feature/shared-dashboard-panel-features/HEL-1780/e2e/hel1780-shared-dashboard-panel-features.spec.ts:501:5
+
+    Error: page.waitForResponse: Target page, context or browser has been closed
+
+      342 |
+      343 |     // 1. Controls: the dropdown's options come from the per-panel distinct-values route; choosing one filters on the server.
+    > 344 |     const distinct = page.waitForResponse(
+          |                           ^
+      345 |       (r) => /\/panels\/[^/]+\/distinct-values/.test(r.url()) && r.status() === 200,
+      346 |     );
+      347 |     const team = table.getByRole("combobox", { name: "Team" });
+        at featurePass (/home/matt/Development/helio/.claude/worktrees/feature/shared-dashboard-panel-features/HEL-1780/e2e/hel1780-shared-dashboard-panel-features.spec.ts:344:27)
+        at /home/matt/Development/helio/.claude/worktrees/feature/shared-dashboard-panel-features/HEL-1780/e2e/hel1780-shared-dashboard-panel-features.spec.ts:501:5
+
+    Error Context: test-results/hel1780-shared-dashboard-p-ffd2c-tes-on-the-shared-dashboard-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1780-shared-dashboard-p-ffd2c-tes-on-the-shared-dashboard-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1780-shared-dashboard-p-ffd2c-tes-on-the-shared-dashboard-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[5/5] [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:504:7 › HEL-1780 grantees get panel features through per-panel routes › switch shared -> own -> shared: no request goes out under the wrong role
+[1A[2K[dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:504:7 › HEL-1780 grantees get panel features through per-panel routes › switch shared -> own -> shared: no request goes out under the wrong role
+[HEL-1300 e2e] throwaway user: hel1780-owner-1795070143173-83390@example.test
+
+[1A[2K[HEL-1300 e2e] throwaway user: hel1780-viewer-1795070143615-77328@example.test
+
+[1A[2K[HEL-1300 e2e] throwaway user: hel1780-editor-1795070143873-14162@example.test
+
+[1A[2K[HEL-1300 e2e] throwaway user: hel1780-dual-1795070144124-15308@example.test
+
+[HEL-1301 e2e] deleted 20 recorded throwaway user(s)
+[1A[2K  4 failed
+    [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:454:7 › HEL-1780 grantees get panel features through per-panel routes › viewer (dashboard-only): every feature through per-panel routes 
+    [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:459:7 › HEL-1780 grantees get panel features through per-panel routes › viewer: the same dashboard on a phone 
+    [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:483:7 › HEL-1780 grantees get panel features through per-panel routes › editor (dashboard-only): every feature, and the binding stays read-only 
+    [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:500:7 › HEL-1780 grantees get panel features through per-panel routes › dual-grant user (pipeline grant AND dashboard grant): per-panel routes on the shared dashboard 
+  1 passed (52.5s)

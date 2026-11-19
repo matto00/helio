@@ -4,11 +4,11 @@ import { buildViewerControlFilterOps } from "../state/viewerControlValues";
 import { useViewerControls } from "./useViewerControls";
 
 import { useAppSelector } from "../../../hooks/reduxHooks";
-import { useCanUseOutputRoutes } from "../../dashboards/state/dashboardAccessContext";
 import { isPanelFilterableByDimension } from "../../../utils/crossFilterRows";
 import type { Output } from "../../pipelines/types/output";
 import { isOutputPanel } from "../state/panelNarrowing";
 import type { CrossFilterEq, OutputControlSpec, Panel } from "../types/panel";
+import type { PanelReadScope } from "../state/panelReadScope";
 import { useOutputFilterCapabilities } from "./useOutputFilterCapabilities";
 
 /** How the dashboard's active cross-filter applies to ONE panel (design.md D3/D9b):
@@ -38,10 +38,12 @@ const NO_CROSS_FILTER: CrossFilterServerOps = { crossFilterEq: null, mode: "none
 export function useCrossFilterServerOps(
   panel: Panel,
   output: Pick<Output, "id" | "kind" | "config" | "schema"> | null,
+  /** HEL-1780 D5: where this panel reads from. In `panel` scope the capabilities are the per-panel route's (narrowed to
+   *  the panel's own control columns), so `server` is chosen only for a control column and every other dimension
+   *  narrows the loaded rows in the browser (`client-fallback`). */
+  scope: PanelReadScope = { kind: "output" },
 ): CrossFilterServerOps {
   const crossFilter = useAppSelector((state) => state.panels.crossFilter ?? null);
-  // HEL-1773: filter capabilities are an Output route; a dashboard grantee has no cross-filter (hidden, not broken).
-  const canUseOutputRoutes = useCanUseOutputRoutes();
 
   // design.md D2a — the panel's viewer-control ops, derived from the SAME URL-held source every
   // host reads (`useViewerControls` is keyed by panel id), so every host reaches the same decision.
@@ -55,7 +57,6 @@ export function useCrossFilterServerOps(
   const dimension = crossFilter?.dimension ?? null;
   const schemaNames = useMemo(() => (output?.schema ?? []).map((f) => f.name), [output?.schema]);
   const isCandidate =
-    canUseOutputRoutes &&
     crossFilter !== null &&
     crossFilter.panelId !== panel.id &&
     isOutputPanel(panel) &&
@@ -63,7 +64,7 @@ export function useCrossFilterServerOps(
     dimension !== null &&
     isPanelFilterableByDimension(output.kind, output.config, schemaNames, dimension);
 
-  const capabilities = useOutputFilterCapabilities(output?.id ?? null, isCandidate);
+  const capabilities = useOutputFilterCapabilities(output?.id ?? null, isCandidate, scope);
 
   const columnType =
     dimension === null ? undefined : output?.schema.find((f) => f.name === dimension)?.type;

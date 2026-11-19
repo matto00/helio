@@ -8,6 +8,10 @@ import { renderWithStore } from "../../../../test/renderWithStore";
 import { makeOutputPanel } from "../../../../test/panelFixtures";
 import type { Output } from "../../../pipelines/types/output";
 import { PanelDetailModal } from "./PanelDetailModal";
+import { ownDashboardsInThisFile } from "../../../../test/seedOwnedDashboard";
+
+// HEL-1780 D1 planned fixture migration: the panels rendered here belong to dashboards the caller owns.
+ownDashboardsInThisFile("d1", "dashboard-1");
 
 // HEL-539 (task 4.1/5.5) — PanelDetailModal's Retry is a labeled button
 // (retryVariant="button", the modal has room for one), unlike PanelCard's

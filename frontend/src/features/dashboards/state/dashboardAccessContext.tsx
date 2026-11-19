@@ -29,10 +29,3 @@ export function useCanEditPanels(): boolean {
   const role = useDashboardRole();
   return role === "owner" || role === "editor";
 }
-
-/** Owner only: the caller may use the Output and pipeline routes (rows, metadata, history, insight, provenance, filter
- *  capabilities, run events). A dashboard grantee reads every panel through the per-panel routes instead, and a panel
- *  feature that has no per-panel route yet is not offered. */
-export function useCanUseOutputRoutes(): boolean {
-  return useDashboardRole() === "owner";
-}

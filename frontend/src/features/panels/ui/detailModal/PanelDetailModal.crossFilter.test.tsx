@@ -10,6 +10,10 @@ import { makeOutputPanel } from "../../../../test/panelFixtures";
 import { resetCapabilitiesStoreForTests } from "../../state/filterCapabilitiesStore";
 import type { Output } from "../../../pipelines/types/output";
 import { PanelDetailModal } from "./PanelDetailModal";
+import { ownDashboardsInThisFile } from "../../../../test/seedOwnedDashboard";
+
+// HEL-1780 D1 planned fixture migration: the panels rendered here belong to dashboards the caller owns.
+ownDashboardsInThisFile("d1", "dashboard-1");
 
 // HEL-1191 design.md D9/D9b — the detail modal owns its own `usePanelData` AND resolves the
 // Output, so it computes the cross-filter decision itself: server mode sends the eq and does NOT

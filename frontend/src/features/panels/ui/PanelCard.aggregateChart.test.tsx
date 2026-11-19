@@ -11,6 +11,10 @@ import { defaultChartAppearance } from "../../../theme/appearance";
 import type { PanelAppearance, PanelPaginationState } from "../types/panel";
 import type { Output } from "../../pipelines/types/output";
 import { PanelCard } from "./PanelCard";
+import { ownDashboardsInThisFile } from "../../../test/seedOwnedDashboard";
+
+// HEL-1780 D1 planned fixture migration: the panels rendered here belong to dashboards the caller owns.
+ownDashboardsInThisFile("dashboard-1");
 
 // HEL-1351 design D2/D3/D7 — an aggregated chart Output on a dashboard card: it plots grouped values,
 // its clicks select on the aggregation's groupBy, Inspect lists the clicked group's loaded RECORDS,

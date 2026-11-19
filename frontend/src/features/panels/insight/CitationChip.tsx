@@ -12,7 +12,7 @@ import "./InsightPanel.css";
 
 export type CitationSource =
   | { variant: "authenticated" }
-  | { variant: "public"; dashboardId: string; token: string };
+  | { variant: "public"; dashboardId: string; token?: string };
 
 interface CitationChipProps {
   citation: InsightCitation;
@@ -42,7 +42,7 @@ export function CitationChip({ citation, ordinal, insightPanelId, source }: Cita
   const publicPanelId = citation.panelId ?? insightPanelId;
   const outputId = citation.outputId ?? "";
   const dashboardId = source.variant === "public" ? source.dashboardId : "";
-  const token = source.variant === "public" ? source.token : "";
+  const token = source.variant === "public" ? source.token : undefined;
 
   const cacheKey = isPublic
     ? publicProvenanceKey(dashboardId, publicPanelId)

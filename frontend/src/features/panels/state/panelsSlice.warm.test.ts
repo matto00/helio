@@ -1,4 +1,4 @@
-import { configureStore } from "@reduxjs/toolkit";
+import { configureStoreOwning } from "../../../test/configureOwnedStore";
 
 import { outputPanel, settledWindow } from "../../../test/warmFixtures";
 import { setServerOffsetMs, resetServerClock } from "../../dashboards/tabs/serverClock";
@@ -13,6 +13,9 @@ import {
   selectDataPoint,
   setCrossFilter,
 } from "./panelsSlice";
+
+// HEL-1780 D1: the dashboards this file's panels belong to are held as owned by the caller (explicitly, per file).
+const configureStore = configureStoreOwning("dash-1");
 
 jest.mock("../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../pipelines/services/outputService"),
@@ -68,7 +71,13 @@ describe("panelsSlice warm-cache reducers (HEL-1575 D4/D5)", () => {
   it("an in-flight window is not clobbered by a hydrate either", () => {
     const store = configureStore({ reducer: { panels: panelsReducer } });
     void store.dispatch(
-      fetchPanelPage({ panelId: "p1", outputId: "o1", page: 0, pageSize: 50 }) as never,
+      fetchPanelPage({
+        panelId: "p1",
+        dashboardId: "dash-1",
+        outputId: "o1",
+        page: 0,
+        pageSize: 50,
+      }) as never,
     );
     expect(store.getState().panels.paginationState.p1.isLoadingMore).toBe(true);
     store.dispatch(paginationHydrated({ p1: settledWindow("o1", 1) }));
@@ -83,7 +92,13 @@ describe("panelsSlice warm-cache reducers (HEL-1575 D4/D5)", () => {
       const store = configureStore({ reducer: { panels: panelsReducer } });
       const before = Date.now() + 60_000;
       const promise = store.dispatch(
-        fetchPanelPage({ panelId: "p1", outputId: "o1", page: 0, pageSize: 50 }) as never,
+        fetchPanelPage({
+          panelId: "p1",
+          dashboardId: "dash-1",
+          outputId: "o1",
+          page: 0,
+          pageSize: 50,
+        }) as never,
       );
       const pendingAt = store.getState().panels.paginationState.p1.capturedAt as number;
       expect(pendingAt).toBeGreaterThanOrEqual(before);
@@ -95,16 +110,34 @@ describe("panelsSlice warm-cache reducers (HEL-1575 D4/D5)", () => {
     it("a refresh moves it forward; a load-more (page > 0) leaves it alone", async () => {
       const store = configureStore({ reducer: { panels: panelsReducer } });
       await store.dispatch(
-        fetchPanelPage({ panelId: "p1", outputId: "o1", page: 0, pageSize: 50 }) as never,
+        fetchPanelPage({
+          panelId: "p1",
+          dashboardId: "dash-1",
+          outputId: "o1",
+          page: 0,
+          pageSize: 50,
+        }) as never,
       );
       const first = store.getState().panels.paginationState.p1.capturedAt as number;
       await new Promise((r) => setTimeout(r, 5));
       await store.dispatch(
-        fetchPanelPage({ panelId: "p1", outputId: "o1", page: 1, pageSize: 50 }) as never,
+        fetchPanelPage({
+          panelId: "p1",
+          dashboardId: "dash-1",
+          outputId: "o1",
+          page: 1,
+          pageSize: 50,
+        }) as never,
       );
       expect(store.getState().panels.paginationState.p1.capturedAt).toBe(first);
       await store.dispatch(
-        fetchPanelPage({ panelId: "p1", outputId: "o1", page: 0, pageSize: 50 }) as never,
+        fetchPanelPage({
+          panelId: "p1",
+          dashboardId: "dash-1",
+          outputId: "o1",
+          page: 0,
+          pageSize: 50,
+        }) as never,
       );
       expect(store.getState().panels.paginationState.p1.capturedAt as number).toBeGreaterThan(
         first,

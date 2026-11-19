@@ -1,20 +1,11 @@
-// HEL-1773 D6: `GET /api/outputs/:id/history` is an Output route; a dashboard grantee reads no history through it. A
-// panel-scoped (public) source is unaffected by the role.
+// HEL-1780 D2/D6: the history read follows the panel's read scope, not a role gate. An owner's panel reads the Output route; a
+// non-owner's panel hands a per-panel source (the dashboard, no share token) and reads `/api/dashboards/:id/panels/:panelId/history`.
 import { renderHook } from "@testing-library/react";
-import type { PropsWithChildren } from "react";
 
-import { DashboardAccessProvider } from "../../dashboards/state/dashboardAccessContext";
-import type { DashboardAccessRole } from "../../dashboards/types/dashboard";
 import { fetchOutputHistory, fetchPublicOutputHistory } from "./outputHistoryService";
 import { useOutputHistory } from "./useOutputHistory";
 
 jest.mock("./outputHistoryService");
-
-function wrapperFor(role: DashboardAccessRole) {
-  return function Wrapper({ children }: PropsWithChildren) {
-    return <DashboardAccessProvider role={role}>{children}</DashboardAccessProvider>;
-  };
-}
 
 beforeEach(() => {
   jest.resetAllMocks();
@@ -22,36 +13,30 @@ beforeEach(() => {
   jest.mocked(fetchPublicOutputHistory).mockResolvedValue({} as never);
 });
 
-it("an owner reads the Output history route", () => {
-  renderHook(() => useOutputHistory("o-own", "p", "pl", undefined, true, null), {
-    wrapper: wrapperFor("owner"),
-  });
+it("an owner's panel reads the Output history route", () => {
+  renderHook(() => useOutputHistory("o-own", "p", "pl", undefined, true, null));
   expect(fetchOutputHistory).toHaveBeenCalledWith("o-own");
+  expect(fetchPublicOutputHistory).not.toHaveBeenCalled();
 });
 
-it.each(["viewer", "editor"] as const)("a %s reads no history through the Output route", (role) => {
-  const { result } = renderHook(
-    () => useOutputHistory("o-" + role, "p", "pl", undefined, true, null),
-    {
-      wrapper: wrapperFor(role),
-    },
+it("a non-owner's panel reads the per-panel history route with no token and never the Output route", () => {
+  renderHook(() =>
+    useOutputHistory("o-shared", "p", "pl", { variant: "public", dashboardId: "d" }, true, null),
   );
+  expect(fetchPublicOutputHistory).toHaveBeenCalledWith("d", "p", undefined);
   expect(fetchOutputHistory).not.toHaveBeenCalled();
-  expect(result.current).toBeNull();
 });
 
-it("a public source is read whatever the role", () => {
-  renderHook(
-    () =>
-      useOutputHistory(
-        "o-pub",
-        "p",
-        undefined,
-        { variant: "public", dashboardId: "d", token: "t" },
-        true,
-        null,
-      ),
-    { wrapper: wrapperFor("viewer") },
+it("a share-link viewer still sends its token", () => {
+  renderHook(() =>
+    useOutputHistory(
+      "o-pub",
+      "p",
+      undefined,
+      { variant: "public", dashboardId: "d-token", token: "t" },
+      true,
+      null,
+    ),
   );
-  expect(fetchPublicOutputHistory).toHaveBeenCalledWith("d", "p", "t");
+  expect(fetchPublicOutputHistory).toHaveBeenCalledWith("d-token", "p", "t");
 });

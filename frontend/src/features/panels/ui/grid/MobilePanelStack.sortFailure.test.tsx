@@ -1,4 +1,5 @@
-import { configureStore, type UnknownAction } from "@reduxjs/toolkit";
+import { type UnknownAction } from "@reduxjs/toolkit";
+import { configureStoreOwning } from "../../../../test/configureOwnedStore";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
@@ -16,6 +17,9 @@ import { MobilePanelStack } from "./MobilePanelStack";
 // HEL-1392 Verification 3(g) at card level -- a failed USER-driven sort refetch is toast-only: the
 // table and its filter control stay mounted and no error state replaces them, even though the
 // failure is now recorded on the pagination entry.
+// HEL-1780 D1: the dashboards this file's panels belong to are held as owned by the caller (explicitly, per file).
+const configureStore = configureStoreOwning("dashboard-1");
+
 jest.mock("../../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../../pipelines/services/outputService"),
   getOutputRows: jest.fn(),

@@ -1,4 +1,4 @@
-import { configureStore } from "@reduxjs/toolkit";
+import { configureStoreOwning } from "../../../test/configureOwnedStore";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { createElement, StrictMode, type PropsWithChildren } from "react";
 import { Provider } from "react-redux";
@@ -20,6 +20,9 @@ import { usePanelData } from "./usePanelData";
 
 // HEL-1392 design.md D2/D8 -- a card that mounts while the store already holds the exact window it
 // would request must not request it again; everything else must still fetch.
+// HEL-1780 D1: the dashboards this file's panels belong to are held as owned by the caller (explicitly, per file).
+const configureStore = configureStoreOwning("dash-1", "dashboard-1");
+
 jest.mock("../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../pipelines/services/outputService"),
   getOutputRows: jest.fn(),
@@ -174,6 +177,7 @@ describe("usePanelData remount reuse", () => {
       await store.dispatch(
         fetchPanelPage({
           panelId: "p1",
+          dashboardId: "dash-1",
           outputId: "o1",
           page: 0,
           pageSize: 200,
@@ -193,6 +197,7 @@ describe("usePanelData remount reuse", () => {
       await store.dispatch(
         fetchPanelPage({
           panelId: "p1",
+          dashboardId: "dash-1",
           outputId: "o1",
           page: 0,
           pageSize: 200,
@@ -224,7 +229,13 @@ describe("usePanelData remount reuse", () => {
     await firstLoad(store);
     await act(async () => {
       await store.dispatch(
-        fetchPanelPage({ panelId: "p1", outputId: "o1", page: 1, pageSize: 50 }),
+        fetchPanelPage({
+          panelId: "p1",
+          dashboardId: "dash-1",
+          outputId: "o1",
+          page: 1,
+          pageSize: 50,
+        }),
       );
     });
     const calls = rows.mock.calls.length;
@@ -321,6 +332,7 @@ describe("usePanelData remount reuse", () => {
       const owned = store.dispatch(
         fetchPanelPage({
           panelId: "p1",
+          dashboardId: "dash-1",
           outputId: "o1",
           page: 0,
           pageSize: 200,
@@ -350,6 +362,7 @@ describe("usePanelData remount reuse", () => {
       const owned = store.dispatch(
         fetchPanelPage({
           panelId: "p1",
+          dashboardId: "dash-1",
           outputId: "o1",
           page: 0,
           pageSize: 200,

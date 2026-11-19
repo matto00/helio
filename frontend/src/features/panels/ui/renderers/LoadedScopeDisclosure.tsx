@@ -22,6 +22,11 @@ interface LoadedScopeDisclosureProps {
   matchCount: number;
   /** Total rows currently loaded (pre-filter). Ignored when `!filtering`. */
   loadedCount: number;
+  /** HEL-1780 D4(b)/(b2) -- set only in panel read scope while a client-side term (a sort or filter on a column the per-panel
+   *  route may not be sent, or a quick search) is active. The server's total is then never a match count, so exactly one
+   *  line renders: the scope note when rows remain unloaded; "{n} results." (n = `matchCount`, the client-filtered loaded
+   *  rows) when every row is loaded and a filter is active; nothing for a sort alone over every row. */
+  clientScope?: { sorted: boolean; filtered: boolean; loaded: number; total: number };
 }
 
 export function LoadedScopeDisclosure({
@@ -29,7 +34,25 @@ export function LoadedScopeDisclosure({
   filtering,
   matchCount,
   loadedCount,
+  clientScope,
 }: LoadedScopeDisclosureProps) {
+  if (clientScope) {
+    const { sorted, filtered, loaded, total } = clientScope;
+    if (loaded < total) {
+      const what = sorted && filtered ? "Sorted and filtered" : sorted ? "Sorted" : "Filtered";
+      return (
+        <p className="panel-content__loaded-scope-note">
+          {what} within the {loaded} loaded rows of {total}.
+        </p>
+      );
+    }
+    if (!filtered) return null;
+    return (
+      <p className="panel-content__loaded-scope-note">
+        {matchCount} {matchCount === 1 ? "result" : "results"}.
+      </p>
+    );
+  }
   if (!filtering) {
     // HEL-1027 design.md D7 (task 5.1) — HEL-448's "Sort covers only the loaded rows." note is
     // REMOVED outright, not restated: once sort ranks the whole Output (this ticket),

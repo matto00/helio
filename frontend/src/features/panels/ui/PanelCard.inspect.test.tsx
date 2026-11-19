@@ -9,6 +9,10 @@ import { usePanelPolling } from "../hooks/usePanelPolling";
 import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
 import type { Output } from "../../pipelines/types/output";
 import { PanelCard } from "./PanelCard";
+import { ownDashboardsInThisFile } from "../../../test/seedOwnedDashboard";
+
+// HEL-1780 D1 planned fixture migration: the panels rendered here belong to dashboards the caller owns.
+ownDashboardsInThisFile("dashboard-1");
 
 // HEL-572 — a dedicated file (mirrors ChartPanel.click.test.tsx's own
 // rationale) covering tasks.md 4.2 (grid click → inspect, listing exactly

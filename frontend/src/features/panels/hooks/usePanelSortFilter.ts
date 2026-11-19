@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { useStore } from "react-redux";
 
-import { fetchPanelPage } from "../state/panelsSlice";
+import { fetchPanelPage, panelQueryRecorded } from "../state/panelsSlice";
+import { panelReadScopeFor } from "../state/panelReadScope";
+import { panelControlColumns } from "../state/panelControlColumns";
+import { splitForPanelScope } from "../state/splitForPanelScope";
 import { CROSS_FILTER_EQ_REJECTED } from "../state/panelThunks";
 import type { CrossFilterEq } from "../types/panel";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import type { RootState } from "../../../store/store";
-import { isPendingFor, isReusable, type RowsQuery } from "../state/panelRowsReuse";
+import { isPendingFor, isReusable, normalizeQuery, type RowsQuery } from "../state/panelRowsReuse";
 import { useToast } from "../../toasts/hooks/useToast";
 import { readTableConfig } from "../../pipelines/ui/outputEditor/outputConfigTypes";
 import type { TableColumnFilters } from "../../pipelines/ui/outputEditor/outputConfigTypes";
@@ -86,6 +89,9 @@ export interface PanelSortFilterResult {
  *  `chartInspectConfig` `useOutputMeta` call. */
 export function usePanelSortFilter(
   panelId: string,
+  /** HEL-1780: the panel's OWN dashboard -- decides the read route (a required `fetchPanelPage` arg) and, in panel read
+   *  scope, whether a change is client-only (see `dispatchFetch`). */
+  dashboardId: string,
   outputId: string | null,
   output: Output | null,
   // HEL-1190 design.md D3 (task 4.3) — the viewer's CURRENT control selection, already resolved
@@ -139,17 +145,57 @@ export function usePanelSortFilter(
   const dispatchFetch = useCallback(
     (sort: SortState<string> | null, filter: TableColumnFilters | null) => {
       if (!outputId) return;
+      const intent = {
+        sort: sort ? { column: sort.key, direction: sort.direction as "asc" | "desc" } : undefined,
+        // HEL-1190 design.md D3 — ANDs the viewer's control selection in as separate `ops[]`
+        // entries alongside whichever in-panel `quick`/`columns` term is already active.
+        filter: composeOutputRowsFilter(filter, controlFilterOpsRef.current),
+        crossFilterEq: crossFilterEqRef.current,
+      };
+      // HEL-1780 D4(e): in panel read scope a change that leaves the SERVER part of the window's query as it is (a sort or
+      // filter on a non-control column, a quick search, a non-control cross-filter) sends nothing: the loaded rows stay,
+      // the new full intent is recorded for replay/Load more, and the table applies the client part. A failed or absent
+      // window, or any change to the server part, dispatches page 0 as ever. Owner scope never skips.
+      const state = store.getState();
+      if (panelReadScopeFor(state, dashboardId, panelId).kind === "panel") {
+        const entry = state.panels.paginationState[panelId];
+        const last = entry?.lastQuery;
+        if (entry && last && entry.lastFetchOk !== false) {
+          const controlColumns = panelControlColumns(
+            state.panels.items.find((p) => p.id === panelId),
+          );
+          const serverKey = (q: {
+            sort?: RowsQuery["sort"];
+            filter?: RowsQuery["filter"];
+            crossFilterEq?: RowsQuery["crossFilterEq"];
+          }) => {
+            const { server } = splitForPanelScope(q, controlColumns);
+            return normalizeQuery({
+              outputId,
+              sort: server.sort,
+              filter: server.filter,
+              crossFilterEq: null,
+            });
+          };
+          if (last.outputId === outputId && serverKey(last) === serverKey(intent)) {
+            dispatch(
+              panelQueryRecorded({
+                panelId,
+                query: { outputId, ...intent, crossFilterEq: intent.crossFilterEq ?? null },
+              }),
+            );
+            return;
+          }
+        }
+      }
       void dispatch(
         fetchPanelPage({
           panelId,
+          dashboardId,
           outputId,
           page: 0,
           pageSize: 200,
-          sort: sort ? { column: sort.key, direction: sort.direction } : undefined,
-          // HEL-1190 design.md D3 — ANDs the viewer's control selection in as separate `ops[]`
-          // entries alongside whichever in-panel `quick`/`columns` term is already active.
-          filter: composeOutputRowsFilter(filter, controlFilterOpsRef.current),
-          crossFilterEq: crossFilterEqRef.current,
+          ...intent,
         }),
       )
         .unwrap()
@@ -164,7 +210,7 @@ export function usePanelSortFilter(
           pushToast({ variant: "error", message: err?.message ?? "Failed to apply sort/filter." });
         });
     },
-    [dispatch, panelId, outputId, pushToast],
+    [dispatch, store, panelId, dashboardId, outputId, pushToast],
   );
 
   // HEL-1027 skeptic-final-1.md CR1 — the debounced entry point real user interaction

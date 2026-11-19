@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 
-import { useCanUseOutputRoutes } from "../../dashboards/state/dashboardAccessContext";
 import { subscribeToPipelineTerminal } from "../services/pipelineRunFanout";
 import {
   getCachedHistory,
@@ -19,7 +18,7 @@ import {
 
 /** Where a metric panel reads its history: the authenticated per-Output route (default), or the
  *  token-authorized public panel route (HEL-1275 design.md D4). */
-export type HistorySource = { variant: "public"; dashboardId: string; token: string };
+export type HistorySource = { variant: "public"; dashboardId: string; token?: string };
 
 /** HEL-1275 — the shared history read for one metric panel. `null` while loading or unavailable
  *  (a failed read is silent: the panel keeps its loaded-rows rendering). Fetches nothing unless
@@ -36,17 +35,16 @@ export function useOutputHistory(
   expectedCompare: string | null,
 ): OutputHistory | null {
   const isPublic = source !== undefined;
-  // HEL-1773: `GET /api/outputs/:id/history` is an Output route a dashboard grantee cannot read; a panel-scoped (public) source
-  // is unaffected, and a grantee gets no history until it is read through a per-panel route for them.
-  const canUseOutputRoutes = useCanUseOutputRoutes();
-  const enabled = enabledRequested && (isPublic || canUseOutputRoutes);
+  // HEL-1780: a non-owner panel passes a per-panel source (`{variant: "public", dashboardId}`, no token), so its history
+  // is read through `/api/dashboards/:id/panels/:panelId/history`; the Output route is only ever the owner's.
+  const enabled = enabledRequested;
   const key = source ? publicHistoryKey(source.dashboardId, panelId) : outputHistoryKey(outputId);
   const publicDashboardId = source?.dashboardId;
   const publicToken = source?.token;
   const fetcher = useCallback(
     (): Promise<OutputHistory> =>
       publicDashboardId !== undefined
-        ? fetchPublicOutputHistory(publicDashboardId, panelId, publicToken ?? "")
+        ? fetchPublicOutputHistory(publicDashboardId, panelId, publicToken)
         : fetchOutputHistory(outputId),
     [publicDashboardId, publicToken, panelId, outputId],
   );

@@ -31,6 +31,7 @@ type UseTableRowsParams = Pick<
   | "columnFilters"
   | "columnSort"
   | "onSortChange"
+  | "clientOps"
 >;
 
 export function useTableRows({
@@ -45,6 +46,7 @@ export function useTableRows({
   columnFilters,
   columnSort,
   onSortChange,
+  clientOps,
 }: UseTableRowsParams) {
   // HEL-448 design D6a: ONE pre-branch normalization producing a single
   // `{ rows, columns }`, feeding ONE `useSortedRows` call — a per-branch
@@ -192,7 +194,11 @@ export function useTableRows({
   // `onSortChange` (`PanelDetailModal`/`PanelFullscreenOverlay`, which have no pagination/server
   // round trip at all — or a bare component test) keeps the ORIGINAL client-side resort exactly
   // as before this ticket, since there is no server response to trust instead.
-  const displayRows = usingPagination && onSortChange != null ? filteredRows : sortedRows;
+  // HEL-1780 D4(a): in panel scope a sort on a column the per-panel route may not sort by is NOT done by the server, so the
+  // loaded rows are ordered here even though `onSortChange` is wired.
+  const sortsClientSide = clientOps?.sort !== undefined;
+  const displayRows =
+    usingPagination && onSortChange != null && !sortsClientSide ? filteredRows : sortedRows;
 
   return {
     usingPagination,

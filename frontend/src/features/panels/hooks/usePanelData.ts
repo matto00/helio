@@ -325,6 +325,7 @@ export function usePanelData(
     const request = dispatch(
       fetchPanelPage({
         panelId: panel.id,
+        dashboardId: panel.dashboardId,
         outputId,
         page: 0,
         pageSize: 200,
@@ -359,6 +360,7 @@ export function usePanelData(
             const retry = dispatch(
               fetchPanelPage({
                 panelId: panel.id,
+                dashboardId: panel.dashboardId,
                 outputId,
                 page: 0,
                 pageSize: 200,

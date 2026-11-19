@@ -5,7 +5,7 @@ import { fetchOutputInsight, fetchPublicPanelInsight, type InsightData } from ".
 
 export type InsightSource =
   | { variant: "authenticated"; outputId: string; pipelineId: string | null }
-  | { variant: "public"; dashboardId: string; panelId: string; token: string };
+  | { variant: "public"; dashboardId: string; panelId: string; token?: string };
 
 export interface InsightRead {
   data: InsightData | null;
@@ -30,7 +30,7 @@ export function useInsight(source: InsightSource): InsightRead {
   const pipelineId = source.variant === "authenticated" ? source.pipelineId : null;
   const dashboardId = source.variant === "public" ? source.dashboardId : "";
   const panelId = source.variant === "public" ? source.panelId : "";
-  const token = source.variant === "public" ? source.token : "";
+  const token = source.variant === "public" ? source.token : undefined;
 
   useEffect(() => {
     const request = ++latest.current;

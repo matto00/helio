@@ -6,7 +6,11 @@ import { usePanelCardInspect } from "./usePanelCardInspect";
 import { useOutputMeta } from "./useOutputMeta";
 import type { PanelDataResult } from "./usePanelData";
 
-jest.mock("../../../hooks/reduxHooks", () => ({ useAppDispatch: () => jest.fn() }));
+jest.mock("../../../hooks/reduxHooks", () => ({
+  useAppDispatch: () => jest.fn(),
+  // HEL-1780: `usePanelReadScope` selects "is the panel's dashboard owned"; this test is the owner path.
+  useAppSelector: () => true,
+}));
 jest.mock("./useOutputMeta", () => ({ useOutputMeta: jest.fn() }));
 jest.mock("./useCrossFilterServerOps", () => ({
   useCrossFilterServerOps: () => ({ mode: "client" }),

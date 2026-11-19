@@ -13,9 +13,14 @@ import {
 } from "../../../pipelines/services/outputService";
 import { makeOutputPanel, makeTextPanel } from "../../../../test/panelFixtures";
 import { renderWithStore } from "../../../../test/renderWithStore";
+import {
+  fetchPublicOutputMeta,
+  fetchPublicPanelRows,
+} from "../../../dashboards/services/publicDashboardService";
 import { PanelDetailModal } from "./PanelDetailModal";
 
 jest.mock("../../../pipelines/services/outputService");
+jest.mock("../../../dashboards/services/publicDashboardService");
 jest.mock("../../services/panelService", () => ({ fetchPanels: jest.fn() }));
 
 const textPanel = makeTextPanel({
@@ -38,7 +43,10 @@ function renderModal(role: DashboardAccessRole, ui: ReactElement) {
   HTMLDialogElement.prototype.close = jest.fn(function () {
     this.removeAttribute("open");
   });
-  return renderWithStore(<DashboardAccessProvider role={role}>{ui}</DashboardAccessProvider>);
+  // HEL-1780 D1: the read route follows the panel's own dashboard, which the store holds with the caller's role.
+  return renderWithStore(<DashboardAccessProvider role={role}>{ui}</DashboardAccessProvider>, {
+    dashboards: { items: [{ id: "d1", name: "d1", accessRole: role }] },
+  });
 }
 
 beforeEach(() => {
@@ -57,6 +65,12 @@ beforeEach(() => {
   jest
     .mocked(getOutputRows)
     .mockResolvedValue({ items: [], total: 0, offset: 0, limit: 50, materialized: true });
+  jest
+    .mocked(fetchPublicPanelRows)
+    .mockResolvedValue({ items: [], total: 0, offset: 0, limit: 200 });
+  jest
+    .mocked(fetchPublicOutputMeta)
+    .mockResolvedValue({ kind: "table", config: {}, schema: [], ownerId: null });
 });
 
 describe("PanelDetailModal by role", () => {
@@ -93,5 +107,6 @@ describe("PanelDetailModal by role", () => {
     expect(screen.getByLabelText("Panel title")).toBeInTheDocument();
     expect(screen.queryByText(/Used on/)).toBeNull();
     expect(listOutputPanels).not.toHaveBeenCalled();
+    expect(getOutputRows).not.toHaveBeenCalled();
   });
 });

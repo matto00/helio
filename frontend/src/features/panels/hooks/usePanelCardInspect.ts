@@ -7,6 +7,7 @@ import {
 } from "../../pipelines/ui/outputEditor/outputConfigTypes";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { useOutputMeta } from "./useOutputMeta";
+import { usePanelReadScope } from "../state/panelReadScope";
 import { useCrossFilterServerOps } from "./useCrossFilterServerOps";
 import { useCrossFilteredPanelData } from "./useCrossFilteredPanelData";
 import type { PanelDataResult } from "./usePanelData";
@@ -96,7 +97,11 @@ export function usePanelCardInspect(
   // same inputs, same module-cached capabilities), used here for the Inspect rows (client filter
   // ONLY on the fallback: on the server path the shared paginationState is already narrowed) and
   // threaded to the fullscreen overlay, which never resolves an Output itself.
-  const { mode: crossFilterMode } = useCrossFilterServerOps(panel, output);
+  const { mode: crossFilterMode } = useCrossFilterServerOps(
+    panel,
+    output,
+    usePanelReadScope(panel),
+  );
   const {
     rawRows: crossFilteredRawRows,
     headers: crossFilteredHeaders,
@@ -131,6 +136,8 @@ export function usePanelCardInspect(
   const handleOpenInspectFromMenu = useCallback(() => setIsInspectOpen(true), []);
 
   return {
+    /** The bound Output's kind once its metadata has loaded (HEL-1780 D7: a non-owner's insight card hides Refresh). */
+    outputKind: output?.kind ?? null,
     chartInspectConfig,
     crossFilterMode,
     crossFilteredRawRows,

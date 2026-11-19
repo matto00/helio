@@ -3,11 +3,11 @@ import { buildPanelSurface, resolvePanelTextColor } from "../../../theme/appeara
 import { resolvePanelReadableTones } from "../../../theme/panelReadableTones";
 import { getOutputId, isFullscreenEligible } from "../state/panelNarrowing";
 import { deletePanel, duplicatePanel } from "../state/panelsSlice";
-import { ProvenanceTrigger } from "../provenance/ProvenanceTrigger";
 import { useDataInvalid } from "../provenance/useDataInvalid";
 import { useInsightChrome } from "../insight/insightChromeStore";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
-import { useCanUseOutputRoutes } from "../../dashboards/state/dashboardAccessContext";
+import { usePanelReadScope } from "../state/panelReadScope";
+import { PanelProvenance } from "../provenance/PanelProvenance";
 import { useInFlightGuard } from "../../../hooks/useInFlightGuard";
 import { PanelFullscreenOverlay } from "./PanelFullscreenOverlay";
 import { PanelCardHeader } from "./PanelCardHeader";
@@ -128,6 +128,7 @@ export const PanelCard = React.memo(function PanelCard({
   const handleCloseFullscreen = useCallback(() => setIsFullscreenOpen(false), []);
 
   const {
+    outputKind,
     chartInspectConfig,
     crossFilterMode,
     crossFilteredRawRows,
@@ -142,9 +143,14 @@ export const PanelCard = React.memo(function PanelCard({
 
   // HEL-1207 A4: the badge's status read is deduped across consumers and, once the provenance
   // popover has loaded, derived from its cache.
-  // HEL-1773: the badge reads `GET /api/outputs/:id/assertion-status`, an Output route a dashboard grantee has no access to.
-  const canUseOutputRoutes = useCanUseOutputRoutes();
-  const isDataInvalid = useDataInvalid(canUseOutputRoutes ? outputId : null);
+  // HEL-1773: the badge reads `GET /api/outputs/:id/assertion-status`, an Output route a dashboard grantee has no access to
+  // (it stays off for them until HEL-1786).
+  const scope = usePanelReadScope(panel);
+  const isDataInvalid = useDataInvalid(scope.kind === "output" ? outputId : null);
+  // HEL-1780 D7/S1: in panel scope the header Refresh re-reads rows through the per-panel route, which means nothing for an
+  // insight panel (its body reads the stored render) and the paid in-body update refuses a grantee. Hidden for an insight
+  // and, failing closed, while the kind is still unknown.
+  const showRefresh = scope.kind === "output" || (outputKind !== null && outputKind !== "insight");
 
   // 2.2 — Memoize style to avoid a new object identity on every render.
   const style = useMemo(
@@ -206,7 +212,7 @@ export const PanelCard = React.memo(function PanelCard({
         editingTitle={editingTitle}
         editingTitleError={editingTitleError}
         isConfirmingDelete={isConfirmingDelete}
-        outputId={outputId}
+        outputId={showRefresh ? outputId : null}
         refresh={refresh}
         isRefreshing={isRefreshing}
         isPending={isPending}
@@ -328,15 +334,7 @@ export const PanelCard = React.memo(function PanelCard({
       )}
       <div className="panel-grid-card__footer">
         <span className="panel-grid-card__type-badge">{panel.type}</span>
-        {outputId && canUseOutputRoutes && (
-          <ProvenanceTrigger
-            panelId={panel.id}
-            panelTitle={panel.title}
-            outputId={outputId}
-            variant="authenticated"
-            invalidBadge={isDataInvalid}
-          />
-        )}
+        <PanelProvenance panel={panel} invalidBadge={isDataInvalid} />
         {insightChrome ? (
           // The insight's own render time; no render, no updated time.
           insightChrome.renderedAt && (

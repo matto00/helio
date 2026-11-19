@@ -4,7 +4,9 @@
 // invalidated from OUTSIDE React (the `fetchPanelPage` thunk, on a cross-filter `eq` rejection).
 // Consumed by `useOutputFilterCapabilities` via `useSyncExternalStore`.
 
+import { fetchPublicFilterCapabilities } from "../../dashboards/services/publicDashboardService";
 import { getFilterCapabilities } from "../../pipelines/services/outputService";
+import type { OutputFilterCapabilitiesResponse } from "../../pipelines/types/output";
 
 export const CAPABILITIES_TTL_MS = 5 * 60 * 1000;
 
@@ -17,6 +19,13 @@ export type CapabilitiesEntry =
   // Failed to load, OR invalidated after the server rejected a cross-filter `eq` (cardinality
   // grew past the cap). Either way the Output is client-fallback until the entry expires.
   | { status: "unavailable"; expiresAt: number };
+
+/** HEL-1780 D5 -- the key of a per-panel capabilities entry (`GET /api/dashboards/:id/panels/:panelId/filter-capabilities`,
+ *  already narrowed to that panel's own control columns). Never an `outputId`: two panels bound to one Output with
+ *  different controls have different capabilities. */
+export function panelCapabilitiesKey(dashboardId: string, panelId: string): string {
+  return `panel:${dashboardId}:${panelId}`;
+}
 
 const entries = new Map<string, CapabilitiesEntry>();
 const listeners = new Set<() => void>();
@@ -41,14 +50,18 @@ export function getCapabilitiesEntry(outputId: string): CapabilitiesEntry | unde
   return entry;
 }
 
-/** Starts the (single, shared) capabilities request for an Output when no live entry exists. */
-export function ensureCapabilitiesLoaded(outputId: string): void {
+/** Starts the (single, shared) capabilities request for a key (an `outputId`, or a `panelCapabilitiesKey`) when no live
+ *  entry exists. `load` defaults to the Output route; a per-panel key passes the per-panel fetch. */
+export function ensureCapabilitiesLoaded(
+  outputId: string,
+  load: () => Promise<OutputFilterCapabilitiesResponse> = () => getFilterCapabilities(outputId),
+): void {
   if (getCapabilitiesEntry(outputId) !== undefined) return;
   entries.set(outputId, { status: "loading" });
   notify();
   void (async () => {
     try {
-      const response = await getFilterCapabilities(outputId);
+      const response = await load();
       const columns = new Map<string, ReadonlySet<string>>(
         response.columns.map((c) => [c.column, new Set<string>(c.operators)]),
       );
@@ -74,6 +87,14 @@ export function ensureCapabilitiesLoaded(outputId: string): void {
 export function invalidateCapabilities(outputId: string): void {
   entries.set(outputId, { status: "unavailable", expiresAt: Date.now() + CAPABILITIES_TTL_MS });
   notify();
+}
+
+/** The per-panel loader (no share token: a signed-in grantee is admitted by their grant). */
+export function loadPanelCapabilities(
+  dashboardId: string,
+  panelId: string,
+): () => Promise<OutputFilterCapabilitiesResponse> {
+  return () => fetchPublicFilterCapabilities(dashboardId, panelId);
 }
 
 /** Test-only reset. */

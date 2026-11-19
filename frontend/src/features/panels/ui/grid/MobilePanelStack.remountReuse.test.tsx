@@ -1,4 +1,5 @@
-import { configureStore, type UnknownAction } from "@reduxjs/toolkit";
+import { type UnknownAction } from "@reduxjs/toolkit";
+import { configureStoreOwning } from "../../../../test/configureOwnedStore";
 import { act, render, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { Provider } from "react-redux";
@@ -19,6 +20,9 @@ import { MobilePanelStack } from "./MobilePanelStack";
 // HEL-1392 design.md D2 (CR2) -- when metadata is already held but a mounting card has NO reusable
 // window, exactly one fetcher owns the mount: the child's persisted-default / cross-filter
 // correction, not the parent's stripped query as well.
+// HEL-1780 D1: the dashboards this file's panels belong to are held as owned by the caller (explicitly, per file).
+const configureStore = configureStoreOwning("dashboard-1");
+
 jest.mock("../../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../../pipelines/services/outputService"),
   getOutputRows: jest.fn(),

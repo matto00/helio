@@ -12,6 +12,10 @@ import * as chartAppearance from "../../../utils/chartAppearance";
 import type { PanelPaginationState } from "../types/panel";
 import type { Output } from "../../pipelines/types/output";
 import { PanelCard } from "./PanelCard";
+import { ownDashboardsInThisFile } from "../../../test/seedOwnedDashboard";
+
+// HEL-1780 D1 planned fixture migration: the panels rendered here belong to dashboards the caller owns.
+ownDashboardsInThisFile("dashboard-1");
 
 // HEL-1181 — a PIE chart Output with a configured `aggregation` reaches the chart grouped (one slice per
 // group, not one "needle" slice per raw row), through the real dashboard card path:

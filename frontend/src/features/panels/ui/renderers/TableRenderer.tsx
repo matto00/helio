@@ -4,6 +4,7 @@ import "./TableRenderer.css";
 import { DataGrid, Spinner } from "../../../../shared/ui/index";
 import type { ColumnDef } from "../../../../shared/ui/index";
 import { useAppSelector } from "../../../../hooks/reduxHooks";
+import { hasClientOps } from "../../state/splitForPanelScope";
 import { LoadedScopeDisclosure } from "./LoadedScopeDisclosure";
 import { withCellRules, withRowRules } from "./tableConditionalFormats";
 import { UNSORTED_SENTINEL } from "./tableRendererModel";
@@ -35,6 +36,7 @@ export function TableRenderer({
   rowClassName,
   conditionalFormats,
   disablePinning = false,
+  clientOps,
 }: TableRendererProps) {
   // Local-only column widths (no longer persisted — see the file's HEL-909
   // interface-parity note, now folded into the `outputId` doc comment).
@@ -75,6 +77,7 @@ export function TableRenderer({
     columnFilters,
     columnSort,
     onSortChange,
+    clientOps,
   });
 
   const { pinnedKeys, handleSort, handleFilterChange, handleClearFilters, handlePinToggle } =
@@ -126,7 +129,21 @@ export function TableRenderer({
   // `LoadedScopeDisclosure`'s `!filtering` branch always returns `null` now (the removed HEL-448
   // sort note), so a sort-only truncation (no filter active) has nothing left to show here —
   // showing it would render an empty wrapper `<div>` below for no reason.
-  const showLoadedScopeNote = filtering;
+  // HEL-1780 D4(b): panel read scope with a client-side term active (see `LoadedScopeDisclosure`'s `clientScope`).
+  const loadedCount = normalizedRows.length;
+  const clientScope =
+    clientOps !== undefined && hasClientOps(clientOps)
+      ? {
+          sorted: clientOps.sort !== undefined,
+          filtered:
+            (clientOps.quick?.trim() ?? "") !== "" ||
+            Object.values(clientOps.columns ?? {}).some((t) => t.trim() !== ""),
+          loaded: loadedCount,
+          total: Math.max(totalRowCount ?? loadedCount, loadedCount),
+        }
+      : undefined;
+  const showLoadedScopeNote =
+    filtering || (clientScope !== undefined && clientScope.loaded < clientScope.total);
   const showLoadMoreBtn = rowsTruncated && onLoadMore != null;
   // The wrapper is STILL derived from its children, per 4.0g's own
   // discipline — not simplified to `rowsTruncated` alone, even though that
@@ -145,7 +162,12 @@ export function TableRenderer({
   // refetch hasn't landed yet, never a real "more of the Output might still match" state.
   // `showLoadMoreBtn`'s existing gating is unchanged — it already correctly hides the "Load more"
   // button in the true zero-total steady state; only this TEXT changes.
-  const emptyText = !filtering ? undefined : "No rows match your filter.";
+  // HEL-1780 D4(c): a client-side filter that matches none of the loaded rows is NOT "no rows match" while rows remain unloaded.
+  const emptyText = !filtering
+    ? undefined
+    : clientScope?.filtered && clientScope.loaded < clientScope.total
+      ? `No loaded rows match your filter. Only ${clientScope.loaded} of ${clientScope.total} rows were searched.`
+      : "No rows match your filter.";
 
   const emptyAction = !filtering ? undefined : (
     <div className="panel-content__filter-empty-actions">
@@ -237,8 +259,11 @@ export function TableRenderer({
               // (a caller with no pagination — D7's client-side-fallback-only path).
               rowsTruncated={totalRowCount === undefined && rowsTruncated}
               filtering={filtering}
-              matchCount={totalRowCount ?? filteredRows.length}
+              matchCount={
+                clientScope ? filteredRows.length : (totalRowCount ?? filteredRows.length)
+              }
               loadedCount={normalizedRows.length}
+              clientScope={clientScope}
             />
             {/* `rowsTruncated &&` is kept even though the dashboard grid
                 cannot currently reach the `rawRows` branch (design D4b: both

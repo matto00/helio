@@ -6,6 +6,7 @@ import type {
   TableColumnFormats,
 } from "../../../pipelines/ui/outputEditor/outputConfigTypes";
 import type { FormatIntlOptions } from "./columnFormatting";
+import type { ClientRowOps } from "../../state/splitForPanelScope";
 import type { ConditionalFormatRule } from "./conditionalFormatting";
 
 export interface TableRendererProps {
@@ -86,6 +87,11 @@ export interface TableRendererProps {
    *  pagination at all, e.g. the panel detail modal) falls back to the loaded/filtered row count
    *  actually in hand — the D7 "client-side-fallback-only" path. */
   totalRowCount?: number;
+  /** HEL-1780 D4 — set ONLY in `panel` read scope (a dashboard the caller does not own): the part of the current sort and
+   *  filter the per-panel route may not be sent (a non-control column, a quick search), applied here to the loaded rows.
+   *  Present (even empty) = panel scope. A sort named here is applied locally even when `onSortChange` is wired; the
+   *  loaded-scope disclosure says the result covers only the loaded rows. Absent (owner scope) changes nothing. */
+  clientOps?: ClientRowOps;
   /** HEL-1277 — render-only columns placed before the data columns (the History view's "Change"
    *  marker). Forced `inert` (no sort/filter/resize control) and EXCLUDED from filtering, sorting,
    *  `columnOrder`, widths and every persistence path; rows are never mutated. Supplying any also

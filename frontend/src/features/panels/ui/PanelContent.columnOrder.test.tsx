@@ -8,6 +8,10 @@ import { frameColumns, frameToRecords } from "../../pipelines/state/liveOutput/f
 import type { Output } from "../../pipelines/types/output";
 import { usePanelData } from "../hooks/usePanelData";
 import { PanelContent } from "./PanelContent";
+import { ownDashboardsInThisFile } from "../../../test/seedOwnedDashboard";
+
+// HEL-1780 D1 planned fixture migration: the panels rendered here belong to dashboards the caller owns.
+ownDashboardsInThisFile("dashboard-1");
 
 jest.mock("../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../pipelines/services/outputService"),

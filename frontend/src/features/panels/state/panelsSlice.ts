@@ -23,6 +23,7 @@ import {
 import type {
   Panel,
   PanelBatchItem,
+  PanelLastQuery,
   PanelPaginationState,
   PanelUpdateFields,
   SelectionDescriptor,
@@ -152,6 +153,13 @@ const panelsSlice = createSlice({
     // Task 3.5 — resetPanelPagination clears per-panel pagination state
     resetPanelPagination(state, action: PayloadAction<string>) {
       delete state.paginationState[action.payload];
+    },
+    /** HEL-1780 D4(e) -- records a panel's new FULL query intent as its window's `lastQuery` WITHOUT a request: a client-only
+     *  change (a sort/filter/cross-filter the per-panel route may not be sent) leaves the window's server part as it is, so
+     *  the loaded rows stay and only the replay/Load-more intent moves. Never touches `latestFetchRequestId` or the rows. */
+    panelQueryRecorded(state, action: PayloadAction<{ panelId: string; query: PanelLastQuery }>) {
+      const entry = state.paginationState[action.payload.panelId];
+      if (entry) entry.lastQuery = action.payload.query;
     },
     /** HEL-1575 D4 -- restores a valid warm panel list for a dashboard WITHOUT a request. Applies the same
      *  resets as `fetchPanels.pending` (interaction state, cross-filter) and lands `succeeded`. */
@@ -470,6 +478,7 @@ export const {
   clearSentPendingPanelUpdates,
   resetPanelSaveState,
   resetPanelPagination,
+  panelQueryRecorded,
   panelsRestored,
   paginationHydrated,
   restoreStarted,

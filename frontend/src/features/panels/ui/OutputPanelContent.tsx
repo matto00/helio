@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { PanelBodySkeleton } from "./PanelBodySkeleton";
+import type { ClientRowOps } from "../state/splitForPanelScope";
 import type { PanelAppearance } from "../types/panel";
 import type { FilteredMetric } from "../../pipelines/services/outputService";
 import type { Output, PublicOutputMeta } from "../../pipelines/types/output";
@@ -58,6 +59,7 @@ export function OutputPanelContent({
   crossFilterMode,
   viewerFilterActive,
   historySource,
+  clientOps,
 }: {
   panelId: string;
   rawRows?: string[][] | null;
@@ -81,6 +83,8 @@ export function OutputPanelContent({
   crossFilterMode: CrossFilterMode;
   viewerFilterActive: boolean;
   historySource?: HistorySource;
+  /** HEL-1780 D4: panel read scope only; see `TableRendererProps.clientOps`. */
+  clientOps?: ClientRowOps;
 }) {
   // evaluation-1.md CR1/CR2 (cycle 2) — applying the cross-filter HERE,
   // rather than upstream at PanelCard/MobileStackPanelBody, is what makes
@@ -218,6 +222,7 @@ export function OutputPanelContent({
         onSortChange={onSortChange}
         onFilterChange={onFilterChange}
         totalRowCount={totalRowCount}
+        clientOps={clientOps}
       />
     );
   } else if (kind === "metric") {

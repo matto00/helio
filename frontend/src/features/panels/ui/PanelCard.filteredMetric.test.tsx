@@ -3,7 +3,8 @@
 // the real chain from a mocked rows response: getOutputRows -> fetchPanelPage -> panelsSlice ->
 // PanelCardBody -> PanelContent -> MetricOutputPanel (no prop injection of the value).
 
-import { configureStore, type UnknownAction } from "@reduxjs/toolkit";
+import { type UnknownAction } from "@reduxjs/toolkit";
+import { configureStoreOwning } from "../../../test/configureOwnedStore";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter, useSearchParams } from "react-router-dom";
@@ -22,6 +23,9 @@ import type { FilteredMetric } from "../../pipelines/services/outputService";
 import type { Output } from "../../pipelines/types/output";
 import { PanelCardBody } from "./PanelCardBody";
 import type { Panel } from "../types/panel";
+
+// HEL-1780 D1: the dashboards this file's panels belong to are held as owned by the caller (explicitly, per file).
+const configureStore = configureStoreOwning("dashboard-1");
 
 jest.mock("../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../pipelines/services/outputService"),

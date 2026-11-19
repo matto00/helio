@@ -1,4 +1,4 @@
-import { configureStore } from "@reduxjs/toolkit";
+import { configureStoreOwning } from "../../../test/configureOwnedStore";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { AxiosError, type AxiosResponse } from "axios";
 import type { PropsWithChildren } from "react";
@@ -18,6 +18,9 @@ import { usePanelData } from "./usePanelData";
 // HEL-1191 design.md D9a-i/D9a-ii, tasks 5.5/5.7 — `usePanelData`'s replay of
 // `paginationState[panel].lastQuery` (ops-less hosts) and its handling of an explicit
 // `crossFilterEq`.
+
+// HEL-1780 D1: the dashboards this file's panels belong to are held as owned by the caller (explicitly, per file).
+const configureStore = configureStoreOwning("d1", "dash-1", "dashboard-1");
 
 jest.mock("../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../pipelines/services/outputService"),
@@ -179,6 +182,7 @@ describe("usePanelData — lastQuery replay (HEL-1191 D9a-i)", () => {
       await store.dispatch(
         fetchPanelPage({
           panelId: "p1",
+          dashboardId: "dash-1",
           outputId: "out-1",
           page: 0,
           pageSize: 200,

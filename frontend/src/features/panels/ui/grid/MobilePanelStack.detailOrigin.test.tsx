@@ -17,7 +17,7 @@ jest.mock("../../hooks/usePanelData", () => ({
   usePanelData: () => ({ data: null, rawRows: null, headers: null, isLoading: false, error: null }),
 }));
 jest.mock("../../hooks/useOutputRetention", () => ({ useOutputRetention: jest.fn() }));
-jest.mock("../../provenance/ProvenanceTrigger", () => ({ ProvenanceTrigger: () => null }));
+jest.mock("../../provenance/PanelProvenance", () => ({ PanelProvenance: () => null }));
 
 const panel = makeOutputPanel({ id: "p1", dashboardId: "d1", title: "Tapped" });
 const layout = { lg: [], md: [], sm: [], xs: [{ panelId: "p1", x: 0, y: 0, w: 2, h: 4 }] };

@@ -3,8 +3,8 @@ import { fetchPanelPage, panelsReducer } from "./panelsSlice";
 
 // HEL-1392 design.md D2 -- the bookkeeping a remounting card reads to decide whether a window is
 // reusable: did the latest page-0 request succeed, under which generation, and why did it fail.
-const arg0 = { panelId: "p", outputId: "o", page: 0, pageSize: 200 };
-const arg1 = { panelId: "p", outputId: "o", page: 1, pageSize: 50 };
+const arg0 = { panelId: "p", dashboardId: "dash-1", outputId: "o", page: 0, pageSize: 200 };
+const arg1 = { panelId: "p", dashboardId: "dash-1", outputId: "o", page: 1, pageSize: 50 };
 const payload = (page: number, generation: number) => ({
   panelId: "p",
   page,

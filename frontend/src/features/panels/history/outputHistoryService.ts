@@ -101,11 +101,11 @@ export async function fetchHistoryPointRows(
 export async function fetchPublicOutputHistory(
   dashboardId: string,
   panelId: string,
-  token: string,
+  token?: string,
 ): Promise<OutputHistory> {
   const response = await httpClient.get<OutputHistory>(
     `/api/dashboards/${dashboardId}/panels/${panelId}/history`,
-    { params: { token } },
+    { params: token === undefined ? undefined : { token } },
   );
   return response.data;
 }

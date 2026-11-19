@@ -10,9 +10,12 @@ import { buildViewerControlFilterOps } from "../state/viewerControlValues";
 import { clearSelection, selectDataPoint } from "../state/panelsSlice";
 import { getOutputId, isOutputPanel } from "../state/panelNarrowing";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
-import { useCanUseOutputRoutes } from "../../dashboards/state/dashboardAccessContext";
+import {
+  usePanelReadScope,
+  useHistorySourceFor,
+  distinctValuesFetcher,
+} from "../state/panelReadScope";
 import { useViewerControls } from "../hooks/useViewerControls";
-import { getDistinctValues } from "../../pipelines/services/outputService";
 import type { PanelDataResult } from "../hooks/usePanelData";
 import type { OutputControlSpec, Panel } from "../types/panel";
 import type { ChartClickSelection, ChartInspectConfig } from "../../../utils/chartClickSelection";
@@ -137,10 +140,14 @@ export function PanelFullscreenOverlay({
   // actually dispatched the winning request is irrelevant here). Rendering the bar here is purely
   // so the viewer can SEE/ADJUST the same controls while fullscreen, per spec.md's "the same
   // control value... persists when the panel is viewed fullscreen".
-  // HEL-1773: viewer controls (and their distinct-values reads) are an Output-route feature, off for a dashboard grantee.
-  const canUseOutputRoutes = useCanUseOutputRoutes();
-  const controls: OutputControlSpec[] =
-    isOutputPanel(panel) && canUseOutputRoutes ? panel.config.controls : EMPTY_CONTROLS;
+  // HEL-1780: the controls show for every caller; their distinct values and the provenance/history/insight reads follow
+  // the panel's own read scope (the panel's dashboard, never the selected one).
+  const scope = usePanelReadScope(panel);
+  const historySource = useHistorySourceFor(scope);
+  const scopeDashboardId = scope.kind === "panel" ? scope.dashboardId : null;
+  const controls: OutputControlSpec[] = isOutputPanel(panel)
+    ? panel.config.controls
+    : EMPTY_CONTROLS;
   const outputId = getOutputId(panel);
   const {
     values: controlValues,
@@ -154,10 +161,9 @@ export function PanelFullscreenOverlay({
     [controls, controlValues],
   );
   const hasVisibleControls = useMemo(() => controls.some((c) => !c.orphaned), [controls]);
-  const fetchDistinctValues = useCallback(
-    (column: string) =>
-      outputId ? getDistinctValues(outputId, column).then((r) => r.values) : Promise.resolve([]),
-    [outputId],
+  const fetchDistinctValues = useMemo(
+    () => distinctValuesFetcher(scope, panel.id, outputId),
+    [scope, panel.id, outputId],
   );
 
   // HEL-572 design.md D5 — this overlay's OWN "is the inspect view open"
@@ -193,12 +199,13 @@ export function PanelFullscreenOverlay({
       ariaLabel={`${panel.title} fullscreen`}
       headerActions={
         // HEL-1207 A1. Gated on `open` like the body: a closed overlay renders no second trigger.
-        open && outputId && canUseOutputRoutes ? (
+        open && outputId ? (
           <ProvenanceTrigger
             panelId={panel.id}
             panelTitle={panel.title}
             outputId={outputId}
-            variant="authenticated"
+            variant={scope.kind === "panel" ? "public" : "authenticated"}
+            dashboardId={scopeDashboardId ?? undefined}
           />
         ) : undefined
       }
@@ -239,6 +246,7 @@ export function PanelFullscreenOverlay({
             onDataPointSelect={handleDataPointSelect}
             crossFilterMode={crossFilterMode}
             viewerFilterActive={viewerFilterActive}
+            historySource={historySource}
           />
           {/* HEL-1190 design.md D10 (task 5.5) — this overlay had NO live region at all before
               this ticket; a control-driven row-count change is announced here. */}

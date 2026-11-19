@@ -10,7 +10,8 @@
 // the phone stack, since `PanelCardBody` is the actual common ancestor), rather than relying on
 // an externally-supplied `output` prop that only the desktop path ever populated.
 
-import { configureStore, type UnknownAction } from "@reduxjs/toolkit";
+import { type UnknownAction } from "@reduxjs/toolkit";
+import { configureStoreOwning } from "../../../../test/configureOwnedStore";
 import { act, render, screen } from "@testing-library/react";
 
 import { defaultDashboardLayout } from "../../../dashboards/state/dashboardLayout";
@@ -25,6 +26,9 @@ import * as outputService from "../../../pipelines/services/outputService";
 import type { Output } from "../../../pipelines/types/output";
 import { MobilePanelStack } from "./MobilePanelStack";
 import type { Panel } from "../../types/panel";
+
+// HEL-1780 D1: the dashboards this file's panels belong to are held as owned by the caller (explicitly, per file).
+const configureStore = configureStoreOwning("dashboard-1");
 
 jest.mock("../../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../../pipelines/services/outputService"),

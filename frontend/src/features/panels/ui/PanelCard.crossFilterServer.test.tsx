@@ -16,6 +16,10 @@ import type { OutputControlSpec, PanelPaginationState } from "../types/panel";
 import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
 import { getCapabilitiesEntry } from "../state/filterCapabilitiesStore";
 import { PanelCard } from "./PanelCard";
+import { ownDashboardsInThisFile } from "../../../test/seedOwnedDashboard";
+
+// HEL-1780 D1 planned fixture migration: the panels rendered here belong to dashboards the caller owns.
+ownDashboardsInThisFile("dashboard-1");
 
 // HEL-1191 task 1.1 — RED-FIRST: a cross-filtered table bound to an Output larger than one page
 // must report the WHOLE-Output match count / `hasMore` of the filtered set, not the loaded

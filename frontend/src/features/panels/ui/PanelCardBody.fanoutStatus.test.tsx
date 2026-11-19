@@ -6,7 +6,7 @@
 // be invisible to it (memo bails on unchanged props), so a real store dispatch is what actually
 // drives the internal re-render, exactly as it would in the running app.
 
-import { configureStore } from "@reduxjs/toolkit";
+import { configureStoreOwning } from "../../../test/configureOwnedStore";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { Provider } from "react-redux";
@@ -26,6 +26,9 @@ import type { Panel } from "../types/panel";
 // single call site), so this test keeps driving a REAL store + `panelsReducer`
 // (see the file-level comment above for why a real store, not a mocked hook,
 // is what actually exercises the memo-visible re-render this suite tests).
+// HEL-1780 D1: the dashboards this file's panels belong to are held as owned by the caller (explicitly, per file).
+const configureStore = configureStoreOwning("d1", "dashboard-1");
+
 function PanelCardBodyHarness({ panel }: { panel: Panel }) {
   const outputId = getOutputId(panel);
   const panelData = usePanelData(panel);

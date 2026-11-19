@@ -15,6 +15,10 @@ import {
 } from "../../../../test/panelFixtures";
 import type { Output } from "../../../pipelines/types/output";
 import { PanelDetailModal } from "./PanelDetailModal";
+import { ownDashboardsInThisFile } from "../../../../test/seedOwnedDashboard";
+
+// HEL-1780 D1 planned fixture migration: the panels rendered here belong to dashboards the caller owns.
+ownDashboardsInThisFile("d1", "dashboard-1");
 
 jest.mock("../../services/panelService", () => ({
   fetchPanels: jest.fn(),

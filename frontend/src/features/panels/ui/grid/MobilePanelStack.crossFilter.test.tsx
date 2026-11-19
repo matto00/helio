@@ -3,7 +3,8 @@
 // must therefore survive (a) a breakpoint REMOUNT and (b) a refresh (poll / SSE fan-out) through
 // `paginationState.lastQuery` replay, never rendering unfiltered sibling rows in between.
 
-import { configureStore, type UnknownAction } from "@reduxjs/toolkit";
+import { type UnknownAction } from "@reduxjs/toolkit";
+import { configureStoreOwning } from "../../../../test/configureOwnedStore";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
@@ -20,6 +21,9 @@ import { usePanelRunRefresh } from "../../hooks/usePanelRunRefresh";
 import type { Output } from "../../../pipelines/types/output";
 import type { Panel } from "../../types/panel";
 import { MobilePanelStack } from "./MobilePanelStack";
+
+// HEL-1780 D1: the dashboards this file's panels belong to are held as owned by the caller (explicitly, per file).
+const configureStore = configureStoreOwning("dashboard-1");
 
 jest.mock("../../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../../pipelines/services/outputService"),

@@ -14,6 +14,10 @@ import { fetchOutputProvenance } from "../provenance/provenanceService";
 import type { Provenance } from "../provenance/provenanceService";
 import type { Panel } from "../types/panel";
 import { PanelCard } from "./PanelCard";
+import { ownDashboardsInThisFile } from "../../../test/seedOwnedDashboard";
+
+// HEL-1780 D1 planned fixture migration: the panels rendered here belong to dashboards the caller owns.
+ownDashboardsInThisFile("dashboard-1");
 
 // HEL-1207 — desktop grid card: footer trigger, Invalid-data badge as a popover opener, status
 // dedupe, and event isolation from `onCardClick`.

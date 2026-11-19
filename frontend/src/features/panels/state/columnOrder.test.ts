@@ -41,7 +41,13 @@ describe("mergeColumns", () => {
 });
 
 describe("the panels window's columns", () => {
-  const arg = (page: number) => ({ panelId: "p", outputId: "o", page, pageSize: 2 });
+  const arg = (page: number) => ({
+    panelId: "p",
+    dashboardId: "dash-1",
+    outputId: "o",
+    page,
+    pageSize: 2,
+  });
   function run(
     page: number,
     columns: string[] | undefined,

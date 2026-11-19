@@ -9,6 +9,10 @@ import {
 import { usePanelData } from "../hooks/usePanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
 import { PanelCard } from "./PanelCard";
+import { ownDashboardsInThisFile } from "../../../test/seedOwnedDashboard";
+
+// HEL-1780 D1 planned fixture migration: the panels rendered here belong to dashboards the caller owns.
+ownDashboardsInThisFile("d1", "dashboard-1");
 
 // jest.fn() (not a plain factory function), matching MobilePanelStack.test.tsx's
 // convention — HEL-539's retry test below overrides the return value to
