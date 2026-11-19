@@ -20,6 +20,9 @@
 import { HelioApiError, HelioLayoutConflictError, type HelioHttpClient } from "./httpClient.js";
 import { computeRunWarnings, type RunWarning } from "./runWarnings.js";
 import type {
+  AskDashboardResponse,
+  OutputInsightRefreshResponse,
+  OutputInsightResponse,
   AgentMemoryEntryResponse,
   AgentPreferencesResponse,
   CombinedProposal,
@@ -1179,6 +1182,23 @@ export class HelioApi {
     if (opts.limit !== undefined) params.limit = opts.limit;
     if (opts.since !== undefined) params.since = opts.since;
     return this.http.get<OutputHistoryResponse>(`/api/outputs/${outputId}/history`, params);
+  }
+
+  /** `GET /api/outputs/:id/insight` (`get_output_insight`, HEL-1747): the backend role-shapes it. */
+  getOutputInsight(outputId: string): Promise<OutputInsightResponse> {
+    return this.http.get<OutputInsightResponse>(`/api/outputs/${outputId}/insight`);
+  }
+
+  /** `POST /api/outputs/:id/insight/refresh` (`refresh_insight`, HEL-1747): 202, no request body. */
+  refreshOutputInsight(outputId: string): Promise<OutputInsightRefreshResponse> {
+    return this.http.post<OutputInsightRefreshResponse>(`/api/outputs/${outputId}/insight/refresh`);
+  }
+
+  /** `POST /api/dashboards/:id/ask` (`ask_dashboard`, HEL-1747): body is exactly `{question}`. */
+  askDashboard(dashboardId: string, question: string): Promise<AskDashboardResponse> {
+    return this.http.post<AskDashboardResponse>(`/api/dashboards/${dashboardId}/ask`, {
+      question,
+    });
   }
 
   /** `GET /api/outputs/:id/rows?offset&limit` — paginated latest-run row snapshot

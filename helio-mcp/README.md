@@ -158,6 +158,21 @@ never carries `errorLog` or assertion `observed` values. Status codes, probed li
 for an unknown/malformed/unreadable Output id; `401` for a missing or invalid token. A separate
 tool rather than a field on `get_output`, so ordinary Output reads do not pay its query budget.
 
+### Insight Outputs and ask-your-data (HEL-1747)
+
+`insight` is an Output kind on `add_output`, `add_outputs_from_shape`, `create_pipeline`,
+`propose_pipeline` and the apply/analyze proposal tools; the tool descriptions document its config
+keys (`preset`, `prompt`, `reads`, `refresh`, `maxSentences`, `maxChars`, `model`). Three tools wrap
+the existing routes and return the backend body unchanged:
+
+- `get_output_insight(outputId)` reads `GET /api/outputs/:id/insight` (never renders; role-shaped).
+- `refresh_insight(outputId)` posts `POST /api/outputs/:id/insight/refresh` (202, asynchronous).
+- `ask_dashboard(dashboardId, question)` posts `POST /api/dashboards/:id/ask` (server model, cited
+  answer, optional `pin` to keep the question as an insight Output through `add_output`).
+
+The agent exit criterion is scripted in `src/insightExitCriterion.test.ts` against bodies recorded
+from the real routes (`shared-test-fixtures/insight/exit-criterion.json`).
+
 ### Output history (HEL-1274)
 
 `get_output_history(outputId, limit?, since?, includeSummaries?)` reads

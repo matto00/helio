@@ -36,8 +36,8 @@ object OutputConfigValidation {
     OutputKind.Insight    -> InsightConfig.Keys
   )
 
-  /** The kinds [[KeysDoc]] documents: every kind except `insight`, which the proposal surface does not accept until
-   *  HEL-1747 (L8), so the assistant is never told about config for a kind it cannot propose. */
+  /** The kinds [[KeysDoc]] documents: every kind except `insight`, which the in-app assistant's proposal tools do not
+   *  accept, so the assistant is never told about config for a kind it cannot propose. (The MCP tools do accept it, HEL-1747.) */
   val DocumentedKnownKeys: Map[OutputKind, Set[String]] = KnownKeys.filter(_._1 != OutputKind.Insight)
 
   private val Aggs       = Set("count", "sum", "avg", "min", "max")

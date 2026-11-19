@@ -1,0 +1,24 @@
+# Files modified (HEL-1747)
+
+- `backend/src/main/scala/com/helio/services/pipelines/OutputConfigValidation.scala`
+- `backend/src/test/scala/com/helio/api/protocols/InsightSeamSpec.scala`
+- `backend/src/test/scala/com/helio/domain/model/OutputKindDriftSpec.scala`
+- `docs/agent-native.md`
+- `helio-mcp/README.md`
+- `helio-mcp/src/helioApi.insight.test.ts`
+- `helio-mcp/src/helioApi.ts`
+- `helio-mcp/src/insightExitCriterion.test.ts`
+- `helio-mcp/src/server.test.ts`
+- `helio-mcp/src/server.ts`
+- `helio-mcp/src/testing/mcpFetchHarness.ts`
+- `helio-mcp/src/tools/ask.ts`
+- `helio-mcp/src/tools/askHandlers.ts`
+- `helio-mcp/src/tools/combinedProposal.ts`
+- `helio-mcp/src/tools/insightSurface.test.ts`
+- `helio-mcp/src/tools/outputKinds.ts`
+- `helio-mcp/src/tools/outputs.ts`
+- `helio-mcp/src/tools/outputsHandlers.ts`
+- `helio-mcp/src/tools/pipelineProposal.ts`
+- `helio-mcp/src/tools/pipelines.ts`
+- `helio-mcp/src/types.ts`
+- `shared-test-fixtures/insight/exit-criterion.json`
