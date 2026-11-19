@@ -404,6 +404,29 @@ describe("AskPanel tier and error states (D5)", () => {
     expect(field()).toHaveValue("A very broad question");
   });
 
+  // HEL-1775: the question belongs to the scope it was typed for, like the answer (useAsk reads another scope as idle).
+  it("a scope change clears the typed question together with the answer, and the new scope's ask sends only what is typed there", async () => {
+    http.post.mockResolvedValue({ data: answer({ pin: null }) });
+    const { rerender } = setup();
+    ask("Why is revenue up?");
+    expect(await screen.findByText("Answer ready.")).toBeInTheDocument();
+    expect(field()).toHaveValue("Why is revenue up?");
+
+    rerender(<AskPanel scope={{ kind: "dashboard", id: "d-2" }} />);
+    expect(field()).toHaveValue("");
+    expect(screen.queryByText("Answer ready.")).not.toBeInTheDocument();
+    expect(askButton()).toBeDisabled();
+    expect(asks()).toHaveLength(1);
+  });
+
+  it("the question survives a failed ask in the same scope", async () => {
+    http.post.mockRejectedValue(failure(503, {}));
+    setup();
+    ask("Keep me");
+    expect(await screen.findByText("Ask is unavailable right now.")).toBeInTheDocument();
+    expect(field()).toHaveValue("Keep me");
+  });
+
   it("ungrounded is neutral and never echoes server reasons", async () => {
     http.post.mockRejectedValue(
       failure(422, {

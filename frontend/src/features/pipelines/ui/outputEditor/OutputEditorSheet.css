@@ -144,7 +144,11 @@
    inline `style={{}}` in `OutputPreviewPane.tsx` (DESIGN.md [mechanical] --
    inline styles are for genuinely dynamic values only). */
 
+/* HEL-1775: a flex column, the contract a dashboard panel body gives `.panel-content` (`flex: 1; min-height: 0`); in a plain
+   block box the chart container had no definite height and ECharts fell back to 100px. */
 .output-preview-pane__chart {
+  display: flex;
+  flex-direction: column;
   height: 240px;
 }
 

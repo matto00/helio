@@ -18,10 +18,14 @@ interface AskPanelProps {
 }
 
 /** The shared body of both ask surfaces: the question form (or the free-tier upsell), the one live region, the answer card and
- *  the error state. Its state is local and ephemeral; the question is kept in every state. */
+ *  the error state. Its state is local and ephemeral; within one scope the question is kept in every state, and a scope change clears it with the answer. */
 export function AskPanel({ scope, draftActive = false, fieldRef }: AskPanelProps) {
   const tier = useAppSelector((state) => state.auth?.currentUser?.tier);
-  const [question, setQuestion] = useState("");
+  // The question belongs to the scope it was typed for, like the answer (`useAsk` reads another scope as idle): a different scope key reads as "".
+  const scopeKey = `${scope.kind}:${scope.id}`;
+  const [typed, setTyped] = useState({ key: scopeKey, text: "" });
+  const question = typed.key === scopeKey ? typed.text : "";
+  const setQuestion = (text: string) => setTyped({ key: scopeKey, text });
   // The pin announcement belongs to the answer it was made for: a new answer or ask no longer matches, so it clears with no effect.
   const [pinNote, setPinNote] = useState<{ answerKey: string; text: string } | null>(null);
   const { state, ask, retry } = useAsk(scope);

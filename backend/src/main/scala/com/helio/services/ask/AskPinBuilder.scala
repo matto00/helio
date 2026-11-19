@@ -29,18 +29,19 @@ class AskPinBuilder(accessChecker: AccessChecker)(implicit ec: ExecutionContext)
   }
 
   private def request(question: String, first: Output, reads: Vector[String]): JsObject = {
-    val node: (String, JsValue) = first.node.stepId match {
-      case Some(step) => "nodeStepId" -> JsString(step.value)
-      case None       => "rootId" -> JsString(first.node.rootId.map(_.value).getOrElse(first.node.pipelineId.value))
-    }
+    // A stored Output always has a step or a root id (V98's CHECK). With neither (an in-memory Output only) the node is omitted, never
+    // guessed: a pipeline id names no root created since V98, so the create route binds the pipeline's single root or names the problem.
+    val node: Option[(String, JsValue)] = first.node.stepId.map(s => "nodeStepId" -> JsString(s.value))
+      .orElse(first.node.rootId.map(r => "rootId" -> JsString(r.value)))
     JsObject(
-      node,
-      "kind" -> JsString("insight"),
-      "name" -> JsString(question.take(MaxNameChars).trim),
-      "config" -> JsObject(
-        "prompt"  -> JsString(question),
-        "reads"   -> JsObject("outputs" -> JsArray(reads.map(id => JsString(id): JsValue))),
-        "refresh" -> JsString("manual")
+      node.toMap ++ Map[String, JsValue](
+        "kind" -> JsString("insight"),
+        "name" -> JsString(question.take(MaxNameChars).trim),
+        "config" -> JsObject(
+          "prompt"  -> JsString(question),
+          "reads"   -> JsObject("outputs" -> JsArray(reads.map(id => JsString(id): JsValue))),
+          "refresh" -> JsString("manual")
+        )
       )
     )
   }
