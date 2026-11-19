@@ -95,6 +95,17 @@ object AssistantSystemPrompt {
       "{dashboardId: <dashboard id>, title: Wins by team, type: output, config: {outputId: \"$ref:wins\"}}}; " +
       "repeat the pair for each further chart."
 
+  /** HEL-1785: dashboards shared with the user appear in find and get_resource with an `accessRole`. The server refuses
+   *  an edit the role forbids (and names the reason), so this rule only keeps the model from proposing one. */
+  private val SharedDashboardsSection: String =
+    "Shared dashboards: a dashboard can be shared with the user. Every dashboard from find/get_resource says the user's " +
+      "role (accessRole owner, editor or viewer; find states it in the description of a shared one).\n" +
+      "- viewer: the dashboard is read-only. Never call propose_patch_set with an edit that targets it or any of its " +
+      "panels (update, create or delete); tell the user it is view-only. You may still read it and build something new.\n" +
+      "- editor: edits to its panels and appearance are fine, but never propose deleting the dashboard.\n" +
+      "- Sharing, duplicating and moving a dashboard to a folder are owner-only and are not available to you.\n" +
+      "- You see a shared dashboard's panels and the Output ids they bind, never that Output's columns or rows."
+
   val text: String =
     "You are Helio's dashboard/pipeline assistant. A user describes a goal in natural language; " +
       "you help them get there by searching the workspace and proposing a change. You NEVER apply " +
@@ -135,7 +146,7 @@ object AssistantSystemPrompt {
       "- propose_patch_set(summary?, edits): propose targeted edits to something that ALREADY " +
       "exists (a panel, dashboard, data source, pipeline, pipeline step or Output), including ADDING Outputs to an " +
       "existing pipeline (output create) and panels to an existing dashboard (panel create).\n\n" +
-      ModelSection + "\n\n" + ProcedureSection + "\n\n" +
+      ModelSection + "\n\n" + SharedDashboardsSection + "\n\n" + ProcedureSection + "\n\n" +
       "Hard rules:\n" +
       "- You have at most 4 hops (tool-call round trips) to reach an answer. Use them efficiently " +
       "— search before proposing, and don't repeat a call you've already made.\n" +

@@ -146,7 +146,7 @@ class EditorGrantCoverageSpec extends AnyWordSpec with Matchers with HelioRouteT
 
     "refuse a viewer grantee with exactly Forbidden, leaving the panel title unchanged" in {
       val (_, panel) = seedDashboard(Some("viewer"))
-      await(panelService.batchUpdate(batch(panel, "Edited by viewer"), grantee)) shouldBe Left(ServiceError.Forbidden())
+      await(panelService.batchUpdate(batch(panel, "Edited by viewer"), grantee)) shouldBe Left(ServiceError.Forbidden("You have view-only access to this dashboard"))
       panelTitle(panel.id) shouldBe Some("Seed panel")
     }
 
@@ -173,7 +173,7 @@ class EditorGrantCoverageSpec extends AnyWordSpec with Matchers with HelioRouteT
 
     "refuse a viewer grantee with exactly Forbidden, leaving the dashboard's panels untouched" in {
       val (dashboard, panel) = seedDashboard(Some("viewer"))
-      await(contentsService.replaceContents(dashboard.id, replacement("Replaced by viewer"), grantee)) shouldBe Left(ServiceError.Forbidden())
+      await(contentsService.replaceContents(dashboard.id, replacement("Replaced by viewer"), grantee)) shouldBe Left(ServiceError.Forbidden("You have view-only access to this dashboard"))
       panelTitle(panel.id) shouldBe Some("Seed panel")
     }
 
@@ -198,7 +198,7 @@ class EditorGrantCoverageSpec extends AnyWordSpec with Matchers with HelioRouteT
 
     "refuse a viewer grantee with exactly Forbidden" in {
       val (dashboard, _) = seedDashboard(Some("viewer"))
-      await(dashboardService.exportSnapshot(dashboard.id, grantee)) shouldBe Left(ServiceError.Forbidden())
+      await(dashboardService.exportSnapshot(dashboard.id, grantee)) shouldBe Left(ServiceError.Forbidden("You have view-only access to this dashboard"))
     }
 
     "export the dashboard and its panel for an editor grantee" in {

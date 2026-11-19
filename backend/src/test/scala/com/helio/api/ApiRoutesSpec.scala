@@ -3217,7 +3217,7 @@ class ApiRoutesSpec
       // otherUser tries to delete the dashboard — should be forbidden
       Delete(s"/api/dashboards/$dashboardId") ~> otherUserRoutes() ~> check {
         status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Only the dashboard's owner can delete it")
       }
     }
 
@@ -3241,7 +3241,7 @@ class ApiRoutesSpec
       val patchBody = """{"title":"Viewer Attempt"}"""
       Patch(s"/api/panels/$panelId", HttpEntity(ContentTypes.`application/json`, patchBody)) ~> otherUserRoutes() ~> check {
         status shouldBe StatusCodes.Forbidden
-        responseAs[ErrorResponse] shouldBe ErrorResponse("Forbidden")
+        responseAs[ErrorResponse] shouldBe ErrorResponse("You have view-only access to this dashboard")
       }
     }
   }

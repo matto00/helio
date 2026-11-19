@@ -66,6 +66,19 @@ final class DashboardService(
   def findAll(user: AuthenticatedUser, page: Page): Future[PagedResult[Dashboard]] =
     dashboardRepo.findAll(user.id, page)
 
+  /** The caller's owned dashboards plus those on which they hold a NAMED grant, each with the caller's role (HEL-1785):
+   *  what the assistant's workspace context and search read. A public-only grant never matches. */
+  def findAllVisible(user: AuthenticatedUser, page: Page): Future[PagedResult[(Dashboard, String)]] =
+    dashboardRepo.findAllVisiblePaged(user.id, page)
+
+  /** One dashboard the caller owns or holds a named grant on, with their role; `NotFound` (the same message as an
+   *  unknown id) for a stranger, a public-only or share-token visitor, or a missing dashboard (HEL-1785). */
+  def findVisibleWithRole(id: DashboardId, user: AuthenticatedUser): Future[Either[ServiceError, (Dashboard, String)]] =
+    dashboardRepo.findVisibleWithRole(id, user.id).map {
+      case Some(found) => Right(found)
+      case None        => Left(ServiceError.NotFound("Dashboard not found"))
+    }
+
   /** The list route's page of dashboards plus their `hasPipelineFedPanels` flag (HEL-1646), computed in one
    *  extra query for the page, and the caller's `accessRole` (HEL-1773). `includeShared = false` is the original
    *  owner-only list (every item `owner`); `true` adds the dashboards the caller holds a named grant on.
@@ -81,12 +94,9 @@ final class DashboardService(
     }
   }
 
-  /** Owner-scoped single-resource read (HEL-661 design.md D3), added in the same shape as the
-   *  (since-retired, HEL-904) `DataTypeService.findById` over `DashboardRepository.findByIdOwned`
-   *  — deliberately NOT the sharing-aware
-   *  `findById(id, Some(user))` this service's own mutation paths above use; `WorkspaceSearchService.
-   *  getResource` needs an owner-only lookup, matching its consistent owner-only contract across
-   *  every resource type (design.md D1b). */
+  /** Owner-scoped single-resource read (HEL-661 design.md D3), over `DashboardRepository.findByIdOwned`. Since
+   *  HEL-1785 the assistant's `getResource` no longer uses it (it reads `findVisibleWithRole`, owner plus named
+   *  grant); it stays owner-only for its other callers. */
   def findById(id: DashboardId, user: AuthenticatedUser): Future[Either[ServiceError, Dashboard]] =
     dashboardRepo.findByIdOwned(id, user).map {
       case Some(d) => Right(d)
@@ -153,7 +163,7 @@ final class DashboardService(
       case None =>
         Future.successful(Left(ServiceError.NotFound("Dashboard not found")))
       case Some(d) if d.ownerId != user.id =>
-        Future.successful(Left(ServiceError.Forbidden()))
+        Future.successful(Left(ServiceError.Forbidden(DashboardAccessMessages.OwnerOnlyDelete)))
       case Some(_) =>
         dashboardRepo.delete(dashboardId).map {
           case true  => Right(())
@@ -214,7 +224,7 @@ final class DashboardService(
             // Non-owner grantee: check role before allowing mutation.
             accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").flatMap {
               case Left(err)                        => Future.successful(Left(err))
-              case Right(ResourceAccess.Viewer)     => Future.successful(Left(ServiceError.Forbidden()))
+              case Right(ResourceAccess.Viewer)     => Future.successful(Left(ServiceError.Forbidden(DashboardAccessMessages.ViewOnly)))
               case Right(_)                         => writes.applyUpdate(dashboardId, existing, DashboardWrites.Fields(nameOpt, appearanceOpt, layoutOpt, request.expectedLayoutVersion), layoutPolicy)
             }
         }
@@ -266,7 +276,7 @@ final class DashboardService(
       case Some(_) =>
         accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").flatMap {
           case Left(err)                    => Future.successful(Left(err))
-          case Right(ResourceAccess.Viewer) => Future.successful(Left(ServiceError.Forbidden()))
+          case Right(ResourceAccess.Viewer) => Future.successful(Left(ServiceError.Forbidden(DashboardAccessMessages.ViewOnly)))
           case Right(_) =>
             dashboardRepo.exportSnapshot(dashboardId).map {
               case None        => Left(ServiceError.NotFound("Dashboard not found"))

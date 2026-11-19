@@ -452,7 +452,12 @@ export interface WorkspaceContext {
      *  yet. */
     outputs: WorkspaceContextOutputSummary[];
   }>;
-  dashboards: Array<{ id: string; name: string; panelCount: number }>;
+  dashboards: Array<{
+    id: string;
+    name: string;
+    panelCount: number;
+    accessRole?: "owner" | "editor" | "viewer";
+  }>;
   /** Smart pipeline shape catalog (HEL-391/402) — the shape vocabulary a planning agent can pick
    *  from via add_outputs_from_shape, rather than inventing shape ids. `outputRowCount` flattens
    *  `RowCountContract` to a string. */
@@ -709,6 +714,8 @@ export async function buildWorkspaceContext(
       id: d.id,
       name: d.name,
       panelCount: panelCount(d.layout),
+      // HEL-1785: the caller's role; an older server that ignores include=shared omits it.
+      ...(d.accessRole ? { accessRole: d.accessRole } : {}),
     })),
     pipelineShapes: pipelineShapes.map((s) => ({
       id: s.id,

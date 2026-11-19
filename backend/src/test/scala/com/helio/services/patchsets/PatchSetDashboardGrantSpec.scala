@@ -177,7 +177,7 @@ class PatchSetDashboardGrantSpec extends AnyWordSpec with Matchers with HelioRou
 
     "refuse a dashboard update from a viewer grantee with exactly Forbidden, leaving the name unchanged" in {
       val (dashboard, _) = seedGrantedDashboard("viewer")
-      applyAs(dashboardUpdate(dashboard.id.value)) shouldBe Left(ServiceError.Forbidden())
+      applyAs(dashboardUpdate(dashboard.id.value)) shouldBe Left(ServiceError.Forbidden("edit 0: You have view-only access to this dashboard"))
       dashboardName(dashboard.id) shouldBe Some("Grant dashboard")
     }
 
@@ -189,7 +189,7 @@ class PatchSetDashboardGrantSpec extends AnyWordSpec with Matchers with HelioRou
 
     "refuse a dashboard update from a viewer grantee on preview with exactly Forbidden" in {
       val (dashboard, _) = seedGrantedDashboard("viewer")
-      await(previewService.preview(PatchSet(None, Vector(dashboardUpdate(dashboard.id.value))), grantee)) shouldBe Left(ServiceError.Forbidden())
+      await(previewService.preview(PatchSet(None, Vector(dashboardUpdate(dashboard.id.value))), grantee)) shouldBe Left(ServiceError.Forbidden("edit 0: You have view-only access to this dashboard"))
     }
   }
 
@@ -211,19 +211,19 @@ class PatchSetDashboardGrantSpec extends AnyWordSpec with Matchers with HelioRou
 
     "refuse a panel update from a viewer grantee with exactly Forbidden, leaving the title unchanged" in {
       val (_, panel) = seedGrantedDashboard("viewer")
-      applyAs(panelUpdate(panel.id.value)) shouldBe Left(ServiceError.Forbidden())
+      applyAs(panelUpdate(panel.id.value)) shouldBe Left(ServiceError.Forbidden("edit 0: You have view-only access to this dashboard"))
       await(panelRepo.findByIdInternal(panel.id)).map(_.title) shouldBe Some("Grant panel")
     }
 
     "refuse a panel delete from a viewer grantee with exactly Forbidden, leaving the panel in place" in {
       val (_, panel) = seedGrantedDashboard("viewer")
-      applyAs(panelDelete(panel.id.value)) shouldBe Left(ServiceError.Forbidden())
+      applyAs(panelDelete(panel.id.value)) shouldBe Left(ServiceError.Forbidden("edit 0: You have view-only access to this dashboard"))
       await(panelRepo.findByIdInternal(panel.id)) shouldBe defined
     }
 
     "refuse a panel create from a viewer grantee with exactly Forbidden, creating nothing" in {
       val (dashboard, _) = seedGrantedDashboard("viewer")
-      applyAs(panelCreate(dashboard.id.value)) shouldBe Left(ServiceError.Forbidden())
+      applyAs(panelCreate(dashboard.id.value)) shouldBe Left(ServiceError.Forbidden("edit 0: You have view-only access to this dashboard"))
       await(panelRepo.findAllByDashboardId(dashboard.id, Some(owner), Page.Default)).total shouldBe 1
     }
   }

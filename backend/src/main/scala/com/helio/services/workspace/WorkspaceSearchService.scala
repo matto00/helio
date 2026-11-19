@@ -85,7 +85,7 @@ final class WorkspaceSearchService(
 
     val dashboardSummariesF: Future[Vector[WorkspaceResourceSummary]] =
       if (requested(WorkspaceResourceType.Dashboard))
-        dashboardService.findAll(user, Page.Default).flatMap(page => Future.traverse(page.items)(toDashboardSummary(_, user)))
+        dashboardService.findAllVisible(user, Page.Default).flatMap(page => Future.traverse(page.items) { case (d, role) => toDashboardSummary(d, user, role) })
       else Future.successful(Vector.empty)
 
     for {
@@ -171,22 +171,29 @@ final class WorkspaceSearchService(
    *  for its `panelCount` computation rather than duplicating `distinctPanelCount`'s layout-dedup
    *  logic here — one implementation, no drift. `Future`-returning (beta UI-audit F-004 fix) --
    *  `toDashboardEntry` now needs `user` for a real DB-backed `panelCount`. */
-  private def toDashboardSummary(d: Dashboard, user: AuthenticatedUser): Future[WorkspaceResourceSummary] =
-    workspaceContextService.toDashboardEntry(d, user).map { entry =>
+  private def toDashboardSummary(d: Dashboard, user: AuthenticatedUser, role: String): Future[WorkspaceResourceSummary] =
+    workspaceContextService.toDashboardEntry(d, user, role).map { entry =>
       WorkspaceResourceSummary(
         id           = d.id.value,
         resourceType = WorkspaceResourceType.asString(WorkspaceResourceType.Dashboard),
         name         = d.name,
-        description  = s"dashboard, ${entry.panelCount} panels"
+        description  = s"dashboard, ${entry.panelCount} panels${roleSuffix(role)}"
       )
     }
+
+  /** HEL-1785: what a dashboard summary says about the caller's role. Nothing for an owned dashboard. */
+  private def roleSuffix(role: String): String = role match {
+    case "viewer" => ", shared with you as viewer (read-only)"
+    case "editor" => ", shared with you as editor (no delete, share or duplicate)"
+    case _        => ""
+  }
 
   /** Full per-resource detail for exactly one owned resource, dispatched by `resourceType`. Reuses
    *  `workspaceContextService`'s (now `private[services]`) per-entry converters for the 4 resource
    *  types below (design.md D1) rather than duplicating that assembly logic. HEL-904 cycle 29: the
    *  former 5th case (`WorkspaceResourceMetric`, built directly from the now-deleted
    *  `MetricDefinition`) was already removed in an earlier cycle; this comment had gone stale still
-   *  citing it. Strictly owner-scoped for EVERY type, matching `find`'s own owner-only listings —
+   *  citing it. Owner-scoped for every type but a dashboard, which is the owner's or a named grantee's (HEL-1785), matching `find` —
    *  `Left(NotFound)` for an
    *  id that doesn't exist OR isn't owned by `user`, never a leaked "exists but forbidden" signal and
    *  never an exception. */
@@ -214,11 +221,11 @@ final class WorkspaceSearchService(
       getPipelineResource(user, PipelineId(id))
 
     case WorkspaceResourceType.Dashboard =>
-      dashboardService.findById(DashboardId(id), user).flatMap {
+      dashboardService.findVisibleWithRole(DashboardId(id), user).flatMap {
         case Left(err) => Future.successful(Left(err))
-        case Right(d) =>
+        case Right((d, role)) =>
           for {
-            entry  <- workspaceContextService.toDashboardEntry(d, user)
+            entry  <- workspaceContextService.toDashboardEntry(d, user, role)
             panels <- workspaceContextService.dashboardPanels(d, user)
           } yield Right(WorkspaceResourceDetail.DashboardDetail(entry, panels))
       }

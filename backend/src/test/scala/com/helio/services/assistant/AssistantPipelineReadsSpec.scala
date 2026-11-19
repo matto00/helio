@@ -109,7 +109,7 @@ class AssistantPipelineReadsSpec extends AssistantStandingsFixture with Workspac
       fieldsOf(pipeline).keySet should not contain "nodes"
       fieldsOf(pipeline).keySet should not contain "outputs"
       val dashboard = context.fields("dashboards").asInstanceOf[JsArray].elements.find(d => fieldsOf(d)("id").convertTo[String] == s0.dashboardId).get
-      fieldsOf(dashboard).keySet shouldBe Set("id", "name", "panelCount")
+      fieldsOf(dashboard).keySet shouldBe Set("id", "name", "panelCount", "accessRole")
       val output = context.fields("dataTypes").asInstanceOf[JsArray].elements.find(o => fieldsOf(o)("id").convertTo[String] == s0.tableOutputId).get
       fieldsOf(output).keySet should not contain "pipelineId"
       fieldsOf(output).keySet should not contain "nodeStepId"

@@ -1,0 +1,31 @@
+{
+  "items": [
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": { "content": "" },
+      "dashboardId": "00000000-0000-0000-0000-00000000d001",
+      "id": "00000000-0000-0000-0000-00000000a001",
+      "meta": {
+        "createdAt": "2026-11-19T06:39:01.771247Z",
+        "lastUpdated": "2026-11-19T06:39:01.771247Z"
+      },
+      "title": "Notes",
+      "type": "text"
+    },
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": { "controls": [], "outputId": "00000000-0000-0000-0000-00000000e001" },
+      "dashboardId": "00000000-0000-0000-0000-00000000d001",
+      "id": "00000000-0000-0000-0000-00000000a002",
+      "meta": {
+        "createdAt": "2026-11-19T06:39:01.771631Z",
+        "lastUpdated": "2026-11-19T06:39:01.771631Z"
+      },
+      "title": "Bound",
+      "type": "output"
+    }
+  ],
+  "total": 2,
+  "offset": 0,
+  "limit": 500
+}

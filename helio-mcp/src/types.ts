@@ -59,7 +59,8 @@ export interface DashboardResponse {
   /** HEL-1646: emitted only by the list route (`list_dashboards`); true when the dashboard has at least one
    *  output panel bound to an Output. Absent on every other single-dashboard response. */
   hasPipelineFedPanels?: boolean;
-  /** HEL-1773: the caller's role on the dashboard. helio-mcp does not pass `include=shared`, so it is always `owner` here. */
+  /** HEL-1773/HEL-1785: the caller's role on the dashboard. helio-mcp lists with `include=shared`, so a dashboard shared
+   *  with the caller appears with `editor` or `viewer`; a `viewer` dashboard is read-only (writes get the server's 403). */
   accessRole?: "owner" | "editor" | "viewer";
 }
 
