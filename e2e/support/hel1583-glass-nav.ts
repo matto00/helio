@@ -1,29 +1,25 @@
 import { writeFileSync } from "node:fs";
-
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { currentUserId, registerAndLogin } from "./support/auth";
-import { evidencePath } from "./support/evidencePath";
-import { setUserTierForTest } from "./support/historySeed";
-import { settleTransitions } from "./support/settleTransitions";
+import { currentUserId, registerAndLogin } from "./auth";
+import { evidencePath } from "./evidencePath";
+import { setUserTierForTest } from "./historySeed";
+import { settleTransitions } from "./settleTransitions";
 
-// Every test registers its own user and seeds its own data, so tests are independently schedulable.
-test.describe.configure({ mode: "parallel" });
+// Shared by the parts of the HEL-1583 spec (split by HEL-1778); moved verbatim from the original spec file.
+export const AUTH = {
+  prefix: "hel1583b",
+  displayName: "HEL-1583 B",
+  domain: "example.com",
+} as const;
+export const CSRF = { "X-Helio-Requested-With": "1" };
+export const THEMES = ["light", "dark"] as const;
+export const NAV = "nav[aria-label='Primary']";
 
-// HEL-1583 Phase B -- the five-tab glass bottom nav (Home, Dashboards, Data, Pipelines, Me), the expanding labelled
-// active tab, the opaque active pill, and the phone "refreshed" line, measured from RENDERED pixels (jsdom evaluates no
-// layout, no media queries and no backdrop-filter). Contrast is sampled from screenshots of the nav over each backdrop
-// the spec names, after `document.fonts.ready`.
-
-const AUTH = { prefix: "hel1583b", displayName: "HEL-1583 B", domain: "example.com" } as const;
-const CSRF = { "X-Helio-Requested-With": "1" };
-const THEMES = ["light", "dark"] as const;
-const NAV = "nav[aria-label='Primary']";
-
-async function setTheme(page: Page, theme: string) {
+export async function setTheme(page: Page, theme: string) {
   await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
 }
 
-async function openAt(
+export async function openAt(
   page: Page,
   request: APIRequestContext,
   width: number,
@@ -39,12 +35,12 @@ async function openAt(
   await settleNav(page);
 }
 
-async function settleNav(page: Page) {
+export async function settleNav(page: Page) {
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   await settleTransitions(page, 2000);
 }
 
-interface Box {
+export interface Box {
   left: number;
   right: number;
   top: number;
@@ -54,7 +50,7 @@ interface Box {
 }
 
 /** Geometry of the nav, its tabs, lozenges, labels and icons, all from rendered boxes. */
-async function navGeometry(page: Page) {
+export async function navGeometry(page: Page) {
   return page.evaluate(() => {
     const box = (el: Element): Box => {
       const r = el.getBoundingClientRect();
@@ -101,8 +97,8 @@ async function navGeometry(page: Page) {
 
 // ---- pixels ---------------------------------------------------------------------------------------------------------
 
-type Rgb = [number, number, number];
-interface Grab {
+export type Rgb = [number, number, number];
+export interface Grab {
   data: number[];
   width: number;
   height: number;
@@ -111,7 +107,7 @@ interface Grab {
 }
 
 /** Screenshot of the nav (plus a margin) decoded to RGBA in the page. */
-async function grabNav(page: Page, margin = 8): Promise<Grab> {
+export async function grabNav(page: Page, margin = 8): Promise<Grab> {
   const nav = await page.locator(".bottom-nav").boundingBox();
   if (nav === null) throw new Error("no nav box");
   const originX = Math.max(0, Math.floor(nav.x - margin));
@@ -141,14 +137,14 @@ async function grabNav(page: Page, margin = 8): Promise<Grab> {
   return { data: data.data, width: data.w, height: data.h, originX, originY };
 }
 
-function px(grab: Grab, x: number, y: number): Rgb {
+export function px(grab: Grab, x: number, y: number): Rgb {
   const cx = Math.min(grab.width - 1, Math.max(0, Math.round(x - grab.originX)));
   const cy = Math.min(grab.height - 1, Math.max(0, Math.round(y - grab.originY)));
   const i = (cy * grab.width + cx) * 4;
   return [grab.data[i], grab.data[i + 1], grab.data[i + 2]];
 }
 
-function lum([r, g, b]: Rgb): number {
+export function lum([r, g, b]: Rgb): number {
   const f = (v: number) => {
     const c = v / 255;
     return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
@@ -156,20 +152,20 @@ function lum([r, g, b]: Rgb): number {
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
 }
 
-function contrast(a: Rgb, b: Rgb): number {
+export function contrast(a: Rgb, b: Rgb): number {
   const la = lum(a);
   const lb = lum(b);
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
-function mean(colors: Rgb[]): Rgb {
+export function mean(colors: Rgb[]): Rgb {
   const n = colors.length;
   return [0, 1, 2].map((k) => Math.round(colors.reduce((s, c) => s + c[k], 0) / n)) as Rgb;
 }
 
 /** Ink of a glyph/label inside `box`: the pixel farthest (by contrast) from the background, which is the box's
  *  corner-region mean (the surface the glyph sits on). Returns the glyph-vs-surface contrast. */
-function inkContrast(grab: Grab, box: Box): number {
+export function inkContrast(grab: Grab, box: Box): number {
   const corners: Rgb[] = [];
   for (const [x, y] of [
     [box.left + 1, box.top + 1],
@@ -191,7 +187,7 @@ function inkContrast(grab: Grab, box: Box): number {
 
 /** The active pill's ring against the capsule material just outside it, on the straight top and bottom segments (never
  *  the curved ends). Both rows are located by scanning, since the 1px ring can land on a fractional pixel. */
-function ringContrast(grab: Grab, pill: Box): { top: number; bottom: number } {
+export function ringContrast(grab: Grab, pill: Box): { top: number; bottom: number } {
   const xs: number[] = [];
   for (let i = 0; i < 9; i += 1) xs.push(pill.left + pill.width * (0.35 + 0.3 * (i / 8)));
   const edge = (yEdge: number, outwardSign: 1 | -1) => {
@@ -208,11 +204,11 @@ function ringContrast(grab: Grab, pill: Box): { top: number; bottom: number } {
 
 // ---- backdrops ------------------------------------------------------------------------------------------------------
 
-const BACKDROPS = ["default", "white", "black", "accent", "photo"] as const;
-type Backdrop = (typeof BACKDROPS)[number];
+export const BACKDROPS = ["default", "white", "black", "accent", "photo"] as const;
+export type Backdrop = (typeof BACKDROPS)[number];
 
 /** A fixed layer behind the nav (z-index 4 < the nav's 5) painting the named hostile backdrop. */
-async function setBackdrop(page: Page, backdrop: Backdrop) {
+export async function setBackdrop(page: Page, backdrop: Backdrop) {
   await page.evaluate((kind) => {
     document.getElementById("hel1583-backdrop")?.remove();
     if (kind === "default") return;
@@ -238,7 +234,7 @@ async function setBackdrop(page: Page, backdrop: Backdrop) {
   );
 }
 
-interface ContrastRow {
+export interface ContrastRow {
   backdrop: Backdrop;
   active: string;
   edgeTop: number;
@@ -248,11 +244,10 @@ interface ContrastRow {
   minInactiveGlyph: number;
 }
 
-const FLOORS = { edge: 3, label: 4.5, glyph: 3 } as const;
+export const FLOORS = { edge: 3, label: 4.5, glyph: 3 } as const;
 
-// ---- specs ----------------------------------------------------------------------------------------------------------
-
-for (const theme of THEMES) {
+// The per-theme block of the original spec, registered once per part (C18).
+export function describeGlassNav(theme: "light" | "dark") {
   test.describe(`HEL-1583 glass nav, ${theme} theme`, () => {
     test("five tabs, the active label visible, exactly one current tab per route; Connectors via Data", async ({
       page,

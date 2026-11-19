@@ -3,7 +3,7 @@
 //
 //   node scripts/e2e-shard.mjs run <index> <count>      CI: run leg <index> (1-based) of <count>
 //   node scripts/e2e-shard.mjs plan [<count>]           print every leg's assignment (no tests run; default DEFAULT_E2E_LEGS)
-//   node scripts/e2e-shard.mjs weights [--legs <n>] <runDir>...   regenerate e2e/shard-weights.tsv on stdout
+//   node scripts/e2e-shard.mjs weights [--legs <n>] [--list <list.json>] <runDir>...   regenerate e2e/shard-weights.tsv on stdout
 //
 // Why: Playwright 1.55's `--shard` cuts the alphabetically ordered test groups by test COUNT, so
 // one slow file (state-surface-contrast-guard) landed wholly on one leg. This script partitions the
@@ -19,6 +19,10 @@
 //   for r in <runId>...; do gh run download "$r" -p 'playwright-json-shard-*' -D /tmp/art/$r; done
 //   (artifacts land as <runDir>/playwright-json-shard-<n>/results.json -- both layouts work)
 //   node scripts/e2e-shard.mjs weights /tmp/art/<runId>... > e2e/shard-weights.tsv
+// When specs were split or moved since those runs, give the CURRENT test list so each result is weighted to the file that
+// now holds the test (by title path; HEL-1778), instead of to the file the old report names:
+//   npx playwright test --list --reporter=json --project=dev > /tmp/list.json
+//   node scripts/e2e-shard.mjs weights --list /tmp/list.json /tmp/art/<runId>... > e2e/shard-weights.tsv
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { basename, join, dirname } from "node:path";
@@ -145,14 +149,72 @@ function sumDurations(node, acc) {
   for (const c of node.suites ?? []) sumDurations(c, acc);
 }
 
-/** Per file, summed ms across ALL shard reports of ONE run. reports = parsed results.json docs. */
-export function fileSumsForRun(reports) {
+/** Every test of a Playwright JSON document (report or list) as {file, titlePath, ms}; titlePath = describe chain + title. */
+function testsOf(doc) {
+  const out = [];
+  const walk = (node, file, chain) => {
+    for (const spec of node.specs ?? []) {
+      let ms = 0;
+      for (const t of spec.tests ?? []) for (const r of t.results ?? []) ms += r.duration ?? 0;
+      out.push({ file, titlePath: [...chain, spec.title].join(" > "), ms });
+    }
+    for (const c of node.suites ?? []) walk(c, file, [...chain, c.title]);
+  };
+  // The top-level suite is the file itself (titled with the file name), so it is not part of the chain.
+  for (const top of doc.suites ?? []) walk(top, top.file, []);
+  return out;
+}
+
+/**
+ * HEL-1778: what the CURRENT tree has, from a `playwright test --list --reporter=json` document:
+ * which files are discovered and which of them contain each title path (describe chain + title; no file, no project).
+ */
+export function currentTests(listDoc) {
+  const files = new Set(filesFromList(listDoc));
+  const byTitle = new Map();
+  for (const t of testsOf(listDoc))
+    (byTitle.get(t.titlePath) ?? byTitle.set(t.titlePath, new Set()).get(t.titlePath)).add(t.file);
+  return { files, byTitle };
+}
+
+/** The file a reported result is weighted to (HEL-1778 rules), or null when it is to be dropped. Throws when ambiguous. */
+export function attributeFile(reportedFile, titlePath, current) {
+  const holders = current.byTitle.get(titlePath);
+  if (holders?.has(reportedFile)) return reportedFile;
+  if (holders?.size === 1) return [...holders][0];
+  if (holders && holders.size > 1)
+    throw new Error(
+      `ambiguous moved test: ${JSON.stringify(titlePath)} (reported in ${reportedFile}) is now in several files [${[...holders].sort()}]`,
+    );
+  return current.files.has(reportedFile) ? reportedFile : null;
+}
+
+/**
+ * Per file, summed ms across ALL shard reports of ONE run. reports = parsed results.json docs.
+ * With `current` (from currentTests) each result is attributed by title path; `diag` (optional) collects
+ * `{reattributed: [{titlePath, from, to}], dropped: [{titlePath, file}]}`.
+ */
+export function fileSumsForRun(reports, current, diag) {
   const sums = new Map();
+  if (!current) {
+    for (const doc of reports) {
+      for (const top of doc.suites ?? []) {
+        const acc = { ms: 0 };
+        sumDurations(top, acc);
+        sums.set(top.file, (sums.get(top.file) ?? 0) + acc.ms);
+      }
+    }
+    return sums;
+  }
   for (const doc of reports) {
-    for (const top of doc.suites ?? []) {
-      const acc = { ms: 0 };
-      sumDurations(top, acc);
-      sums.set(top.file, (sums.get(top.file) ?? 0) + acc.ms);
+    for (const t of testsOf(doc)) {
+      const to = attributeFile(t.file, t.titlePath, current);
+      if (to === null) {
+        diag?.dropped.push({ titlePath: t.titlePath, file: t.file });
+        continue;
+      }
+      if (to !== t.file) diag?.reattributed.push({ titlePath: t.titlePath, from: t.file, to });
+      sums.set(to, (sums.get(to) ?? 0) + t.ms);
     }
   }
   return sums;
@@ -271,32 +333,79 @@ async function run(index, count) {
   process.exit(code);
 }
 
-/** `--legs <n>` (any position) -> { legs, runDirs }; legs defaults to EXPECTED_SHARD_REPORTS. */
+/** `--legs <n>` and `--list <file>` (any position) -> { legs, runDirs[, list] }; legs defaults to EXPECTED_SHARD_REPORTS. */
 export function parseWeightsArgs(args) {
   const runDirs = [];
   let legs = EXPECTED_SHARD_REPORTS;
+  let list;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--legs") {
       legs = Number(args[++i]);
       if (!Number.isInteger(legs) || legs < 1) throw new Error("usage: --legs <count >= 1>");
+    } else if (args[i] === "--list") {
+      list = args[++i];
+      if (!list)
+        throw new Error("usage: --list <list.json from playwright --list --reporter=json>");
     } else runDirs.push(args[i]);
   }
-  return { legs, runDirs };
+  return list === undefined ? { legs, runDirs } : { legs, runDirs, list };
 }
 
+const WEIGHTS_USAGE = "usage: weights [--legs <n>] [--list <list.json>] <runDir>...";
+
 function weightsMode(args) {
-  const { legs, runDirs } = parseWeightsArgs(args);
-  if (runDirs.length === 0) throw new Error("usage: weights [--legs <n>] <runDir>...");
-  const w = weightsFromRuns(runDirs.map((d) => fileSumsForRun(findReports(d, legs))));
+  const { legs, runDirs, list } = parseWeightsArgs(args);
+  if (runDirs.length === 0) throw new Error(WEIGHTS_USAGE);
+  const current = list ? currentTests(JSON.parse(readFileSync(list, "utf8"))) : undefined;
+  const diag = { reattributed: [], dropped: [] };
+  const w = weightsFromRuns(
+    runDirs.map((d) => {
+      try {
+        return fileSumsForRun(findReports(d, legs), current, diag);
+      } catch (e) {
+        throw new Error(`${basename(d)}: ${e.message}`);
+      }
+    }),
+  );
+  if (current) reportAttribution(diag);
   console.log(
     "# HEL-1361 e2e shard weights: seconds per spec file, from CI Playwright JSON reports.",
   );
   console.log("# Per run: durations summed across ALL shard reports; weight = median across runs.");
   console.log(`# Runs: ${runDirs.map((d) => basename(d)).join(" ")}`);
   console.log(
-    "# Regenerate: node scripts/e2e-shard.mjs weights <runDir>... > e2e/shard-weights.tsv (never hand-edit).",
+    list
+      ? "# Regenerate: node scripts/e2e-shard.mjs weights --list <list.json> <runDir>... > e2e/shard-weights.tsv (<list.json> = npx playwright test --list --reporter=json --project=dev; never hand-edit)."
+      : "# Regenerate: node scripts/e2e-shard.mjs weights <runDir>... > e2e/shard-weights.tsv (never hand-edit).",
   );
   for (const f of [...w.keys()].sort()) console.log(`${f}\t${w.get(f)}`);
+}
+
+/** stderr: every distinct test whose result moved to another file, and every dropped result (HEL-1778). */
+function reportAttribution({ reattributed, dropped }) {
+  const group = (rows, key) => {
+    const m = new Map();
+    for (const r of rows) m.set(key(r), (m.get(key(r)) ?? 0) + 1);
+    return [...m].sort();
+  };
+  const moved = group(reattributed, (r) => `${r.titlePath}\t${r.from} -> ${r.to}`);
+  if (reattributed.length)
+    console.error(
+      `e2e-shard: re-attributed ${reattributed.length} result(s) of ${moved.length} test(s) away from the file the report names:`,
+    );
+  for (const [k, count] of moved) {
+    const [title, move] = k.split("\t");
+    console.error(`  re-attributed: ${title}  (${move}, ${count} result(s))`);
+  }
+  const gone = group(dropped, (r) => `${r.titlePath}\t${r.file}`);
+  if (dropped.length)
+    console.error(
+      `e2e-shard: dropped ${dropped.length} result(s) of ${gone.length} test(s) whose file is no longer discovered and that match no current test:`,
+    );
+  for (const [k, count] of gone) {
+    const [title, file] = k.split("\t");
+    console.error(`  dropped: ${title}  (${file}, ${count} result(s))`);
+  }
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
@@ -310,7 +419,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     } else if (mode === "weights") weightsMode(rest);
     else
       throw new Error(
-        "usage: e2e-shard.mjs run <index> <count> | plan [<count>] | weights [--legs <n>] <runDir>...",
+        "usage: e2e-shard.mjs run <index> <count> | plan [<count>] | weights [--legs <n>] [--list <list.json>] <runDir>...",
       );
   } catch (e) {
     console.error(`e2e-shard: ${e.message}`);
