@@ -48,7 +48,7 @@ import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.services.sharing.{ShareTokenService, ShareTokenValidatorImpl}
 import com.helio.infrastructure.persistence.sharing.ShareTokenRepository
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
-import com.helio.services.dashboards.{DashboardChangesService, DashboardContentsService, DashboardFolderService, DashboardService}
+import com.helio.services.dashboards.{DashboardChangesService, DashboardContentsService, DashboardFolderService, DashboardPanelStatusService, DashboardService}
 import com.helio.services.pipelines.draft.{DraftRestore, DraftSaveService}
 import com.helio.services.pipelines.draftpreview.{DraftPreviewConfig, DraftPreviewGate, DraftPreviewService}
 import com.helio.services.insights.{InsightAccess, InsightRenderService, InsightRenderer, OutputInsightReadService}
@@ -590,6 +590,9 @@ final class ApiRoutes(
     Option(pipelineRunRepo).map(runRepo =>
       new ProvenanceService(outputRepo, pipelineRepo, pipelineStepRepo, pipelineRootRepo, dataSourceRepo, runRepo, nodeSnapshotRepo)
     )
+  // HEL-1786: dashboard-scoped panel status (freshness, run-finish trigger, data-invalid) for dashboard grantees.
+  private val dashboardPanelStatusService =
+    new DashboardPanelStatusService(panelRepo, outputRepo, pipelineRepo, pipelineRunRepo, resolvedOutputHistoryRepo, provenanceServiceOpt)
   // HEL-383: atomic pipeline-proposal apply — composes sourceService/
   // dataSourceService/pipelineService/pipelineRunService/dataTypeService,
   // all already constructed above, plus dataSourceRepo/dataTypeRepo for the
@@ -1032,6 +1035,7 @@ final class ApiRoutes(
                   new AutoLayoutRoutes(autoLayoutService, authenticatedUser).routes,
                   new DashboardFolderRoutes(dashboardFolderService, authenticatedUser).routes,
                   new DashboardChangesRoutes(dashboardChangesService, authenticatedUser).routes,
+                  new DashboardPanelStatusRoutes(dashboardPanelStatusService, aclDirective, authenticatedUser).routes,
                   new DashboardRoutes(dashboardService, authenticatedUser).routes,
                   new DashboardSnapshotRoutes(dashboardService, authenticatedUser).routes,
                   // HEL-904: `BoundPanelRoutes`/`POST /api/panels/bound` removed

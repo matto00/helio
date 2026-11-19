@@ -1,0 +1,124 @@
+> helio-frontend@0.0.0 test
+> jest --config jest.config.cjs --passWithNoTests --maxWorkers=3 --testPathPatterns=DashboardFreshness.shared
+FAIL src/app/dashboardMeta/DashboardFreshness.shared.test.tsx
+  ● a viewer's freshness line › the desktop meta row shows the refresh fact and the source from the status route
+    TypeError: Cannot read properties of undefined (reading 'then')
+      40 |   const outputKey = outputIds.join("|");
+      41 |
+    > 42 |   const [outputs, setOutputs] = useState<OutputsById>(() => seedOutputs(outputIds));
+         |                 ^
+      43 |   const [summaries, setSummaries] = useState<SummariesById>({});
+      44 |
+      45 |   // Output metadata: fetch each feeding Output not yet held; ignore results after unmount or after
+      at src/features/panels/hooks/useDashboardMeta.ts:42:17
+      at Object.react_stack_bottom_frame (node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+      at commitHookEffectListMount (node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+      at commitHookPassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:13835:11)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16906:13)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:17183:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:17183:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:17183:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:17183:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:17183:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:17183:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16941:11)
+      at flushPassiveEffects (node_modules/react-dom/cjs/react-dom-client.development.js:20134:9)
+      at flushPendingEffects (node_modules/react-dom/cjs/react-dom-client.development.js:20060:14)
+      at flushSpawnedWork (node_modules/react-dom/cjs/react-dom-client.development.js:20016:44)
+      at commitRoot (node_modules/react-dom/cjs/react-dom-client.development.js:19605:58)
+      at completeRoot (node_modules/react-dom/cjs/react-dom-client.development.js:19509:9)
+      at performWorkOnRoot (node_modules/react-dom/cjs/react-dom-client.development.js:18182:15)
+      at performSyncWorkOnRoot (node_modules/react-dom/cjs/react-dom-client.development.js:20680:7)
+      at flushSyncWorkAcrossRoots_impl (node_modules/react-dom/cjs/react-dom-client.development.js:20522:21)
+      at processRootScheduleInMicrotask (node_modules/react-dom/cjs/react-dom-client.development.js:20561:9)
+      at node_modules/react-dom/cjs/react-dom-client.development.js:20690:11
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at node_modules/@testing-library/react/dist/act-compat.js:46:25
+      at setup (src/app/dashboardMeta/DashboardFreshness.shared.test.tsx:65:6)
+      at Object.<anonymous> (src/app/dashboardMeta/DashboardFreshness.shared.test.tsx:75:5)
+  ● a editor's freshness line › the desktop meta row shows the refresh fact and the source from the status route
+    TypeError: Cannot read properties of undefined (reading 'then')
+      40 |   const outputKey = outputIds.join("|");
+      41 |
+    > 42 |   const [outputs, setOutputs] = useState<OutputsById>(() => seedOutputs(outputIds));
+         |                 ^
+      43 |   const [summaries, setSummaries] = useState<SummariesById>({});
+      44 |
+      45 |   // Output metadata: fetch each feeding Output not yet held; ignore results after unmount or after
+      at src/features/panels/hooks/useDashboardMeta.ts:42:17
+      at Object.react_stack_bottom_frame (node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+      at commitHookEffectListMount (node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+      at commitHookPassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:13835:11)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16906:13)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:17183:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:17183:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:17183:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:17183:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:17183:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:17183:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16941:11)
+      at flushPassiveEffects (node_modules/react-dom/cjs/react-dom-client.development.js:20134:9)
+      at flushPendingEffects (node_modules/react-dom/cjs/react-dom-client.development.js:20060:14)
+      at flushSpawnedWork (node_modules/react-dom/cjs/react-dom-client.development.js:20016:44)
+      at commitRoot (node_modules/react-dom/cjs/react-dom-client.development.js:19605:58)
+      at completeRoot (node_modules/react-dom/cjs/react-dom-client.development.js:19509:9)
+      at performWorkOnRoot (node_modules/react-dom/cjs/react-dom-client.development.js:18182:15)
+      at performSyncWorkOnRoot (node_modules/react-dom/cjs/react-dom-client.development.js:20680:7)
+      at flushSyncWorkAcrossRoots_impl (node_modules/react-dom/cjs/react-dom-client.development.js:20522:21)
+      at processRootScheduleInMicrotask (node_modules/react-dom/cjs/react-dom-client.development.js:20561:9)
+      at node_modules/react-dom/cjs/react-dom-client.development.js:20690:11
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at node_modules/@testing-library/react/dist/act-compat.js:46:25
+      at setup (src/app/dashboardMeta/DashboardFreshness.shared.test.tsx:65:6)
+      at Object.<anonymous> (src/app/dashboardMeta/DashboardFreshness.shared.test.tsx:75:5)
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 4 passed, 6 total
+Snapshots:   0 total
+Time:        4.257 s
+Ran all test suites matching DashboardFreshness.shared.

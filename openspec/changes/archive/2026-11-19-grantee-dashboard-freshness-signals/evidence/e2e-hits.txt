@@ -1,0 +1,401 @@
+> helio@0.7.4 e2e
+> playwright test e2e/hel1065-pin-toggle-css-fixes.spec.ts e2e/hel1275-metric-delta-sparkline.spec.ts e2e/hel1398-chart-narrow-footnotes.spec.ts e2e/hel1444-footnoted-chart-canvas.spec.ts e2e/hel1583-glass-nav.spec.ts e2e/hel1583-refresh-line-no-shift.spec.ts e2e/hel1646-skeleton-refresh-slot.spec.ts e2e/hel1681-refresh-control.spec.ts e2e/hel1738-refresh-during-first-load.spec.ts e2e/hel1756-popover-viewport-fit.spec.ts e2e/hel1762-popover-clears-bottom-nav.spec.ts e2e/hel1773-viewer-grantee-dashboard.spec.ts e2e/hel1780-shared-dashboard-panel-features.spec.ts e2e/hel1094-sse-fan-out-panel-refresh.spec.ts e2e/hel1786-shared-dashboard-freshness.spec.ts --workers=2 --reporter=line
+Running 138 tests using 2 workers
+[1/138] [dev] › e2e/hel1094-sse-fan-out-panel-refresh.spec.ts:32:7 › HEL-1094 SSE fan-out panel refresh (real backend, default tick interval) › a form panel submit's downstream auto-run visibly refreshes a bound table panel, with a computed a11y announcement, and survives a second run
+[2/138] [dev] › e2e/hel1065-pin-toggle-css-fixes.spec.ts:185:9 › HEL-1065 pin-toggle CSS fixes (rendered geometry) › issue 1: header label ellipsizes before the pin icon, no overlap, with columns pinned (light)
+[dev] › e2e/hel1065-pin-toggle-css-fixes.spec.ts:185:9 › HEL-1065 pin-toggle CSS fixes (rendered geometry) › issue 1: header label ellipsizes before the pin icon, no overlap, with columns pinned (light)
+[dev] › e2e/hel1094-sse-fan-out-panel-refresh.spec.ts:32:7 › HEL-1094 SSE fan-out panel refresh (real backend, default tick interval) › a form panel submit's downstream auto-run visibly refreshes a bound table panel, with a computed a11y announcement, and survives a second run
+[3/138] [dev] › e2e/hel1065-pin-toggle-css-fixes.spec.ts:185:9 › HEL-1065 pin-toggle CSS fixes (rendered geometry) › issue 1: header label ellipsizes before the pin icon, no overlap, with columns pinned (dark)
+[dev] › e2e/hel1065-pin-toggle-css-fixes.spec.ts:185:9 › HEL-1065 pin-toggle CSS fixes (rendered geometry) › issue 1: header label ellipsizes before the pin icon, no overlap, with columns pinned (dark)
+[4/138] [dev] › e2e/hel1065-pin-toggle-css-fixes.spec.ts:209:9 › HEL-1065 pin-toggle CSS fixes (rendered geometry) › issue 2: pin-toggle button + focus ring stay fully inside the header cell at <=430px (light)
+[dev] › e2e/hel1065-pin-toggle-css-fixes.spec.ts:209:9 › HEL-1065 pin-toggle CSS fixes (rendered geometry) › issue 2: pin-toggle button + focus ring stay fully inside the header cell at <=430px (light)
+[5/138] [dev] › e2e/hel1065-pin-toggle-css-fixes.spec.ts:209:9 › HEL-1065 pin-toggle CSS fixes (rendered geometry) › issue 2: pin-toggle button + focus ring stay fully inside the header cell at <=430px (dark)
+[dev] › e2e/hel1065-pin-toggle-css-fixes.spec.ts:209:9 › HEL-1065 pin-toggle CSS fixes (rendered geometry) › issue 2: pin-toggle button + focus ring stay fully inside the header cell at <=430px (dark)
+[6/138] [dev] › e2e/hel1065-pin-toggle-css-fixes.spec.ts:278:7 › HEL-1065 pin-toggle CSS fixes (rendered geometry) › desktop/fine-pointer control: header row height is unaffected outside the coarse-pointer/<=430px media query
+[dev] › e2e/hel1065-pin-toggle-css-fixes.spec.ts:278:7 › HEL-1065 pin-toggle CSS fixes (rendered geometry) › desktop/fine-pointer control: header row height is unaffected outside the coarse-pointer/<=430px media query
+[7/138] [dev] › e2e/hel1275-metric-delta-sparkline.spec.ts:75:7 › metric panel shows the server headline, ▲ 12% vs 7d, a sparkline and the compared-with row (light)
+[dev] › e2e/hel1275-metric-delta-sparkline.spec.ts:75:7 › metric panel shows the server headline, ▲ 12% vs 7d, a sparkline and the compared-with row (light)
+[HEL-1275 e2e] user id: f4286cc7-2c63-4398-a511-8562393e6663
+[HEL-1275 e2e] backdated history row ids: 3bf8a0dd-56ce-4496-b084-e5e1a6c2f3b8
+[8/138] [dev] › e2e/hel1275-metric-delta-sparkline.spec.ts:75:7 › metric panel shows the server headline, ▲ 12% vs 7d, a sparkline and the compared-with row (dark)
+[dev] › e2e/hel1275-metric-delta-sparkline.spec.ts:75:7 › metric panel shows the server headline, ▲ 12% vs 7d, a sparkline and the compared-with row (dark)
+[HEL-1275 e2e] user id: 5fa3096c-bbdc-41e7-a1e5-e553866230df
+[HEL-1275 e2e] backdated history row ids: 15a9ee7b-b3df-412f-9dfc-b1cd48d63443
+[9/138] [dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:182:7 › HEL-1398 scope: non-footnote w=2,h=4 cards keep an unclamped title (light)
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:182:7 › HEL-1398 scope: non-footnote w=2,h=4 cards keep an unclamped title (light)
+[HEL-1398 e2e] user hel1398s-light-1795087232833-61920@example.test created 055c0e6d-6820-480b-ab49-54e2c13a4a2c 864f8dd3-44f8-4d60-b5a3-a2eb28625ed9 107ec909-b735-41a4-86a0-37d3811e429c
+[10/138] [dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:382:9 › HEL-1444 canvas floors, containment, title, y-axis @1504px (light)
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:382:9 › HEL-1444 canvas floors, containment, title, y-axis @1504px (light)
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:182:7 › HEL-1398 scope: non-footnote w=2,h=4 cards keep an unclamped title (light)
+[HEL-1398 scope light] Quarterly revenue table {"clamp":"none","lines":3,"cardWidth":221}
+[HEL-1398 scope light] Plain chart without footnotes {"clamp":"none","lines":3,"cardWidth":221}
+[11/138] [dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:182:7 › HEL-1398 scope: non-footnote w=2,h=4 cards keep an unclamped title (dark)
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:182:7 › HEL-1398 scope: non-footnote w=2,h=4 cards keep an unclamped title (dark)
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:382:9 › HEL-1444 canvas floors, containment, title, y-axis @1504px (light)
+[HEL-1444 e2e] user hel1444-light-1504-1795087235658-10108@example.test created {"dashboard":"55c4f5a2-9901-402a-8541-0393a6a2da8b","pipeline":"f06ec172-1e66-47c6-9d6e-33e637e2d0e8","source":"5bf6491c-7d50-459e-acef-1f955a1f9184","extra":null}
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:182:7 › HEL-1398 scope: non-footnote w=2,h=4 cards keep an unclamped title (dark)
+[HEL-1398 e2e] user hel1398s-dark-1795087238217-74087@example.test created 31efb408-9824-4f18-8d0a-2e92e0ad9637 8ee8f706-7482-40e2-983c-7d7eab10a22c 13a9b266-eb1e-4aab-8a0a-a04a146419c1
+[HEL-1398 scope dark] Quarterly revenue table {"clamp":"none","lines":3,"cardWidth":221}
+[HEL-1398 scope dark] Plain chart without footnotes {"clamp":"none","lines":3,"cardWidth":221}
+[12/138] [dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1504px no control bar (light)
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1504px no control bar (light)
+[HEL-1398 e2e] user hel1398c-light-1504-std-1795087244009-53505@example.test created {"dashboard":"6296d280-055f-4c1e-a07a-4c0482acb4e4","pipeline":"c097b355-5859-4215-9669-53b3cd64e98a","source":"ed5fef54-c98b-4a0b-8d6c-210e63d55ce8","panel":"ce9c3f9e-8876-4a89-9ebc-6e3a7a81e424"}
+[HEL-1398 geometry 1504-std-light] {"card":{"top":121,"bottom":365,"height":244},"top":{"top":134,"bottom":170.375,"height":36.375},"bar":null,"content":{"top":178.375,"bottom":320,"height":141.625},"canvas":{"top":178.375,"bottom":286.40625,"height":108.03125},"annotation":{"top":286.40625,"bottom":303.203125,"height":16.796875},"note":{"top":303.203125,"bottom":320,"height":16.796875},"footer":{"top":328,"bottom":352,"height":24}}
+[13/138] [dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1504px with control bar (light)
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1504px with control bar (light)
+[HEL-1398 e2e] user hel1398c-light-1504-ctl-1795087249327-19345@example.test created {"dashboard":"cb17e264-e38a-4fac-aeb6-c4bd7d1fa13d","pipeline":"e709aac9-deaa-444a-900b-e56df5cce747","source":"25afdab2-8e79-40df-9511-81212829cecf","panel":"c492c21f-7ba8-4071-90b9-32b085069669"}
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:382:9 › HEL-1444 canvas floors, containment, title, y-axis @1504px (light)
+[HEL-1444 bar bar-two-w2 @1504 light] 57px (main 57)
+[HEL-1444 bar bar-two-w4 @1504 light] 57px (main 57)
+[HEL-1444 bar bar-range-w2 @1504 light] 57px (main 57)
+[HEL-1444 bar bar-range-w4 @1504 light] 57px (main 57)
+[14/138] [dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:382:9 › HEL-1444 canvas floors, containment, title, y-axis @1900px (light)
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:382:9 › HEL-1444 canvas floors, containment, title, y-axis @1900px (light)
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1504px with control bar (light)
+[HEL-1398 geometry 1504-ctl-light] {"card":{"top":121,"bottom":365,"height":244},"top":{"top":134,"bottom":170.375,"height":36.375},"bar":{"top":178.375,"bottom":214.375,"height":36},"content":{"top":222.375,"bottom":320,"height":97.625},"canvas":{"top":222.375,"bottom":303.203125,"height":80.828125},"annotation":{"top":270.6875,"bottom":271.6875,"height":1},"note":{"top":303.203125,"bottom":320,"height":16.796875},"footer":{"top":328,"bottom":352,"height":24}}
+[HEL-1398 control-bar canvas 1504-ctl-light] 80.828125px
+[15/138] [dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1900px no control bar (light)
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1900px no control bar (light)
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:382:9 › HEL-1444 canvas floors, containment, title, y-axis @1900px (light)
+[HEL-1444 e2e] user hel1444-light-1900-1795087253667-14852@example.test created {"dashboard":"aaf4ca7c-9503-4d73-83d9-7259dbfece24","pipeline":"507e195f-570c-4eb8-ab10-4ab1c327877d","source":"01bbea76-6ace-429c-80fd-04da84494e77","extra":null}
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1900px no control bar (light)
+[HEL-1398 e2e] user hel1398c-light-1900-std-1795087254832-81040@example.test created {"dashboard":"b39dea06-29a4-4ad6-893f-0926bf522099","pipeline":"39a1df38-03cd-4aff-b753-4795e7d80b3e","source":"9032090e-6823-4529-babe-04bc603e4ea7","panel":"38d8779b-d2a3-4f83-b372-9625b310158f"}
+[HEL-1398 geometry 1900-std-light] {"card":{"top":121,"bottom":365,"height":244},"top":{"top":134,"bottom":170.375,"height":36.375},"bar":null,"content":{"top":178.375,"bottom":320,"height":141.625},"canvas":{"top":178.375,"bottom":286.40625,"height":108.03125},"annotation":{"top":286.40625,"bottom":303.203125,"height":16.796875},"note":{"top":303.203125,"bottom":320,"height":16.796875},"footer":{"top":328,"bottom":352,"height":24}}
+[16/138] [dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1900px with control bar (light)
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1900px with control bar (light)
+[HEL-1398 e2e] user hel1398c-light-1900-ctl-1795087260674-11307@example.test created {"dashboard":"c11c8038-6a16-420f-9237-2ad9c75a0cb6","pipeline":"7618952d-a58e-4397-99a9-b197b1c9d0a1","source":"edb708ec-015d-4f85-95b3-8877f87e6480","panel":"2002f3e9-5eac-4741-9c8c-622205b8ee0e"}
+[HEL-1398 geometry 1900-ctl-light] {"card":{"top":121,"bottom":365,"height":244},"top":{"top":134,"bottom":170.375,"height":36.375},"bar":{"top":178.375,"bottom":214.375,"height":36},"content":{"top":222.375,"bottom":320,"height":97.625},"canvas":{"top":222.375,"bottom":303.203125,"height":80.828125},"annotation":{"top":270.6875,"bottom":271.6875,"height":1},"note":{"top":303.203125,"bottom":320,"height":16.796875},"footer":{"top":328,"bottom":352,"height":24}}
+[HEL-1398 control-bar canvas 1900-ctl-light] 80.828125px
+[17/138] [dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1504px no control bar (dark)
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1504px no control bar (dark)
+[HEL-1398 e2e] user hel1398c-dark-1504-std-1795087266123-50564@example.test created {"dashboard":"59d2cb6e-54d1-4ee1-9613-57f3f5011f52","pipeline":"a8169751-d875-4f12-b7fa-6e85f43e54a6","source":"4f5bee3a-4656-45d0-a883-e9598178be4a","panel":"7b6ab56f-28d4-402b-afb6-f3a09daabb06"}
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:382:9 › HEL-1444 canvas floors, containment, title, y-axis @1900px (light)
+[HEL-1444 bar bar-two-w2 @1900 light] 57px (main 57)
+[HEL-1444 bar bar-two-w4 @1900 light] 57px (main 57)
+[HEL-1444 bar bar-range-w2 @1900 light] 57px (main 57)
+[HEL-1444 bar bar-range-w4 @1900 light] 57px (main 57)
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1504px no control bar (dark)
+[HEL-1398 geometry 1504-std-dark] {"card":{"top":121,"bottom":365,"height":244},"top":{"top":134,"bottom":170.375,"height":36.375},"bar":null,"content":{"top":178.375,"bottom":320,"height":141.625},"canvas":{"top":178.375,"bottom":286.40625,"height":108.03125},"annotation":{"top":286.40625,"bottom":303.203125,"height":16.796875},"note":{"top":303.203125,"bottom":320,"height":16.796875},"footer":{"top":328,"bottom":352,"height":24}}
+[18/138] [dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1504px with control bar (dark)
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1504px with control bar (dark)
+[19/138] [dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:382:9 › HEL-1444 canvas floors, containment, title, y-axis @1504px (dark)
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:382:9 › HEL-1444 canvas floors, containment, title, y-axis @1504px (dark)
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1504px with control bar (dark)
+[HEL-1398 e2e] user hel1398c-dark-1504-ctl-1795087271440-80397@example.test created {"dashboard":"c27bd761-6182-4efe-91d8-47ae6a7baa67","pipeline":"bedb714a-ffe2-40db-bc09-fa822b44f771","source":"405f68c1-1b65-4e81-9327-fe685551eba7","panel":"e8ec77fd-a90f-40e4-8b27-4e898176a34f"}
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:382:9 › HEL-1444 canvas floors, containment, title, y-axis @1504px (dark)
+[HEL-1444 e2e] user hel1444-dark-1504-1795087271575-16928@example.test created {"dashboard":"9fc6929e-a9ee-40d5-abea-226be9de3420","pipeline":"bc103538-76c0-43b8-a52b-21441c8caa15","source":"d0eeb472-2ec5-43df-a295-9e35de92f54f","extra":null}
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1504px with control bar (dark)
+[HEL-1398 geometry 1504-ctl-dark] {"card":{"top":121,"bottom":365,"height":244},"top":{"top":134,"bottom":170.375,"height":36.375},"bar":{"top":178.375,"bottom":214.375,"height":36},"content":{"top":222.375,"bottom":320,"height":97.625},"canvas":{"top":222.375,"bottom":303.203125,"height":80.828125},"annotation":{"top":270.6875,"bottom":271.6875,"height":1},"note":{"top":303.203125,"bottom":320,"height":16.796875},"footer":{"top":328,"bottom":352,"height":24}}
+[HEL-1398 control-bar canvas 1504-ctl-dark] 80.828125px
+[20/138] [dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1900px no control bar (dark)
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1900px no control bar (dark)
+[HEL-1398 e2e] user hel1398c-dark-1900-std-1795087277312-67812@example.test created {"dashboard":"8d3ceaf4-7f31-44cb-9c6f-0a1d740cda5d","pipeline":"7db07e20-46c8-4dd7-9c8b-7bf026798a8e","source":"92d2fe41-ba27-482f-9357-a864e0d71004","panel":"2c637045-5e74-4f42-984d-30eb85889e94"}
+[HEL-1398 geometry 1900-std-dark] {"card":{"top":121,"bottom":365,"height":244},"top":{"top":134,"bottom":170.375,"height":36.375},"bar":null,"content":{"top":178.375,"bottom":320,"height":141.625},"canvas":{"top":178.375,"bottom":286.40625,"height":108.03125},"annotation":{"top":286.40625,"bottom":303.203125,"height":16.796875},"note":{"top":303.203125,"bottom":320,"height":16.796875},"footer":{"top":328,"bottom":352,"height":24}}
+[21/138] [dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1900px with control bar (dark)
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1900px with control bar (dark)
+[HEL-1398 e2e] user hel1398c-dark-1900-ctl-1795087283204-99085@example.test created {"dashboard":"885fc9ee-9a68-45ed-a2bb-d410b35b1b0d","pipeline":"b1bb4bc1-6e82-42e0-8980-1bba5f491441","source":"2e14e034-2bc6-452e-9403-9d1de8587d01","panel":"a8ab8e0b-9520-4587-94a2-e2ecdcb235a1"}
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:382:9 › HEL-1444 canvas floors, containment, title, y-axis @1504px (dark)
+[HEL-1444 bar bar-two-w2 @1504 dark] 57px (main 57)
+[HEL-1444 bar bar-two-w4 @1504 dark] 57px (main 57)
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:285:11 › HEL-1398 containment: w=2,h=4 @1900px with control bar (dark)
+[HEL-1398 geometry 1900-ctl-dark] {"card":{"top":121,"bottom":365,"height":244},"top":{"top":134,"bottom":170.375,"height":36.375},"bar":{"top":178.375,"bottom":214.375,"height":36},"content":{"top":222.375,"bottom":320,"height":97.625},"canvas":{"top":222.375,"bottom":303.203125,"height":80.828125},"annotation":{"top":270.6875,"bottom":271.6875,"height":1},"note":{"top":303.203125,"bottom":320,"height":16.796875},"footer":{"top":328,"bottom":352,"height":24}}
+[HEL-1398 control-bar canvas 1900-ctl-dark] 80.828125px
+[22/138] [dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:380:9 › HEL-1398 (light) › w=2,h=4 chart with annotation + truncation note keeps >= 96px canvas
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:380:9 › HEL-1398 (light) › w=2,h=4 chart with annotation + truncation note keeps >= 96px canvas
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:382:9 › HEL-1444 canvas floors, containment, title, y-axis @1504px (dark)
+[HEL-1444 bar bar-range-w2 @1504 dark] 57px (main 57)
+[HEL-1444 bar bar-range-w4 @1504 dark] 57px (main 57)
+[23/138] [dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:382:9 › HEL-1444 canvas floors, containment, title, y-axis @1900px (dark)
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:382:9 › HEL-1444 canvas floors, containment, title, y-axis @1900px (dark)
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:380:9 › HEL-1398 (light) › w=2,h=4 chart with annotation + truncation note keeps >= 96px canvas
+[HEL-1398 e2e] user hel1398-light-1795087288805-32713@example.test created {"dashboard":"762f076a-2085-46e1-8050-56c4a6c5222f","pipeline":"c0acaa81-2b42-4683-a3c2-c8fa02d6a76c","source":"edef6351-5341-44c1-97bf-3da9e095aa0b","panel":"9e700cfb-6414-41bb-839b-d65b3745cfd5"}
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:382:9 › HEL-1444 canvas floors, containment, title, y-axis @1900px (dark)
+[HEL-1444 e2e] user hel1444-dark-1900-1795087289990-4748@example.test created {"dashboard":"61c28bc3-796e-4d29-a898-4f5644d2eda9","pipeline":"6aa3458c-4f84-46e1-8b8c-9d720beda8f7","source":"7d0dce58-d148-4550-bf72-120b209c525d","extra":null}
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:380:9 › HEL-1398 (light) › w=2,h=4 chart with annotation + truncation note keeps >= 96px canvas
+[HEL-1398 measure desktop light] {"card":244,"cardWidth":248,"header":0,"annotation":{"h":16.796875,"lines":1,"text":"Source: internal sales ledger, refreshed nightly"},"note":{"h":16.796875,"lines":1,"text":"Based on the first 200 of 500 rows.\n200 of 500 rows.","visibleText":"200 of 500 rows."},"canvas":108.03125,"canvasWidth":206,"chain":["div.react-grid-item.cssTransforms h=244.0 pad=0px/0px","  sibling span.react-resizable-handle h=0.0","article.panel-grid-card h=244.0 pad=12px/12px","  sibling div.panel-grid-card__footer h=24.0","  sibling dialog.ui-modal h=0.0","  sibling dialog.ui-modal h=0.0","  sibling div.sr-only h=1.0","  sibling div.panel-grid-card__top h=36.4","div.crossfade h=141.6 pad=0px/0px","div.crossfade__layer.crossfade__content--entering h=141.6 pad=0px/0px","div.panel-content.panel-content--chart h=141.6 pad=0px/0px","  sibling p.chart-panel__truncation-note h=16.8","div.chart-panel__canvas h=108.0 pad=0px/0px"]}
+[HEL-1398 measure phone-stack light] {"card":219.59375,"cardWidth":366,"header":0,"annotation":{"h":28.796875,"lines":1,"text":"Source: internal sales ledger, refreshed nightly"},"note":{"h":24.796875,"lines":1,"text":"Based on the first 200 of 500 rows.","visibleText":"Based on the first 200 of 500 rows."},"canvas":100,"canvasWidth":336,"chain":["article.panel-grid-card.mobile-panel-stack__item h=219.6 pad=14px/14px","  sibling div.sr-only h=1.0","  sibling div.mobile-panel-stack__header h=24.0","div.crossfade h=153.6 pad=0px/0px","div.crossfade__layer h=153.6 pad=0px/0px","div.panel-content.panel-content--chart h=153.6 pad=0px/0px","  sibling p.chart-panel__truncation-note h=24.8","div.chart-panel__canvas h=100.0 pad=0px/0px"]}
+[HEL-1398 measure phone-stack-320 light] {"card":236.390625,"cardWidth":296,"header":0,"annotation":{"h":45.59375,"lines":2,"text":"Source: internal sales ledger, refreshed nightly"},"note":{"h":24.796875,"lines":1,"text":"Based on the first 200 of 500 rows.","visibleText":"Based on the first 200 of 500 rows."},"canvas":100,"canvasWidth":266,"chain":["article.panel-grid-card.mobile-panel-stack__item h=236.4 pad=14px/14px","  sibling div.sr-only h=1.0","  sibling div.mobile-panel-stack__header h=24.0","div.crossfade h=170.4 pad=0px/0px","div.crossfade__layer h=170.4 pad=0px/0px","div.panel-content.panel-content--chart h=170.4 pad=0px/0px","  sibling p.chart-panel__truncation-note h=24.8","div.chart-panel__canvas h=100.0 pad=0px/0px"]}
+[24/138] [dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:460:9 › HEL-1398 (light) › item 4: "matching rows" wording live under a viewer filter
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:460:9 › HEL-1398 (light) › item 4: "matching rows" wording live under a viewer filter
+[HEL-1398 e2e] user hel1398m-light-1795087296413-2307@example.test created {"dashboard":"a5f0c2b0-1c4a-4087-8ae6-3dcb1b7edf2c","pipeline":"7a92f6e5-b6a7-4ac1-a6d2-e6851309d898","source":"86168f02-b9b9-402e-855e-6243ceac5844","panel":"5b75380c-7cab-4e9e-ad20-e044d0808334"}
+[HEL-1398 matching light] "Based on the first 200 of 250 matching rows."
+[25/138] [dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:380:9 › HEL-1398 (dark) › w=2,h=4 chart with annotation + truncation note keeps >= 96px canvas
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:380:9 › HEL-1398 (dark) › w=2,h=4 chart with annotation + truncation note keeps >= 96px canvas
+[HEL-1398 e2e] user hel1398-dark-1795087303246-92403@example.test created {"dashboard":"c122d531-7ff9-4ea8-a0a1-d0a9988a9c51","pipeline":"1c3a2b9d-b6da-42a3-afc6-8f55894edeae","source":"b92bfcac-67ca-479f-ae1d-54499047e8b4","panel":"03ac177a-1b42-4737-81f2-19e314e66830"}
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:382:9 › HEL-1444 canvas floors, containment, title, y-axis @1900px (dark)
+[HEL-1444 bar bar-two-w2 @1900 dark] 57px (main 57)
+[HEL-1444 bar bar-two-w4 @1900 dark] 57px (main 57)
+[HEL-1444 bar bar-range-w2 @1900 dark] 57px (main 57)
+[HEL-1444 bar bar-range-w4 @1900 dark] 57px (main 57)
+[26/138] [dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:572:5 › HEL-1444 D2 is keyed on the chart output (footnote-less chart inlines, table stays stacked)
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:572:5 › HEL-1444 D2 is keyed on the chart output (footnote-less chart inlines, table stays stacked)
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:380:9 › HEL-1398 (dark) › w=2,h=4 chart with annotation + truncation note keeps >= 96px canvas
+[HEL-1398 measure desktop dark] {"card":244,"cardWidth":248,"header":0,"annotation":{"h":16.796875,"lines":1,"text":"Source: internal sales ledger, refreshed nightly"},"note":{"h":16.796875,"lines":1,"text":"Based on the first 200 of 500 rows.\n200 of 500 rows.","visibleText":"200 of 500 rows."},"canvas":108.03125,"canvasWidth":206,"chain":["div.react-grid-item.cssTransforms h=244.0 pad=0px/0px","  sibling span.react-resizable-handle h=0.0","article.panel-grid-card h=244.0 pad=12px/12px","  sibling div.panel-grid-card__footer h=24.0","  sibling dialog.ui-modal h=0.0","  sibling dialog.ui-modal h=0.0","  sibling div.sr-only h=1.0","  sibling div.panel-grid-card__top h=36.4","div.crossfade h=141.6 pad=0px/0px","div.crossfade__layer.crossfade__content--entering h=141.6 pad=0px/0px","div.panel-content.panel-content--chart h=141.6 pad=0px/0px","  sibling p.chart-panel__truncation-note h=16.8","div.chart-panel__canvas h=108.0 pad=0px/0px"]}
+[HEL-1398 measure phone-stack dark] {"card":219.59375,"cardWidth":366,"header":0,"annotation":{"h":28.796875,"lines":1,"text":"Source: internal sales ledger, refreshed nightly"},"note":{"h":24.796875,"lines":1,"text":"Based on the first 200 of 500 rows.","visibleText":"Based on the first 200 of 500 rows."},"canvas":100,"canvasWidth":336,"chain":["article.panel-grid-card.mobile-panel-stack__item h=219.6 pad=14px/14px","  sibling div.sr-only h=1.0","  sibling div.mobile-panel-stack__header h=24.0","div.crossfade h=153.6 pad=0px/0px","div.crossfade__layer h=153.6 pad=0px/0px","div.panel-content.panel-content--chart h=153.6 pad=0px/0px","  sibling p.chart-panel__truncation-note h=24.8","div.chart-panel__canvas h=100.0 pad=0px/0px"]}
+[HEL-1398 measure phone-stack-320 dark] {"card":236.390625,"cardWidth":296,"header":0,"annotation":{"h":45.59375,"lines":2,"text":"Source: internal sales ledger, refreshed nightly"},"note":{"h":24.796875,"lines":1,"text":"Based on the first 200 of 500 rows.","visibleText":"Based on the first 200 of 500 rows."},"canvas":100,"canvasWidth":266,"chain":["article.panel-grid-card.mobile-panel-stack__item h=236.4 pad=14px/14px","  sibling div.sr-only h=1.0","  sibling div.mobile-panel-stack__header h=24.0","div.crossfade h=170.4 pad=0px/0px","div.crossfade__layer h=170.4 pad=0px/0px","div.panel-content.panel-content--chart h=170.4 pad=0px/0px","  sibling p.chart-panel__truncation-note h=24.8","div.chart-panel__canvas h=100.0 pad=0px/0px"]}
+[27/138] [dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:460:9 › HEL-1398 (dark) › item 4: "matching rows" wording live under a viewer filter
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:460:9 › HEL-1398 (dark) › item 4: "matching rows" wording live under a viewer filter
+[HEL-1398 e2e] user hel1398m-dark-1795087310592-12701@example.test created {"dashboard":"e3538b09-4744-432a-8b93-a36f07ff6838","pipeline":"88437e00-b51d-4fc5-9d46-1ab3def2decf","source":"95f9e417-9ed9-4a99-9650-eb2e7a640dca","panel":"a8102ff7-21e2-4008-bea7-6c266a10b5ac"}
+[28/138] [dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:635:7 › HEL-1444 typing into a footnoted chart's text control never moves the input @1504px
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:635:7 › HEL-1444 typing into a footnoted chart's text control never moves the input @1504px
+[dev] › e2e/hel1398-chart-narrow-footnotes.spec.ts:460:9 › HEL-1398 (dark) › item 4: "matching rows" wording live under a viewer filter
+[HEL-1398 matching dark] "Based on the first 200 of 250 matching rows."
+[29/138] [dev] › e2e/hel1583-glass-nav.spec.ts:257:9 › HEL-1583 glass nav, light theme › five tabs, the active label visible, exactly one current tab per route; Connectors via Data
+[dev] › e2e/hel1583-glass-nav.spec.ts:257:9 › HEL-1583 glass nav, light theme › five tabs, the active label visible, exactly one current tab per route; Connectors via Data
+[30/138] [dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:635:7 › HEL-1444 typing into a footnoted chart's text control never moves the input @1900px
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:635:7 › HEL-1444 typing into a footnoted chart's text control never moves the input @1900px
+[31/138] [dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:680:7 › HEL-1444 phone stack at 375px is unchanged (light)
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:680:7 › HEL-1444 phone stack at 375px is unchanged (light)
+[32/138] [dev] › e2e/hel1583-glass-nav.spec.ts:319:11 › HEL-1583 glass nav, light theme › tap targets are at least 44px and do not overlap at 320px
+[dev] › e2e/hel1583-glass-nav.spec.ts:319:11 › HEL-1583 glass nav, light theme › tap targets are at least 44px and do not overlap at 320px
+[33/138] [dev] › e2e/hel1583-glass-nav.spec.ts:319:11 › HEL-1583 glass nav, light theme › tap targets are at least 44px and do not overlap at 375px
+[dev] › e2e/hel1583-glass-nav.spec.ts:319:11 › HEL-1583 glass nav, light theme › tap targets are at least 44px and do not overlap at 375px
+[34/138] [dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:680:7 › HEL-1444 phone stack at 375px is unchanged (dark)
+[dev] › e2e/hel1444-footnoted-chart-canvas.spec.ts:680:7 › HEL-1444 phone stack at 375px is unchanged (dark)
+[35/138] [dev] › e2e/hel1583-glass-nav.spec.ts:319:11 › HEL-1583 glass nav, light theme › tap targets are at least 44px and do not overlap at 768px
+[dev] › e2e/hel1583-glass-nav.spec.ts:319:11 › HEL-1583 glass nav, light theme › tap targets are at least 44px and do not overlap at 768px
+[36/138] [dev] › e2e/hel1583-glass-nav.spec.ts:362:9 › HEL-1583 glass nav, light theme › at 320px nothing crosses the capsule, the lozenge stays in its tab, and a long label truncates
+[dev] › e2e/hel1583-glass-nav.spec.ts:362:9 › HEL-1583 glass nav, light theme › at 320px nothing crosses the capsule, the lozenge stays in its tab, and a long label truncates
+[37/138] [dev] › e2e/hel1583-glass-nav.spec.ts:423:9 › HEL-1583 glass nav, light theme › the icon box and its vertical position do not change on activation
+[dev] › e2e/hel1583-glass-nav.spec.ts:423:9 › HEL-1583 glass nav, light theme › the icon box and its vertical position do not change on activation
+[dev] › e2e/hel1583-glass-nav.spec.ts:362:9 › HEL-1583 glass nav, light theme › at 320px nothing crosses the capsule, the lozenge stays in its tab, and a long label truncates
+HEL1583-TRUNCATION light {"Dashboards":{"tabWidth":102,"labelClientWidth":54,"labelScrollWidth":72,"truncated":true,"contentWidth":278},"Pipelines":{"tabWidth":102,"labelClientWidth":54,"labelScrollWidth":55,"truncated":true,"contentWidth":278}}
+[38/138] [dev] › e2e/hel1583-glass-nav.spec.ts:447:11 › HEL-1583 glass nav, light theme › the active pill is content-sized and tabs are evenly spaced at 430px
+[dev] › e2e/hel1583-glass-nav.spec.ts:447:11 › HEL-1583 glass nav, light theme › the active pill is content-sized and tabs are evenly spaced at 430px
+[39/138] [dev] › e2e/hel1583-glass-nav.spec.ts:447:11 › HEL-1583 glass nav, light theme › the active pill is content-sized and tabs are evenly spaced at 768px
+[dev] › e2e/hel1583-glass-nav.spec.ts:447:11 › HEL-1583 glass nav, light theme › the active pill is content-sized and tabs are evenly spaced at 768px
+[dev] › e2e/hel1583-glass-nav.spec.ts:447:11 › HEL-1583 glass nav, light theme › the active pill is content-sized and tabs are evenly spaced at 430px
+HEL1583-SPACING 430 light gaps=[15.3,15.3,15.3,15.3,15.3,15.4]
+[40/138] [dev] › e2e/hel1583-glass-nav.spec.ts:475:11 › HEL-1583 glass nav, light theme › active pill contrast from rendered pixels at 320px over every backdrop
+[dev] › e2e/hel1583-glass-nav.spec.ts:475:11 › HEL-1583 glass nav, light theme › active pill contrast from rendered pixels at 320px over every backdrop
+[dev] › e2e/hel1583-glass-nav.spec.ts:447:11 › HEL-1583 glass nav, light theme › the active pill is content-sized and tabs are evenly spaced at 768px
+HEL1583-SPACING 768 light gaps=[71.7,71.7,71.7,71.7,71.7,71.7]
+[41/138] [dev] › e2e/hel1583-glass-nav.spec.ts:475:11 › HEL-1583 glass nav, light theme › active pill contrast from rendered pixels at 375px over every backdrop
+[dev] › e2e/hel1583-glass-nav.spec.ts:475:11 › HEL-1583 glass nav, light theme › active pill contrast from rendered pixels at 375px over every backdrop
+HEL1583-CONTRAST 375 light [{"backdrop":"default","active":"Dashboards","edgeTop":14.74,"edgeBottom":16.05,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":15.45},{"backdrop":"white","active":"Dashboards","edgeTop":16.48,"edgeBottom":16.48,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":16.66},{"backdrop":"black","active":"Dashboards","edgeTop":4.86,"edgeBottom":4.86,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":4.91},{"backdrop":"accent","active":"Dashboards","edgeTop":9.22,"edgeBottom":9.21,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":9.31},{"backdrop":"photo","active":"Dashboards","edgeTop":9.41,"edgeBottom":9.41,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":9.72}]
+[42/138] [dev] › e2e/hel1583-glass-nav.spec.ts:475:11 › HEL-1583 glass nav, light theme › active pill contrast from rendered pixels at 768px over every backdrop
+[dev] › e2e/hel1583-glass-nav.spec.ts:475:11 › HEL-1583 glass nav, light theme › active pill contrast from rendered pixels at 768px over every backdrop
+[dev] › e2e/hel1583-glass-nav.spec.ts:475:11 › HEL-1583 glass nav, light theme › active pill contrast from rendered pixels at 320px over every backdrop
+HEL1583-CONTRAST 320 light [{"backdrop":"default","active":"Dashboards","edgeTop":15.13,"edgeBottom":14.87,"label":16.74,"activeGlyph":6.86,"minInactiveGlyph":14.87},{"backdrop":"white","active":"Dashboards","edgeTop":16.48,"edgeBottom":16.48,"label":16.74,"activeGlyph":6.86,"minInactiveGlyph":16.66},{"backdrop":"black","active":"Dashboards","edgeTop":4.86,"edgeBottom":4.86,"label":16.74,"activeGlyph":6.86,"minInactiveGlyph":4.91},{"backdrop":"accent","active":"Dashboards","edgeTop":9.22,"edgeBottom":9.21,"label":16.74,"activeGlyph":6.86,"minInactiveGlyph":9.31},{"backdrop":"photo","active":"Dashboards","edgeTop":9.41,"edgeBottom":9.41,"label":16.74,"activeGlyph":6.86,"minInactiveGlyph":9.42},{"backdrop":"default","active":"Pipelines","edgeTop":15.66,"edgeBottom":15.65,"label":16.74,"activeGlyph":6.9,"minInactiveGlyph":15.78},{"backdrop":"white","active":"Pipelines","edgeTop":16.48,"edgeBottom":16.48,"label":16.74,"activeGlyph":6.9,"minInactiveGlyph":16.48},{"backdrop":"black","active":"Pipelines","edgeTop":4.86,"edgeBottom":4.86,"label":16.74,"activeGlyph":6.9,"minInactiveGlyph":4.86},{"backdrop":"accent","active":"Pipelines","edgeTop":9.22,"edgeBottom":9.21,"label":16.74,"activeGlyph":6.9,"minInactiveGlyph":9.21},{"backdrop":"photo","active":"Pipelines","edgeTop":9.41,"edgeBottom":9.41,"label":16.74,"activeGlyph":6.9,"minInactiveGlyph":9.42}]
+[43/138] [dev] › e2e/hel1583-glass-nav.spec.ts:539:9 › HEL-1583 glass nav, light theme › a free-tier user reaches the assistant overlay in one tap; the header has no avatar
+[dev] › e2e/hel1583-glass-nav.spec.ts:539:9 › HEL-1583 glass nav, light theme › a free-tier user reaches the assistant overlay in one tap; the header has no avatar
+[44/138] [dev] › e2e/hel1583-glass-nav.spec.ts:554:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/hel1583-glass-nav.spec.ts:554:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/hel1583-glass-nav.spec.ts:475:11 › HEL-1583 glass nav, light theme › active pill contrast from rendered pixels at 768px over every backdrop
+HEL1583-CONTRAST 768 light [{"backdrop":"default","active":"Dashboards","edgeTop":16.22,"edgeBottom":15.52,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":16.11},{"backdrop":"white","active":"Dashboards","edgeTop":16.48,"edgeBottom":16.48,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":16.66},{"backdrop":"black","active":"Dashboards","edgeTop":4.86,"edgeBottom":4.86,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":4.91},{"backdrop":"accent","active":"Dashboards","edgeTop":9.22,"edgeBottom":9.21,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":9.31},{"backdrop":"photo","active":"Dashboards","edgeTop":9.21,"edgeBottom":9.12,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":9.42}]
+[45/138] [dev] › e2e/hel1583-glass-nav.spec.ts:570:9 › HEL-1583 glass nav, light theme › an owner reaches Usage through the Me menu, which opens above the nav
+[dev] › e2e/hel1583-glass-nav.spec.ts:570:9 › HEL-1583 glass nav, light theme › an owner reaches Usage through the Me menu, which opens above the nav
+[46/138] [dev] › e2e/hel1583-glass-nav.spec.ts:612:9 › HEL-1583 glass nav, light theme › the refreshed line sits above the chip row on a dashboard whose pipeline has run
+[dev] › e2e/hel1583-glass-nav.spec.ts:612:9 › HEL-1583 glass nav, light theme › the refreshed line sits above the chip row on a dashboard whose pipeline has run
+[47/138] [dev] › e2e/hel1583-glass-nav.spec.ts:257:9 › HEL-1583 glass nav, dark theme › five tabs, the active label visible, exactly one current tab per route; Connectors via Data
+[dev] › e2e/hel1583-glass-nav.spec.ts:257:9 › HEL-1583 glass nav, dark theme › five tabs, the active label visible, exactly one current tab per route; Connectors via Data
+[48/138] [dev] › e2e/hel1583-glass-nav.spec.ts:319:11 › HEL-1583 glass nav, dark theme › tap targets are at least 44px and do not overlap at 320px
+[dev] › e2e/hel1583-glass-nav.spec.ts:319:11 › HEL-1583 glass nav, dark theme › tap targets are at least 44px and do not overlap at 320px
+[49/138] [dev] › e2e/hel1583-glass-nav.spec.ts:319:11 › HEL-1583 glass nav, dark theme › tap targets are at least 44px and do not overlap at 375px
+[dev] › e2e/hel1583-glass-nav.spec.ts:319:11 › HEL-1583 glass nav, dark theme › tap targets are at least 44px and do not overlap at 375px
+[50/138] [dev] › e2e/hel1583-glass-nav.spec.ts:319:11 › HEL-1583 glass nav, dark theme › tap targets are at least 44px and do not overlap at 768px
+[dev] › e2e/hel1583-glass-nav.spec.ts:319:11 › HEL-1583 glass nav, dark theme › tap targets are at least 44px and do not overlap at 768px
+[51/138] [dev] › e2e/hel1583-glass-nav.spec.ts:362:9 › HEL-1583 glass nav, dark theme › at 320px nothing crosses the capsule, the lozenge stays in its tab, and a long label truncates
+[dev] › e2e/hel1583-glass-nav.spec.ts:362:9 › HEL-1583 glass nav, dark theme › at 320px nothing crosses the capsule, the lozenge stays in its tab, and a long label truncates
+[52/138] [dev] › e2e/hel1583-glass-nav.spec.ts:423:9 › HEL-1583 glass nav, dark theme › the icon box and its vertical position do not change on activation
+[dev] › e2e/hel1583-glass-nav.spec.ts:423:9 › HEL-1583 glass nav, dark theme › the icon box and its vertical position do not change on activation
+[dev] › e2e/hel1583-glass-nav.spec.ts:362:9 › HEL-1583 glass nav, dark theme › at 320px nothing crosses the capsule, the lozenge stays in its tab, and a long label truncates
+HEL1583-TRUNCATION dark {"Dashboards":{"tabWidth":102,"labelClientWidth":54,"labelScrollWidth":72,"truncated":true,"contentWidth":278},"Pipelines":{"tabWidth":102,"labelClientWidth":54,"labelScrollWidth":55,"truncated":true,"contentWidth":278}}
+[53/138] [dev] › e2e/hel1583-glass-nav.spec.ts:447:11 › HEL-1583 glass nav, dark theme › the active pill is content-sized and tabs are evenly spaced at 430px
+[dev] › e2e/hel1583-glass-nav.spec.ts:447:11 › HEL-1583 glass nav, dark theme › the active pill is content-sized and tabs are evenly spaced at 430px
+[54/138] [dev] › e2e/hel1583-glass-nav.spec.ts:447:11 › HEL-1583 glass nav, dark theme › the active pill is content-sized and tabs are evenly spaced at 768px
+[dev] › e2e/hel1583-glass-nav.spec.ts:447:11 › HEL-1583 glass nav, dark theme › the active pill is content-sized and tabs are evenly spaced at 768px
+[dev] › e2e/hel1583-glass-nav.spec.ts:447:11 › HEL-1583 glass nav, dark theme › the active pill is content-sized and tabs are evenly spaced at 430px
+HEL1583-SPACING 430 dark gaps=[15.3,15.3,15.3,15.3,15.3,15.4]
+[55/138] [dev] › e2e/hel1583-glass-nav.spec.ts:475:11 › HEL-1583 glass nav, dark theme › active pill contrast from rendered pixels at 320px over every backdrop
+[dev] › e2e/hel1583-glass-nav.spec.ts:475:11 › HEL-1583 glass nav, dark theme › active pill contrast from rendered pixels at 320px over every backdrop
+[dev] › e2e/hel1583-glass-nav.spec.ts:447:11 › HEL-1583 glass nav, dark theme › the active pill is content-sized and tabs are evenly spaced at 768px
+HEL1583-SPACING 768 dark gaps=[71.7,71.7,71.7,71.7,71.7,71.7]
+[56/138] [dev] › e2e/hel1583-glass-nav.spec.ts:475:11 › HEL-1583 glass nav, dark theme › active pill contrast from rendered pixels at 375px over every backdrop
+[dev] › e2e/hel1583-glass-nav.spec.ts:475:11 › HEL-1583 glass nav, dark theme › active pill contrast from rendered pixels at 375px over every backdrop
+[dev] › e2e/hel1583-glass-nav.spec.ts:475:11 › HEL-1583 glass nav, dark theme › active pill contrast from rendered pixels at 320px over every backdrop
+HEL1583-CONTRAST 320 dark [{"backdrop":"default","active":"Dashboards","edgeTop":15.61,"edgeBottom":15.26,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":14.64},{"backdrop":"white","active":"Dashboards","edgeTop":3.96,"edgeBottom":3.43,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":3.43},{"backdrop":"black","active":"Dashboards","edgeTop":16.92,"edgeBottom":16.92,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":16.92},{"backdrop":"accent","active":"Dashboards","edgeTop":6.89,"edgeBottom":6.95,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":6.86},{"backdrop":"photo","active":"Dashboards","edgeTop":8.34,"edgeBottom":8.34,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":7.71},{"backdrop":"default","active":"Pipelines","edgeTop":16.18,"edgeBottom":16.18,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":16.27},{"backdrop":"white","active":"Pipelines","edgeTop":3.96,"edgeBottom":3.43,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":3.43},{"backdrop":"black","active":"Pipelines","edgeTop":16.92,"edgeBottom":16.92,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":16.92},{"backdrop":"accent","active":"Pipelines","edgeTop":6.89,"edgeBottom":6.95,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":6.86},{"backdrop":"photo","active":"Pipelines","edgeTop":8.34,"edgeBottom":8.34,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":7.71}]
+[57/138] [dev] › e2e/hel1583-glass-nav.spec.ts:475:11 › HEL-1583 glass nav, dark theme › active pill contrast from rendered pixels at 768px over every backdrop
+[dev] › e2e/hel1583-glass-nav.spec.ts:475:11 › HEL-1583 glass nav, dark theme › active pill contrast from rendered pixels at 768px over every backdrop
+[dev] › e2e/hel1583-glass-nav.spec.ts:475:11 › HEL-1583 glass nav, dark theme › active pill contrast from rendered pixels at 375px over every backdrop
+HEL1583-CONTRAST 375 dark [{"backdrop":"default","active":"Dashboards","edgeTop":15.11,"edgeBottom":15.58,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":15.26},{"backdrop":"white","active":"Dashboards","edgeTop":3.96,"edgeBottom":3.43,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":3.43},{"backdrop":"black","active":"Dashboards","edgeTop":16.92,"edgeBottom":16.92,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":16.92},{"backdrop":"accent","active":"Dashboards","edgeTop":6.89,"edgeBottom":6.95,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":6.86},{"backdrop":"photo","active":"Dashboards","edgeTop":8.34,"edgeBottom":8.34,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":7.83}]
+[58/138] [dev] › e2e/hel1583-glass-nav.spec.ts:539:9 › HEL-1583 glass nav, dark theme › a free-tier user reaches the assistant overlay in one tap; the header has no avatar
+[dev] › e2e/hel1583-glass-nav.spec.ts:539:9 › HEL-1583 glass nav, dark theme › a free-tier user reaches the assistant overlay in one tap; the header has no avatar
+[59/138] [dev] › e2e/hel1583-glass-nav.spec.ts:554:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/hel1583-glass-nav.spec.ts:554:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/hel1583-glass-nav.spec.ts:475:11 › HEL-1583 glass nav, dark theme › active pill contrast from rendered pixels at 768px over every backdrop
+HEL1583-CONTRAST 768 dark [{"backdrop":"default","active":"Dashboards","edgeTop":15.58,"edgeBottom":16.15,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":15.76},{"backdrop":"white","active":"Dashboards","edgeTop":3.96,"edgeBottom":3.43,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":3.43},{"backdrop":"black","active":"Dashboards","edgeTop":16.92,"edgeBottom":16.92,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":16.92},{"backdrop":"accent","active":"Dashboards","edgeTop":6.89,"edgeBottom":6.95,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":6.86},{"backdrop":"photo","active":"Dashboards","edgeTop":8.6,"edgeBottom":8.74,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":7.83}]
+[60/138] [dev] › e2e/hel1583-glass-nav.spec.ts:570:9 › HEL-1583 glass nav, dark theme › an owner reaches Usage through the Me menu, which opens above the nav
+[dev] › e2e/hel1583-glass-nav.spec.ts:570:9 › HEL-1583 glass nav, dark theme › an owner reaches Usage through the Me menu, which opens above the nav
+[61/138] [dev] › e2e/hel1583-glass-nav.spec.ts:612:9 › HEL-1583 glass nav, dark theme › the refreshed line sits above the chip row on a dashboard whose pipeline has run
+[dev] › e2e/hel1583-glass-nav.spec.ts:612:9 › HEL-1583 glass nav, dark theme › the refreshed line sits above the chip row on a dashboard whose pipeline has run
+[62/138] [dev] › e2e/hel1583-refresh-line-no-shift.spec.ts:50:7 › pipeline-fed dashboard: the cards do not move when the refreshed line resolves (light)
+[dev] › e2e/hel1583-refresh-line-no-shift.spec.ts:50:7 › pipeline-fed dashboard: the cards do not move when the refreshed line resolves (light)
+[63/138] [dev] › e2e/hel1583-refresh-line-no-shift.spec.ts:116:7 › dashboard with no pipeline-fed panels: no reserved gap and no shift (light)
+[dev] › e2e/hel1583-refresh-line-no-shift.spec.ts:116:7 › dashboard with no pipeline-fed panels: no reserved gap and no shift (light)
+HEL1583-NOGAP light {"before":{"card":128,"chips":76,"scrollHeight":632},"after":{"card":128,"chips":76,"scrollHeight":632}}
+[64/138] [dev] › e2e/hel1583-refresh-line-no-shift.spec.ts:50:7 › pipeline-fed dashboard: the cards do not move when the refreshed line resolves (dark)
+[dev] › e2e/hel1583-refresh-line-no-shift.spec.ts:50:7 › pipeline-fed dashboard: the cards do not move when the refreshed line resolves (dark)
+[dev] › e2e/hel1583-refresh-line-no-shift.spec.ts:50:7 › pipeline-fed dashboard: the cards do not move when the refreshed line resolves (light)
+HEL1583-NOSHIFT light {"before":{"card":155.1875,"chips":103.1875,"scrollHeight":659},"after":{"card":155.1875,"chips":103.1875,"scrollHeight":659}}
+[65/138] [dev] › e2e/hel1583-refresh-line-no-shift.spec.ts:116:7 › dashboard with no pipeline-fed panels: no reserved gap and no shift (dark)
+[dev] › e2e/hel1583-refresh-line-no-shift.spec.ts:116:7 › dashboard with no pipeline-fed panels: no reserved gap and no shift (dark)
+HEL1583-NOGAP dark {"before":{"card":128,"chips":76,"scrollHeight":632},"after":{"card":128,"chips":76,"scrollHeight":632}}
+[66/138] [dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:238:11 › 375px light › pipeline-fed dashboard: the slot is reserved in the skeleton and the placeholders sit where the real cards land
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:238:11 › 375px light › pipeline-fed dashboard: the slot is reserved in the skeleton and the placeholders sit where the real cards land
+[dev] › e2e/hel1583-refresh-line-no-shift.spec.ts:50:7 › pipeline-fed dashboard: the cards do not move when the refreshed line resolves (dark)
+HEL1583-NOSHIFT dark {"before":{"card":155.1875,"chips":103.1875,"scrollHeight":659},"after":{"card":155.1875,"chips":103.1875,"scrollHeight":659}}
+[67/138] [dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:262:11 › 375px light › markdown-only dashboard: no slot in the skeleton or after, and no jump
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:262:11 › 375px light › markdown-only dashboard: no slot in the skeleton or after, and no jump
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:238:11 › 375px light › pipeline-fed dashboard: the slot is reserved in the skeleton and the placeholders sit where the real cards land
+HEL1646 fed 375 light {"skeletonFrames":149,"loadedFrames":38,"skeletonFirst":{"t":1949.4000000022352,"placeholderTop":155,"cardTop":null,"chipTop":103,"slot":"reserved"},"loadedFirst":{"t":4779.400000002235,"placeholderTop":null,"cardTop":155,"chipTop":103,"slot":"filled"},"shiftTotal":0,"shifts":[]}
+[68/138] [dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:238:11 › 375px dark › pipeline-fed dashboard: the slot is reserved in the skeleton and the placeholders sit where the real cards land
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:238:11 › 375px dark › pipeline-fed dashboard: the slot is reserved in the skeleton and the placeholders sit where the real cards land
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:262:11 › 375px light › markdown-only dashboard: no slot in the skeleton or after, and no jump
+HEL1646 md 375 light {"skeletonFrames":146,"loadedFrames":37,"skeletonFirst":{"t":2008.3999999985099,"placeholderTop":128,"cardTop":null,"chipTop":76,"slot":"none"},"loadedFirst":{"t":4807.39999999851,"placeholderTop":null,"cardTop":128,"chipTop":76,"slot":"none"},"shiftTotal":0,"shifts":[]}
+[69/138] [dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:262:11 › 375px dark › markdown-only dashboard: no slot in the skeleton or after, and no jump
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:262:11 › 375px dark › markdown-only dashboard: no slot in the skeleton or after, and no jump
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:238:11 › 375px dark › pipeline-fed dashboard: the slot is reserved in the skeleton and the placeholders sit where the real cards land
+HEL1646 fed 375 dark {"skeletonFrames":147,"loadedFrames":37,"skeletonFirst":{"t":1742.800000000745,"placeholderTop":155,"cardTop":null,"chipTop":103,"slot":"reserved"},"loadedFirst":{"t":4573.60000000149,"placeholderTop":null,"cardTop":155,"chipTop":103,"slot":"filled"},"shiftTotal":0,"shifts":[]}
+[70/138] [dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:238:11 › 430px light › pipeline-fed dashboard: the slot is reserved in the skeleton and the placeholders sit where the real cards land
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:238:11 › 430px light › pipeline-fed dashboard: the slot is reserved in the skeleton and the placeholders sit where the real cards land
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:262:11 › 375px dark › markdown-only dashboard: no slot in the skeleton or after, and no jump
+HEL1646 md 375 dark {"skeletonFrames":145,"loadedFrames":38,"skeletonFirst":{"t":2226.599999997765,"placeholderTop":128,"cardTop":null,"chipTop":76,"slot":"none"},"loadedFirst":{"t":4993.39999999851,"placeholderTop":null,"cardTop":128,"chipTop":76,"slot":"none"},"shiftTotal":0,"shifts":[]}
+[71/138] [dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:262:11 › 430px light › markdown-only dashboard: no slot in the skeleton or after, and no jump
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:262:11 › 430px light › markdown-only dashboard: no slot in the skeleton or after, and no jump
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:238:11 › 430px light › pipeline-fed dashboard: the slot is reserved in the skeleton and the placeholders sit where the real cards land
+HEL1646 fed 430 light {"skeletonFrames":143,"loadedFrames":42,"skeletonFirst":{"t":1659.3999999985099,"placeholderTop":155,"cardTop":null,"chipTop":103,"slot":"reserved"},"loadedFirst":{"t":4371.300000000745,"placeholderTop":null,"cardTop":155,"chipTop":103,"slot":"filled"},"shiftTotal":0,"shifts":[]}
+[72/138] [dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:238:11 › 430px dark › pipeline-fed dashboard: the slot is reserved in the skeleton and the placeholders sit where the real cards land
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:238:11 › 430px dark › pipeline-fed dashboard: the slot is reserved in the skeleton and the placeholders sit where the real cards land
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:262:11 › 430px light › markdown-only dashboard: no slot in the skeleton or after, and no jump
+HEL1646 md 430 light {"skeletonFrames":145,"loadedFrames":39,"skeletonFirst":{"t":1781.3999999985099,"placeholderTop":128,"cardTop":null,"chipTop":76,"slot":"none"},"loadedFirst":{"t":4527.60000000149,"placeholderTop":null,"cardTop":128,"chipTop":76,"slot":"none"},"shiftTotal":0,"shifts":[]}
+[73/138] [dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:262:11 › 430px dark › markdown-only dashboard: no slot in the skeleton or after, and no jump
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:262:11 › 430px dark › markdown-only dashboard: no slot in the skeleton or after, and no jump
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:238:11 › 430px dark › pipeline-fed dashboard: the slot is reserved in the skeleton and the placeholders sit where the real cards land
+HEL1646 fed 430 dark {"skeletonFrames":142,"loadedFrames":41,"skeletonFirst":{"t":1568.2000000029802,"placeholderTop":155,"cardTop":null,"chipTop":103,"slot":"reserved"},"loadedFirst":{"t":4298.5,"placeholderTop":null,"cardTop":155,"chipTop":103,"slot":"filled"},"shiftTotal":0.058834375,"shifts":[{"t":4144.300000000745,"value":0.058834375,"nodes":["article.panel-grid-card@dy134"]}]}
+[74/138] [dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:321:7 › in-app dashboard switches (375px, light) › pipeline-fed -> markdown-only: no slot while the target's skeleton shows, nor after
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:321:7 › in-app dashboard switches (375px, light) › pipeline-fed -> markdown-only: no slot while the target's skeleton shows, nor after
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:262:11 › 430px dark › markdown-only dashboard: no slot in the skeleton or after, and no jump
+HEL1646 md 430 dark {"skeletonFrames":144,"loadedFrames":39,"skeletonFirst":{"t":2276.60000000149,"placeholderTop":128,"cardTop":null,"chipTop":76,"slot":"none"},"loadedFirst":{"t":5022.5,"placeholderTop":null,"cardTop":128,"chipTop":76,"slot":"none"},"shiftTotal":0,"shifts":[]}
+[75/138] [dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:341:7 › in-app dashboard switches (375px, light) › markdown-only -> pipeline-fed: the slot is reserved in the target's skeleton and the tops match
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:341:7 › in-app dashboard switches (375px, light) › markdown-only -> pipeline-fed: the slot is reserved in the target's skeleton and the tops match
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:321:7 › in-app dashboard switches (375px, light) › pipeline-fed -> markdown-only: no slot while the target's skeleton shows, nor after
+HEL1646 switch fed->md {"skeletonFrames":155,"loadedFrames":36,"skeletonFirst":{"t":2441.5,"placeholderTop":128,"cardTop":null,"chipTop":76,"slot":"none"},"loadedFirst":{"t":5343.300000000745,"placeholderTop":null,"cardTop":128,"chipTop":76,"slot":"none"},"shiftTotal":0.024572515625,"shifts":[{"t":2473.10000000149,"value":0.024572515625,"nodes":["svg.[object@dy0","div.dashboard-chip-row@dy-27","div.panel-list__zoom-container@dy-27"]}]}
+[76/138] [dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:358:5 › deleting the last panel of a pipeline-fed dashboard leaves no slot, now or on a slow reopen
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:358:5 › deleting the last panel of a pipeline-fed dashboard leaves no slot, now or on a slow reopen
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:341:7 › in-app dashboard switches (375px, light) › markdown-only -> pipeline-fed: the slot is reserved in the target's skeleton and the tops match
+HEL1646 switch md->fed {"skeletonFrames":154,"loadedFrames":36,"skeletonFirst":{"t":2570.7000000029802,"placeholderTop":155,"cardTop":null,"chipTop":103,"slot":"reserved"},"loadedFirst":{"t":5523.70000000298,"placeholderTop":null,"cardTop":155,"chipTop":103,"slot":"filled"},"shiftTotal":0.024850847656249998,"shifts":[{"t":2605.2000000029802,"value":0.024850847656249998,"nodes":["svg.[object@dy0","div.dashboard-chip-row@dy27","div.panel-list__zoom-container@dy27"]}]}
+[77/138] [dev] › e2e/hel1681-refresh-control.spec.ts:108:9 › HEL-1681 refresh button at 375 › a single tap refreshes each output panel once, runs no pipeline, and shows a busy cue
+[dev] › e2e/hel1681-refresh-control.spec.ts:108:9 › HEL-1681 refresh button at 375 › a single tap refreshes each output panel once, runs no pipeline, and shows a busy cue
+[dev] › e2e/hel1646-skeleton-refresh-slot.spec.ts:358:5 › deleting the last panel of a pipeline-fed dashboard leaves no slot, now or on a slow reopen
+HEL1646 delete-last {"frames":179,"slots":["none"],"fetches":1}
+[78/138] [dev] › e2e/hel1681-refresh-control.spec.ts:147:9 › HEL-1681 refresh button at 375 › keyboard: Enter on the focused button refreshes once and announces Refreshing then Refreshed
+[dev] › e2e/hel1681-refresh-control.spec.ts:147:9 › HEL-1681 refresh button at 375 › keyboard: Enter on the focused button refreshes once and announces Refreshing then Refreshed
+[79/138] [dev] › e2e/hel1681-refresh-control.spec.ts:182:9 › HEL-1681 refresh button at 375 › a second activation while a round is busy sends nothing
+[dev] › e2e/hel1681-refresh-control.spec.ts:182:9 › HEL-1681 refresh button at 375 › a second activation while a round is busy sends nothing
+[80/138] [dev] › e2e/hel1681-refresh-control.spec.ts:204:9 › HEL-1681 refresh button at 375 › the tap area is at least 44x44, inside the panel list, and leaves the chip row its own taps
+[dev] › e2e/hel1681-refresh-control.spec.ts:204:9 › HEL-1681 refresh button at 375 › the tap area is at least 44x44, inside the panel list, and leaves the chip row its own taps
+[81/138] [dev] › e2e/hel1681-refresh-control.spec.ts:262:9 › HEL-1681 refresh button at 375 › showing the button does not move the stack's resting position
+[dev] › e2e/hel1681-refresh-control.spec.ts:262:9 › HEL-1681 refresh button at 375 › showing the button does not move the stack's resting position
+[82/138] [dev] › e2e/hel1681-refresh-control.spec.ts:290:9 › HEL-1681 refresh button at 375 › no button on a dashboard with no output-bound panel
+[dev] › e2e/hel1681-refresh-control.spec.ts:290:9 › HEL-1681 refresh button at 375 › no button on a dashboard with no output-bound panel
+[83/138] [dev] › e2e/hel1681-refresh-control.spec.ts:108:9 › HEL-1681 refresh button at 430 › a single tap refreshes each output panel once, runs no pipeline, and shows a busy cue
+[dev] › e2e/hel1681-refresh-control.spec.ts:108:9 › HEL-1681 refresh button at 430 › a single tap refreshes each output panel once, runs no pipeline, and shows a busy cue
+[84/138] [dev] › e2e/hel1681-refresh-control.spec.ts:147:9 › HEL-1681 refresh button at 430 › keyboard: Enter on the focused button refreshes once and announces Refreshing then Refreshed
+[dev] › e2e/hel1681-refresh-control.spec.ts:147:9 › HEL-1681 refresh button at 430 › keyboard: Enter on the focused button refreshes once and announces Refreshing then Refreshed
+[85/138] [dev] › e2e/hel1681-refresh-control.spec.ts:182:9 › HEL-1681 refresh button at 430 › a second activation while a round is busy sends nothing
+[dev] › e2e/hel1681-refresh-control.spec.ts:182:9 › HEL-1681 refresh button at 430 › a second activation while a round is busy sends nothing
+[86/138] [dev] › e2e/hel1681-refresh-control.spec.ts:204:9 › HEL-1681 refresh button at 430 › the tap area is at least 44x44, inside the panel list, and leaves the chip row its own taps
+[dev] › e2e/hel1681-refresh-control.spec.ts:204:9 › HEL-1681 refresh button at 430 › the tap area is at least 44x44, inside the panel list, and leaves the chip row its own taps
+[87/138] [dev] › e2e/hel1681-refresh-control.spec.ts:262:9 › HEL-1681 refresh button at 430 › showing the button does not move the stack's resting position
+[88/138] [dev] › e2e/hel1681-refresh-control.spec.ts:290:9 › HEL-1681 refresh button at 430 › no button on a dashboard with no output-bound panel
+[dev] › e2e/hel1681-refresh-control.spec.ts:262:9 › HEL-1681 refresh button at 430 › showing the button does not move the stack's resting position
+[dev] › e2e/hel1681-refresh-control.spec.ts:290:9 › HEL-1681 refresh button at 430 › no button on a dashboard with no output-bound panel
+[89/138] [dev] › e2e/hel1681-refresh-control.spec.ts:309:5 › Full motion: after a pull-started round the settling indicator reads Refreshed, never Pull to refresh
+[dev] › e2e/hel1681-refresh-control.spec.ts:309:5 › Full motion: after a pull-started round the settling indicator reads Refreshed, never Pull to refresh
+[90/138] [dev] › e2e/hel1681-refresh-control.spec.ts:347:5 › no refresh button at 1280
+[dev] › e2e/hel1681-refresh-control.spec.ts:347:5 › no refresh button at 1280
+[91/138] [dev] › e2e/hel1681-refresh-control.spec.ts:361:5 › crossing 768px keeps the same zoom container and a non-zero grid width
+[dev] › e2e/hel1681-refresh-control.spec.ts:361:5 › crossing 768px keeps the same zoom container and a non-zero grid width
+[92/138] [dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 phone 375, light › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 phone 375, light › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[93/138] [dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 phone 430, light › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 phone 430, light › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[94/138] [dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 desktop browser at 375 (non-touch), light › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 desktop browser at 375 (non-touch), light › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[95/138] [dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 phone 375, dark › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 phone 375, dark › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[96/138] [dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 phone 430, dark › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 phone 430, dark › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[97/138] [dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 desktop browser at 375 (non-touch), dark › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 desktop browser at 375 (non-touch), dark › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[98/138] [dev] › e2e/hel1738-refresh-during-first-load.spec.ts:242:5 › at 1280 there is no refresh button and the first load sends one request per panel
+[dev] › e2e/hel1738-refresh-during-first-load.spec.ts:242:5 › at 1280 there is no refresh button and the first load sends one request per panel
+[99/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:68:9 › provenance popover: last section reachable (desktop short 1280x400, light)
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:68:9 › provenance popover: last section reachable (desktop short 1280x400, light)
+[100/138] [dev] › e2e/hel1762-popover-clears-bottom-nav.spec.ts:150:9 › provenance popover clears the bottom nav (phone 390x844, light)
+[dev] › e2e/hel1762-popover-clears-bottom-nav.spec.ts:150:9 › provenance popover clears the bottom nav (phone 390x844, light)
+[101/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:68:9 › provenance popover: last section reachable (desktop very short 1280x320, light)
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:68:9 › provenance popover: last section reachable (desktop very short 1280x320, light)
+[102/138] [dev] › e2e/hel1762-popover-clears-bottom-nav.spec.ts:150:9 › provenance popover clears the bottom nav (phone short 390x400, light)
+[dev] › e2e/hel1762-popover-clears-bottom-nav.spec.ts:150:9 › provenance popover clears the bottom nav (phone short 390x400, light)
+[103/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:68:9 › provenance popover: last section reachable (phone short 390x400, light)
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:68:9 › provenance popover: last section reachable (phone short 390x400, light)
+[104/138] [dev] › e2e/hel1762-popover-clears-bottom-nav.spec.ts:150:9 › provenance popover clears the bottom nav (phone 390x844, dark)
+[dev] › e2e/hel1762-popover-clears-bottom-nav.spec.ts:150:9 › provenance popover clears the bottom nav (phone 390x844, dark)
+[105/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:68:9 › provenance popover: last section reachable (desktop short 1280x400, dark)
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:68:9 › provenance popover: last section reachable (desktop short 1280x400, dark)
+[106/138] [dev] › e2e/hel1762-popover-clears-bottom-nav.spec.ts:150:9 › provenance popover clears the bottom nav (phone short 390x400, dark)
+[dev] › e2e/hel1762-popover-clears-bottom-nav.spec.ts:150:9 › provenance popover clears the bottom nav (phone short 390x400, dark)
+[107/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:68:9 › provenance popover: last section reachable (desktop very short 1280x320, dark)
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:68:9 › provenance popover: last section reachable (desktop very short 1280x320, dark)
+[108/138] [dev] › e2e/hel1762-popover-clears-bottom-nav.spec.ts:183:7 › actions menu clears the bottom nav (phone width 390, light)
+[dev] › e2e/hel1762-popover-clears-bottom-nav.spec.ts:183:7 › actions menu clears the bottom nav (phone width 390, light)
+[109/138] [dev] › e2e/hel1762-popover-clears-bottom-nav.spec.ts:183:7 › actions menu clears the bottom nav (phone width 390, dark)
+[dev] › e2e/hel1762-popover-clears-bottom-nav.spec.ts:183:7 › actions menu clears the bottom nav (phone width 390, dark)
+[110/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:68:9 › provenance popover: last section reachable (phone short 390x400, dark)
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:68:9 › provenance popover: last section reachable (phone short 390x400, dark)
+[111/138] [dev] › e2e/hel1773-viewer-grantee-dashboard.spec.ts:348:7 › HEL-1773 dashboard grantees open a shared dashboard › viewer grantee: signing in lands on their own dashboard, not a newer shared one
+[dev] › e2e/hel1773-viewer-grantee-dashboard.spec.ts:348:7 › HEL-1773 dashboard grantees open a shared dashboard › viewer grantee: signing in lands on their own dashboard, not a newer shared one
+[112/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:123:5 › provenance popover: focus lands inside the panel after a keyboard open
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:123:5 › provenance popover: focus lands inside the panel after a keyboard open
+[113/138] [dev] › e2e/hel1773-viewer-grantee-dashboard.spec.ts:356:7 › HEL-1773 dashboard grantees open a shared dashboard › viewer grantee opens the shared dashboard read-only, through per-panel routes only
+[114/138] [dev] › e2e/hel1773-viewer-grantee-dashboard.spec.ts:425:7 › HEL-1773 dashboard grantees open a shared dashboard › viewer grantee: Home lists the shared dashboard with the Shared marker
+[115/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:157:5 › provenance popover: a cache-miss open re-fits once its content arrives (tall window)
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:157:5 › provenance popover: a cache-miss open re-fits once its content arrives (tall window)
+[116/138] [dev] › e2e/hel1773-viewer-grantee-dashboard.spec.ts:435:7 › HEL-1773 dashboard grantees open a shared dashboard › viewer grantee opens the shared dashboard on a phone
+[117/138] [dev] › e2e/hel1773-viewer-grantee-dashboard.spec.ts:456:7 › HEL-1773 dashboard grantees open a shared dashboard › editor grantee edits within what the server permits, through per-panel routes only
+[118/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:197:5 › provenance popover: its height never exceeds the 70vh design cap
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:197:5 › provenance popover: its height never exceeds the 70vh design cap
+[119/138] [dev] › e2e/hel1773-viewer-grantee-dashboard.spec.ts:540:7 › HEL-1773 dashboard grantees open a shared dashboard › editor: switching from a shared dashboard to an owned one binding the same Output shows its facts
+[120/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:268:9 › appearance editor: Save and a save error stay reachable after the contrast warning (1280x400, light)
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:268:9 › appearance editor: Save and a save error stay reachable after the contrast warning (1280x400, light)
+[121/138] [dev] › e2e/hel1773-viewer-grantee-dashboard.spec.ts:551:7 › HEL-1773 dashboard grantees open a shared dashboard › owner control: the owner is unchanged (edit controls, no Shared marker)
+[122/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:268:9 › appearance editor: Save and a save error stay reachable after the contrast warning (1280x320, light)
+[123/138] [dev] › e2e/hel1773-viewer-grantee-dashboard.spec.ts:573:7 › HEL-1773 dashboard grantees open a shared dashboard › stranger control: a user with no grant gets not-found
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:268:9 › appearance editor: Save and a save error stay reachable after the contrast warning (1280x320, light)
+[124/138] [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:507:7 › HEL-1780 grantees get panel features through per-panel routes › viewer (dashboard-only): every feature through per-panel routes
+[dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:507:7 › HEL-1780 grantees get panel features through per-panel routes › viewer (dashboard-only): every feature through per-panel routes
+[125/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:268:9 › appearance editor: Save and a save error stay reachable after the contrast warning (1280x400, dark)
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:268:9 › appearance editor: Save and a save error stay reachable after the contrast warning (1280x400, dark)
+[126/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:268:9 › appearance editor: Save and a save error stay reachable after the contrast warning (1280x320, dark)
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:268:9 › appearance editor: Save and a save error stay reachable after the contrast warning (1280x320, dark)
+[127/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:321:5 › appearance editor: tabbing between controls and clicking the colour input keep it open
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:321:5 › appearance editor: tabbing between controls and clicking the colour input keep it open
+[128/138] [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:512:7 › HEL-1780 grantees get panel features through per-panel routes › viewer: the same dashboard on a phone
+[129/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:344:7 › appearance editor: a save error alone (no contrast warning) stays reachable (1280x320, light)
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:344:7 › appearance editor: a save error alone (no contrast warning) stays reachable (1280x320, light)
+[130/138] [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:536:7 › HEL-1780 grantees get panel features through per-panel routes › editor (dashboard-only): every feature, and the binding stays read-only
+[131/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:344:7 › appearance editor: a save error alone (no contrast warning) stays reachable (1280x320, dark)
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:344:7 › appearance editor: a save error alone (no contrast warning) stays reachable (1280x320, dark)
+[132/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:378:7 › appearance editor: a keyboard open puts focus in the form and Tab keeps it open (light)
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:378:7 › appearance editor: a keyboard open puts focus in the form and Tab keeps it open (light)
+[133/138] [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:553:7 › HEL-1780 grantees get panel features through per-panel routes › dual-grant user (pipeline grant AND dashboard grant): per-panel routes on the shared dashboard
+[134/138] [dev] › e2e/hel1756-popover-viewport-fit.spec.ts:378:7 › appearance editor: a keyboard open puts focus in the form and Tab keeps it open (dark)
+[dev] › e2e/hel1756-popover-viewport-fit.spec.ts:378:7 › appearance editor: a keyboard open puts focus in the form and Tab keeps it open (dark)
+[135/138] [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:280:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only
+[dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:280:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only
+[136/138] [dev] › e2e/hel1780-shared-dashboard-panel-features.spec.ts:557:7 › HEL-1780 grantees get panel features through per-panel routes › switch shared -> own -> shared: no request goes out under the wrong role
+[137/138] [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:280:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only
+[138/138] [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:328:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control
+  138 passed (8.5m)

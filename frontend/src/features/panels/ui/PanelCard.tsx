@@ -4,6 +4,7 @@ import { resolvePanelReadableTones } from "../../../theme/panelReadableTones";
 import { getOutputId, isFullscreenEligible } from "../state/panelNarrowing";
 import { deletePanel, duplicatePanel } from "../state/panelsSlice";
 import { useDataInvalid } from "../provenance/useDataInvalid";
+import { usePanelStatus } from "../hooks/usePanelStatus";
 import { useInsightChrome } from "../insight/insightChromeStore";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { usePanelReadScope } from "../state/panelReadScope";
@@ -143,10 +144,13 @@ export const PanelCard = React.memo(function PanelCard({
 
   // HEL-1207 A4: the badge's status read is deduped across consumers and, once the provenance
   // popover has loaded, derived from its cache.
-  // HEL-1773: the badge reads `GET /api/outputs/:id/assertion-status`, an Output route a dashboard grantee has no access to
-  // (it stays off for them until HEL-1786).
+  // HEL-1786: the owner's badge reads `GET /api/outputs/:id/assertion-status`, an Output route a dashboard grantee has no
+  // access to; in `panel` scope it comes from the dashboard panel-status route instead. Both hooks are always called, each
+  // with a null input when it is not this scope's source, so neither makes a request it should not.
   const scope = usePanelReadScope(panel);
-  const isDataInvalid = useDataInvalid(scope.kind === "output" ? outputId : null);
+  const ownerInvalid = useDataInvalid(scope.kind === "output" ? outputId : null);
+  const status = usePanelStatus(scope.kind === "panel" ? scope.dashboardId : null, panel.id);
+  const isDataInvalid = scope.kind === "output" ? ownerInvalid : status?.invalid === true;
   // HEL-1780 D7/S1: in panel scope the header Refresh re-reads rows through the per-panel route, which means nothing for an
   // insight panel (its body reads the stored render) and the paid in-body update refuses a grantee. Hidden for an insight
   // and, failing closed, while the kind is still unknown.

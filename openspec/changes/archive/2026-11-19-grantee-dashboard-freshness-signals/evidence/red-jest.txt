@@ -1,0 +1,47 @@
+> helio-frontend@0.0.0 test
+> jest --config jest.config.cjs --passWithNoTests --maxWorkers=3 --testPathPatterns=dashboardMeta.fromStatus|panelStatusStore|DashboardFreshness.shared|PanelCard.sharedBadge|PanelCardBody.statusRefresh
+FAIL src/features/panels/state/panelStatusStore.test.ts
+  ● Test suite failed to run
+    src/features/panels/state/panelStatusStore.test.ts:3:43 - error TS2307: Cannot find module '../services/panelStatusService' or its corresponding type declarations.
+    3 import { fetchDashboardPanelStatus } from "../services/panelStatusService";
+                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    src/features/panels/state/panelStatusStore.test.ts:13:8 - error TS2307: Cannot find module './panelStatusStore' or its corresponding type declarations.
+    13 } from "./panelStatusStore";
+              ~~~~~~~~~~~~~~~~~~~~
+FAIL src/features/panels/ui/PanelCardBody.statusRefresh.test.tsx
+  ● Test suite failed to run
+    src/features/panels/ui/PanelCardBody.statusRefresh.test.tsx:31:43 - error TS2307: Cannot find module '../services/panelStatusService' or its corresponding type declarations.
+    31 import { fetchDashboardPanelStatus } from "../services/panelStatusService";
+                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    src/features/panels/ui/PanelCardBody.statusRefresh.test.tsx:32:70 - error TS2307: Cannot find module '../state/panelStatusStore' or its corresponding type declarations.
+    32 import { refreshPanelStatusNow, resetPanelStatusStoreForTests } from "../state/panelStatusStore";
+                                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+FAIL src/features/panels/ui/PanelCard.sharedBadge.test.tsx
+  ● Test suite failed to run
+    src/features/panels/ui/PanelCard.sharedBadge.test.tsx:8:43 - error TS2307: Cannot find module '../services/panelStatusService' or its corresponding type declarations.
+    8 import { fetchDashboardPanelStatus } from "../services/panelStatusService";
+                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    src/features/panels/ui/PanelCard.sharedBadge.test.tsx:9:47 - error TS2307: Cannot find module '../state/panelStatusStore' or its corresponding type declarations.
+    9 import { resetPanelStatusStoreForTests } from "../state/panelStatusStore";
+                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+FAIL src/features/panels/state/dashboardMeta.fromStatus.test.ts
+  ● Test suite failed to run
+    src/features/panels/state/dashboardMeta.fromStatus.test.ts:2:10 - error TS2305: Module '"./dashboardMeta"' has no exported member 'deriveDashboardMetaFromStatus'.
+    2 import { deriveDashboardMetaFromStatus, MAX_SHOWN_SOURCES } from "./dashboardMeta";
+               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    src/features/panels/state/dashboardMeta.fromStatus.test.ts:3:59 - error TS2307: Cannot find module './panelStatusStore' or its corresponding type declarations.
+    3 import type { PanelStatusItem, PanelStatusSnapshot } from "./panelStatusStore";
+                                                                ~~~~~~~~~~~~~~~~~~~~
+FAIL src/app/dashboardMeta/DashboardFreshness.shared.test.tsx
+  ● Test suite failed to run
+    src/app/dashboardMeta/DashboardFreshness.shared.test.tsx:7:43 - error TS2307: Cannot find module '../../features/panels/services/panelStatusService' or its corresponding type declarations.
+    7 import { fetchDashboardPanelStatus } from "../../features/panels/services/panelStatusService";
+                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    src/app/dashboardMeta/DashboardFreshness.shared.test.tsx:8:47 - error TS2307: Cannot find module '../../features/panels/state/panelStatusStore' or its corresponding type declarations.
+    8 import { resetPanelStatusStoreForTests } from "../../features/panels/state/panelStatusStore";
+                                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Test Suites: 5 failed, 5 total
+Tests:       0 total
+Snapshots:   0 total
+Time:        5.052 s
+Ran all test suites matching dashboardMeta.fromStatus|panelStatusStore|DashboardFreshness.shared|PanelCard.sharedBadge|PanelCardBody.statusRefresh.

@@ -14,6 +14,11 @@ import { renderWithStore } from "../../../../test/renderWithStore";
 import { makeOutputPanel } from "../../../../test/panelFixtures";
 import { PanelGrid, type PanelGridHandle } from "./PanelGrid";
 
+// HEL-1786: a panel on a dashboard the caller does not own polls the dashboard panel-status route; no network in a unit test.
+jest.mock("../../services/panelStatusService", () => ({
+  fetchDashboardPanelStatus: jest.fn(() => new Promise(() => {})),
+}));
+
 // HEL-1600 -- stands in for GET /api/outputs/:id, GET /api/outputs/:id/assertion-status, which this test reaches but does not exercise
 // (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
 jest.mock("../../../pipelines/services/outputService", () => ({

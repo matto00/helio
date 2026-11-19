@@ -1,6 +1,7 @@
 import { RotateCw } from "lucide-react";
 
 import { useDashboardMeta } from "../../features/panels/hooks/useDashboardMeta";
+import { useSharedDashboardMeta } from "../../features/panels/hooks/usePanelStatus";
 import { feedingOutputIds } from "../../features/panels/state/dashboardMeta";
 import { panelsKnownFor } from "../../features/panels/state/panelsSettled";
 import type { Panel } from "../../features/panels/types/panel";
@@ -71,13 +72,16 @@ export function DashboardRefreshLine() {
       state.dashboards.items.find((d) => d.id === state.dashboards.selectedDashboardId)
         ?.hasPipelineFedPanels === true,
   );
-  // HEL-1773: the refreshed line is built from Output metadata and pipeline summaries (Output and pipeline routes), so a
-  // dashboard the caller does not own has none: no request is made and no slot is reserved.
+  // HEL-1786: an owner's line is built from Output metadata and pipeline summaries (Output and pipeline routes); anyone else's
+  // from the dashboard panel-status route, which their dashboard grant admits. The same slot rules apply to both so the cards
+  // never shift (HEL-1583/HEL-1646).
   const isOwner = useAppSelector((state) => selectIsDashboardOwner(state, selectedDashboardId));
-  const meta = useDashboardMeta(selectedDashboardId, isOwner ? panels : NO_PANELS);
+  const ownerMeta = useDashboardMeta(selectedDashboardId, isOwner ? panels : NO_PANELS);
+  const sharedMeta = useSharedDashboardMeta(isOwner ? null : selectedDashboardId, panels);
+  const meta = isOwner ? ownerMeta : sharedMeta;
   const now = useNow(RELATIVE_TIME_TICK_MS);
   const fact = refreshFactOf(meta, now);
-  if (selectedDashboardId === null || !isOwner) return null;
+  if (selectedDashboardId === null) return null;
   if (fact === null) {
     const pipelineFed = panelsKnown ? feedingOutputIds(panels).length > 0 : listedPipelineFed;
     // The empty text span is the `aria-hidden` part (not the whole line), so the button stays exposed.

@@ -10,6 +10,11 @@ import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
 import { scopeOutputToPanel } from "../state/outputMetaCache";
 import { PanelCard } from "./PanelCard";
 
+// HEL-1786: a panel on a dashboard the caller does not own polls the dashboard panel-status route; no network in a unit test.
+jest.mock("../services/panelStatusService", () => ({
+  fetchDashboardPanelStatus: jest.fn(() => new Promise(() => {})),
+}));
+
 // HEL-1780 D7/S1: the card-header "Refresh <title>" re-reads rows. In panel read scope (a dashboard the caller does not own)
 // that means nothing for an insight panel, whose body reads the stored render, and the paid in-body update refuses a
 // grantee -- so it is not rendered for an insight, and, failing closed, not while the Output's kind is still unknown.

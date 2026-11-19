@@ -393,6 +393,7 @@ object ExistenceNotLeakedRoutesSpec {
     Row("GET panel output-meta", HttpMethods.GET, s"/api/dashboards/{id}/panels/$AnyUuid/output-meta", Dashboard, Set("PublicDashboardRoutes.scala"), ownerControl = false),
     Row("GET panel provenance", HttpMethods.GET, s"/api/dashboards/{id}/panels/$AnyUuid/provenance", Dashboard, Set("PublicDashboardRoutes.scala"), ownerControl = false),
     // dashboard service paths (sharing-aware read first, then requireAccess for grantees)
+    Row("GET dashboard panel-status", HttpMethods.GET, "/api/dashboards/{id}/panel-status", Dashboard, Set("DashboardPanelStatusRoutes.scala")),
     Row("GET dashboard export", HttpMethods.GET, "/api/dashboards/{id}/export", Dashboard, Set("DashboardService.scala")),
     Row("POST dashboard duplicate", HttpMethods.POST, "/api/dashboards/{id}/duplicate", Dashboard, Set("DashboardService.scala")),
     Row("POST dashboard layout repair", HttpMethods.POST, "/api/dashboards/{id}/layout/repair", Dashboard, Set("DashboardService.scala"),

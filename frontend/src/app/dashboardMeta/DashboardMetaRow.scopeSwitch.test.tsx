@@ -16,10 +16,16 @@ import {
   unscopeOutput,
 } from "../../features/panels/state/outputMetaCache";
 import { fetchPanels } from "../../features/panels/state/panelThunks";
+import { fetchDashboardPanelStatus } from "../../features/panels/services/panelStatusService";
 import { subscribeToPipelineTerminal } from "../../features/panels/services/pipelineRunFanout";
 import { makeOutputPanel } from "../../test/panelFixtures";
 import { renderWithStore } from "../../test/renderWithStore";
 import { DashboardMetaRow } from "./DashboardMetaRow";
+
+// HEL-1786: a panel on a dashboard the caller does not own polls the dashboard panel-status route; no network in a unit test.
+jest.mock("../../features/panels/services/panelStatusService", () => ({
+  fetchDashboardPanelStatus: jest.fn(() => new Promise(() => {})),
+}));
 
 jest.mock("../../features/pipelines/services/pipelineService");
 jest.mock("../../features/pipelines/services/outputService");
@@ -37,6 +43,7 @@ const ownedPanel = makeOutputPanel({ id: "pA", dashboardId: "DA", config: { outp
 
 beforeEach(() => {
   jest.resetAllMocks();
+  jest.mocked(fetchDashboardPanelStatus).mockReturnValue(new Promise(() => {}));
   jest.mocked(subscribeToPipelineTerminal).mockReturnValue(jest.fn());
   resetOutputFreshness();
   retain("O");

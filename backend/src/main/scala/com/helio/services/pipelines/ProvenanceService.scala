@@ -1,7 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.domain.engine.NodeDependencyClosure
-import com.helio.domain.model.{AuthenticatedUser, Output, OutputId, PipelineRootId, PipelineRunId, PipelineStep, PipelineStepId, PipelineStepKind}
+import com.helio.domain.model.{AuthenticatedUser, Output, OutputId, PipelineRoot, PipelineRootId, PipelineRunId, PipelineStep, PipelineStepId, PipelineStepKind}
 import com.helio.domain.steps.{JoinStep, LookupStep, SecondaryInput, UnionStep}
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRootRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -64,11 +64,7 @@ final class ProvenanceService(
       stepsAndRoots    <- stepsF
       roots            <- rootRepo.listInternal(pipelineId)
       (steps, rootIds)  = stepsAndRoots
-      closure           = closureFor(output, steps)
-      feedingRoots      = feedingRootIds(output, closure, rootIds)
-      rootSourceIds     = roots.filter(r => feedingRoots.contains(r.id)).map(_.dataSourceId.value)
-      secondaryIds      = secondarySourceIds(closure)
-      orderedIds        = (rootSourceIds ++ secondaryIds).distinct
+      orderedIds        = orderedSourceIds(output, steps, rootIds, roots)
       known            <- dataSourceRepo.findNameKindsInternal(orderedIds)
       lastRunOpt       <- runRepo.latestNonDryRunInternal(pipelineId)
       assertions       <- assertionsFor(output, steps, lastRunOpt.map(_.id))
@@ -79,13 +75,54 @@ final class ProvenanceService(
         pipelineId   = pipelineId.value,
         pipelineName = pipelineOpt.map(_.name).getOrElse(""),
         // A source that no longer resolves is omitted, never a placeholder (design.md D2).
-        sources      = orderedIds.flatMap(id => known.get(id).map { case (name, kind) => ProvenanceSource(id, name, kind) }),
+        sources      = namedSources(orderedIds, known),
         nodePath     = nodePath(output, steps),
         lastRun      = lastRunOpt.map(r => ProvenanceLastRun(r.status, r.completedAt, if (count > 0) Some(count) else None)),
         assertions   = assertions
       )
     }
   }
+
+  /** HEL-1786: the data sources feeding each of `outputs`, keyed by Output id, in the order `forOutput` lists them. The batched
+   *  form for a caller that needs only the sources of many Outputs (the dashboard panel-status route): steps and roots are read
+   *  once per distinct pipeline (the steps only when an Output of it is step-bound) and every name in ONE lookup, so the read
+   *  count is independent of the number of Outputs. The derivation itself is [[orderedSourceIds]], the same one `forOutput`
+   *  uses -- there is no second copy of "which sources feed this Output". No ACL here: callers have authorized the Outputs. */
+  def sourcesFor(outputs: Vector[Output]): Future[Map[String, Vector[ProvenanceSource]]] =
+    Future
+      .traverse(outputs.groupBy(_.node.pipelineId).toVector) { case (pipelineId, ofPipeline) =>
+        val stepsF: Future[(Vector[PipelineStep], Map[PipelineStepId, PipelineRootId])] =
+          if (ofPipeline.forall(_.node.stepId.isEmpty)) Future.successful((Vector.empty, Map.empty))
+          else stepRepo.listWithRootIdsInternal(pipelineId)
+        for {
+          (steps, rootIds) <- stepsF
+          roots            <- rootRepo.listInternal(pipelineId)
+        } yield ofPipeline.map(o => o.id.value -> orderedSourceIds(o, if (o.node.stepId.isEmpty) Vector.empty else steps, rootIds, roots))
+      }
+      .map(_.flatten)
+      .flatMap { idsByOutput =>
+        dataSourceRepo.findNameKindsInternal(idsByOutput.flatMap(_._2).distinct).map { known =>
+          idsByOutput.map { case (outputId, ids) => outputId -> namedSources(ids, known) }.toMap
+        }
+      }
+
+  /** The ordered, distinct ids of the data sources feeding `output`: its feeding roots' sources first, then the secondary
+   *  sources of the joins/unions/lookups in its upstream closure. The one derivation behind `forOutput` and [[sourcesFor]]. */
+  private def orderedSourceIds(
+      output: Output,
+      steps: Vector[PipelineStep],
+      rootIds: Map[PipelineStepId, PipelineRootId],
+      roots: Vector[PipelineRoot]
+  ): Vector[String] = {
+    val closure       = closureFor(output, steps)
+    val feedingRoots  = feedingRootIds(output, closure, rootIds)
+    val rootSourceIds = roots.filter(r => feedingRoots.contains(r.id)).map(_.dataSourceId.value)
+    (rootSourceIds ++ secondarySourceIds(closure)).distinct
+  }
+
+  /** A source that no longer resolves is omitted, never a placeholder (design.md D2). */
+  private def namedSources(orderedIds: Vector[String], known: Map[String, (String, String)]): Vector[ProvenanceSource] =
+    orderedIds.flatMap(id => known.get(id).map { case (name, kind) => ProvenanceSource(id, name, kind) })
 
   /** Upstream closure of the output's step (parent edges + transitive lane edges), cycle-safe; empty for a root-bound Output. */
   private def closureFor(output: Output, steps: Vector[PipelineStep]): Vector[PipelineStep] =
