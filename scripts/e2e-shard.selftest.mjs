@@ -237,4 +237,212 @@ test("RED: missing stats, unexpected > 0 and flaky > 0 are refused, naming runDi
   throwsNaming(() => validateRunReports("runY", flaky), "runY", "shard 4", "flaky=1");
 });
 
+// ---- HEL-1778: `weights --list` attributes each result to the file that now contains the test, by title path ----
+// Fixtures are Playwright-JSON-shaped: one top-level suite per file (title = file name), describes nested under it,
+// specs holding the test title. `--legs 1` so one report per run is enough; no Playwright, no git, no network.
+const specDoc = (title, ms) => ({
+  title,
+  tests: [{ projectName: "dev", results: [{ duration: ms }] }],
+});
+const fileSuite = (file, specs, describes = []) => ({
+  title: file,
+  file,
+  specs,
+  suites: describes,
+});
+const describeSuite = (title, specs) => ({ title, specs, suites: [] });
+const reportDoc = (suites) => ({ stats: { unexpected: 0, flaky: 0 }, suites });
+const listDoc = (suites) => ({
+  errors: [],
+  suites: suites.map((s) => ({
+    ...s,
+    specs: s.specs.map(({ title }) => ({ title, tests: [{ projectName: "dev" }] })),
+    suites: s.suites.map((d) => ({
+      ...d,
+      specs: d.specs.map(({ title }) => ({ title, tests: [{ projectName: "dev" }] })),
+    })),
+  })),
+});
+/** Runs `weights --legs 1 [--list L] runA runB...`; each run is an array of suites (one shard report). */
+function runWeightsCli({ runs, list, extraArgs = [] }) {
+  const dir = mkdtempSync(join(tmpdir(), "e2e-shard-weights-"));
+  try {
+    const runDirs = Object.entries(runs).map(([name, suites]) => {
+      const d = join(dir, name);
+      mkdirSync(join(d, "playwright-json-shard-1"), { recursive: true });
+      writeFileSync(
+        join(d, "playwright-json-shard-1", "results.json"),
+        JSON.stringify(reportDoc(suites)),
+      );
+      return d;
+    });
+    const args = ["weights", "--legs", "1", ...extraArgs];
+    if (list) {
+      const lp = join(dir, "list.json");
+      writeFileSync(lp, JSON.stringify(list));
+      args.push("--list", lp);
+    }
+    const r = spawnSync("node", [join(here, "e2e-shard.mjs"), ...args, ...runDirs], {
+      encoding: "utf8",
+    });
+    const rows = new Map(
+      r.stdout
+        .split("\n")
+        .filter((l) => l && !l.startsWith("#"))
+        .map((l) => l.split("\t")),
+    );
+    return { ...r, rows, listPath: join(dir, "list.json") };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test("weights --list: a test whose reported file still contains its title path stays on that file", () => {
+  const r = runWeightsCli({
+    runs: { r1: [fileSuite("a.spec.ts", [specDoc("t one", 10000), specDoc("t two", 20000)])] },
+    list: listDoc([fileSuite("a.spec.ts", [specDoc("t one", 0), specDoc("t two", 0)])]),
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual([...r.rows], [["a.spec.ts", "30"]]);
+  assert.ok(!r.stderr.includes("re-attributed"), r.stderr);
+});
+
+test("weights --list: a test moved by a split is weighted to the single file that now has it; the old file has no row", () => {
+  const r = runWeightsCli({
+    runs: {
+      r1: [
+        fileSuite(
+          "old.spec.ts",
+          [specDoc("t one", 10000)],
+          [describeSuite("d", [specDoc("t two", 20000)])],
+        ),
+      ],
+      r2: [
+        fileSuite(
+          "old.spec.ts",
+          [specDoc("t one", 14000)],
+          [describeSuite("d", [specDoc("t two", 30000)])],
+        ),
+      ],
+    },
+    list: listDoc([
+      fileSuite("new-a.spec.ts", [specDoc("t one", 0)]),
+      fileSuite("new-b.spec.ts", [], [describeSuite("d", [specDoc("t two", 0)])]),
+    ]),
+  });
+  assert.equal(r.status, 0, r.stderr);
+  // new-a: median(10, 14) = 12; new-b: median(20, 30) = 25; no row for old.spec.ts
+  assert.deepEqual([...r.rows].sort(), [
+    ["new-a.spec.ts", "12"],
+    ["new-b.spec.ts", "25"],
+  ]);
+  assert.ok(!r.rows.has("old.spec.ts"));
+});
+
+test("weights --list: a reported file that still has the title path wins over another file with the same path", () => {
+  const r = runWeightsCli({
+    runs: { r1: [fileSuite("a.spec.ts", [specDoc("shared title", 10000)])] },
+    list: listDoc([
+      fileSuite("a.spec.ts", [specDoc("shared title", 0)]),
+      fileSuite("b.spec.ts", [specDoc("shared title", 0)]),
+    ]),
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual([...r.rows], [["a.spec.ts", "10"]]);
+});
+
+test("weights --list: a renamed test in a still-discovered file stays on the reported file", () => {
+  const r = runWeightsCli({
+    runs: { r1: [fileSuite("a.spec.ts", [specDoc("old title", 10000)])] },
+    list: listDoc([fileSuite("a.spec.ts", [specDoc("new title", 0)])]),
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual([...r.rows], [["a.spec.ts", "10"]]);
+});
+
+test("weights --list: an ambiguous move (title path in several current files, none the reported one) fails naming the test", () => {
+  const r = runWeightsCli({
+    runs: { r1: [fileSuite("old.spec.ts", [specDoc("ambiguous test", 10000)])] },
+    list: listDoc([
+      fileSuite("x.spec.ts", [specDoc("ambiguous test", 0)]),
+      fileSuite("y.spec.ts", [specDoc("ambiguous test", 0)]),
+    ]),
+  });
+  assert.equal(r.status, 1);
+  assert.ok(r.stderr.includes("ambiguous test"), r.stderr);
+  assert.ok(r.stderr.includes("x.spec.ts") && r.stderr.includes("y.spec.ts"), r.stderr);
+  assert.equal(r.stdout, "");
+});
+
+test("weights --list: a result of a deleted file with no match is dropped and named on stderr", () => {
+  const r = runWeightsCli({
+    runs: {
+      r1: [
+        fileSuite("a.spec.ts", [specDoc("kept", 10000)]),
+        fileSuite("gone.spec.ts", [specDoc("deleted test", 99000)]),
+      ],
+    },
+    list: listDoc([fileSuite("a.spec.ts", [specDoc("kept", 0)])]),
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual([...r.rows], [["a.spec.ts", "10"]]);
+  assert.ok(r.stderr.includes("deleted test") && r.stderr.includes("gone.spec.ts"), r.stderr);
+});
+
+test("weights --list: the title path is the describe chain plus the title, ignoring the file root suite and the project", () => {
+  const nested = (ms) =>
+    fileSuite("old.spec.ts", [], [describeSuite("outer", [specDoc("inner test", ms)])]);
+  const r = runWeightsCli({
+    runs: { r1: [nested(8000)] },
+    list: listDoc([
+      fileSuite("moved.spec.ts", [], [describeSuite("outer", [specDoc("inner test", 0)])]),
+      // same title, but NOT under the describe: must not match
+      fileSuite("decoy.spec.ts", [specDoc("inner test", 0)]),
+    ]),
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual([...r.rows], [["moved.spec.ts", "8"]]);
+});
+
+test("weights --list: re-attributed results are listed on stderr and the header shows the --list form", () => {
+  const r = runWeightsCli({
+    runs: { r1: [fileSuite("old.spec.ts", [specDoc("moved test", 10000)])] },
+    list: listDoc([fileSuite("new.spec.ts", [specDoc("moved test", 0)])]),
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(r.stderr.includes("re-attributed"), r.stderr);
+  assert.ok(
+    r.stderr.includes("moved test") &&
+      r.stderr.includes("old.spec.ts") &&
+      r.stderr.includes("new.spec.ts"),
+    r.stderr,
+  );
+  const header = r.stdout.split("\n").find((l) => l.startsWith("# Regenerate:"));
+  assert.ok(header.includes("--list"), header);
+});
+
+test("weights without --list is unchanged: results stay on the file the report names, same header, nothing on stderr", () => {
+  const r = runWeightsCli({
+    runs: { r1: [fileSuite("old.spec.ts", [specDoc("moved test", 10000)])] },
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual([...r.rows], [["old.spec.ts", "10"]]);
+  const header = r.stdout.split("\n").find((l) => l.startsWith("# Regenerate:"));
+  assert.equal(
+    header,
+    "# Regenerate: node scripts/e2e-shard.mjs weights <runDir>... > e2e/shard-weights.tsv (never hand-edit).",
+  );
+  assert.equal(r.stderr, "");
+});
+
+test("parseWeightsArgs reads --list <file> in any position and leaves it out when absent", () => {
+  assert.deepEqual(parseWeightsArgs(["a", "--list", "l.json", "--legs", "4", "b"]), {
+    legs: 4,
+    runDirs: ["a", "b"],
+    list: "l.json",
+  });
+  assert.ok(!("list" in parseWeightsArgs(["a"])));
+  assert.throws(() => parseWeightsArgs(["--list"]), /usage/);
+});
+
 console.log(`${n} e2e-shard selftest cases passed`);

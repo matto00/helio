@@ -7,7 +7,7 @@ import {
   findRuleBody,
 } from "../../../shared/ui/tapTargetTestUtils";
 
-// HEL-1665 guard. jsdom lays nothing out, so the rendered-geometry proof is `e2e/hel1665-home-phone-stability.spec.ts`;
+// HEL-1665 guard. jsdom lays nothing out, so the rendered-geometry proof is the `e2e/hel1665-home-phone-stability-*.spec.ts` parts (HEL-1778 split);
 // this pins the stylesheet shapes that proof depends on, so a revert fails here first (and fast).
 
 const css = fs.readFileSync(path.join(__dirname, "HomePage.css"), "utf-8");
