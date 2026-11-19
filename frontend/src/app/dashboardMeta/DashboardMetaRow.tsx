@@ -19,6 +19,7 @@ import {
 import { panelsSettledFor } from "../../features/panels/state/panelsSettled";
 import { useCreatePanelAction } from "../../features/panels/hooks/useCreatePanelAction";
 import { useDashboardMeta } from "../../features/panels/hooks/useDashboardMeta";
+import { useSharedDashboardMeta } from "../../features/panels/hooks/usePanelStatus";
 import type { Panel } from "../../features/panels/types/panel";
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
 import { ActionsMenu, type ActionsMenuItem } from "../../shared/chrome/ActionsMenu";
@@ -88,10 +89,12 @@ export function DashboardMetaRow({
   useLayoutUndoRedo(selectedDashboardId);
   useLayoutEditEscape(selectedDashboardId);
 
-  // The facts read Output metadata and pipeline summaries (Output and pipeline routes): off for a non-owner, whose row
-  // keeps the panel count (known from the panels themselves) and shows no refresh or sources.
+  // HEL-1786: the owner's facts read Output metadata and pipeline summaries (Output and pipeline routes); any other caller's
+  // facts come from the dashboard panel-status route, which a dashboard grant alone admits. Each hook is given nothing to do
+  // for the other role: the owner's gets no panels, a non-owner's gets no dashboard id (so neither makes a request).
   const ownerMeta = useDashboardMeta(selectedDashboardId, isOwner ? panels : NO_PANELS);
-  const meta = isOwner ? ownerMeta : { ...ownerMeta, panelCount: panels.length };
+  const sharedMeta = useSharedDashboardMeta(isOwner ? null : selectedDashboardId, panels);
+  const meta = isOwner ? ownerMeta : sharedMeta;
   const tier = useMetaRowTier(rowRef, isEditing);
   const iconOnly = tier >= 1;
   const shareInKebab = tier >= 2;

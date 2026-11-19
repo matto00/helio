@@ -23,6 +23,10 @@ import { controlResultCountText } from "./controlResultCountText";
 import type { PanelDataResult } from "../hooks/usePanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
 import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
+import { usePanelStatusRefresh } from "../hooks/usePanelStatus";
+import { getCachedHistory, publicHistoryKey, refreshHistory } from "../history/outputHistoryCache";
+import { fetchPublicOutputHistory } from "../history/outputHistoryService";
+import { invalidateProvenance, publicProvenanceKey } from "../provenance/provenanceCache";
 import type { OutputControlSpec, Panel } from "../types/panel";
 import type { ChartClickSelection } from "../../../utils/chartClickSelection";
 
@@ -111,8 +115,8 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   const { output, isLoading: isOutputMetaLoading } = useOutputMeta(outputId);
   // HEL-1780 D1: where THIS panel reads from, decided by the panel's own dashboard (never the selected one). In `panel`
   // scope (a dashboard the caller does not own) the controls, distinct values, filter capabilities, sort/filter, history,
-  // insight and provenance all go through `/api/dashboards/:id/panels/:panelId/*`; only the run-event refresh (HEL-1786)
-  // stays off, since it is an Output/pipeline route.
+  // insight and provenance all go through `/api/dashboards/:id/panels/:panelId/*`; the run-event refresh (an Output/pipeline
+  // route) is replaced by the panel-status trigger below (HEL-1786).
   const scope = usePanelReadScope(panel);
   const historySource = useHistorySourceFor(scope);
 
@@ -193,6 +197,26 @@ export const PanelCardBody = React.memo(function PanelCardBody({
     setRefreshAnnouncement((n) => n + 1);
   }, [refresh]);
   usePanelRunRefresh(scope.kind === "output" ? outputId : null, handleFanoutRefresh);
+
+  // HEL-1786 D3/D4: a dashboard grantee cannot subscribe to the pipeline's run events (a pipeline route), so in `panel` scope
+  // the panel re-reads its rows, through the per-panel rows route (`refresh`), when the dashboard panel-status route reports
+  // the panel's stored data advanced. The Output metadata is not re-read here (that is an Output route in owner scope; the
+  // panel-scope metadata is the per-panel one). A reopened provenance popover and a metric sparkline must not show a pre-run
+  // value, so those per-panel caches are invalidated/refreshed too.
+  const statusDashboardId = scope.kind === "panel" ? scope.dashboardId : null;
+  const handleStatusRefresh = useCallback(() => {
+    if (statusDashboardId !== null) {
+      invalidateProvenance(publicProvenanceKey(statusDashboardId, panel.id));
+      const historyKey = publicHistoryKey(statusDashboardId, panel.id);
+      if (getCachedHistory(historyKey)) {
+        refreshHistory(historyKey, () =>
+          fetchPublicOutputHistory(statusDashboardId, panel.id, undefined),
+        );
+      }
+    }
+    handleFanoutRefresh();
+  }, [statusDashboardId, panel.id, handleFanoutRefresh]);
+  usePanelStatusRefresh(statusDashboardId, panel.id, handleStatusRefresh);
 
   // HEL-1780 D4: the part of the current sort/filter the per-panel route may not be sent (a non-control column, a quick
   // search) is applied by the table to its loaded rows. `activeSort`/`activeFilter` are the SAME intent the dispatches carry.

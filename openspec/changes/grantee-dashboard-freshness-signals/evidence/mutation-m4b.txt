@@ -1,0 +1,21 @@
+> helio-frontend@0.0.0 test
+> jest --config jest.config.cjs --passWithNoTests --maxWorkers=3 --testPathPatterns=panelStatusStore
+FAIL src/features/panels/state/panelStatusStore.test.ts
+  ● panel status store › the refresh trigger (dataUpdatedAt only) › does NOT fire when lastRunAt advances with failed and dataUpdatedAt is unchanged
+    expect(jest.fn()).not.toHaveBeenCalled()
+    Expected number of calls: 0
+    Received number of calls: 1
+    1: called with 0 arguments
+      159 |       );
+      160 |       await tick();
+    > 161 |       expect(onAdvance).not.toHaveBeenCalled();
+          |                             ^
+      162 |     });
+      163 |
+      164 |     it("treats a panel that newly appears as its own baseline", async () => {
+      at Object.<anonymous> (src/features/panels/state/panelStatusStore.test.ts:161:29)
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 11 passed, 12 total
+Snapshots:   0 total
+Time:        3.426 s
+Ran all test suites matching panelStatusStore.

@@ -5,6 +5,9 @@ import { makeOutputPanel } from "../../../../test/panelFixtures";
 import { ThemeProvider } from "../../../../theme/ThemeProvider";
 import { MobilePanelStack } from "./MobilePanelStack";
 
+// HEL-1786: the stack's panel body reads its panel's read scope from the store; this test has none, so it is owner scope.
+jest.mock("../../state/panelReadScope", () => ({ usePanelReadScope: () => ({ kind: "output" }) }));
+
 const origins: Array<DOMRectReadOnly | null | undefined> = [];
 jest.mock("../detailModal/PanelDetailModal", () => ({
   PanelDetailModal: ({ expandFrom }: { expandFrom?: DOMRectReadOnly | null }) => {

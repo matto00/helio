@@ -1,0 +1,842 @@
+> helio-frontend@0.0.0 test
+> jest --config jest.config.cjs --passWithNoTests --maxWorkers=3 --testPathPatterns=PanelCard.sharedBadge
+FAIL src/features/panels/ui/PanelCard.sharedBadge.test.tsx (5.523 s)
+  ● PanelCard data-invalid badge for a viewer › shows the badge when the status route reports the panel invalid, without the assertion-status read
+    Unable to find role="button" and name "Data checks failed - view provenance"
+    Ignored nodes: comments, script, style
+    <body>
+      <div>
+        <article
+          class="panel-grid-card"
+          data-panel-id="p1"
+          style="--panel-surface-override: rgba(81, 79, 78, 0.15000000000000002); --panel-text-override: #fdfcfa; --panel-tone-success: #b7e7d0; --panel-tone-warning: #f9d896; --panel-tone-error: #fbd5ce; --panel-tone-muted: #c9c5c0; --panel-secondary-text-mix: 67%;"
+        >
+          <div
+            class="panel-grid-card__top"
+          >
+            <div
+              class="panel-grid-card__title-area"
+            >
+              <h3
+                class="panel-grid-card__title"
+                title="Revenue"
+              >
+                Revenue
+              </h3>
+            </div>
+            <div
+              class="panel-grid-card__actions"
+            >
+              <button
+                aria-label="Refresh Revenue"
+                class="ui-icon-btn ui-icon-btn--secondary ui-icon-btn--xs panel-grid-card__refresh-btn"
+                title="Refresh Revenue"
+                type="button"
+              >
+                <span
+                  aria-hidden="true"
+                  class="ui-icon-btn__icon"
+                >
+                  <svg
+                    aria-hidden="true"
+                    class="lucide lucide-rotate-cw"
+                    fill="none"
+                    height="14"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                    width="14"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"
+                    />
+                    <path
+                      d="M21 3v5h-5"
+                    />
+                  </svg>
+                </span>
+              </button>
+              <button
+                aria-label="Fullscreen Revenue"
+                class="ui-icon-btn ui-icon-btn--secondary ui-icon-btn--xs panel-grid-card__fullscreen-btn"
+                title="Fullscreen"
+                type="button"
+              >
+                <span
+                  aria-hidden="true"
+                  class="ui-icon-btn__icon"
+                >
+                  <svg
+                    aria-hidden="true"
+                    class="lucide lucide-maximize-2"
+                    fill="none"
+                    height="14"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                    width="14"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M15 3h6v6"
+                    />
+                    <path
+                      d="m21 3-7 7"
+                    />
+                    <path
+                      d="m3 21 7-7"
+                    />
+                    <path
+                      d="M9 21H3v-6"
+                    />
+                  </svg>
+                </span>
+              </button>
+              <div
+                class="popover actions-menu"
+              >
+                <button
+                  aria-expanded="false"
+                  aria-haspopup="menu"
+                  aria-label="Revenue panel actions"
+                  class="popover__trigger actions-menu__trigger"
+                  title="Revenue panel actions"
+                  type="button"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="actions-menu__dots"
+                  >
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                </button>
+              </div>
+              <button
+                aria-label="Move Revenue panel"
+                class="panel-grid-card__handle"
+                title="Move Revenue panel"
+                type="button"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="lucide lucide-grip-vertical"
+                  fill="none"
+                  height="14"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="14"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle
+                    cx="9"
+                    cy="12"
+                    r="1"
+                  />
+                  <circle
+                    cx="9"
+                    cy="5"
+                    r="1"
+                  />
+                  <circle
+                    cx="9"
+                    cy="19"
+                    r="1"
+                  />
+                  <circle
+                    cx="15"
+                    cy="12"
+                    r="1"
+                  />
+                  <circle
+                    cx="15"
+                    cy="5"
+                    r="1"
+                  />
+                  <circle
+                    cx="15"
+                    cy="19"
+                    r="1"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div
+            class="crossfade"
+          >
+            <div
+              class="crossfade__layer"
+            >
+              <div
+                class="panel-content panel-content--table"
+              >
+                <div
+                  class="ui-data-grid__frame ui-data-grid__frame--full ui-data-grid--normal"
+                >
+                  <div
+                    class="ui-data-grid__filter-toolbar"
+                  >
+                    <button
+                      aria-expanded="false"
+                      class="ui-data-grid__filter-toggle-btn"
+                      type="button"
+                    >
+                      Filters
+                    </button>
+                  </div>
+                  <div
+                    aria-label="Data grid"
+                    class="ui-data-grid ui-data-grid--full ui-data-grid--normal"
+                    role="region"
+                  >
+                    <table
+                      aria-rowcount="2"
+                      class="ui-data-grid__table"
+                    >
+                      <thead>
+                        <tr
+                          aria-rowindex="1"
+                          class="ui-data-grid__header-row"
+                        >
+                          <th
+                            class="ui-data-grid__th--pin-reserve"
+                            style="width: 160px;"
+                            title="x"
+                          >
+                            <span
+                              class="sortable-th__disabled-label"
+                              title="This column isn't part of the Output's declared schema, so it can't be sorted or filtered."
+                            >
+                              x
+                            </span>
+                            <button
+                              aria-label="Pin column x"
+                              aria-pressed="false"
+                              class="ui-icon-btn ui-icon-btn--ghost ui-icon-btn--xs ui-data-grid__pin-toggle-btn"
+                              title="Pin"
+                              type="button"
+                            >
+                              <span
+                                aria-hidden="true"
+                                class="ui-icon-btn__icon"
+                              >
+                                <svg
+                                  aria-hidden="true"
+                                  class="lucide lucide-pin"
+                                  fill="none"
+                                  height="14"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  viewBox="0 0 24 24"
+                                  width="14"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path
+                                    d="M12 17v5"
+                                  />
+                                  <path
+                                    d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"
+                                  />
+                                </svg>
+                              </span>
+                            </button>
+                            <span
+                              aria-label="Resize column x"
+                              aria-orientation="vertical"
+                              class="ui-data-grid__resize-handle"
+                              role="separator"
+                              tabindex="0"
+                            />
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          aria-rowindex="2"
+                        >
+                          <td>
+                            a
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="sr-only"
+            role="status"
+          />
+          <dialog
+            aria-label="Revenue fullscreen"
+            class="ui-modal ui-modal--full panel-fullscreen-overlay"
+          >
+            <div
+              class="ui-modal__inner"
+            >
+              <header
+                class="ui-modal__header"
+              >
+                <div
+                  class="ui-modal__header-text"
+                >
+                  <h2
+                    aria-live="polite"
+                    class="ui-modal__title"
+                    tabindex="-1"
+                  >
+                    Revenue
+                  </h2>
+                  <p
+                    class="ui-modal__description"
+                  >
+                    <span
+                      class="eyebrow"
+                    >
+                      output
+                    </span>
+                  </p>
+                </div>
+                <button
+                  aria-label="Close"
+                  class="ui-icon-btn ui-icon-btn--ghost ui-icon-btn--sm"
+                  title="Close"
+                  type="button"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="ui-icon-btn__icon"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      class="lucide lucide-x"
+                      fill="none"
+                      height="16"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      width="16"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M18 6 6 18"
+                      />
+                      <path
+                        d="m6 6 12 12"
+                      />
+                    </svg>
+                  </span>
+                </button>
+              </header>
+              <div
+                class="ui-modal__body"
+              />
+            </div>
+          </dialog>
+          <div
+            class="panel-grid-card__footer"
+          >
+            <span
+              class="panel-grid-card__type-badge"
+            >
+              output
+            </span>
+            <span
+              class="provenance-trigger"
+            >
+              <button
+                aria-expanded="false"
+                aria-haspopup="dialog"
+                aria-label="Data provenance"
+                class="ui-icon-btn ui-icon-btn--ghost ui-icon-btn--xs provenance-trigger__btn"
+                title="Data provenance"
+                type="button"
+              >
+                <span
+                  aria-hidden="true"
+                  class="ui-icon-btn__icon"
+                >
+                  <svg
+                    aria-hidden="true"
+                    class="lucide lucide-info"
+                    fill="none"
+                    height="14"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                    width="14"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="10"
+                    />
+                    <path
+                      d="M12 16v-4"
+                    />
+                    <path
+                      d="M12 8h.01"
+                    />
+                  </svg>
+                </span>
+              </button>
+            </span>
+            <span>
+              Updated 
+              12/31/2023
+            </span>
+          </div>
+        </article>
+      </div>
+    </body>
+      131 |     renderCard(role);
+      132 |     expect(
+    > 133 |       await screen.findByRole("button", { name: "Data checks failed - view provenance" }),
+          |                    ^
+      134 |     ).toBeInTheDocument();
+      135 |     expect(screen.getByText("Invalid data")).toBeInTheDocument();
+      136 |     expect(getAssertionStatusShared).not.toHaveBeenCalled();
+      at waitForWrapper (node_modules/@testing-library/dom/dist/wait-for.js:163:27)
+      at node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+      at Object.<anonymous> (src/features/panels/ui/PanelCard.sharedBadge.test.tsx:133:20)
+  ● PanelCard data-invalid badge for a editor › shows the badge when the status route reports the panel invalid, without the assertion-status read
+    Unable to find role="button" and name "Data checks failed - view provenance"
+    Ignored nodes: comments, script, style
+    <body>
+      <div>
+        <article
+          class="panel-grid-card"
+          data-panel-id="p3"
+          style="--panel-surface-override: rgba(81, 79, 78, 0.15000000000000002); --panel-text-override: #fdfcfa; --panel-tone-success: #b7e7d0; --panel-tone-warning: #f9d896; --panel-tone-error: #fbd5ce; --panel-tone-muted: #c9c5c0; --panel-secondary-text-mix: 67%;"
+        >
+          <div
+            class="panel-grid-card__top"
+          >
+            <div
+              class="panel-grid-card__title-area"
+            >
+              <h3
+                class="panel-grid-card__title"
+                title="Revenue"
+              >
+                Revenue
+              </h3>
+            </div>
+            <div
+              class="panel-grid-card__actions"
+            >
+              <button
+                aria-label="Refresh Revenue"
+                class="ui-icon-btn ui-icon-btn--secondary ui-icon-btn--xs panel-grid-card__refresh-btn"
+                title="Refresh Revenue"
+                type="button"
+              >
+                <span
+                  aria-hidden="true"
+                  class="ui-icon-btn__icon"
+                >
+                  <svg
+                    aria-hidden="true"
+                    class="lucide lucide-rotate-cw"
+                    fill="none"
+                    height="14"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                    width="14"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"
+                    />
+                    <path
+                      d="M21 3v5h-5"
+                    />
+                  </svg>
+                </span>
+              </button>
+              <button
+                aria-label="Fullscreen Revenue"
+                class="ui-icon-btn ui-icon-btn--secondary ui-icon-btn--xs panel-grid-card__fullscreen-btn"
+                title="Fullscreen"
+                type="button"
+              >
+                <span
+                  aria-hidden="true"
+                  class="ui-icon-btn__icon"
+                >
+                  <svg
+                    aria-hidden="true"
+                    class="lucide lucide-maximize-2"
+                    fill="none"
+                    height="14"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                    width="14"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M15 3h6v6"
+                    />
+                    <path
+                      d="m21 3-7 7"
+                    />
+                    <path
+                      d="m3 21 7-7"
+                    />
+                    <path
+                      d="M9 21H3v-6"
+                    />
+                  </svg>
+                </span>
+              </button>
+              <div
+                class="popover actions-menu"
+              >
+                <button
+                  aria-expanded="false"
+                  aria-haspopup="menu"
+                  aria-label="Revenue panel actions"
+                  class="popover__trigger actions-menu__trigger"
+                  title="Revenue panel actions"
+                  type="button"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="actions-menu__dots"
+                  >
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                </button>
+              </div>
+              <button
+                aria-label="Move Revenue panel"
+                class="panel-grid-card__handle"
+                title="Move Revenue panel"
+                type="button"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="lucide lucide-grip-vertical"
+                  fill="none"
+                  height="14"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="14"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle
+                    cx="9"
+                    cy="12"
+                    r="1"
+                  />
+                  <circle
+                    cx="9"
+                    cy="5"
+                    r="1"
+                  />
+                  <circle
+                    cx="9"
+                    cy="19"
+                    r="1"
+                  />
+                  <circle
+                    cx="15"
+                    cy="12"
+                    r="1"
+                  />
+                  <circle
+                    cx="15"
+                    cy="5"
+                    r="1"
+                  />
+                  <circle
+                    cx="15"
+                    cy="19"
+                    r="1"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div
+            class="crossfade"
+          >
+            <div
+              class="crossfade__layer"
+            >
+              <div
+                class="panel-content panel-content--table"
+              >
+                <div
+                  class="ui-data-grid__frame ui-data-grid__frame--full ui-data-grid--normal"
+                >
+                  <div
+                    class="ui-data-grid__filter-toolbar"
+                  >
+                    <button
+                      aria-expanded="false"
+                      class="ui-data-grid__filter-toggle-btn"
+                      type="button"
+                    >
+                      Filters
+                    </button>
+                  </div>
+                  <div
+                    aria-label="Data grid"
+                    class="ui-data-grid ui-data-grid--full ui-data-grid--normal"
+                    role="region"
+                  >
+                    <table
+                      aria-rowcount="2"
+                      class="ui-data-grid__table"
+                    >
+                      <thead>
+                        <tr
+                          aria-rowindex="1"
+                          class="ui-data-grid__header-row"
+                        >
+                          <th
+                            class="ui-data-grid__th--pin-reserve"
+                            style="width: 160px;"
+                            title="x"
+                          >
+                            <span
+                              class="sortable-th__disabled-label"
+                              title="This column isn't part of the Output's declared schema, so it can't be sorted or filtered."
+                            >
+                              x
+                            </span>
+                            <button
+                              aria-label="Pin column x"
+                              aria-pressed="false"
+                              class="ui-icon-btn ui-icon-btn--ghost ui-icon-btn--xs ui-data-grid__pin-toggle-btn"
+                              title="Pin"
+                              type="button"
+                            >
+                              <span
+                                aria-hidden="true"
+                                class="ui-icon-btn__icon"
+                              >
+                                <svg
+                                  aria-hidden="true"
+                                  class="lucide lucide-pin"
+                                  fill="none"
+                                  height="14"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  viewBox="0 0 24 24"
+                                  width="14"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path
+                                    d="M12 17v5"
+                                  />
+                                  <path
+                                    d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"
+                                  />
+                                </svg>
+                              </span>
+                            </button>
+                            <span
+                              aria-label="Resize column x"
+                              aria-orientation="vertical"
+                              class="ui-data-grid__resize-handle"
+                              role="separator"
+                              tabindex="0"
+                            />
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          aria-rowindex="2"
+                        >
+                          <td>
+                            a
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="sr-only"
+            role="status"
+          />
+          <dialog
+            aria-label="Revenue fullscreen"
+            class="ui-modal ui-modal--full panel-fullscreen-overlay"
+          >
+            <div
+              class="ui-modal__inner"
+            >
+              <header
+                class="ui-modal__header"
+              >
+                <div
+                  class="ui-modal__header-text"
+                >
+                  <h2
+                    aria-live="polite"
+                    class="ui-modal__title"
+                    tabindex="-1"
+                  >
+                    Revenue
+                  </h2>
+                  <p
+                    class="ui-modal__description"
+                  >
+                    <span
+                      class="eyebrow"
+                    >
+                      output
+                    </span>
+                  </p>
+                </div>
+                <button
+                  aria-label="Close"
+                  class="ui-icon-btn ui-icon-btn--ghost ui-icon-btn--sm"
+                  title="Close"
+                  type="button"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="ui-icon-btn__icon"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      class="lucide lucide-x"
+                      fill="none"
+                      height="16"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      viewBox="0 0 24 24"
+                      width="16"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M18 6 6 18"
+                      />
+                      <path
+                        d="m6 6 12 12"
+                      />
+                    </svg>
+                  </span>
+                </button>
+              </header>
+              <div
+                class="ui-modal__body"
+              />
+            </div>
+          </dialog>
+          <div
+            class="panel-grid-card__footer"
+          >
+            <span
+              class="panel-grid-card__type-badge"
+            >
+              output
+            </span>
+            <span
+              class="provenance-trigger"
+            >
+              <button
+                aria-expanded="false"
+                aria-haspopup="dialog"
+                aria-label="Data provenance"
+                class="ui-icon-btn ui-icon-btn--ghost ui-icon-btn--xs provenance-trigger__btn"
+                title="Data provenance"
+                type="button"
+              >
+                <span
+                  aria-hidden="true"
+                  class="ui-icon-btn__icon"
+                >
+                  <svg
+                    aria-hidden="true"
+                    class="lucide lucide-info"
+                    fill="none"
+                    height="14"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                    width="14"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="10"
+                    />
+                    <path
+                      d="M12 16v-4"
+                    />
+                    <path
+                      d="M12 8h.01"
+                    />
+                  </svg>
+                </span>
+              </button>
+            </span>
+            <span>
+              Updated 
+              12/31/2023
+            </span>
+          </div>
+        </article>
+      </div>
+    </body>
+      131 |     renderCard(role);
+      132 |     expect(
+    > 133 |       await screen.findByRole("button", { name: "Data checks failed - view provenance" }),
+          |                    ^
+      134 |     ).toBeInTheDocument();
+      135 |     expect(screen.getByText("Invalid data")).toBeInTheDocument();
+      136 |     expect(getAssertionStatusShared).not.toHaveBeenCalled();
+      at waitForWrapper (node_modules/@testing-library/dom/dist/wait-for.js:163:27)
+      at node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+      at Object.<anonymous> (src/features/panels/ui/PanelCard.sharedBadge.test.tsx:133:20)
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 2 passed, 4 total
+Snapshots:   0 total
+Time:        6.03 s
+Ran all test suites matching PanelCard.sharedBadge.

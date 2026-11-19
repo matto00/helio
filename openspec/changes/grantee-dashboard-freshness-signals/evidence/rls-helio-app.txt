@@ -1,0 +1,7 @@
+[HEL-1786 RLS] role=helio_app_test panel-status as owner: 200
+[HEL-1786 RLS] role=helio_app_test panel-status as viewer: 200
+[HEL-1786 RLS] role=helio_app_test panel-status as editor: 200
+[HEL-1786 RLS] role=helio_app_test panel-status as dual-grant: 200
+[HEL-1786 RLS] role=helio_app_test stranger=404 unknown=404
+[HEL-1786 RLS] (a) dashboard-only viewer SELECT outputs=0 pipelines=0 output_snapshot_history=0
+[HEL-1786 RLS] (b) dashboard-only viewer GET panel-status=200 lastRunAt="2026-11-10T10:00:00Z" dataUpdatedAt="2026-11-10T10:00:00Z" sources=["Sales CSV"]

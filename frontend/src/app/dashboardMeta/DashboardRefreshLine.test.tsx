@@ -16,6 +16,11 @@ import { useContext, useEffect } from "react";
 import { DashboardMetaFacts } from "./DashboardMetaFacts";
 import { DashboardRefreshLine } from "./DashboardRefreshLine";
 
+// HEL-1786: a panel on a dashboard the caller does not own polls the dashboard panel-status route; no network in a unit test.
+jest.mock("../../features/panels/services/panelStatusService", () => ({
+  fetchDashboardPanelStatus: jest.fn(() => new Promise(() => {})),
+}));
+
 // The hook's own network behaviour is covered by `useDashboardMeta.test.tsx`; here it returns facts.
 jest.mock("../../features/panels/hooks/useDashboardMeta", () => ({ useDashboardMeta: jest.fn() }));
 const metaMock = jest.mocked(useDashboardMeta);
@@ -396,11 +401,13 @@ describe("DashboardRefreshLine refresh button (HEL-1681)", () => {
   });
 });
 
-// HEL-1773 D6: the refreshed line reads Output metadata and pipeline summaries (Output and pipeline routes), so a dashboard the
-// caller does not own has none: nothing rendered, and the facts hook is given no panels (it makes no request).
-describe("DashboardRefreshLine on a shared dashboard (HEL-1773)", () => {
+// HEL-1773 D6, updated by HEL-1786: the owner's refreshed line reads Output metadata and pipeline summaries (Output and
+// pipeline routes), which a dashboard the caller does not own cannot. The owner hook is therefore given no panels (it makes no
+// request), and the line is fed by the dashboard panel-status route instead (`DashboardFreshness.shared.test.tsx` covers the
+// rendered fact). Here the status never arrives, so there is nothing to show and no text is reserved without pipeline-fed panels.
+describe("DashboardRefreshLine on a shared dashboard (HEL-1773, HEL-1786)", () => {
   it.each(["viewer", "editor"] as const)(
-    "renders nothing for a %s and asks the hook for no panels",
+    "renders no fact for a %s while the status is unknown and asks the owner hook for no panels",
     (role) => {
       metaMock.mockReset();
       metaMock.mockReturnValue({
@@ -419,6 +426,7 @@ describe("DashboardRefreshLine on a shared dashboard (HEL-1773)", () => {
         },
         "/dashboards",
       );
+      // The owner hook's (mocked) facts are never shown to a non-owner.
       expect(container.querySelector(".dashboard-refresh-line")).toBeNull();
       expect(metaMock).toHaveBeenLastCalledWith("d1", []);
     },

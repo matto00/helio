@@ -5,6 +5,7 @@
 import type { Output } from "../../pipelines/types/output";
 import type { PipelineSummary } from "../../pipelines/types/pipelineStep";
 import type { Panel } from "../types/panel";
+import type { PanelStatusSnapshot } from "./panelStatusStore";
 
 /** At most this many source names are shown; the rest collapse into "+N". */
 export const MAX_SHOWN_SOURCES = 2;
@@ -94,6 +95,39 @@ export function deriveDashboardMeta(
   if (latest?.lastRunStatus === "succeeded") refreshIntent = "success";
   else if (latest?.lastRunStatus === "failed") refreshIntent = "danger";
 
+  return {
+    panelCount: panels.length,
+    refreshState,
+    refreshedAt: latest?.lastRunAt ?? null,
+    refreshIntent,
+    sources: names.slice(0, MAX_SHOWN_SOURCES),
+    moreSources: Math.max(0, names.length - MAX_SHOWN_SOURCES),
+  };
+}
+
+/** HEL-1786 D2: the same facts for a dashboard the caller does not own, from the dashboard panel-status route instead of
+ *  Output metadata and pipeline summaries. `null` (not loaded yet) and an empty `items` are both `unknown`; `sources` are the
+ *  names the status route reports, which can be fewer than the owner's list (only the sources feeding Outputs actually on this
+ *  dashboard), capped like the owner's. */
+export function deriveDashboardMetaFromStatus(
+  panels: readonly Panel[],
+  status: PanelStatusSnapshot | null,
+): DashboardMeta {
+  const items = status?.items ?? [];
+  let latest: PanelStatusSnapshot["items"][number] | null = null;
+  let latestMs = -Infinity;
+  for (const item of items) {
+    const ms = item.lastRunAt === null ? NaN : Date.parse(item.lastRunAt);
+    if (!Number.isNaN(ms) && ms > latestMs) {
+      latest = item;
+      latestMs = ms;
+    }
+  }
+  const refreshState: RefreshState = latest ? "ran" : items.length > 0 ? "never" : "unknown";
+  let refreshIntent: DashboardMeta["refreshIntent"] = null;
+  if (latest?.runStatus === "succeeded") refreshIntent = "success";
+  else if (latest?.runStatus === "failed") refreshIntent = "danger";
+  const names = status?.sources ?? [];
   return {
     panelCount: panels.length,
     refreshState,

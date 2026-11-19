@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboards/dashboard-panel-status-response.schema.json",
+  "title": "DashboardPanelStatusResponse",
+  "description": "GET /api/dashboards/:id/panel-status (HEL-1786), readable by the dashboard's owner and any editor or viewer grantee (a stranger or unknown id gets the same 404). `items` has one entry per Output panel of the dashboard whose Output and pipeline resolve, in panel order. `sources` holds the distinct source names the per-panel provenance would show for those panels, in first-seen panel order.",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "dashboard-panel-status-item.schema.json"
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": ["items", "sources"],
+  "additionalProperties": false
+}

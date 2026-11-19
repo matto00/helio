@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboards/dashboard-panel-status-item.schema.json",
+  "title": "DashboardPanelStatusItem",
+  "description": "One Output panel's status on a dashboard (HEL-1786). `lastRunAt` is the bound pipeline's last run time (null when it has never run); `runStatus` is `succeeded`, `failed` or null; `dataUpdatedAt` is when the panel's latest stored data was captured (the Output's newest history point, committed with the rows; null when it has none) and is the client's run-finish refresh trigger; `invalid` is true when an error-severity assertion on the Output's own step failed on the pipeline's latest non-dry run. Carries no pipeline, step, run, Output or user id and no error text.",
+  "type": "object",
+  "properties": {
+    "panelId": {
+      "type": "string"
+    },
+    "lastRunAt": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "runStatus": {
+      "enum": ["succeeded", "failed", null]
+    },
+    "dataUpdatedAt": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "invalid": {
+      "type": "boolean"
+    }
+  },
+  "required": ["panelId", "lastRunAt", "runStatus", "dataUpdatedAt", "invalid"],
+  "additionalProperties": false
+}

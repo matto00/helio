@@ -11,6 +11,11 @@ import { makeTextPanel } from "../../test/panelFixtures";
 import { renderWithStore } from "../../test/renderWithStore";
 import { DashboardMetaRow } from "./DashboardMetaRow";
 
+// HEL-1786: a panel on a dashboard the caller does not own polls the dashboard panel-status route; no network in a unit test.
+jest.mock("../../features/panels/services/panelStatusService", () => ({
+  fetchDashboardPanelStatus: jest.fn(() => new Promise(() => {})),
+}));
+
 jest.mock("../../features/panels/hooks/useDashboardMeta", () => ({ useDashboardMeta: jest.fn() }));
 jest.mock("./useMetaRowTier", () => ({
   ...jest.requireActual("./useMetaRowTier"),

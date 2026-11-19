@@ -8,6 +8,11 @@ import { makeOutputPanel } from "../../../../test/panelFixtures";
 import { renderWithStore } from "../../../../test/renderWithStore";
 import { PanelGrid } from "./PanelGrid";
 
+// HEL-1786: a panel on a dashboard the caller does not own polls the dashboard panel-status route; no network in a unit test.
+jest.mock("../../services/panelStatusService", () => ({
+  fetchDashboardPanelStatus: jest.fn(() => new Promise(() => {})),
+}));
+
 jest.mock("react-grid-layout", () => {
   const React = require("react");
   return {
