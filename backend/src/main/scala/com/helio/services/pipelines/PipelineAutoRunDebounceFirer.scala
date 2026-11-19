@@ -2,7 +2,7 @@ package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, PipelineId, UserId}
-import com.helio.infrastructure.persistence.pipelines.{PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunRepository, RearmOutcome}
+import com.helio.infrastructure.persistence.pipelines.{PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunRepository, RearmOutcome, ClaimedAutoRun}
 import org.slf4j.LoggerFactory
 
 import java.time.Instant
@@ -36,8 +36,8 @@ private[pipelines] final class PipelineAutoRunDebounceFirer(
    *  mirrors `PipelineSchedulerService.fire`'s synthetic-owner-identity pattern exactly. */
   def processAutoRunDebounce(now: Instant): Future[Unit] =
     autoRunDebounceRepo.claimDue(now, staleClaimAfter = now.minusSeconds(staleClaimAfterSeconds)).flatMap { claimed =>
-      Future.traverse(claimed) { case (pipelineId, claimedAt) =>
-        processAutoRunClaim(pipelineId, claimedAt, now).recover { case ex =>
+      Future.traverse(claimed) { case ClaimedAutoRun(pipelineId, claimedAt, writer) =>
+        processAutoRunClaim(pipelineId, claimedAt, writer, now).recover { case ex =>
           log.error(s"PipelineSchedulerService: unexpected failure processing auto-run claim for pipeline ${pipelineId.value}", ex)
           ()
         }
@@ -52,7 +52,7 @@ private[pipelines] final class PipelineAutoRunDebounceFirer(
    *    Retry-After, at most `autoRunMaxRetries` times, then dropped with a WARN;
    *  - everything else (fired, fire-time verdict denial, pipeline gone, unexpected failure): the claim
    *    is released (compare-and-delete), exactly as before -- see `releaseClaim`'s own doc. */
-  private def processAutoRunClaim(pipelineId: PipelineId, claimedAt: Instant, now: Instant): Future[Unit] =
+  private def processAutoRunClaim(pipelineId: PipelineId, claimedAt: Instant, writer: Option[UserId], now: Instant): Future[Unit] =
     runRepo.hasActiveRunInternal(pipelineId).flatMap {
       case true =>
         log.debug("Auto-run claim for pipeline {} — already has an active run, keeping it pending", pipelineId.value)
@@ -62,7 +62,7 @@ private[pipelines] final class PipelineAutoRunDebounceFirer(
         // evaluation failure -- never a fail-open submit) skips the fire; the claim is released
         // either way, so a denied pipeline's pending row cannot fire and cannot retry-storm.
         autoRunTriggerService.evaluateAtFire(pipelineId).transformWith {
-          case Success(reasons) if reasons.isEmpty => fireAutoRun(pipelineId)
+          case Success(reasons) if reasons.isEmpty => fireAutoRun(pipelineId, writer)
           case Success(reasons) =>
             log.info(
               "PipelineSchedulerService: auto-run for pipeline {} denied at fire time, skipping: {}",
@@ -90,7 +90,7 @@ private[pipelines] final class PipelineAutoRunDebounceFirer(
         }
     }
 
-  private def fireAutoRun(pipelineId: PipelineId): Future[FireOutcome] =
+  private def fireAutoRun(pipelineId: PipelineId, writer: Option[UserId]): Future[FireOutcome] =
     pipelineRepo.findByIdInternal(pipelineId).flatMap {
       case None =>
         // The debounce row's own FK (V110, ON DELETE CASCADE) means this should be unreachable in
@@ -109,16 +109,17 @@ private[pipelines] final class PipelineAutoRunDebounceFirer(
         }.flatMap { inFlight =>
           if (inFlight >= guardConfig.maxConcurrent)
             Future.successful(FireOutcome.GuardRejected(pipeline.ownerId, guardConfig.concurrencyRetryAfterSeconds, "Pipeline-run concurrency limit exceeded"))
-          else submitAutoRun(pipeline.ownerId, pipelineId)
+          else submitAutoRun(pipeline.ownerId, pipelineId, writer)
         }
     }
 
-  private def submitAutoRun(ownerId: UserId, pipelineId: PipelineId): Future[FireOutcome] = {
+  private def submitAutoRun(ownerId: UserId, pipelineId: PipelineId, writer: Option[UserId]): Future[FireOutcome] = {
     // HEL-1108 scheduled-run precedent, mirrored exactly: the pipeline owner is the acting
-    // principal, source=System (not a browser-attributed Ui action).
+    // principal, source=System (not a browser-attributed Ui action). HEL-1784: the stored last writer is recorded as the
+    // run's trigger only; admission, the owner cap and every authorization stay keyed on the owner.
     val owner = AuthenticatedUser(ownerId, source = AuditSource.System, tokenId = None)
     pipelineRunService
-      .submit(pipelineId, isDry = false, owner, triggerSource = TriggerSource.AutoRun)
+      .submit(pipelineId, isDry = false, owner, triggerSource = TriggerSource.AutoRun, triggeredByUserId = writer)
       .transform {
         case Success(Left(err: ServiceError.TooManyRequests)) =>
           // Guard-rejected: never silently dropped -- the caller re-arms it (HEL-1504). No exception

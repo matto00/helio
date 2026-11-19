@@ -45,10 +45,11 @@ private[panels] final class PanelFormFileSubmission(
       panel:   FormPanel,
       values:  Map[String, JsValue],
       files:   Map[String, (String, Array[Byte])],
-      user:    AuthenticatedUser
+      writer:  AuthenticatedUser
   ): Future[Either[FormSubmitError, RowWriteResult]] = {
     val placeholderValues = foldFilePlaceholders(values, files)
-    dataSourceRepo.getDeclaredSchema(panel.config.dataSourceId, user).flatMap {
+    // HEL-1784 (design.md D2): the schema read runs in the form owner's context, like the append below.
+    dataSourceRepo.getDeclaredSchema(panel.config.dataSourceId, DataSourceService.ownerContext(panel.ownerId, writer)).flatMap {
       case None => Future.successful(Left(FormSubmitError(ServiceError.NotFound("Data source not found"))))
       case Some(declaration) =>
         FormSubmission.buildRow(panel.config, declaration, placeholderValues) match {
@@ -58,7 +59,7 @@ private[panels] final class PanelFormFileSubmission(
               val realValues = values ++ refsByField
               val build: (Vector[DatasetFieldDeclaration], Instant) => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]] =
                 (decl, now) => FormSubmission.buildRow(panel.config, decl, realValues, now)
-              Future.unit.flatMap(_ => dataSourceService.appendFormRow(panel.config.dataSourceId, build, panelId, user)).transformWith {
+              Future.unit.flatMap(_ => dataSourceService.appendFormRow(panel.config.dataSourceId, build, panelId, writer, panel.ownerId)).transformWith {
                 case Success(right @ Right(_)) => Future.successful(right)
                 // HEL-1434: a refused in-lock append (source gone, schema changed, row limit) wrote no row, so the
                 // objects stored for it are unreferenced -- remove them immediately.

@@ -95,7 +95,10 @@ class RunCancelsPendingAutoRunSpec extends AnyWordSpec with Matchers with Before
   }
 
   /** The write-time hook, as `AutoRunTriggerService` calls it (a due-immediately debounce row). */
-  private def write(pid: PipelineId): Unit = await(debounceRepo.upsertDebounce(pid, Instant.now().minusSeconds(1)))
+  private def write(pid: PipelineId): Unit = {
+    val owner = await(db.run(sql"SELECT owner_id::text FROM pipelines WHERE id = ${pid.value}".as[String].head))
+    await(debounceRepo.upsertDebounce(pid, Instant.now().minusSeconds(1), UserId(owner)))
+  }
 
   private def generation(pid: PipelineId): Option[Long] = await(debounceRepo.pendingWriteGeneration(pid))
   private def rowExists(pid: PipelineId): Boolean       = generation(pid).isDefined
@@ -185,7 +188,7 @@ class RunCancelsPendingAutoRunSpec extends AnyWordSpec with Matchers with Before
       val owner = seedUser(); val pid = seedPipeline(owner)
       val service = newRunService(new SeamBackend(beforeExecute = () => {
         // The firer fires and releases the old row, then a fresh write recreates it: a per-row counter would restart and match.
-        await(debounceRepo.claimDue(Instant.now(), Instant.now().minusSeconds(300))).foreach { case (p, at) => await(debounceRepo.releaseClaim(p, at)) }
+        await(debounceRepo.claimDue(Instant.now(), Instant.now().minusSeconds(300))).foreach(c => await(debounceRepo.releaseClaim(c.pipelineId, c.claimedAt)))
         write(pid)
       }))
       write(pid)
@@ -290,7 +293,7 @@ class RunCancelsPendingAutoRunSpec extends AnyWordSpec with Matchers with Before
       val owner = seedUser(); val pid = seedPipeline(owner)
       write(pid)
       val g = generation(pid).get
-      def claim(): Instant = await(debounceRepo.claimDue(Instant.now(), Instant.now().minusSeconds(300))).head._2
+      def claim(): Instant = await(debounceRepo.claimDue(Instant.now(), Instant.now().minusSeconds(300))).head.claimedAt
       generation(pid) shouldBe Some(g)
 
       await(debounceRepo.unclaim(pid, claim()))

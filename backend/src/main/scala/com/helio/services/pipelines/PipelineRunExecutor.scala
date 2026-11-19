@@ -51,7 +51,8 @@ private[pipelines] final class PipelineRunExecutor(
       isDry: Boolean,
       user: AuthenticatedUser,
       triggerSource: String,
-      triggeredByTokenId: Option[String]
+      triggeredByTokenId: Option[String],
+      triggeredByUserId: Option[UserId] = None
   ): Future[Either[ServiceError, RunResultResponse]] =
     // Privileged: pipeline ACL is the authoritative gate; source is part of the
     // pipeline definition. findByIdInternal is correct here.
@@ -91,7 +92,7 @@ private[pipelines] final class PipelineRunExecutor(
               Future.successful(Left(ServiceError.UnprocessableEntity(
                 "The 'upsertsource' step requires the in-process engine"
               )))
-            else executeRun(pipeline, roots, allSteps, isDry, user, triggerSource, triggeredByTokenId)
+            else executeRun(pipeline, roots, allSteps, isDry, user, triggerSource, triggeredByTokenId, triggeredByUserId)
           }
     }
 
@@ -108,7 +109,8 @@ private[pipelines] final class PipelineRunExecutor(
       isDry:              Boolean,
       user:               AuthenticatedUser,
       triggerSource:      String,
-      triggeredByTokenId: Option[String] = None
+      triggeredByTokenId: Option[String] = None,
+      triggeredByUserId:  Option[UserId] = None
   ): Future[Either[ServiceError, RunResultResponse]] = {
     val pipelineId     = pipeline.id
     val runId          = PipelineRunId(UUID.randomUUID().toString)
@@ -118,7 +120,8 @@ private[pipelines] final class PipelineRunExecutor(
     // attribution. `submit` admits just the owner or an editor grantee, so `!ownerRun` means an editor: its writes
     // go through the privileged, in-transaction re-authorized paths instead of the owner-scoped ones.
     val ownerRun       = pipeline.ownerId.value == user.id.value
-    val submitterId    = Some(user.id.value)
+    // HEL-1784: an auto-run is submitted as the owner but records the dataset writer that armed it.
+    val submitterId    = Some(triggeredByUserId.getOrElse(user.id).value)
     // HEL-509 (419-B): caller-supplied output parameter every `assert` step's
     // evaluated results are recorded into (design.md Decision 4) — constructed
     // here, before the engine call, so a mid-pipeline failure still leaves

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/panels/form-schema-response.schema.json",
+  "title": "FormSchemaResponse",
+  "description": "Response body of GET /api/panels/:id/form-schema (HEL-1784): the declarations of ONLY the fields the form binds (its configured `sourceField`s), in the dataset's declared order, for the dashboard's owner or an editor. Nothing else of the dataset's schema is returned, and no row. Each item is the declaration `GET /api/data-sources/:id/schema` emits.",
+  "type": "object",
+  "required": ["fields"],
+  "properties": {
+    "fields": {
+      "type": "array",
+      "items": { "$ref": "../sources/dataset-field-response.schema.json" }
+    }
+  },
+  "additionalProperties": false
+}

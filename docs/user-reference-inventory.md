@@ -36,6 +36,7 @@ three columns and the `| Table | Column | ON DELETE |` header exactly.
 | `panels`                       | `owner_id`             | NO ACTION |
 | `patch_set_applications`       | `owner_id`             | NO ACTION |
 | `patch_set_applied_proposals`  | `owner_id`             | CASCADE   |
+| `pipeline_auto_run_debounce`   | `triggered_by_user_id` | SET NULL  |
 | `pipeline_run_rate_window`     | `user_id`              | CASCADE   |
 | `pipeline_runs`                | `triggered_by_user_id` | SET NULL  |
 | `pipelines`                    | `owner_id`             | NO ACTION |
@@ -48,7 +49,7 @@ three columns and the `| Table | Column | ON DELETE |` header exactly.
 
 `NO ACTION` blocks the whole `DELETE FROM users` statement (SQLSTATE `23503`) while any referencing row exists.
 `CASCADE` deletes the referencing rows with the user.
-`SET NULL` keeps the referencing row and clears the column (`pipeline_runs.triggered_by_user_id`: a run stays in the owner's history with its trigger user cleared).
+`SET NULL` keeps the referencing row and clears the column (`pipeline_runs.triggered_by_user_id`: a run stays in the owner's history with its trigger user cleared; `pipeline_auto_run_debounce.triggered_by_user_id`: a pending auto-run stays armed with its last-writer user cleared, and its run then records the pipeline owner as the trigger).
 
 ## Indirect and non-FK user references
 

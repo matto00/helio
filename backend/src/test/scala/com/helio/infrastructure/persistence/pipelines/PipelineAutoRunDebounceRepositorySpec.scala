@@ -111,6 +111,11 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
     PipelineId(pid)
   }
 
+  /** The writer is the pipeline's own owner: this spec exercises the table, not who wrote. */
+  private def upsertAsOwner(pid: PipelineId, fireAt: Instant): Future[Unit] =
+    ctx.withSystemContext(sql"SELECT owner_id::text FROM pipelines WHERE id = ${pid.value}".as[String].head)
+      .flatMap(owner => repo.upsertDebounce(pid, fireAt, UserId(owner)))
+
   private def rawFireAt(pipelineId: PipelineId): Option[Instant] =
     await(ctx.withSystemContext(
       sql"""SELECT fire_at FROM pipeline_auto_run_debounce WHERE pipeline_id = ${pipelineId.value}"""
@@ -129,7 +134,7 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
       cleanDb()
       val pid = seedPipeline()
       val fireAt = Instant.parse("2026-01-01T00:00:05Z")
-      await(repo.upsertDebounce(pid, fireAt))
+      await(upsertAsOwner(pid, fireAt))
 
       rawFireAt(pid) shouldBe Some(fireAt)
       rawClaimedAt(pid) shouldBe None
@@ -138,12 +143,12 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
     "pushes fire_at forward (GREATEST) on a later write, never backward on an earlier one" in {
       cleanDb()
       val pid = seedPipeline()
-      await(repo.upsertDebounce(pid, Instant.parse("2026-01-01T00:00:05Z")))
-      await(repo.upsertDebounce(pid, Instant.parse("2026-01-01T00:00:10Z")))
+      await(upsertAsOwner(pid, Instant.parse("2026-01-01T00:00:05Z")))
+      await(upsertAsOwner(pid, Instant.parse("2026-01-01T00:00:10Z")))
       rawFireAt(pid) shouldBe Some(Instant.parse("2026-01-01T00:00:10Z"))
 
       // An earlier write (out-of-order delivery across instances) must never move fire_at backward.
-      await(repo.upsertDebounce(pid, Instant.parse("2026-01-01T00:00:01Z")))
+      await(upsertAsOwner(pid, Instant.parse("2026-01-01T00:00:01Z")))
       rawFireAt(pid) shouldBe Some(Instant.parse("2026-01-01T00:00:10Z"))
     }
 
@@ -151,11 +156,11 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
       cleanDb()
       val pid = seedPipeline()
       val now = Instant.parse("2026-01-01T00:00:05Z")
-      await(repo.upsertDebounce(pid, now))
+      await(upsertAsOwner(pid, now))
       await(repo.claimDue(now, staleClaimAfter = now.minusSeconds(300)))
       rawClaimedAt(pid) shouldBe defined
 
-      await(repo.upsertDebounce(pid, now.plusSeconds(5)))
+      await(upsertAsOwner(pid, now.plusSeconds(5)))
       rawClaimedAt(pid) shouldBe None
     }
   }
@@ -166,20 +171,20 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
       cleanDb()
       val pid = seedPipeline()
       val fireAt = Instant.parse("2026-01-01T00:00:00Z")
-      await(repo.upsertDebounce(pid, fireAt))
+      await(upsertAsOwner(pid, fireAt))
 
       val now = fireAt.plusSeconds(1)
       val claimed = await(repo.claimDue(now, staleClaimAfter = now.minusSeconds(300)))
 
-      claimed.map(_._1) shouldBe Vector(pid)
-      claimed.head._2 shouldBe rawClaimedAt(pid).get
+      claimed.map(_.pipelineId) shouldBe Vector(pid)
+      claimed.head.claimedAt shouldBe rawClaimedAt(pid).get
     }
 
     "does not claim a row that is not yet due" in {
       cleanDb()
       val pid = seedPipeline()
       val fireAt = Instant.parse("2026-01-01T00:01:00Z")
-      await(repo.upsertDebounce(pid, fireAt))
+      await(upsertAsOwner(pid, fireAt))
 
       val now = fireAt.minusSeconds(30)
       await(repo.claimDue(now, staleClaimAfter = now.minusSeconds(300))) shouldBe empty
@@ -190,7 +195,7 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
       cleanDb()
       val pid = seedPipeline()
       val fireAt = Instant.parse("2026-01-01T00:00:00Z")
-      await(repo.upsertDebounce(pid, fireAt))
+      await(upsertAsOwner(pid, fireAt))
       val firstClaimAt = fireAt.plusSeconds(1)
       await(repo.claimDue(firstClaimAt, staleClaimAfter = firstClaimAt.minusSeconds(300))) should have size 1
 
@@ -202,15 +207,15 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
       cleanDb()
       val pid = seedPipeline()
       val fireAt = Instant.parse("2026-01-01T00:00:00Z")
-      await(repo.upsertDebounce(pid, fireAt))
+      await(upsertAsOwner(pid, fireAt))
       val firstClaimAt = fireAt.plusSeconds(1)
       await(repo.claimDue(firstClaimAt, staleClaimAfter = firstClaimAt.minusSeconds(300))) should have size 1
       // Never released (simulates a crash between claim and release).
 
       val muchLater = firstClaimAt.plusSeconds(600)
       val reclaimed = await(repo.claimDue(muchLater, staleClaimAfter = muchLater.minusSeconds(300)))
-      reclaimed.map(_._1) shouldBe Vector(pid)
-      reclaimed.head._2 should be > firstClaimAt
+      reclaimed.map(_.pipelineId) shouldBe Vector(pid)
+      reclaimed.head.claimedAt should be > firstClaimAt
     }
   }
 
@@ -220,10 +225,10 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
       cleanDb()
       val pid = seedPipeline()
       val fireAt = Instant.parse("2026-01-01T00:00:00Z")
-      await(repo.upsertDebounce(pid, fireAt))
+      await(upsertAsOwner(pid, fireAt))
       val now = fireAt.plusSeconds(1)
       val claimed = await(repo.claimDue(now, staleClaimAfter = now.minusSeconds(300)))
-      val (claimedPid, claimedAt) = claimed.head
+      val ClaimedAutoRun(claimedPid, claimedAt, _) = claimed.head
 
       await(repo.releaseClaim(claimedPid, claimedAt))
       rawFireAt(pid) shouldBe None
@@ -234,14 +239,14 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
       cleanDb()
       val pid = seedPipeline()
       val fireAt = Instant.parse("2026-01-01T00:00:00Z")
-      await(repo.upsertDebounce(pid, fireAt))
+      await(upsertAsOwner(pid, fireAt))
       val now = fireAt.plusSeconds(1)
       val claimed = await(repo.claimDue(now, staleClaimAfter = now.minusSeconds(300)))
-      val (claimedPid, staleClaimedAt) = claimed.head
+      val ClaimedAutoRun(claimedPid, staleClaimedAt, _) = claimed.head
 
       // A new write arrives DURING the fire, between claim and release -- resets claimed_at to
       // NULL and pushes fire_at forward (upsertDebounce's own contract).
-      await(repo.upsertDebounce(pid, now.plusSeconds(10)))
+      await(upsertAsOwner(pid, now.plusSeconds(10)))
 
       // The release, still carrying the OLD claimedAt token, must match zero rows.
       await(repo.releaseClaim(claimedPid, staleClaimedAt))
@@ -258,9 +263,9 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
     ))
 
   private def claimOne(pid: PipelineId, fireAt: Instant): Instant = {
-    await(repo.upsertDebounce(pid, fireAt))
+    await(upsertAsOwner(pid, fireAt))
     val now = fireAt.plusSeconds(1)
-    await(repo.claimDue(now, staleClaimAfter = now.minusSeconds(300))).head._2
+    await(repo.claimDue(now, staleClaimAfter = now.minusSeconds(300))).head.claimedAt
   }
 
   "unclaim (HEL-1504 D1)" should {
@@ -276,7 +281,7 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
       rawClaimedAt(pid) shouldBe None
       rawRetryCount(pid) shouldBe Some(0)
       // Immediately re-claimable on the next tick.
-      await(repo.claimDue(fireAt.plusSeconds(2), staleClaimAfter = fireAt.minusSeconds(300))).map(_._1) shouldBe Vector(pid)
+      await(repo.claimDue(fireAt.plusSeconds(2), staleClaimAfter = fireAt.minusSeconds(300))).map(_.pipelineId) shouldBe Vector(pid)
     }
 
     "is a harmless no-op on a token mismatch (a fresh write already reset the claim)" in {
@@ -284,7 +289,7 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
       val pid = seedPipeline()
       val fireAt = Instant.parse("2026-01-01T00:00:00Z")
       val staleClaim = claimOne(pid, fireAt)
-      await(repo.upsertDebounce(pid, fireAt.plusSeconds(10)))
+      await(upsertAsOwner(pid, fireAt.plusSeconds(10)))
       // Re-claim so a DIFFERENT live claim exists; the old token must not release it.
       val later = fireAt.plusSeconds(11)
       await(repo.claimDue(later, staleClaimAfter = later.minusSeconds(300))) should have size 1
@@ -308,11 +313,11 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
       rawClaimedAt(pid) shouldBe None
 
       val now2 = retryAt.plusSeconds(1)
-      val claim2 = await(repo.claimDue(now2, staleClaimAfter = now2.minusSeconds(300))).head._2
+      val claim2 = await(repo.claimDue(now2, staleClaimAfter = now2.minusSeconds(300))).head.claimedAt
       await(repo.rearmAfterGuardRejection(pid, claim2, now2.plusSeconds(30), maxRetries = 2)) shouldBe RearmOutcome.Rearmed(2)
 
       val now3 = now2.plusSeconds(31)
-      val claim3 = await(repo.claimDue(now3, staleClaimAfter = now3.minusSeconds(300))).head._2
+      val claim3 = await(repo.claimDue(now3, staleClaimAfter = now3.minusSeconds(300))).head.claimedAt
       await(repo.rearmAfterGuardRejection(pid, claim3, now3.plusSeconds(30), maxRetries = 2)) shouldBe RearmOutcome.Exhausted(2)
       rawFireAt(pid) shouldBe None
     }
@@ -330,7 +335,7 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
       val pid = seedPipeline()
       val fireAt = Instant.parse("2026-01-01T00:00:00Z")
       val staleClaim = claimOne(pid, fireAt)
-      await(repo.upsertDebounce(pid, fireAt.plusSeconds(10)))
+      await(upsertAsOwner(pid, fireAt.plusSeconds(10)))
 
       await(repo.rearmAfterGuardRejection(pid, staleClaim, fireAt.plusSeconds(99), maxRetries = 5)) shouldBe RearmOutcome.Superseded
       rawFireAt(pid) shouldBe Some(fireAt.plusSeconds(10))
@@ -345,7 +350,7 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
       await(repo.rearmAfterGuardRejection(pid, claim, fireAt.plusSeconds(30), maxRetries = 5)) shouldBe RearmOutcome.Rearmed(1)
       rawRetryCount(pid) shouldBe Some(1)
 
-      await(repo.upsertDebounce(pid, fireAt.plusSeconds(5)))
+      await(upsertAsOwner(pid, fireAt.plusSeconds(5)))
       rawRetryCount(pid) shouldBe Some(0)
       // GREATEST: the write during the Retry-After wait never pulls the fire earlier than the retry.
       rawFireAt(pid) shouldBe Some(fireAt.plusSeconds(30))
@@ -360,7 +365,7 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
       val ownerA = UserId(UUID.randomUUID().toString)
       val ownerB = UserId(UUID.randomUUID().toString)
       val pid = seedPipeline(ownerA)
-      await(repo.upsertDebounce(pid, Instant.now().plusSeconds(5)))
+      await(upsertAsOwner(pid, Instant.now().plusSeconds(5)))
       await(ctx.withSystemContext(
         sqlu"""INSERT INTO users (id, email, created_at)
                VALUES (${ownerB.value}::uuid, ${s"${ownerB.value}@test.local"}, now())

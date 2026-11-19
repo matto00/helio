@@ -44,21 +44,33 @@ object FormSchemaConsistency {
       config: FormPanelConfig,
       byName: Map[String, DatasetFieldDeclaration]
   ): Option[String] =
+    counterShapeViolation(config, byName).map(_._2)
+
+  /** HEL-1784: the same row-shape rule as [[check]]'s, for the submit path. `FormSubmission.buildRow` runs it under
+   *  the source's lock so a counter submit against a dataset that lost the shape writes nothing, instead of a row
+   *  with no usable timestamp. Returns the offending field (`occurred_at` or `value`) and the message. */
+  def counterRowShapeViolation(config: FormPanelConfig, declaration: Vector[DatasetFieldDeclaration]): Option[(String, String)] =
+    counterShapeViolation(config, declaration.map(f => f.name -> f).toMap)
+
+  private def counterShapeViolation(
+      config: FormPanelConfig,
+      byName: Map[String, DatasetFieldDeclaration]
+  ): Option[(String, String)] =
     if (!config.fields.exists(_.control == "counter")) None
     else
       byName.get("occurred_at") match {
         case None =>
-          Some("counter field requires the bound dataset to declare a field named 'occurred_at'")
+          Some("occurred_at" -> "counter field requires the bound dataset to declare a field named 'occurred_at'")
         case Some(f) if f.fieldType != DataFieldType.TimestampType =>
-          Some("counter field requires 'occurred_at' to be declared as a timestamp field")
+          Some("occurred_at" -> "counter field requires 'occurred_at' to be declared as a timestamp field")
         case Some(_) =>
           byName.get("value") match {
             case None =>
-              Some("counter field requires the bound dataset to declare a field named 'value'")
+              Some("value" -> "counter field requires the bound dataset to declare a field named 'value'")
             case Some(f) if f.fieldType != DataFieldType.IntegerType && f.fieldType != DataFieldType.FloatType =>
-              Some("counter field requires 'value' to be declared as a numeric field")
+              Some("value" -> "counter field requires 'value' to be declared as a numeric field")
             case Some(f) if f.required =>
-              Some("counter field requires 'value' to be declared as not required — a nullable snapshot can never be required")
+              Some("value" -> "counter field requires 'value' to be declared as not required — a nullable snapshot can never be required")
             case Some(_) => None
           }
       }

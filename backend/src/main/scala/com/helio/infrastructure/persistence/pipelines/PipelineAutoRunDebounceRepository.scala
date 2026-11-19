@@ -1,7 +1,7 @@
 package com.helio.infrastructure.persistence.pipelines
 
 import com.helio.infrastructure.persistence.DbContext
-import com.helio.domain.model.PipelineId
+import com.helio.domain.model.{PipelineId, UserId}
 import slick.jdbc.PostgresProfile.api._
 
 import java.sql.Timestamp
@@ -31,17 +31,21 @@ class PipelineAutoRunDebounceRepository(ctx: DbContext)(implicit ec: ExecutionCo
    *  instances (two near-simultaneous writes computing slightly different `now` can never move
    *  `fire_at` backward). Resetting `claimed_at = NULL` on EVERY write (not just the first) is
    *  what makes a write arriving mid-fire correct -- see [[releaseClaim]]'s doc. HEL-1504: it also
-   *  resets `guard_retry_count` to 0 -- a fresh write is a new obligation with a new retry allowance. */
-  def upsertDebounce(pipelineId: PipelineId, fireAt: Instant): Future[Unit] = {
+   *  resets `guard_retry_count` to 0 -- a fresh write is a new obligation with a new retry allowance.
+   *
+   *  HEL-1784: `writer` is the user whose write armed this window; the last writer wins (stored on insert and on
+   *  conflict). It has no default so a caller cannot silently drop the attribution. */
+  def upsertDebounce(pipelineId: PipelineId, fireAt: Instant, writer: UserId): Future[Unit] = {
     val fireAtTs = Timestamp.from(fireAt)
     ctx.withSystemContext(
-      sqlu"""INSERT INTO pipeline_auto_run_debounce (pipeline_id, fire_at, claimed_at)
-             VALUES (${pipelineId.value}, $fireAtTs, NULL)
+      sqlu"""INSERT INTO pipeline_auto_run_debounce (pipeline_id, fire_at, claimed_at, triggered_by_user_id)
+             VALUES (${pipelineId.value}, $fireAtTs, NULL, ${writer.value}::uuid)
              ON CONFLICT (pipeline_id) DO UPDATE
                SET fire_at    = GREATEST(pipeline_auto_run_debounce.fire_at, EXCLUDED.fire_at),
                    claimed_at = NULL,
                    guard_retry_count = 0,
-                   write_generation = EXCLUDED.write_generation"""
+                   write_generation = EXCLUDED.write_generation,
+                   triggered_by_user_id = EXCLUDED.triggered_by_user_id"""
     ).map(_ => ())
   }
 
@@ -66,8 +70,8 @@ class PipelineAutoRunDebounceRepository(ctx: DbContext)(implicit ec: ExecutionCo
    *  whose claim is stale -- older than `staleClaimAfter`, a self-healing fallback for a claim
    *  whose process crashed before reaching [[releaseClaim]]). Returns each claimed pipeline's id
    *  paired with the EXACT `claimed_at` token this call wrote, which the caller must hand back to
-   *  [[releaseClaim]] unchanged (compare-and-delete). */
-  def claimDue(now: Instant, staleClaimAfter: Instant): Future[Vector[(PipelineId, Instant)]] = {
+   *  [[releaseClaim]] unchanged (compare-and-delete), and (HEL-1784) the last writer stored on the row, if any. */
+  def claimDue(now: Instant, staleClaimAfter: Instant): Future[Vector[ClaimedAutoRun]] = {
     val nowTs   = Timestamp.from(now)
     val staleTs = Timestamp.from(staleClaimAfter)
     ctx.withSystemContext(
@@ -75,9 +79,9 @@ class PipelineAutoRunDebounceRepository(ctx: DbContext)(implicit ec: ExecutionCo
             SET claimed_at = $nowTs
             WHERE fire_at <= $nowTs
               AND (claimed_at IS NULL OR claimed_at < $staleTs)
-            RETURNING pipeline_id, claimed_at"""
-        .as[(String, Timestamp)]
-    ).map(_.map { case (pid, claimedAt) => (PipelineId(pid), claimedAt.toInstant) }.toVector)
+            RETURNING pipeline_id, claimed_at, triggered_by_user_id::text"""
+        .as[(String, Timestamp, Option[String])]
+    ).map(_.map { case (pid, claimedAt, writer) => ClaimedAutoRun(PipelineId(pid), claimedAt.toInstant, writer.map(UserId(_))) }.toVector)
   }
 
   /** Compare-and-delete on the exact `claimed_at` token [[claimDue]] returned -- NOT an
@@ -142,6 +146,10 @@ class PipelineAutoRunDebounceRepository(ctx: DbContext)(implicit ec: ExecutionCo
     )
   }
 }
+
+/** One row claimed by [[PipelineAutoRunDebounceRepository.claimDue]]. `triggeredByUserId` is the last writer (HEL-1784);
+ *  `None` for a row written before V146 or whose writer was deleted. */
+final case class ClaimedAutoRun(pipelineId: PipelineId, claimedAt: Instant, triggeredByUserId: Option[UserId])
 
 /** The outcome of [[PipelineAutoRunDebounceRepository.rearmAfterGuardRejection]] (HEL-1504). */
 sealed trait RearmOutcome

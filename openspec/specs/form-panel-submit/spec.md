@@ -83,7 +83,8 @@ validation is a convenience; the server enforces the same rules independently.
 
 The system SHALL expose `POST /api/panels/:id/submit` accepting `{"values": {"<sourceField>": <value>}}` for a
 `form` panel. A successful submit SHALL append exactly one row to the source the panel is bound to and SHALL respond
-`201 Created` with that row's identity (`id`, `seq`, `updatedAt`). The write target SHALL be the panel's persisted
+`201 Created` with that row's identity: `id` and `updatedAt` always, and `seq` only when the submitter is the form's
+owner (a non-owner submitter's response carries no `seq` key). The write target SHALL be the panel's persisted
 binding only: the request SHALL NOT be able to name a source, and a request body carrying any key other than
 `values` SHALL be rejected with `400`. Fields the form does not configure SHALL be written as absent, so the dataset's
 declared default (or declared requirement) applies.
@@ -99,6 +100,14 @@ declared default (or declared requirement) applies.
 #### Scenario: Unconfigured declared field takes its default
 - **WHEN** the dataset declares `status` with a default and the form has no `status` field
 - **THEN** the appended row holds the declared default for `status`
+
+#### Scenario: A non-owner submitter gets no seq
+- **WHEN** a dashboard editor who is not the form's owner submits successfully
+- **THEN** the `201` response's row carries `id` and `updatedAt` and no `seq` key
+
+#### Scenario: The form owner still gets seq
+- **WHEN** the form's owner submits successfully
+- **THEN** the `201` response's row carries `id`, `seq` and `updatedAt`
 
 ### Requirement: The server enforces the form's rules and the declared schema, writing nothing on rejection
 
@@ -167,25 +176,6 @@ human-readable `message`.
 - **WHEN** a submit attaches a file larger than the uploads backend's configured maximum size
 - **THEN** the response is `400` with a field error with reason `invalid`, no file is written to the uploads
   backend, and the row count is unchanged
-
-### Requirement: Only a caller who can see the panel and owns its source may submit
-
-`POST /api/panels/:id/submit` SHALL respond `404` when the panel is not visible to the caller, `400` when the panel is
-not a `form` panel, `403` when the panel is visible but the caller is not its owner, and `404` when the owner's bound
-source no longer exists, is not the caller's, or the config carries no binding. No row SHALL be written in any of
-these cases.
-
-#### Scenario: Grantee cannot write the owner's source
-- **WHEN** a user who has been granted access to the dashboard but does not own the panel submits
-- **THEN** the response is `403` and the source is unchanged
-
-#### Scenario: Deleted bound source is reported as not found
-- **WHEN** the owner submits to a form panel whose bound source has since been deleted
-- **THEN** the response is `404` and nothing is written
-
-#### Scenario: Non-form panel is rejected
-- **WHEN** the panel id names a `text` panel
-- **THEN** the response is `400`
 
 ### Requirement: A rejected submit preserves the user's input
 
@@ -329,7 +319,9 @@ value in tests, never by the mere presence of a loading element in the DOM.
 
 ### Requirement: A counter's displayed value reconciles to the dataset's authoritative aggregate after a successful submit
 
-Once every request in a `counter` field's current pending burst has settled — a success, a definite
+This requirement applies when the signed-in user is the form's owner (the user who owns the panel and its bound
+source). A user who is not the form's owner never reads the dataset's aggregate; see "A non-owner's counter shows a
+local tally and never reads the dataset". Once every request in a `counter` field's current pending burst has settled — a success, a definite
 rejection, or an indeterminate failure, in any mix and in any order — the client SHALL fetch the
 field's current aggregate value from the dataset (the authoritative sum of every row's `delta` for that
 `sourceField`) and reconcile the displayed value against it, subject to the same generation/pending-set
@@ -521,3 +513,164 @@ requirement's field-level error/invalid state; only a later request's own succes
 - **WHEN** a counter's immediate-submit request is rejected by the server, marking the control invalid,
   and a later immediate-submit request for the same field succeeds
 - **THEN** the control's computed `aria-invalid` is no longer `"true"` once that later success settles
+
+### Requirement: Only a caller with owner or editor access to the panel's dashboard may submit
+
+`POST /api/panels/:id/submit` SHALL admit a caller who holds `owner` or `editor` access to the panel's dashboard,
+whether or not they own the form or hold any grant on its bound source. It SHALL respond `404` when the panel is not
+visible to the caller, `400` when the panel is not a `form` panel, `403` with the message
+`You have view-only access to this dashboard` when the caller holds a named `viewer` grant, `404` when a signed-in
+caller holds no named grant on the dashboard (including when the dashboard is public), and `404` when the form owner's bound source no longer exists, is no longer owned by the form's
+owner, or the config carries no binding. The row SHALL be written as the form's owner sees their own source, with
+row-level security enforced for the application database role, so a write can only ever land on a source the form's
+owner owns. No row SHALL be written in any refused case. Access SHALL be re-checked on every submit, so a revoked or
+downgraded grant takes effect on the next request.
+
+#### Scenario: Editor grantee submits to the owner's source
+- **WHEN** a user holding a named `editor` grant on the dashboard, with no grant on the bound source or any pipeline,
+  submits a valid form
+- **THEN** the response is `201` and the owner's source has exactly one more row
+
+#### Scenario: Grantee cannot write the owner's source
+- **WHEN** a user holding a named `viewer` grant on the dashboard submits
+- **THEN** the response is `403` with `You have view-only access to this dashboard` and the source is unchanged
+
+#### Scenario: Stranger cannot see the form
+- **WHEN** a signed-in user with no grant on a non-public dashboard submits to one of its form panels
+- **THEN** the response is `404` and the source is unchanged
+
+#### Scenario: A signed-in stranger on a public dashboard is not admitted
+- **WHEN** a signed-in user with no named grant submits to a form panel on a public dashboard
+- **THEN** the response is `404` and the source is unchanged
+
+#### Scenario: A form whose owner does not own the bound source writes nothing
+- **WHEN** a form panel's owner does not own the source its binding names (for example a copy made by another user)
+  and that owner submits
+- **THEN** the response is `404` and no source is modified
+
+#### Scenario: A downgraded editor is refused on the next submit
+- **WHEN** an editor's grant is changed to `viewer` and they submit again
+- **THEN** the response is `403` and nothing is written
+
+#### Scenario: The dashboard owner submits a form an editor created
+- **WHEN** an editor created a form panel bound to their own dataset on the dashboard and the dashboard's owner submits
+  it
+- **THEN** the response is `201` and the row lands on the editor's (the form owner's) source
+
+#### Scenario: Write is bounded by row-level security as the application role
+- **WHEN** the submit path runs against a database role without `BYPASSRLS`
+- **THEN** the editor's submit lands in the form owner's source, and an append attempted in the editor's own database
+  context against that source writes nothing
+
+#### Scenario: Deleted bound source is reported as not found
+- **WHEN** the owner submits to a form panel whose bound source has since been deleted
+- **THEN** the response is `404` and nothing is written
+
+#### Scenario: Non-form panel is rejected
+- **WHEN** the panel id names a `text` panel
+- **THEN** the response is `400`
+
+### Requirement: A form's bound field declarations are readable per panel by dashboard owners and editors
+
+The system SHALL expose `GET /api/panels/:id/form-schema` for a `form` panel, responding `200` with
+`{"fields": [...]}` holding the bound dataset's declarations of exactly the fields the form configures (each
+declaration as the dataset schema route returns it), in the dataset's declared order, and no other declaration. It SHALL
+admit a caller with `owner` or `editor` access to the panel's dashboard, checked on every request, and respond `404`
+when the panel is not visible to the caller, `403` with `You have view-only access to this dashboard` for a named
+`viewer` grant, `404` for a signed-in caller with no named grant (including on a public dashboard), `400` for a
+non-`form` panel, and `404` when the form owner's bound source no longer exists. The read SHALL run
+as the form's owner sees their own source with row-level security enforced, and SHALL read no dataset row.
+
+#### Scenario: Editor reads only the form's fields
+- **WHEN** a dataset declares `a`, `b` and `c`, the form binds `a` and `c`, and a dashboard editor requests the route
+- **THEN** the response holds the declarations of `a` and `c` only
+
+#### Scenario: Viewer and stranger are refused
+- **WHEN** a viewer grantee requests the route, and a user with no grant requests it
+- **THEN** the viewer gets `403` and the stranger gets `404`
+
+#### Scenario: Read is bounded by row-level security as the application role
+- **WHEN** the route runs against a database role without `BYPASSRLS`
+- **THEN** the editor receives the form owner's declarations, and the same read in the editor's own database context
+  returns nothing
+
+### Requirement: A non-owner's counter shows a local tally and never reads the dataset
+
+When the signed-in user is not the form's owner, a `counter` field SHALL show its `+`/`-` controls and a value that
+starts from the field's initial value (or empty) and moves only by the deltas of that user's own successful clicks in
+this view. The client SHALL NOT request the dataset's aggregate, rows or schema routes for that form. A definite
+rejection SHALL roll back that click's delta exactly as for the owner. An indeterminate failure (no response) SHALL
+leave the tally as displayed and the assertive region SHALL announce that the current value could not be confirmed.
+
+#### Scenario: An editor's clicks move a local tally without an aggregate read
+- **WHEN** a dashboard editor who is not the form's owner presses `+` three times and each submit succeeds
+- **THEN** the displayed value has moved by three steps and no request to `/api/data-sources/*` was made
+
+#### Scenario: An editor's compact counter is enabled with only the bound field's declaration
+- **WHEN** a non-owner opens a form whose single field is a counter, and the schema it received holds only that field's
+  declaration (no `occurred_at`/`value`)
+- **THEN** the `+`/`-` controls are enabled, show no configuration issue, and `+` submits
+
+#### Scenario: An editor's indeterminate click is announced as unconfirmed
+- **WHEN** a non-owner's counter submit fails with no response
+- **THEN** the tally is left as displayed and the assertive region announces that the value could not be confirmed
+
+### Requirement: A counter submit is refused when the dataset no longer has the counter row shape
+
+When a form configures a `counter` field, the submit SHALL be validated, against the dataset declaration read under
+the write lock, for the counter row shape the form required when it was configured (a field named `occurred_at` of type
+timestamp, and a field named `value` that is numeric and not required). If the shape no longer holds, the submit SHALL write nothing and respond `400` for every
+submitter, the form's owner included.
+
+#### Scenario: Renamed occurred_at refuses the counter write
+- **WHEN** the owner renames the dataset's `occurred_at` field after configuring a counter form, and then an editor
+  presses `+`
+- **THEN** the response is `400` with the generic "form no longer matches its dataset" message and no row is written
+
+#### Scenario: Dropped value refuses the counter write
+- **WHEN** the owner drops the dataset's `value` field after configuring a counter form, and an editor presses `+`
+- **THEN** the response is `400` with the generic message and no row is written
+
+#### Scenario: The owner's direct submit is refused too
+- **WHEN** the form's owner submits the same counter form through the API
+- **THEN** the response is `400` and no row is written
+
+### Requirement: A non-owner submitter learns nothing of the dataset beyond the form's own fields
+
+For a submitter who is not the form's owner, a rejected submit SHALL NOT name any declared field the form does not
+configure: such field errors SHALL be dropped and the message SHALL say the form no longer matches its dataset. A
+row-limit rejection SHALL NOT state the limit. The form's owner SHALL receive the existing, unfiltered errors.
+
+#### Scenario: An unbound required field is not disclosed to an editor
+- **WHEN** the dataset declares a required field `secret_note` with no default that the form does not configure, and an
+  editor submits
+- **THEN** the `400` response does not contain `secret_note` and its message says the form no longer matches its dataset
+
+#### Scenario: The owner still sees the precise error
+- **WHEN** the form's owner submits in the same situation
+- **THEN** the `400` response's `fieldErrors` names `secret_note`
+
+#### Scenario: An editor cannot probe which fields the dataset declares
+- **WHEN** an editor submits the form's configured values plus an extra key the dataset declares but the form does not
+  configure, and separately the same values plus an extra key the dataset does not declare
+- **THEN** the two `400` response bodies are identical
+
+#### Scenario: A non-owner's row-limit rejection states no number
+- **WHEN** the dataset is at its row limit and an editor submits
+- **THEN** the `400` message contains no digit
+
+### Requirement: A write by a non-owner is attributed to its submitter and its auto-run to the pipeline owner
+
+A successful submit SHALL record an audit event for the append whose actor is the submitter and which names the panel.
+Any downstream auto-run the write schedules SHALL be submitted as, and counted against, the pipeline's owner (their
+HEL-505 rate limit and concurrency cap), and the run SHALL record the last writer before it fired as the user who
+triggered it, as an editor's manual run does.
+
+#### Scenario: An editor's submit triggers an auto-run counted against the pipeline owner
+- **WHEN** an editor submits to a form whose dataset feeds an auto-runnable pipeline and the debounce fires
+- **THEN** the run is in the pipeline owner's run history, counts toward the owner's concurrency cap, and its
+  triggering user is the editor
+
+#### Scenario: The audit event names the editor
+- **WHEN** an editor submits successfully
+- **THEN** the append's audit event has the editor as actor and carries the panel id

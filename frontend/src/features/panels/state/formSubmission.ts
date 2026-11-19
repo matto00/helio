@@ -2,7 +2,7 @@
 // Pure, side-effect-free; `FormPanelView` is the only caller. Client validation is a convenience
 // — the server (`FormSubmission.buildRow`) enforces the same rules independently (design.md D3).
 
-import { computeFormIssues } from "./formConfigValidation";
+import { computeFormIssues, type ComputeFormIssuesOptions } from "./formConfigValidation";
 import { isValidTypedValue, parseTypedValue } from "./formConfigValidation";
 import { isFieldRequired, validateFieldValue } from "./formFieldValidation";
 import { validateFileUpload } from "./formUploadConfig";
@@ -108,8 +108,9 @@ export function validateForSubmit(
   config: FormPanelConfig,
   schema: DatasetFieldResponse[],
   values: Record<string, FormFieldValue>,
+  issueOptions?: ComputeFormIssuesOptions,
 ): ValidateForSubmitResult {
-  const issues = computeFormIssues(config, schema);
+  const issues = computeFormIssues(config, schema, issueOptions);
   const issuesByField = new Map(issues.map((i) => [i.field, i.message]));
   const declaredByField = new Map(schema.map((f) => [f.name, f]));
 
@@ -163,8 +164,9 @@ export function buildSubmitValues(
   config: FormPanelConfig,
   schema: DatasetFieldResponse[],
   values: Record<string, FormFieldValue>,
+  issueOptions?: ComputeFormIssuesOptions,
 ): Record<string, unknown> {
-  const issues = computeFormIssues(config, schema);
+  const issues = computeFormIssues(config, schema, issueOptions);
   const issuesByField = new Map(issues.map((i) => [i.field, i.message]));
   const declaredByField = new Map(schema.map((f) => [f.name, f]));
 
@@ -208,8 +210,9 @@ export function buildSubmitFiles(
   config: FormPanelConfig,
   schema: DatasetFieldResponse[],
   values: Record<string, FormFieldValue>,
+  issueOptions?: ComputeFormIssuesOptions,
 ): Record<string, File> {
-  const issues = computeFormIssues(config, schema);
+  const issues = computeFormIssues(config, schema, issueOptions);
   const issuesByField = new Map(issues.map((i) => [i.field, i.message]));
   const declaredByField = new Map(schema.map((f) => [f.name, f]));
 
@@ -243,8 +246,9 @@ export function mapServerFieldErrors(
   config: FormPanelConfig,
   schema: DatasetFieldResponse[],
   fieldErrors: FieldValidationError[],
+  issueOptions?: ComputeFormIssuesOptions,
 ): MappedServerErrors {
-  const issues = computeFormIssues(config, schema);
+  const issues = computeFormIssues(config, schema, issueOptions);
   const issuesByField = new Map(issues.map((i) => [i.field, i.message]));
   const byField = new Map(config.fields.map((f) => [f.sourceField, f]));
 

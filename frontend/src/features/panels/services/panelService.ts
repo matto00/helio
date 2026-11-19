@@ -4,6 +4,7 @@ import type {
   DividerOrientation,
   FieldValidationError,
   FormPanelConfig,
+  FormSubmitResponse,
   ImageFit,
   OutputControlSpec,
   Panel,
@@ -14,7 +15,7 @@ import type {
   UpdatePanelsBatchResponse,
 } from "../types/panel";
 import type { PagedResult } from "../../../types/models";
-import type { RowWriteResponse } from "../../sources/types/dataSource";
+import type { DatasetSchemaResponse } from "../../sources/types/dataSource";
 import {
   buildContentPatch,
   buildCreatePanelBody,
@@ -158,6 +159,15 @@ export async function updatePanelOutputControls(
   return response.data;
 }
 
+/** `GET /api/panels/:id/form-schema` (HEL-1784) — the declarations of the fields the form binds, for a user who is
+ *  not the form's owner and so cannot read the dataset's own schema route. Nothing else of the dataset is returned. */
+export async function fetchFormSchema(panelId: string): Promise<DatasetSchemaResponse> {
+  const response = await httpClient.get<DatasetSchemaResponse>(
+    `/api/panels/${panelId}/form-schema`,
+  );
+  return response.data;
+}
+
 /** `POST /api/panels/:id/submit` (HEL-1087 design.md D1/D2, HEL-1086 design.md D1/D5) — a `form`
  *  panel's submit path. `values` are already the typed, submit-ready payload
  *  (`state/formSubmission.ts`'s `buildSubmitValues`) — this function does no shaping of its own.
@@ -170,9 +180,9 @@ export async function submitFormPanel(
   panelId: string,
   values: Record<string, unknown>,
   files: Record<string, File> = {},
-): Promise<RowWriteResponse> {
+): Promise<FormSubmitResponse> {
   if (Object.keys(files).length === 0) {
-    const response = await httpClient.post<RowWriteResponse>(`/api/panels/${panelId}/submit`, {
+    const response = await httpClient.post<FormSubmitResponse>(`/api/panels/${panelId}/submit`, {
       values,
     });
     return response.data;
@@ -183,7 +193,7 @@ export async function submitFormPanel(
   for (const [sourceField, file] of Object.entries(files)) {
     formData.append(sourceField, file, file.name);
   }
-  const response = await httpClient.post<RowWriteResponse>(
+  const response = await httpClient.post<FormSubmitResponse>(
     `/api/panels/${panelId}/submit`,
     formData,
     { headers: { "Content-Type": "multipart/form-data" } },

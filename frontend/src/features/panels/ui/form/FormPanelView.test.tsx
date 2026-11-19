@@ -11,7 +11,8 @@ import {
   fetchFieldAggregate as fetchFieldAggregateRequest,
 } from "../../../sources/services/dataSourceService";
 import { submitFormPanel as submitFormPanelRequest } from "../../services/panelService";
-import { renderWithStore } from "../../../../test/renderWithStore";
+import { renderWithStore as renderWithStoreBase } from "../../../../test/renderWithStore";
+import { testUser } from "../../../../test/tabsTestStore";
 import type { FormPanelConfig } from "../../types/panel";
 
 jest.mock("../../../sources/services/dataSourceService", () => ({
@@ -23,6 +24,11 @@ jest.mock("../../services/panelService", () => ({
   submitFormPanel: jest.fn(),
   parseFieldErrors: jest.requireActual("../../services/panelService").parseFieldErrors,
 }));
+
+// The form's owner is the signed-in user, so these tests exercise the owner path (the dataset's own schema + aggregate).
+function renderWithStore(ui: React.ReactElement) {
+  return renderWithStoreBase(ui, { auth: { currentUser: testUser(undefined, "user-1") } });
+}
 
 const fetchDatasetSchemaMock = jest.mocked(fetchDatasetSchemaRequest);
 const fetchFieldAggregateMock = jest.mocked(fetchFieldAggregateRequest);
@@ -54,7 +60,9 @@ function axiosErrorWith(status: number, data: unknown): AxiosError {
 
 async function renderReady() {
   fetchDatasetSchemaMock.mockResolvedValueOnce({ fields: schemaFields });
-  renderWithStore(<FormPanelView title="My form" panelId="panel-1" config={config} />);
+  renderWithStore(
+    <FormPanelView formOwnerId="user-1" title="My form" panelId="panel-1" config={config} />,
+  );
   return screen.findByRole("form", { name: "My form" });
 }
 
@@ -66,13 +74,17 @@ describe("FormPanelView", () => {
 
   it("shows a loading state while the schema fetch is in flight", () => {
     fetchDatasetSchemaMock.mockReturnValue(new Promise(() => {}));
-    renderWithStore(<FormPanelView title="My form" panelId="panel-1" config={config} />);
+    renderWithStore(
+      <FormPanelView formOwnerId="user-1" title="My form" panelId="panel-1" config={config} />,
+    );
     expect(screen.getByLabelText("Loading form fields")).toBeInTheDocument();
   });
 
   it("shows InlineError with a working Retry action on failure", async () => {
     fetchDatasetSchemaMock.mockRejectedValueOnce(new Error("boom"));
-    renderWithStore(<FormPanelView title="My form" panelId="panel-1" config={config} />);
+    renderWithStore(
+      <FormPanelView formOwnerId="user-1" title="My form" panelId="panel-1" config={config} />,
+    );
 
     await screen.findByRole("alert");
     expect(screen.queryByRole("form")).not.toBeInTheDocument();
@@ -133,7 +145,9 @@ describe("FormPanelView", () => {
       updatedAt: "now",
       deniedPipelines: [],
     });
-    renderWithStore(<FormPanelView title="My form" panelId="panel-1" config={fileConfig} />);
+    renderWithStore(
+      <FormPanelView formOwnerId="user-1" title="My form" panelId="panel-1" config={fileConfig} />,
+    );
     await screen.findByRole("form", { name: "My form" });
 
     const file = new File(["contents"], "report.pdf", { type: "application/pdf" });
@@ -272,7 +286,14 @@ describe("FormPanelView", () => {
       deniedPipelines: [],
     });
     fetchDatasetSchemaMock.mockResolvedValueOnce({ fields: schemaFields });
-    renderWithStore(<FormPanelView title="My form" panelId="panel-1" config={noResetConfig} />);
+    renderWithStore(
+      <FormPanelView
+        formOwnerId="user-1"
+        title="My form"
+        panelId="panel-1"
+        config={noResetConfig}
+      />,
+    );
     await screen.findByRole("form", { name: "My form" });
 
     fireEvent.change(screen.getByRole("textbox", { name: "Note" }), { target: { value: "hello" } });
@@ -335,7 +356,14 @@ describe("FormPanelView — compact single-counter-field layout", () => {
 
   async function renderCompact() {
     fetchDatasetSchemaMock.mockResolvedValueOnce({ fields: counterSchemaFields });
-    renderWithStore(<FormPanelView title="Widgets" panelId="panel-2" config={counterConfig} />);
+    renderWithStore(
+      <FormPanelView
+        formOwnerId="user-1"
+        title="Widgets"
+        panelId="panel-2"
+        config={counterConfig}
+      />,
+    );
     return screen.findByRole("spinbutton", { name: "Widgets" });
   }
 
@@ -352,7 +380,14 @@ describe("FormPanelView — compact single-counter-field layout", () => {
       submit: { writeMode: "append" },
     };
     fetchDatasetSchemaMock.mockResolvedValueOnce({ fields: [] });
-    renderWithStore(<FormPanelView title="Empty" panelId="panel-3" config={zeroFieldConfig} />);
+    renderWithStore(
+      <FormPanelView
+        formOwnerId="user-1"
+        title="Empty"
+        panelId="panel-3"
+        config={zeroFieldConfig}
+      />,
+    );
     await screen.findByRole("form", { name: "Empty" });
     expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
     cleanup();
@@ -366,7 +401,12 @@ describe("FormPanelView — compact single-counter-field layout", () => {
       fields: [{ name: "note", type: "string" as const, required: false }],
     });
     renderWithStore(
-      <FormPanelView title="Note form" panelId="panel-4" config={oneNonCounterConfig} />,
+      <FormPanelView
+        formOwnerId="user-1"
+        title="Note form"
+        panelId="panel-4"
+        config={oneNonCounterConfig}
+      />,
     );
     await screen.findByRole("form", { name: "Note form" });
     cleanup();
@@ -387,7 +427,14 @@ describe("FormPanelView — compact single-counter-field layout", () => {
         { name: "value", type: "integer" as const, required: false },
       ],
     });
-    renderWithStore(<FormPanelView title="Mixed form" panelId="panel-5" config={twoFieldConfig} />);
+    renderWithStore(
+      <FormPanelView
+        formOwnerId="user-1"
+        title="Mixed form"
+        panelId="panel-5"
+        config={twoFieldConfig}
+      />,
+    );
     await screen.findByRole("form", { name: "Mixed form" });
     // The embedded counter renders via the standard layout's shared Submit button, not per-click.
     expect(screen.getByRole("button", { name: "Submit" })).toBeInTheDocument();
@@ -410,7 +457,14 @@ describe("FormPanelView — compact single-counter-field layout", () => {
         { name: "value", type: "integer" as const, required: false },
       ],
     });
-    renderWithStore(<FormPanelView title="Mixed form" panelId="panel-6" config={twoFieldConfig} />);
+    renderWithStore(
+      <FormPanelView
+        formOwnerId="user-1"
+        title="Mixed form"
+        panelId="panel-6"
+        config={twoFieldConfig}
+      />,
+    );
     await screen.findByRole("form", { name: "Mixed form" });
 
     fireEvent.click(screen.getByRole("button", { name: /increase delta/i }));

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/panels/form-submit-row-response.schema.json",
+  "title": "FormSubmitRowResponse",
+  "description": "One row appended by POST /api/panels/:id/submit (HEL-1784). Same as RowWriteRowResponse except `seq`, the dataset's row ordering, is returned only when the submitter is the form's owner; a dashboard editor or the dashboard's owner submitting someone else's form gets no `seq` key.",
+  "type": "object",
+  "required": ["id", "updatedAt"],
+  "properties": {
+    "id": { "type": "string" },
+    "seq": { "type": "integer" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}
