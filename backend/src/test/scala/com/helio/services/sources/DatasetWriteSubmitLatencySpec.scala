@@ -168,7 +168,7 @@ class DatasetWriteSubmitLatencySpec
     val ai    = seedFiveDownstreamPipelines(owner, ds)
     val write: () => Vector[EvaluatedPipeline.Denied] = kind match {
       case "appendFormRow" =>
-        () => await(service.appendFormRow(ds, build, PanelId(UUID.randomUUID().toString), user))
+        () => await(service.appendFormRow(ds, build, PanelId(UUID.randomUUID().toString), user, user.id))
           .getOrElse(fail("expected Right")).deniedPipelines
       case "replaceRows" =>
         var i = 0

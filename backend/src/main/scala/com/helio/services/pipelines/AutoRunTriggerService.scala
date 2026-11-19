@@ -75,7 +75,7 @@ final class AutoRunTriggerService(
       pipelineOpt <- pipelineRepo.findByIdInternal(pipelineId)
       verdict     <- computeVerdict(pipelineId)
       result      <- if (verdict.autoRunnable)
-                       debounceRepo.upsertDebounce(pipelineId, now.plusSeconds(debounceSeconds))
+                       debounceRepo.upsertDebounce(pipelineId, now.plusSeconds(debounceSeconds), user.id)
                          .map(_ => Some(EvaluatedPipeline.Allowed(pipelineId)))
                      else
                        handleDenied(pipelineId, dataSourceId, user, pipelineOpt, verdict)

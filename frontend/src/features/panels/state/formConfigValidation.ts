@@ -105,9 +105,17 @@ function declaredFieldFor(
  *  rules `FormPanel.validateConfig` already enforces (duplicate field, step-on-non-number).
  *  Returns every issue found — the caller (`FormEditor`) decides how to render them; `[]` means
  *  the config is save-able. */
+export interface ComputeFormIssuesOptions {
+  /** HEL-1784: skips the counter row-shape rule. A user who is not the form's owner is served only the declarations of
+   *  the fields the form binds, which never include `occurred_at`/`value`, so the rule would disable every one of
+   *  their counters. The server enforces the shape under the source's lock, so nothing is lost. */
+  skipCounterRowShape?: boolean;
+}
+
 export function computeFormIssues(
   config: FormPanelConfig,
   schema: DatasetFieldResponse[],
+  options: ComputeFormIssuesOptions = {},
 ): FormFieldIssue[] {
   const issues: FormFieldIssue[] = [];
   const seen = new Set<string>();
@@ -176,7 +184,9 @@ export function computeFormIssues(
     }
   }
 
-  const counterIssue = checkCounterRowShape(config, schema);
+  const counterIssue = options.skipCounterRowShape
+    ? undefined
+    : checkCounterRowShape(config, schema);
   if (counterIssue) issues.push(counterIssue);
 
   return issues;

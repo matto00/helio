@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/panels/form-submit-response.schema.json",
+  "title": "FormSubmitResponse",
+  "description": "Success body of POST /api/panels/:id/submit (HEL-1784), JSON and multipart alike. Same shape as RowWriteResponse (POST /api/data-sources/:id/rows) with `seq` optional on each row: present only for the form's owner.",
+  "type": "object",
+  "required": ["rows", "updatedAt", "deniedPipelines"],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": { "$ref": "./form-submit-row-response.schema.json" }
+    },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "deniedPipelines": {
+      "type": "array",
+      "items": { "$ref": "../sources/denied-pipeline-response.schema.json" }
+    }
+  },
+  "additionalProperties": false
+}

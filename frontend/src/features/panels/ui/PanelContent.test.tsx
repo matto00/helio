@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
+import { testUser } from "../../../test/tabsTestStore";
 import { settleChartMount, settleMocks } from "../../../test/settleChartMount";
 import { PanelContent } from "./PanelContent";
 import type { ChartPanelProps } from "./ChartPanel";
@@ -469,7 +470,9 @@ describe("PanelContent — form kind (HEL-1083)", () => {
     const panel = makeFormPanel({
       config: { fields: [{ sourceField: "note", control: "text", label: "Note" }] },
     });
-    const { container } = renderWithStore(<PanelContent crossFilterMode="none" panel={panel} />);
+    const { container } = renderWithStore(<PanelContent crossFilterMode="none" panel={panel} />, {
+      auth: { currentUser: testUser(undefined, panel.ownerId) },
+    });
 
     await settleMocks(fetchDatasetSchemaMock);
     screen.getByRole("form", { name: panel.title });

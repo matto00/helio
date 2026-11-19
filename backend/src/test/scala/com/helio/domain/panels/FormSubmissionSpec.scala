@@ -235,6 +235,25 @@ class FormSubmissionSpec extends AnyWordSpec with Matchers {
     }
 
     // HEL-1089 design.md Decision 1/3a — the `counter` control's own submit semantics.
+    "refuse a counter submit against a dataset whose occurred_at was renamed, naming occurred_at" in {
+      val declaration = Vector(decl("delta", DataFieldType.IntegerType, required = true), decl("happened", DataFieldType.TimestampType), decl("value", DataFieldType.IntegerType))
+      val result = FormSubmission.buildRow(config(field("delta", "counter")), declaration, Map("delta" -> JsNumber(1)))
+      result.left.map(_.map(_.field)) shouldBe Left(Vector("occurred_at"))
+    }
+
+    "refuse a counter submit against a dataset that dropped value, or made it required" in {
+      val noValue  = Vector(decl("delta", DataFieldType.IntegerType, required = true), decl("occurred_at", DataFieldType.TimestampType))
+      val required = noValue :+ decl("value", DataFieldType.IntegerType, required = true)
+      FormSubmission.buildRow(config(field("delta", "counter")), noValue, Map("delta" -> JsNumber(1))).left.map(_.map(_.field)) shouldBe Left(Vector("value"))
+      FormSubmission.buildRow(config(field("delta", "counter")), required, Map("delta" -> JsNumber(1))).left.map(_.map(_.field)) shouldBe Left(Vector("value"))
+    }
+
+    "report a bad delta and a broken counter shape together, not just the first" in {
+      val declaration = Vector(decl("delta", DataFieldType.IntegerType, required = true))
+      val result = FormSubmission.buildRow(config(field("delta", "counter")), declaration, Map("delta" -> JsString("nope")))
+      result.left.map(_.map(_.field).toSet) shouldBe Left(Set("delta", "occurred_at"))
+    }
+
     "reject a non-numeric delta for a counter field with 'number is required'" in {
       val declaration = Vector(
         decl("delta", DataFieldType.IntegerType),

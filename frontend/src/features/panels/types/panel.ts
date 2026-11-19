@@ -17,6 +17,7 @@
 // `panel.type` (or use a helper from `panelNarrowing.ts`) before reading
 // `panel.config`.
 
+import type { DeniedPipelineResponse } from "../../sources/types/dataSource";
 import type { ResourceMeta } from "../../../types/models";
 import type { RequestErrorKind } from "../../../services/classifyRequestError";
 import type { ChartType } from "../../../utils/chartAppearance";
@@ -276,6 +277,14 @@ export type PanelConfig =
 // silently ignores on PATCH (no schema or column exists for it); it is
 // preserved here so the `usePanelPolling` hook keeps working until CS3
 // removes it. It is `null` for any panel hydrated from the backend.
+
+/** `POST /api/panels/:id/submit`'s success body (HEL-1784): the row-write shape, except a row's `seq` is present only when
+ *  the submitter is the form's owner. No client code reads `seq` from it. */
+export interface FormSubmitResponse {
+  rows: Array<{ id: string; seq?: number; updatedAt: string }>;
+  updatedAt: string;
+  deniedPipelines: DeniedPipelineResponse[];
+}
 
 interface PanelBase {
   id: string;

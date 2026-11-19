@@ -1,6 +1,6 @@
 package com.helio.services.pipelines
 
-import com.helio.domain.model.{PipelineId, PipelineRunId}
+import com.helio.domain.model.{PipelineId, PipelineRunId, UserId}
 import com.helio.infrastructure.persistence.pipelines._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.spark.PipelineRunCache
@@ -95,7 +95,7 @@ class OrphanedRunReaperSpec extends AnyWordSpec with Matchers with PipelineSched
       val pid    = seedDatasetPipeline()
       val now    = freshNow()
       val orphan = insertOpenRun(pid, now.minusSeconds(7200))
-      await(debounceRepo.upsertDebounce(pid, now.minusSeconds(1)))
+      await(debounceRepo.upsertDebounce(pid, now.minusSeconds(1), UserId(ownerId)))
 
       await(scheduler.tick())
 
@@ -126,7 +126,7 @@ class OrphanedRunReaperSpec extends AnyWordSpec with Matchers with PipelineSched
       val orphan     = insertOpenRun(orphanPipe, now.minusSeconds(7200))
       val liveA      = insertOpenRun(otherA, now)
       val liveB      = insertOpenRun(otherB, now)
-      await(debounceRepo.upsertDebounce(target, now.minusSeconds(1)))
+      await(debounceRepo.upsertDebounce(target, now.minusSeconds(1), UserId(ownerId)))
 
       await(scheduler.tick())
 

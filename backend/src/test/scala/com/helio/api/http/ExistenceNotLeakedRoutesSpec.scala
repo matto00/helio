@@ -548,7 +548,7 @@ object ExistenceNotLeakedRoutesSpec {
     // exists; a stranger, an unknown id and a non-insight Output are the same 404. Legitimate.
     "InsightRenderService.scala"     -> 1,
     "OutputService.scala"            -> 1,
-    "PanelService.scala"             -> 5,
+    "PanelService.scala"             -> 4,
     "PatchSetApplyResolvers.scala"   -> 4,
     // HEL-1492: `PipelineRunExecutor`'s NotAuthorized arm -- reached only after `submit`'s `findByIdShared(.., Some(user))`
     // + owner/editor check, so the caller already knows the pipeline exists (see the change's design.md classification).

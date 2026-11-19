@@ -140,7 +140,10 @@ object FormSubmission {
     }
 
     val fieldErrors = perField.collect { case Left(e) => e }
-    val allErrors    = unconfiguredErrors ++ fieldErrors
+    // HEL-1784: a counter submit needs the `occurred_at`/`value` shape in the declaration it is built against (the
+    // locked one on the in-lock call). Appended, never short-circuiting, so the owner sees every problem at once.
+    val shapeErrors  = FormSchemaConsistency.counterRowShapeViolation(config, declaration).map { case (field, message) => FieldError(field, message) }.toVector
+    val allErrors    = unconfiguredErrors ++ fieldErrors ++ shapeErrors
 
     if (allErrors.nonEmpty) {
       Left(allErrors)

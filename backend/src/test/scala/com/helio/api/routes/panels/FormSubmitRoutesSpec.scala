@@ -424,7 +424,7 @@ class FormSubmitRoutesSpec
   }
 
   "POST /api/panels/:id/submit — visibility and ownership (D4)" should {
-    "reject a grantee (non-owner) with 403, source unchanged" in {
+    "admit an editor grantee of the dashboard (HEL-1784), writing onto the form owner's source" in {
       val src = seedDataset(ownerId, "src-grantee")
       val dashboardId = seedDashboard(ownerId)
       val panelId = seedFormPanel(dashboardId, ownerId, formConfig(validFieldsJson).replace("__DS__", src))
@@ -434,9 +434,9 @@ class FormSubmitRoutesSpec
       ))
 
       submit(panelId, """{"values":{"quantity":3,"note":"hello","status":"a"}}""", granteeToken) ~> routes ~> check {
-        status shouldBe StatusCodes.Forbidden
+        status shouldBe StatusCodes.Created
       }
-      rowCount(src) shouldBe 0
+      rowCount(src) shouldBe 1
     }
 
     "reject an owner whose bound source has since been deleted with 404, nothing written" in {

@@ -229,7 +229,7 @@ class DataSourceServiceDeniedPipelinesSpec
       val pid   = seedDeniedPipeline(owner, dsId)
 
       val build = (_: Vector[DatasetFieldDeclaration], _: Instant) => Right(Vector[JsValue](JsString("form-row")))
-      val result = await(service.appendFormRow(dsId, build, PanelId(UUID.randomUUID().toString), AuthenticatedUser(owner)))
+      val result = await(service.appendFormRow(dsId, build, PanelId(UUID.randomUUID().toString), AuthenticatedUser(owner), owner))
         .getOrElse(fail("expected Right"))
       deniedIn(result.deniedPipelines, pid) shouldBe defined
     }

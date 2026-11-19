@@ -7,6 +7,7 @@ import { uploadPanelImage as uploadPanelImageRequest } from "../../services/pane
 import { getOutputById as getOutputByIdRequest } from "../../../pipelines/services/outputService";
 import { fetchDatasetSchema as fetchDatasetSchemaRequest } from "../../../sources/services/dataSourceService";
 import { renderWithStore } from "../../../../test/renderWithStore";
+import { testUser } from "../../../../test/tabsTestStore";
 import {
   makeDividerPanel,
   makeFormPanel,
@@ -130,6 +131,7 @@ function renderImageModal(onClose = jest.fn()) {
 function renderFormModal(onClose = jest.fn()) {
   setupDialog();
   return renderWithStore(<PanelDetailModal panel={formTestPanel} onClose={onClose} />, {
+    auth: { currentUser: testUser(undefined, formTestPanel.ownerId) },
     sources: {
       items: [
         {

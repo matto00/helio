@@ -7,7 +7,7 @@ import com.helio.services.alerts.AlertEvaluationService
 import com.helio.services.audit.AuditService
 import com.helio.api.protocols.pipelines.{AssertionSummary, LatestRunResponse, PipelinePreviewResponse, PipelineRunRecord, RunResultResponse}
 import com.helio.api.routes.pipelines.PipelineRunRegistry
-import com.helio.domain.model.{AuthenticatedUser, OutputId, PipelineId, PipelineRootId, PipelineRunId, PipelineStepId, TruncatedRead}
+import com.helio.domain.model.{AuthenticatedUser, OutputId, PipelineId, PipelineRootId, PipelineRunId, PipelineStepId, TruncatedRead, UserId}
 import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, PipelineExecutionBackend}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.util.{Clock, SystemClock}
@@ -177,7 +177,10 @@ final class PipelineRunService(
       isDry: Boolean,
       user: AuthenticatedUser,
       triggerSource: String = TriggerSource.Manual,
-      triggeredByTokenId: Option[String] = None
+      triggeredByTokenId: Option[String] = None,
+      // HEL-1784: replaces ONLY the stored trigger attribution (`pipeline_runs.triggered_by_user_id`); `user` still
+      // drives ownership, admission and every authorization. `None` records `user` (every caller but the auto-run firer).
+      triggeredByUserId: Option[UserId] = None
   ): Future[Either[ServiceError, RunResultResponse]] =
     pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
       case None =>
@@ -187,13 +190,13 @@ final class PipelineRunService(
         pipelineRepo.findGrantRole(pipelineId, user).flatMap {
           case Some("editor") =>
             auditSubmit(pipelineId, user, isDry)
-            runPipeline(pipeline, pipelineId, isDry, user, triggerSource, triggeredByTokenId)
+            runPipeline(pipeline, pipelineId, isDry, user, triggerSource, triggeredByTokenId, triggeredByUserId)
           case _              => Future.successful(Left(ServiceError.Forbidden("Forbidden")))
         }
       case Some(pipeline) =>
         // Owner path — always permitted.
         auditSubmit(pipelineId, user, isDry)
-        runPipeline(pipeline, pipelineId, isDry, user, triggerSource, triggeredByTokenId)
+        runPipeline(pipeline, pipelineId, isDry, user, triggerSource, triggeredByTokenId, triggeredByUserId)
     }
 
   /** Persist a "never attempted" run for a pipeline whose resolved source
@@ -216,13 +219,14 @@ final class PipelineRunService(
       triggerSource: String = TriggerSource.Manual,
       // HEL-1384 (design.md D3a): a recurring caller (the scheduled gate) trims history the way
       // `submit`'s real-run path does, so a misconfigured cron cannot grow it without bound.
-      pruneOldRuns: Boolean = false
+      pruneOldRuns: Boolean = false,
+      triggeredByUserId: Option[UserId] = None
   ): Future[RunResultResponse] = {
     val runId = PipelineRunId(UUID.randomUUID().toString)
     val now   = Instant.now()
     val insertWork: Future[Unit] =
       if (pipelineRunRepo != null)
-        pipelineRunRepo.insertRun(runId, pipelineId, now, user, triggerSource = triggerSource, triggeredByUserId = Some(user.id.value)).recoverWith { case ex =>
+        pipelineRunRepo.insertRun(runId, pipelineId, now, user, triggerSource = triggerSource, triggeredByUserId = Some(triggeredByUserId.getOrElse(user.id).value)).recoverWith { case ex =>
           log.warn(s"PipelineRunService.recordUnrunnable: insertRun failed for pipeline ${pipelineId.value}; continuing", ex)
           Future.successful(())
         }

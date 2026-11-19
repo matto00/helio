@@ -101,34 +101,60 @@ final class PanelService(
     panelRepo.findById(panelId, callerOpt)
 
   /** `POST /api/panels/:id/submit` (HEL-1087 design.md D1/D4, HEL-1086 design.md D2). Sharing-aware
-   *  visibility (`findById`) → `404`; non-`form` panel → `400`; a visible panel the caller doesn't
-   *  OWN → `403` (D4's message — decidable from the panel alone: a grantee's insert could not
-   *  succeed under their own RLS context anyway, and the panel owner is the source owner by
-   *  HEL-1084's config-time ownership check). `files` is empty for the plain-JSON submit path
-   *  (every existing non-file form, unchanged behavior) — delegates straight to
-   *  `DataSourceService.appendFormRow`, partially applying `FormSubmission.buildRow` over the
-   *  panel's config and the submitted `values`, the declaration resolved fresh, under the source's
-   *  own lock, INSIDE that call (D3's "no pre-lock mapping" rule). A non-empty `files` routes
-   *  through `submitFormWithFiles` instead (HEL-1086 D2's two-phase validate-then-store). */
+   *  visibility (`findById`) -> `404`; non-`form` panel -> `400`; then (HEL-1784 D1) the caller must be the
+   *  dashboard's owner or an editor: a named viewer is `403` (view-only message), a caller with no named grant
+   *  (a public dashboard included) is `404`. The write then runs in the FORM OWNER's database context
+   *  (`DataSourceService.appendFormRow`, design.md D2), so a binding to a source the form owner does not own writes
+   *  nothing. `files` is empty for the plain-JSON submit path -- delegates straight to `appendFormRow`, partially
+   *  applying `FormSubmission.buildRow` over the panel's config and the submitted `values`, the declaration resolved
+   *  fresh, under the source's own lock, INSIDE that call (D3's "no pre-lock mapping" rule). A non-empty `files`
+   *  routes through `submitFormWithFiles` instead (HEL-1086 D2's two-phase validate-then-store). A submitter who is
+   *  not the form's owner gets the masked errors of [[FormSubmitErrorMasking]] and a result without `seq`. */
   def submitForm(
       panelId: PanelId,
       values:  Map[String, JsValue],
       user:    AuthenticatedUser,
       files:   Map[String, (String, Array[Byte])] = Map.empty
-  ): Future[Either[FormSubmitError, RowWriteResult]] =
+  ): Future[Either[FormSubmitError, FormSubmitResult]] =
     panelRepo.findById(panelId, Some(user)).flatMap {
       case None => Future.successful(Left(FormSubmitError(ServiceError.NotFound("Panel not found"))))
       case Some(panel: FormPanel) =>
-        if (panel.ownerId != user.id)
-          Future.successful(Left(FormSubmitError(ServiceError.Forbidden("Only this form's owner can submit to its data source"))))
-        else if (files.isEmpty) {
-          val build: (Vector[DatasetFieldDeclaration], Instant) => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]] =
-            (declaration, now) => FormSubmission.buildRow(panel.config, declaration, values, now)
-          dataSourceService.appendFormRow(panel.config.dataSourceId, build, panelId, user)
-        } else {
-          formFiles.submitFormWithFiles(panelId, panel, values, files, user)
+        authorizeEditorOnDashboard(panel.dashboardId, user).flatMap {
+          case Left(err) => Future.successful(Left(FormSubmitError(err)))
+          case Right(_) =>
+            val isFormOwner = panel.ownerId == user.id
+            val written: Future[Either[FormSubmitError, RowWriteResult]] =
+              if (files.isEmpty) {
+                val build: (Vector[DatasetFieldDeclaration], Instant) => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]] =
+                  (declaration, now) => FormSubmission.buildRow(panel.config, declaration, values, now)
+                dataSourceService.appendFormRow(panel.config.dataSourceId, build, panelId, user, panel.ownerId)
+              } else formFiles.submitFormWithFiles(panelId, panel, values, files, user)
+            written.map {
+              case Right(result) => Right(FormSubmitResult(result, writerIsFormOwner = isFormOwner))
+              case Left(error)   => Left(if (isFormOwner) error else FormSubmitErrorMasking.forNonOwner(panel.config, error))
+            }
         }
       case Some(_) => Future.successful(Left(FormSubmitError(ServiceError.BadRequest("panel is not a form panel"))))
+    }
+
+  /** `GET /api/panels/:id/form-schema` (HEL-1784 design.md D3): the declarations of the fields the form binds, in the
+   *  dataset's declared order, for a dashboard owner or editor (same admission as [[submitForm]], re-checked per
+   *  request). Read in the form owner's database context; nothing else of the dataset's schema and no row. */
+  def formSchema(panelId: PanelId, user: AuthenticatedUser): Future[Either[ServiceError, Vector[DatasetFieldDeclaration]]] =
+    panelRepo.findById(panelId, Some(user)).flatMap {
+      case None => Future.successful(Left(ServiceError.NotFound("Panel not found")))
+      case Some(panel: FormPanel) =>
+        authorizeEditorOnDashboard(panel.dashboardId, user).flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(_) =>
+            dataSourceRepo.getDeclaredSchema(panel.config.dataSourceId, DataSourceService.ownerContext(panel.ownerId, user)).map {
+              case None => Left(ServiceError.NotFound("Data source not found"))
+              case Some(declaration) =>
+                val bound = panel.config.fields.map(_.sourceField).toSet
+                Right(declaration.filter(f => bound.contains(f.name)))
+            }
+        }
+      case Some(_) => Future.successful(Left(ServiceError.BadRequest("panel is not a form panel")))
     }
 
   /** `POST /api/panels`. Returns the inserted panel plus the [[DashboardLayoutItem]] it was placed at

@@ -855,31 +855,43 @@ final class DataSourceService(
    *  kind check mirrors `appendRows`'s own `findByIdOwned` exactly, including its "Data source
    *  not found" message for `None` — which also covers an unbound `DataSourceId("")`, since that
    *  value never resolves to a row. Audits with `{"panelId"}` metadata (D4) — the one thing this
-   *  audit entry adds over `appendRows`'s own, which has no panel to attribute the write to. */
+   *  audit entry adds over `appendRows`'s own, which has no panel to attribute the write to.
+   *
+   *  HEL-1784 (design.md D2): `writer` is the caller (a dashboard owner or editor, already authorized by
+   *  `PanelService`) and `sourceOwner` is the form's owner. The source lookup and the append run in the SOURCE
+   *  OWNER's database context on the app pool, never as the writer and never on the privileged pool: RLS
+   *  (`data_sources`, `dataset_rows`) still evaluates, so a binding to a source `sourceOwner` does not own finds
+   *  nothing and writes nothing. That makes `app.current_user_id` name a user other than the HTTP caller for that one
+   *  transaction; it is the only place a request runs in another user's context. The audit actor and the auto-run's
+   *  writer stay `writer`. */
   def appendFormRow(
-      id:      DataSourceId,
-      build:   (Vector[DatasetFieldDeclaration], Instant) => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]],
-      panelId: PanelId,
-      user:    AuthenticatedUser
-  ): Future[Either[FormSubmitError, RowWriteResult]] =
-    dataSourceRepo.findByIdOwned(id, user).flatMap {
+      id:          DataSourceId,
+      build:       (Vector[DatasetFieldDeclaration], Instant) => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]],
+      panelId:     PanelId,
+      writer:      AuthenticatedUser,
+      sourceOwner: UserId
+  ): Future[Either[FormSubmitError, RowWriteResult]] = {
+    val ownerContext = DataSourceService.ownerContext(sourceOwner, writer)
+    dataSourceRepo.findByIdOwned(id, ownerContext).flatMap {
       case None => Future.successful(Left(FormSubmitError(ServiceError.NotFound("Data source not found"))))
       case Some(_: DatasetSource) =>
         val now = Instant.now().truncatedTo(ChronoUnit.MICROS)
-        dataSourceRepo.appendBuiltRow(id, build, staticMaxRows, now, user).flatMap {
+        dataSourceRepo.appendBuiltRow(id, build, staticMaxRows, now, ownerContext).flatMap {
           case None => Future.successful(Left(FormSubmitError(ServiceError.NotFound("Data source not found"))))
           case Some(Left(DataSourceRepository.FormRowBuildFailure.FieldErrors(errors))) =>
             Future.successful(Left(FormSubmitError.fromFieldErrors(errors)))
           case Some(Left(DataSourceRepository.FormRowBuildFailure.RowLimitExceeded(msg))) =>
-            Future.successful(Left(FormSubmitError(ServiceError.BadRequest(msg))))
+            Future.successful(Left(FormSubmitError(ServiceError.BadRequest(msg), reason = FormSubmitError.Reason.RowLimit)))
           case Some(Right((ds, inserted))) =>
-            audit("data_source.rows.append", Some(ds.id.value), user, JsObject("panelId" -> JsString(panelId.value)))
-            triggerAutoRunAwaited(id, user).map { denied =>
+            audit("data_source.rows.append", Some(ds.id.value), writer, JsObject("panelId" -> JsString(panelId.value), "sourceOwnerId" -> JsString(sourceOwner.value)))
+            triggerAutoRunAwaited(id, writer).map { denied =>
               Right(RowWriteResult.fromRepositoryRows(ds, Vector(inserted), denied))
             }
         }
-      case Some(_) => Future.successful(Left(FormSubmitError(ServiceError.BadRequest("row writes are only supported for dataset sources"))))
+      case Some(_) =>
+        Future.successful(Left(FormSubmitError(ServiceError.BadRequest("row writes are only supported for dataset sources"), reason = FormSubmitError.Reason.SourceKind)))
     }
+  }
 
   /** HEL-1077 design.md D1/D6: PUT is a full-set atomic replace that never touches the declared
    *  schema (`declaration = None` -- `replaceRows` reads+keeps whatever schema is current AT LOCK
@@ -1368,6 +1380,12 @@ final class DataSourceService(
 }
 
 object DataSourceService {
+  /** HEL-1784 (design.md D2): the principal whose database context a form submit's source read and append run in. Used
+   *  for the DB session only; `writer`'s source is kept so nothing downstream sees an unexpected audit source, and no
+   *  token id is carried because this principal never authenticates anything. */
+  def ownerContext(sourceOwner: UserId, writer: AuthenticatedUser): AuthenticatedUser =
+    AuthenticatedUser(sourceOwner, source = writer.source, tokenId = None)
+
   /** HEL-1638: the outcome of [[validateStatic]] -- everything `createStatic` writes, computed without touching the DB. */
   final case class StaticChecked(tag: Option[String], declaredColumns: Vector[DatasetFieldDeclaration], validatedRows: Vector[Vector[JsValue]], fields: Vector[SchemaField])
 

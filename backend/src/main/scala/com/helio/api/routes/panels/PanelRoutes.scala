@@ -9,12 +9,11 @@ import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.apache.pekko.stream.scaladsl.Sink
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.PanelIdSegment
-import com.helio.api.protocols.panels.{FieldValidationError, FieldValidationErrorResponse, FormSubmitRequest}
-import com.helio.api.protocols.sources.RowWriteResponse
+import com.helio.api.protocols.panels.{FieldValidationError, FieldValidationErrorResponse, FormSchemaResponse, FormSubmitRequest, FormSubmitResponse}
+import com.helio.api.protocols.sources.DatasetFieldResponse
 import com.helio.domain.model._
 import com.helio.services.FormSubmitError
-import com.helio.services.panels.{PanelService, PlacedLayouts}
-import com.helio.services.sources.RowWriteResult
+import com.helio.services.panels.{FormSubmitResult, PanelService, PlacedLayouts}
 import spray.json._
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -40,15 +39,15 @@ final class PanelRoutes(
    *  duplicated — only the response BODY shape diverges, and only when `fieldErrors` is
    *  non-empty; every other failure (403/404/non-form-400) renders the same bare
    *  `ErrorResponse(message)` every other route already emits. */
-  private def completeSubmit(result: Future[Either[FormSubmitError, RowWriteResult]]): Route =
+  private def completeSubmit(result: Future[Either[FormSubmitError, FormSubmitResult]]): Route =
     onSuccess(result) {
-      case Right(r) => complete(StatusCodes.Created, RowWriteResponse.fromDomain(r))
-      case Left(FormSubmitError(err, fieldErrors)) if fieldErrors.nonEmpty =>
+      case Right(r) => complete(StatusCodes.Created, FormSubmitResponse.fromDomain(r))
+      case Left(FormSubmitError(err, fieldErrors, _)) if fieldErrors.nonEmpty =>
         complete(
           ServiceResponse.statusCodeFor(err),
           FieldValidationErrorResponse(err.message, fieldErrors.map(e => FieldValidationError(e.field, e.reason)))
         )
-      case Left(FormSubmitError(err, _)) =>
+      case Left(FormSubmitError(err, _, _)) =>
         complete(ServiceResponse.statusCodeFor(err), ErrorResponse(err.message))
     }
 
@@ -137,6 +136,15 @@ final class PanelRoutes(
               },
               submitFormMultipartRoute(panelId)
             )
+          }
+        },
+        // HEL-1784: the declarations of the fields a form binds, for the dashboard's owner and editors. A user
+        // who is not the form's owner cannot read the dataset's own schema route, so the form loads it here.
+        path(PanelIdSegment / "form-schema") { panelId =>
+          get {
+            ServiceResponse.run(panelService.formSchema(panelId, user)) { declaration =>
+              FormSchemaResponse(declaration.map(DatasetFieldResponse.fromDomain))
+            }
           }
         }
       )

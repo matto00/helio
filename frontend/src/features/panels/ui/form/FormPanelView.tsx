@@ -3,11 +3,12 @@
 // the established loading/failure states while doing so, then renders one `FormFieldControl` per
 // authored field plus a submit button, submit-time validation, and success/error/network states.
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { flushSync } from "react-dom";
 
 import "./FormPanel.css";
 import "./CounterControl.css";
+import { useAppSelector } from "../../../../hooks/reduxHooks";
 import { PanelBodySkeleton } from "../PanelBodySkeleton";
 import { InlineError } from "../../../../shared/chrome/InlineError";
 import {
@@ -18,7 +19,7 @@ import { extractErrorMessage } from "../../../../services/extractErrorMessage";
 import { buildDeniedPipelinesToast } from "../../../pipelines/services/deniedPipelinesToast";
 import { useRunToUpdate } from "../../../pipelines/hooks/useRunToUpdate";
 import { useToast } from "../../../toasts/hooks/useToast";
-import { parseFieldErrors, submitFormPanel } from "../../services/panelService";
+import { fetchFormSchema, parseFieldErrors, submitFormPanel } from "../../services/panelService";
 import { isDefiniteRejection } from "../../state/classifySubmitFailure";
 import { computeFormIssues } from "../../state/formConfigValidation";
 import {
@@ -29,18 +30,28 @@ import {
 } from "../../state/formSubmission";
 import { FormFieldControl } from "./FormFieldControl";
 import { useFormPanelValues } from "./useFormPanelValues";
-import type { DatasetFieldResponse, RowWriteResponse } from "../../../sources/types/dataSource";
-import type { FormPanelConfig } from "../../types/panel";
+import type { DatasetFieldResponse } from "../../../sources/types/dataSource";
+import type { FormPanelConfig, FormSubmitResponse } from "../../types/panel";
 
 interface FormPanelViewProps {
   title: string;
   panelId: string;
   config: FormPanelConfig;
+  /** HEL-1784: the form panel's `ownerId`. Only the form's owner may read the bound dataset's own schema and aggregate;
+   *  anyone else loads the bound fields from the panel's own route and shows a counter's tally of their own clicks.
+   *  The panel list emits `ownerId` only to the dashboard's owner and the panel's creator, so an absent one fails
+   *  closed to "not the owner". */
+  formOwnerId?: string;
 }
 
 type SubmitState = "idle" | "pending" | "succeeded" | "failed";
 
-export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
+export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanelViewProps) {
+  const currentUserId = useAppSelector((state) => state.auth.currentUser?.id ?? null);
+  const isFormOwner = formOwnerId != null && formOwnerId === currentUserId;
+  // The schema a non-owner reads omits `occurred_at`/`value`, which a counter submit fills in server-side, so the
+  // counter row-shape rule cannot be judged from it; the server enforces it under the source's lock.
+  const issueOptions = useMemo(() => ({ skipCounterRowShape: !isFormOwner }), [isFormOwner]);
   const [schema, setSchema] = useState<DatasetFieldResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retryToken, setRetryToken] = useState(0);
@@ -86,7 +97,7 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
 
   // HEL-1096 design.md D3: exactly one toast per write, built from `response.deniedPipelines` —
   // a no-op when nothing was denied (or every denial was invisible to the writer, design.md D1).
-  function pushDenialToastIfAny(response: RowWriteResponse) {
+  function pushDenialToastIfAny(response: FormSubmitResponse) {
     const denied = response.deniedPipelines;
     if (denied.length === 0) return;
     const toastId = pushToast(
@@ -106,7 +117,10 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
         setError(null);
       }
     });
-    void fetchDatasetSchema(config.dataSourceId)
+    const schemaRequest = isFormOwner
+      ? fetchDatasetSchema(config.dataSourceId)
+      : fetchFormSchema(panelId);
+    void schemaRequest
       .then((response) => {
         if (!cancelled) setSchema(response.fields);
       })
@@ -116,9 +130,9 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [config.dataSourceId, retryToken]);
+  }, [config.dataSourceId, panelId, isFormOwner, retryToken]);
 
-  const issues = schema ? computeFormIssues(config, schema) : [];
+  const issues = schema ? computeFormIssues(config, schema, issueOptions) : [];
   const issuesByField = new Map(issues.map((i) => [i.field, i.message]));
   const declaredByField = new Map((schema ?? []).map((f) => [f.name, f]));
 
@@ -193,7 +207,11 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
       // LAST outstanding request in a burst is processed here, every request in that burst has
       // already committed — the aggregate this fetch reads back is guaranteed to include all of
       // them.
-      if (pendingDeltasRef.current.size === 0) {
+      if (pendingDeltasRef.current.size === 0 && !isFormOwner) {
+        // HEL-1784: a user who is not the form's owner may not read the dataset's aggregate, so there is nothing to
+        // reconcile against. The tally stays their own clicks; an indeterminate click says it could not be confirmed.
+        onReconcileFailed?.();
+      } else if (pendingDeltasRef.current.size === 0) {
         const myGen = reconcileGenerationRef.current;
         try {
           const aggregate = await fetchFieldAggregate(config.dataSourceId, field.sourceField);
@@ -279,7 +297,7 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
     });
     values.markAllTouched();
 
-    const { fieldErrors, blocks } = validateForSubmit(config, schema, values.values);
+    const { fieldErrors, blocks } = validateForSubmit(config, schema, values.values, issueOptions);
     if (Object.keys(fieldErrors).length > 0 || blocks.length > 0) {
       values.setExternalErrors(fieldErrors);
       const summary = [...Object.values(fieldErrors), ...blocks.map((b) => b.message)].join(" ");
@@ -290,8 +308,8 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
 
     setSubmitState("pending");
     try {
-      const submitValues = buildSubmitValues(config, schema, values.values);
-      const submitFiles = buildSubmitFiles(config, schema, values.values);
+      const submitValues = buildSubmitValues(config, schema, values.values, issueOptions);
+      const submitFiles = buildSubmitFiles(config, schema, values.values, issueOptions);
       const response = await submitFormPanel(panelId, submitValues, submitFiles);
       setSubmitState("succeeded");
       setStatusText("The row was added.");
@@ -310,6 +328,7 @@ export function FormPanelView({ title, panelId, config }: FormPanelViewProps) {
           config,
           schema,
           serverFieldErrors,
+          issueOptions,
         );
         values.setExternalErrors(fieldMessages);
         setAlertText([...Object.values(fieldMessages), ...summaryLines].join(" "));
