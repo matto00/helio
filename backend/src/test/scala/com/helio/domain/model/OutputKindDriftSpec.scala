@@ -18,9 +18,10 @@ import java.nio.file.{Files, Paths}
 /** GUARD (HEL-1740, labelled as such): green on a correct tree, red only by mutation (drop `insight` from one site; every
  *  mutation is recorded in openspec/changes/register-insight-output-kind/drift-mutations.md).
  *
- *  Canonical = `OutputKind.all`. Every hand-written Output-kind enumeration site must equal it, except the sites a later leaf
- *  owns, which are pinned as EXCLUSIONS: they must equal canonical minus `insight`, so the check also fails when an excluded
- *  site gains `insight` before its owner removes the exclusion. Text extraction is anchored and fails when it finds nothing. */
+ *  Canonical = `OutputKind.all`. Every hand-written Output-kind enumeration site must equal it, except the in-app assistant's
+ *  surfaces, which are kept out of `insight` deliberately (HEL-1747 non-goal; no owning leaf is scheduled) and pinned as
+ *  EXCLUSIONS: they must equal canonical minus `insight`, so the check also fails when an excluded site gains `insight`
+ *  without this spec being updated on purpose. Text extraction is anchored and fails when it finds nothing. */
 class OutputKindDriftSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 
   private val canonical: Set[String]        = OutputKind.all.map(OutputKind.asString).toSet
@@ -110,20 +111,18 @@ class OutputKindDriftSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
     }
   }
 
-  // Exclusions: surfaces a later leaf owns. They must keep the six pre-insight kinds until that leaf lands.
-  "pinned exclusions (until their owning leaf)" should {
-    "helio-mcp kind enums keep the six pre-insight kinds (HEL-1747 L8 owns them)" in {
-      quotedListEq("helio-mcp/src/tools/outputs.ts", "const outputKindSchema = z.enum([")
-      quotedListEq("helio-mcp/src/tools/pipelines.ts", ".enum([\"table\"")
-      quotedListEq("helio-mcp/src/tools/pipelineProposal.ts", "kind: z.enum([\"table\"")
-      val types = repoFile("helio-mcp/src/types.ts")
-      val line  = types.linesIterator.find(_.trim.startsWith("kind: \"table\" | \"metric\"")).getOrElse(fail("helio-mcp types.ts Output kind union not found"))
-      "\"([a-z_]+)\"".r.findAllMatchIn(line).map(_.group(1)).toSet shouldBe withoutInsight
+  "the helio-mcp kind tuple" should {
+    "carry exactly the canonical kinds (HEL-1747 L8 removed the insight exclusion; every helio-mcp enum derives from it)" in {
+      withClue("helio-mcp/src/tools/outputKinds.ts")(quotedList(repoFile("helio-mcp/src/tools/outputKinds.ts"), "export const OUTPUT_KINDS = [") shouldBe canonical)
     }
-    "the assistant proposal tool schema keeps the six pre-insight kinds (HEL-1747 L8 owns it)" in {
+  }
+
+  // Exclusions: the in-app assistant's surfaces, kept without `insight` on purpose (HEL-1747 non-goal, no owning leaf scheduled).
+  "pinned exclusions (the in-app assistant, deliberately without insight)" should {
+    "the assistant proposal tool schema keeps the six pre-insight kinds (the in-app assistant keeps its own list)" in {
       quotedListEq("backend/src/main/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemas.scala", "JsArray(Vector(\"table\"", ')')
     }
-    "OutputConfigValidation.KeysDoc does not document insight keys (HEL-1747 L8 owns it)" in {
+    "OutputConfigValidation.KeysDoc does not document insight keys (the in-app assistant does not take the kind)" in {
       val doc = OutputConfigValidation.KeysDoc
       doc should not include "insight:"
       doc should not include "maxSentences"

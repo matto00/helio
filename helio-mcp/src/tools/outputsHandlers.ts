@@ -16,6 +16,8 @@
 
 import type { HelioApi } from "../helioApi.js";
 import type {
+  OutputInsightRefreshResponse,
+  OutputInsightResponse,
   AssertionStatusResponse,
   OutputHistoryResolvedPoint,
   OutputHistoryResponse,
@@ -146,4 +148,20 @@ export function getOutputCapabilitiesHandler(
   input: { pipelineId: string; stepId?: string },
 ): Promise<NodeCapabilitiesResponse> {
   return api.getOutputCapabilities(input.pipelineId, input.stepId);
+}
+
+/** Pass-through of `GET /api/outputs/:id/insight` (HEL-1747): the backend role-shapes it. */
+export function getOutputInsightHandler(
+  api: HelioApi,
+  outputId: string,
+): Promise<OutputInsightResponse> {
+  return api.getOutputInsight(outputId);
+}
+
+/** Pass-through of `POST /api/outputs/:id/insight/refresh` (HEL-1747): a plain manual refresh. */
+export function refreshInsightHandler(
+  api: HelioApi,
+  outputId: string,
+): Promise<OutputInsightRefreshResponse> {
+  return api.refreshOutputInsight(outputId);
 }

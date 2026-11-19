@@ -22,7 +22,8 @@ import {
   createPipelineHandler,
   removePipelineRootHandler,
 } from "./pipelinesHandlers.js";
-import { COMPARE_CONFIG_DOC, OUTPUT_CONFIG_KEYS_DOC } from "./outputs.js";
+import { COMPARE_CONFIG_DOC, INSIGHT_CREATE_READS_DOC, OUTPUT_CONFIG_KEYS_DOC } from "./outputs.js";
+import { outputKindSchema } from "./outputKinds.js";
 import { pipelineProposalOutputSchema, pipelineProposalStepSchema } from "./pipelineProposal.js";
 
 function jsonResult(value: unknown): CallToolResult {
@@ -99,7 +100,9 @@ export function registerPipelineTools(server: McpServer, api: HelioApi): void {
         "create response itself doesn't report them). " +
         COMPARE_CONFIG_DOC +
         " " +
-        OUTPUT_CONFIG_KEYS_DOC,
+        OUTPUT_CONFIG_KEYS_DOC +
+        " " +
+        INSIGHT_CREATE_READS_DOC,
       inputSchema: {
         name: z.string().min(1),
         roots: z.array(createPipelineRootSchema).min(1),
@@ -148,9 +151,7 @@ export function registerPipelineTools(server: McpServer, api: HelioApi): void {
         shapeId: z.string().min(1),
         params: z.record(z.string(), z.unknown()).default({}),
         outputName: z.string().min(1),
-        outputKind: z
-          .enum(["table", "metric", "chart", "collection", "timeline", "markdown"])
-          .optional(),
+        outputKind: outputKindSchema.optional(),
       },
     },
     ({ pipelineId, stepId, shapeId, params, outputName, outputKind }) =>
