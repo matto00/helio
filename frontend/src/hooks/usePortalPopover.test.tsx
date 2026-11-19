@@ -168,3 +168,120 @@ describe("usePortalPopover return focus to trigger (HEL-1759)", () => {
     expect(outside).toHaveFocus();
   });
 });
+
+// HEL-1776: forward Tab out of the panel moves on to the next control after the trigger; Shift+Tab is unchanged.
+function ForwardHarness({
+  inDialog = false,
+  panelButtons = 1,
+  onPanelKeyDown,
+}: {
+  inDialog?: boolean;
+  panelButtons?: number;
+  onPanelKeyDown?: (event: KeyboardEvent) => void;
+}) {
+  const { triggerRef, panelRef, isOpen, handleOpen } = usePortalPopover<HTMLButtonElement>();
+  const body = (
+    <>
+      <button type="button">first</button>
+      <button ref={triggerRef} type="button" onClick={() => handleOpen()}>
+        trigger
+      </button>
+      <button type="button">next</button>
+      {isOpen && (
+        <div
+          ref={(el) => {
+            if (el && onPanelKeyDown) el.addEventListener("keydown", onPanelKeyDown);
+            panelRef.current = el;
+          }}
+        >
+          {Array.from({ length: panelButtons }, (_, i) => (
+            <button key={i} type="button">{`inside ${i + 1}`}</button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+  return inDialog ? <dialog open>{body}</dialog> : <div>{body}</div>;
+}
+
+describe("usePortalPopover forward Tab moves on (HEL-1776)", () => {
+  function open(props: Parameters<typeof ForwardHarness>[0] = {}) {
+    render(<ForwardHarness {...props} />);
+    const trigger = screen.getByRole("button", { name: "trigger" });
+    fireEvent.click(trigger);
+    return { trigger, next: screen.getByRole("button", { name: "next" }) };
+  }
+
+  it("closes and focuses the next control after the trigger, not the trigger", async () => {
+    const { trigger, next } = open();
+    const inside = screen.getByRole("button", { name: "inside 1" });
+    act(() => inside.focus());
+    let notPrevented = true;
+    await act(async () => {
+      notPrevented = fireEvent.keyDown(inside, { key: "Tab" });
+    });
+    expect(notPrevented).toBe(false);
+    expect(screen.queryByRole("button", { name: "inside 1" })).toBeNull();
+    expect(next).toHaveFocus();
+    expect(trigger).not.toHaveFocus();
+  });
+
+  it("wins over a dialog-level Modal-style wrap listener (no double move)", async () => {
+    const { trigger, next } = open({ inDialog: true });
+    const dialog = document.querySelector("dialog") as HTMLDialogElement;
+    const moves: Element[] = [];
+    dialog.addEventListener("keydown", (e) => {
+      if (e.key !== "Tab" || e.shiftKey) return;
+      const all = Array.from(dialog.querySelectorAll<HTMLElement>("button"));
+      if (document.activeElement === all[all.length - 1]) {
+        e.preventDefault();
+        all[0].focus();
+        moves.push(document.activeElement as Element);
+      }
+    });
+    const inside = screen.getByRole("button", { name: "inside 1" });
+    act(() => inside.focus());
+    await act(async () => {
+      fireEvent.keyDown(inside, { key: "Tab" });
+    });
+    expect(moves).toEqual([]);
+    expect(next).toHaveFocus();
+    expect(trigger).not.toHaveFocus();
+  });
+
+  it("leaves Shift+Tab to the HEL-1759 path: not intercepted, focus returns to the trigger", async () => {
+    const { trigger } = open();
+    const inside = screen.getByRole("button", { name: "inside 1" });
+    act(() => inside.focus());
+    let notPrevented = false;
+    await act(async () => {
+      notPrevented = fireEvent.keyDown(inside, { key: "Tab", shiftKey: true });
+      screen.getByRole("button", { name: "first" }).focus();
+    });
+    expect(notPrevented).toBe(true);
+    expect(trigger).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "inside 1" })).toBeNull();
+  });
+
+  it("does not intercept a Tab from an element with another tabbable after it in the panel", () => {
+    open({ panelButtons: 2 });
+    const first = screen.getByRole("button", { name: "inside 1" });
+    act(() => first.focus());
+    expect(fireEvent.keyDown(first, { key: "Tab" })).toBe(true);
+    expect(first).toHaveFocus();
+    expect(screen.getByRole("button", { name: "inside 2" })).toBeInTheDocument();
+  });
+
+  it("stands down for a Tab a same-panel listener already handled (defaultPrevented)", async () => {
+    const { next } = open({ onPanelKeyDown: (e) => e.preventDefault() });
+    // The panel's own listener (registered in its ref callback, so before the hook's effect) already handled this Tab.
+    const inside = screen.getByRole("button", { name: "inside 1" });
+    act(() => inside.focus());
+    await act(async () => {
+      fireEvent.keyDown(inside, { key: "Tab" });
+    });
+    expect(screen.getByRole("button", { name: "inside 1" })).toBeInTheDocument();
+    expect(inside).toHaveFocus();
+    expect(next).not.toHaveFocus();
+  });
+});
