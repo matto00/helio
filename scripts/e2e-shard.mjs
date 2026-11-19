@@ -166,10 +166,10 @@ export function weightsFromRuns(runSums) {
   return new Map([...per].map(([f, v]) => [f, Math.max(1, Math.round(median(v)))]));
 }
 
-// The `e2e` matrix leg count in .github/workflows/ci.yml (HEL-1698 owner ruling: 6). The selftest asserts this equals
+// The `e2e` matrix leg count in .github/workflows/ci.yml (HEL-1698 owner ruling: 6; HEL-1772 owner ruling: 7). The selftest asserts this equals
 // that matrix's length, so the two cannot drift. `weights` expects this many reports per run unless `--legs <n>` says
 // the run predates a leg-count change (weights are per-file sums across all reports, so they do not depend on n).
-export const DEFAULT_E2E_LEGS = 6;
+export const DEFAULT_E2E_LEGS = 7;
 export const EXPECTED_SHARD_REPORTS = DEFAULT_E2E_LEGS;
 
 /** Throws naming runDir and shard unless the run holds exactly `expected` clean reports. */

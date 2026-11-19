@@ -613,9 +613,13 @@ jobs:
     # A hung leg frees its runner instead of holding it for the 6 h default (HEL-1288). Measured whole-leg wall on main
     # before HEL-1698 (4 legs): ~16-25 min, slowest 1292-1498 s over five runs; HEL-1698 moved to 6 legs to get the
     # slowest at or under 20 min without raising this timeout (after-figures: HEL-1698 PR runs and the post-merge watch).
+    # HEL-1772: with 6 legs, 11 recent main runs still had a slowest leg of 1122-1519 s job wall (leg 6 slowest in 6 of 11; leg 4 at 1377+ s
+    # three times; one run cancelled at 1519 s). Cause: e2e/shard-weights.tsv was stale (22 specs defaulted to the 49 s
+    # median, e.g. hel1733 and hel1684 at about 340 s real), so the partition was balanced on paper and not in fact. The
+    # table was regenerated from 5 main runs; the limit is unchanged. Even so the PR's 6-leg runs (run 44410691147, three attempts) had a slowest leg of 1433 / 1395 / 1340 s against a mean leg of about 1100-1118 s, from run-to-run variance in a few heavy specs, so the HEL-1772 owner ruling added a 7th leg. Regenerate it again when a heavy spec is added.
     timeout-minutes: 25
     # HEL-1288 (C8) capped this at 4 legs (account-wide concurrent-job cap, shared with the backend job's legs; see
-    # profile.md). HEL-1698 owner ruling (2026-10-22) knowingly supersedes that: 6 legs (backend 4 + e2e 6 = 10
+    # profile.md). HEL-1698 owner ruling (2026-10-22) knowingly superseded that with 6 legs, and the HEL-1772 owner ruling (2026-11-18) with 7 (backend 4 + e2e 7 = 11
     # parallel jobs) to keep the slowest leg well under `timeout-minutes`. Per-leg speed still comes from Playwright
     # `workers` (playwright.config.ts). `scripts/e2e-shard.mjs` selftest asserts its default leg count equals this matrix.
     # Sharded across N runners (each with its OWN Postgres service, backend and Vite,
@@ -624,9 +628,9 @@ jobs:
     # already treats as a failed required check.
     strategy:
       fail-fast: false
-      max-parallel: 6
+      max-parallel: 7
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7]
     services:
       postgres:
         # HEL-1452: pulled via mirror.gcr.io (same tag/digest as Docker Hub) to avoid Docker Hub anonymous 429s.
