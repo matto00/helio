@@ -60,11 +60,10 @@ The panel SHALL show exactly one of these states, each following the DESIGN.md s
 - failed: the newest attempt failed; the previous render stays visible with a note, or a failed message when there is
   no render;
 - unchanged: the newest attempt was skipped as unchanged; the render stays visible with a quiet note;
-- quota reached: the newest attempt was skipped for quota or budget and the signed-in user owns the insight's
-  pipeline; the render stays visible with a note;
-- not updated: the newest attempt was skipped for quota or budget and the signed-in user does not own the insight's
-  pipeline, or the newest attempt has a status the client does not know; the render stays visible with a neutral note
-  naming no reason;
+- quota reached: the newest attempt's status is `skipped_quota` (the server sends it only to the pipeline owner and
+  editors); the render stays visible with a note naming no actor;
+- not updated: the newest attempt's status is `skipped_budget`, `not_updated` (a viewer's view of a quota or budget
+  skip) or a status the client does not know; the render stays visible with a neutral note naming no reason;
 - upsell: the signed-in user owns the insight's pipeline, has the `free` tier and there is no render.
 
 Ownership is the pipeline's owner, never the user who created the Output.
@@ -76,13 +75,21 @@ A public or share-token viewer SHALL see only the render or the not-yet-rendered
 - **THEN** the previous render is shown with a note that the last update failed
 
 #### Scenario: Viewer never sees quota
-- **WHEN** a user who does not own the insight's pipeline (including the Output's creator, if an editor) views an
-  insight whose newest attempt is `skipped_quota`
-- **THEN** the panel shows the neutral not-updated note and no quota or plan wording
+- **WHEN** a viewer grantee views an insight whose newest stored attempt is `skipped_quota`
+- **THEN** the read returns `not_updated` and the panel shows the neutral not-updated note and no quota or plan wording
+
+#### Scenario: Editor sees quota
+- **WHEN** an editor grantee views an insight whose newest attempt is `skipped_quota`
+- **THEN** the panel shows the quota note, worded without naming whose limit it is
 
 #### Scenario: Free-tier owner
 - **WHEN** a free-tier pipeline owner views an insight on their pipeline that has no render
 - **THEN** the upsell state is shown with a link to beta access
+
+#### Scenario: Refresh button for owner and editor
+- **WHEN** the read's `canRefresh` is true on an authenticated panel
+- **THEN** a Refresh button is shown; pressing it shows the rendering state, posts a refresh and polls the read until
+  the newest attempt changes or 45 seconds pass; a viewer and a public viewer see no button
 
 ### Requirement: Insight panel fetches no rows
 A panel bound to an `insight` Output SHALL NOT request the Output's rows once the Output's kind is known to the client, which includes a warm remount and the completion of a run of its pipeline (the kind outlives the invalidated metadata). A cold first load cannot know the kind before the Output's metadata arrives, and waiting for it would delay every other panel's rows, so it SHALL make exactly one rows request per insight panel, whose result is ignored.
