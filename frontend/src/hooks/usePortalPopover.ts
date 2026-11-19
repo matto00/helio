@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { VIEWPORT_MARGIN } from "../shared/ui/panelFit";
+import { isTabbable, nextTabbableAfter } from "./nextTabbableAfter";
 
 export type PortalPopoverPos = {
   /** Distance from the viewport top. Mutually exclusive with `bottom` in
@@ -52,8 +53,18 @@ export type PortalPopoverPlace = (panel: HTMLElement, triggerRect: DOMRect) => P
  * instant focus moved from the trigger into that content. See
  * `ActionsMenu.tsx` / `Select.tsx` for the wired usage (HEL a11y sweep
  * F-007 / F-048). When that focus-out starts INSIDE the panel and was caused by a
- * keyboard Tab / Shift+Tab, real focus also returns to the trigger (HEL-1759);
- * a pointer move, or focus leaving from the trigger itself, only closes.
+ * Shift+Tab, real focus also returns to the trigger (HEL-1759); a pointer move, or focus
+ * leaving from the trigger itself, only closes.
+ *
+ * A FORWARD Tab (HEL-1776) moves on instead, as the menu-button pattern has it: a native keydown listener on the panel
+ * element (deeper than any enclosing `<dialog>` Modal's own Tab trap, which would otherwise wrap focus to the dialog's
+ * first control, usually the trigger) intercepts a Tab from a panel element with no tabbable element after it in the
+ * panel, closes the popover and, synchronously, focuses `nextTabbableAfter` (the control after the trigger). It stands
+ * down when the event is already `defaultPrevented` (ProvenancePopover wraps Tab inside its panel with its own listener on
+ * the same element, which fires first). Its "tabbable after" test (any `tabIndex >= 0` control) differs from
+ * ProvenancePopover's own `FOCUSABLE`; the `defaultPrevented` guard makes that difference unreachable today. Never defer
+ * the move to a timer. `stopPropagation` there is defensive only: it hides an already-handled Tab from bubble-phase
+ * ancestors, none of which acts on it.
  */
 export function usePortalPopover<T extends HTMLElement = HTMLButtonElement>(options?: {
   /** Opts into measured placement: the panel renders `visibility: hidden` (`placed` false) until the first placement,
@@ -68,9 +79,10 @@ export function usePortalPopover<T extends HTMLElement = HTMLButtonElement>(opti
   const panelRef = useRef<HTMLElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [panelPos, setPanelPos] = useState<PortalPopoverPos | null>(null);
-  /** True from a Tab keydown until the focus move it causes (cleared by any other key, a pointerdown, each focusout and on
-   *  close), so only a keyboard Tab out of the panel returns focus to the trigger (HEL-1759). */
-  const tabbingRef = useRef(false);
+  /** The direction of a Tab keydown until the focus move it causes (cleared by any other key, a pointerdown, each focusout
+   *  and on close): only a keyboard Shift+Tab out of the panel returns focus to the trigger (HEL-1759), a forward Tab only
+   *  closes (HEL-1776; the panel keydown listener below moves it on first). */
+  const tabbingRef = useRef<"forward" | "backward" | null>(null);
   /** Guards the viewport clamp below against re-measuring its own output. */
   const hasClampedRef = useRef(false);
 
@@ -97,14 +109,14 @@ export function usePortalPopover<T extends HTMLElement = HTMLButtonElement>(opti
     let expire: ReturnType<typeof setTimeout> | undefined;
     function onKeyDown(event: KeyboardEvent) {
       clearTimeout(expire);
-      tabbingRef.current = event.key === "Tab";
+      tabbingRef.current = event.key === "Tab" ? (event.shiftKey ? "backward" : "forward") : null;
       // Tab's focus move is the keydown's default action, which runs in the same task as the dispatch, before any timer;
       // so a flag still set after one timer tick belongs to a Tab that moved no focus (cancelled, or at the document end).
       // (A microtask would be too early: it runs between the listeners and that default action.)
-      if (tabbingRef.current) expire = setTimeout(() => (tabbingRef.current = false), 0);
+      if (tabbingRef.current) expire = setTimeout(() => (tabbingRef.current = null), 0);
     }
     function onPointerDown() {
-      tabbingRef.current = false;
+      tabbingRef.current = null;
     }
     document.addEventListener("keydown", onKeyDown, true);
     document.addEventListener("pointerdown", onPointerDown, true);
@@ -112,8 +124,35 @@ export function usePortalPopover<T extends HTMLElement = HTMLButtonElement>(opti
       document.removeEventListener("keydown", onKeyDown, true);
       document.removeEventListener("pointerdown", onPointerDown, true);
       clearTimeout(expire);
-      tabbingRef.current = false;
+      tabbingRef.current = null;
     };
+  }, [isOpen]);
+
+  // Forward Tab out of the panel moves on to the control after the trigger (HEL-1776); see the doc comment.
+  useEffect(() => {
+    if (!isOpen) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const panelEl = panel;
+    function onPanelKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Tab" || event.shiftKey || event.defaultPrevented) return;
+      const from = event.target as HTMLElement | null;
+      const trigger = triggerRef.current;
+      if (!from || !trigger || !panelEl.contains(from)) return;
+      const laterTabbable = Array.from(panelEl.querySelectorAll<HTMLElement>("*")).some(
+        (el) =>
+          el !== from &&
+          isTabbable(el) &&
+          from.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+      if (laterTabbable) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setIsOpen(false);
+      nextTabbableAfter(trigger, panelEl).focus();
+    }
+    panel.addEventListener("keydown", onPanelKeyDown);
+    return () => panel.removeEventListener("keydown", onPanelKeyDown);
   }, [isOpen]);
 
   // Close when focus leaves the popover entirely (trigger + panel) — e.g. Tab
@@ -123,7 +162,7 @@ export function usePortalPopover<T extends HTMLElement = HTMLButtonElement>(opti
     if (!isOpen) return;
     function onFocusOut(event: FocusEvent) {
       const viaTab = tabbingRef.current;
-      tabbingRef.current = false;
+      tabbingRef.current = null;
       if (!panelRef.current) return;
       const next = event.relatedTarget as Node | null;
       // `relatedTarget` is null when focus leaves the document/window
@@ -133,10 +172,10 @@ export function usePortalPopover<T extends HTMLElement = HTMLButtonElement>(opti
       const withinPanel = panelRef.current.contains(next);
       if (!withinTrigger && !withinPanel) {
         setIsOpen(false);
-        // A Tab / Shift+Tab out of the panel returns focus to the trigger, the user's last known place, instead of
-        // leaving it on whatever the portalled panel's DOM neighbour is (HEL-1759). Not for focus leaving the trigger
-        // itself (a virtual-focus combobox) or a pointer move.
-        if (viaTab && panelRef.current.contains(event.target as Node)) {
+        // A Shift+Tab out of the panel returns focus to the trigger, the user's last known place, instead of leaving it
+        // on whatever the portalled panel's DOM neighbour is (HEL-1759). Not for focus leaving the trigger itself (a
+        // virtual-focus combobox), a pointer move, or a forward Tab (HEL-1776: it only closes; the panel listener moves on).
+        if (viaTab === "backward" && panelRef.current.contains(event.target as Node)) {
           // Deferred a microtask: the browser (and jsdom) is mid focus move inside `focusout`, and a synchronous focus()
           // there is not guaranteed to outlast the move it interrupts.
           queueMicrotask(() => triggerRef.current?.focus());

@@ -201,6 +201,31 @@ describe("ProvenanceTrigger (HEL-1207)", () => {
     expect(link).toHaveFocus();
   });
 
+  // HEL-1776: the popover's own Tab wrap runs first on the panel; usePortalPopover's forward-Tab handling must stand down.
+  it("loading state: Tab off the only focusable ('Close provenance') keeps the popover open with focus there", async () => {
+    fetchAuth.mockReset().mockImplementation(() => new Promise<Provenance>(() => {}));
+    renderTrigger();
+    const dialog = await openPopover();
+    const close = screen.getByRole("button", { name: "Close provenance" });
+    act(() => close.focus());
+    const notPrevented = fireEvent.keyDown(close, { key: "Tab" });
+    expect(notPrevented).toBe(false);
+    expect(screen.getByRole("dialog")).toBe(dialog);
+    expect(close).toHaveFocus();
+  });
+
+  it("ready state: Tab off the last focusable wraps to the first and the popover stays open", async () => {
+    renderTrigger();
+    await openPopover();
+    await screen.findByText("Weekly sales");
+    const close = screen.getByRole("button", { name: "Close provenance" });
+    const link = screen.getByRole("link", { name: "Open pipeline" });
+    act(() => link.focus());
+    fireEvent.keyDown(link, { key: "Tab" });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(close).toHaveFocus();
+  });
+
   it("does not leak click or key events to the host", async () => {
     const onParent = renderTrigger();
     const dialog = await openPopover();

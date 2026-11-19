@@ -7,7 +7,10 @@ import { settleTransitions } from "./support/settleTransitions";
 // keeps the editor open with the picked preset and leaves real focus on Save (Save used to be `disabled` while saving,
 // which dropped focus to <body>, so the next focus move closed the editor and discarded the pick). (b) Shift+Tab from
 // the editor's first preset, and (c) Shift+Tab from the actions menu's first item, close the popover and return focus
-// to its trigger instead of leaving it on the page body. Every key press after login/navigation is a real keyboard key.
+// to its trigger instead of leaving it on the page body. HEL-1776: forward Tab off the actions menu (any item; its items
+// are tabIndex -1) and off the appearance editor's Save closes the popover and moves on to the next control after the
+// trigger (the menu-button pattern), never back to the trigger and never <body>; the expected control is the one the
+// browser's own Tab order picks from the trigger, read before the popover is opened. Every key press after login/navigation is a real keyboard key.
 // The throwaway users are recorded by registerUser and deleted by exact id in the run's global teardown.
 
 const AUTH = { prefix: "hel1759", displayName: "HEL-1759" } as const;
@@ -72,6 +75,32 @@ async function keyboardOpenEditor(page: Page, trigger: Locator) {
   await expect(form).toBeVisible();
   await expect.poll(async () => (await focusProbe(page)).inForm).toBe(true);
   return form;
+}
+
+type Handle = Awaited<ReturnType<Page["evaluateHandle"]>>;
+
+/** The control the browser's own Tab order puts after `trigger` (read with the popover closed), as a handle plus a label. */
+async function nativeNextAfter(
+  page: Page,
+  trigger: Locator,
+): Promise<{ handle: Handle; label: string }> {
+  await trigger.focus();
+  await page.keyboard.press("Tab");
+  const handle = await page.evaluateHandle(() => document.activeElement);
+  const label = await page.evaluate((el) => {
+    const e = el as HTMLElement | null;
+    return e?.getAttribute("aria-label") ?? e?.textContent?.trim() ?? "";
+  }, handle);
+  await trigger.focus();
+  return { handle, label };
+}
+
+/** After a forward Tab: the popover is gone, focus is on `next`, and it is neither the trigger nor <body>. */
+async function expectMovedOn(page: Page, gone: Locator, trigger: Locator, next: Handle) {
+  await expect(gone).toHaveCount(0);
+  await expect(trigger).not.toBeFocused();
+  await expect.poll(() => page.evaluate((el) => document.activeElement === el, next)).toBe(true);
+  expect(await page.evaluate(() => document.activeElement === document.body)).toBe(false);
 }
 
 for (const theme of ["light", "dark"] as const) {
@@ -218,6 +247,69 @@ for (const theme of ["light", "dark"] as const) {
         await page.keyboard.press("Shift+Tab");
         await expect(menu).toHaveCount(0);
         await expect(trigger).toBeFocused();
+      });
+
+      test("actions menu: forward Tab off the last item closes it and moves on to the next control", async ({
+        page,
+        request,
+      }) => {
+        test.setTimeout(120_000);
+        await registerAndLogin(page, request, {
+          ...AUTH,
+          label: `fwd-menu-${vp.name}-${theme}`,
+          waitForShell: vp.name === "desktop",
+        });
+        let trigger: Locator;
+        if (vp.name === "phone") {
+          const pipelineId = await seedPipeline(page);
+          await page.goto(`/pipelines/${pipelineId}`);
+          await expect(page.locator(".spine-row__select").first()).toBeVisible();
+          await page.locator(".spine-row__select").first().click();
+          const sheet = page.locator("dialog[open]");
+          await expect(sheet).toBeVisible();
+          await settleTransitions(page);
+          trigger = sheet.getByRole("button", { name: /^Step actions for/ });
+        } else {
+          const name = `HEL-1776 fwd ${vp.name} ${theme}`;
+          const res = await page.request.post("/api/dashboards", {
+            data: { name },
+            headers: { [CSRF_HEADER]: "1" },
+          });
+          expect(res.status()).toBe(201);
+          await page.goto("/dashboards");
+          const row = page.locator(".dashboard-list__item-row", { hasText: name });
+          await expect(row).toHaveCount(1, { timeout: 20_000 });
+          trigger = row.getByRole("button", { name: / actions$/ });
+        }
+        const next = await nativeNextAfter(page, trigger);
+        if (vp.name === "phone") expect(next.label).toBe("Close");
+        await page.keyboard.press("Enter");
+        const menu = page.getByRole("menu");
+        await expect(menu).toBeVisible();
+        await page.keyboard.press("End");
+        const items = menu.locator('[role="menuitem"]:not([disabled])');
+        await expect(items.last()).toBeFocused();
+        await page.keyboard.press("Tab");
+        await expectMovedOn(page, menu, trigger, next.handle);
+      });
+
+      test("appearance editor: forward Tab off Save closes it and moves on to the next control", async ({
+        page,
+        request,
+      }) => {
+        test.skip(vp.name === "phone", PHONE_EDITOR_REASON);
+        test.setTimeout(120_000);
+        await registerAndLogin(page, request, { ...AUTH, label: `fwd-editor-${vp.name}-${theme}` });
+        const trigger = await openDashboardWithEditor(page, `HEL-1776 fwd ${vp.name} ${theme}`);
+        const next = await nativeNextAfter(page, trigger);
+        const form = await keyboardOpenEditor(page, trigger);
+        for (let i = 0; i < 40; i += 1) {
+          if ((await focusProbe(page)).label === SAVE_LABEL) break;
+          await page.keyboard.press("Tab");
+        }
+        expect((await focusProbe(page)).label).toBe(SAVE_LABEL);
+        await page.keyboard.press("Tab");
+        await expectMovedOn(page, form, trigger, next.handle);
       });
     });
   }

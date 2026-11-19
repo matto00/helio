@@ -242,4 +242,50 @@ describe("OutputSchemaDisclosure", () => {
     fireEvent.click(scrim as Element);
     expect(screen.queryByText("field_0")).not.toBeInTheDocument();
   });
+
+  // HEL-1776: the panel attaches the hook's panelRef, so it follows the shared Tab rule: forward Tab off its last control
+  // moves on to the control after the trigger; Shift+Tab off the first returns to the trigger.
+  describe("keyboard Tab out of the panel (HEL-1776)", () => {
+    function renderWithNeighbours() {
+      render(
+        <>
+          <button type="button">before</button>
+          <OutputSchemaDisclosure fields={fields(40)} />
+          <button type="button">after</button>
+        </>,
+      );
+      const trigger = screen.getByRole("button", { name: /fields/ });
+      fireEvent.click(trigger);
+      const panel = screen.getByRole("dialog", { name: "Output schema" });
+      const tabbables = Array.from(panel.querySelectorAll<HTMLElement>("input, button")).filter(
+        (el) => el.tabIndex >= 0,
+      );
+      return { trigger, panel, first: tabbables[0], last: tabbables[tabbables.length - 1] };
+    }
+
+    it("forward Tab off the last control (Show all N) closes the panel and focuses the control after the trigger", async () => {
+      const { trigger, last } = renderWithNeighbours();
+      expect(last).toHaveTextContent(/^Show all/);
+      act(() => last.focus());
+      let notPrevented = true;
+      await act(async () => {
+        notPrevented = fireEvent.keyDown(last, { key: "Tab" });
+      });
+      expect(notPrevented).toBe(false);
+      expect(screen.queryByRole("dialog", { name: "Output schema" })).toBeNull();
+      expect(screen.getByRole("button", { name: "after" })).toHaveFocus();
+      expect(trigger).not.toHaveFocus();
+    });
+
+    it("Shift+Tab off the first control closes the panel and returns focus to the trigger", async () => {
+      const { trigger, first } = renderWithNeighbours();
+      act(() => first.focus());
+      await act(async () => {
+        fireEvent.keyDown(first, { key: "Tab", shiftKey: true });
+        screen.getByRole("button", { name: "before" }).focus();
+      });
+      expect(screen.queryByRole("dialog", { name: "Output schema" })).toBeNull();
+      expect(trigger).toHaveFocus();
+    });
+  });
 });
