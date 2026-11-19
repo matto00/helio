@@ -424,7 +424,7 @@
     },
     "DashboardEntry": {
       "type": "object",
-      "required": ["id", "name", "panelCount"],
+      "required": ["id", "name", "panelCount", "accessRole"],
       "properties": {
         "id": {
           "type": "string",
@@ -432,6 +432,11 @@
         },
         "name": {
           "type": "string"
+        },
+        "accessRole": {
+          "type": "string",
+          "enum": ["owner", "editor", "viewer"],
+          "description": "HEL-1785: the caller's role on the dashboard. A dashboard shared with the caller through a named grant is listed with its role; one visible only through a public grant or a share token is never listed."
         },
         "panelCount": {
           "type": "integer",

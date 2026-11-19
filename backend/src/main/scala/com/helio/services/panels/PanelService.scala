@@ -1,6 +1,7 @@
 package com.helio.services.panels
 
 import com.helio.services.{FormSubmitError, ServiceError}
+import com.helio.services.dashboards.DashboardAccessMessages
 import com.helio.services.auth.AccessChecker
 import com.helio.services.audit.AuditService
 import com.helio.services.sources.{DataSourceService, RowWriteResult}
@@ -145,7 +146,7 @@ final class PanelService(
         accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(ResourceAccess.Viewer) =>
-            Future.successful(Left(ServiceError.Forbidden()))
+            Future.successful(Left(ServiceError.Forbidden(DashboardAccessMessages.ViewOnly)))
           case Right(_) =>
             lifecycleWrites.createPlaced(dashboardId, request, user)
         }
@@ -222,7 +223,7 @@ final class PanelService(
                 case Left(err) =>
                   Future.successful(Left(err))
                 case Right(ResourceAccess.Viewer) =>
-                  Future.successful(Left(ServiceError.Forbidden()))
+                  Future.successful(Left(ServiceError.Forbidden(DashboardAccessMessages.ViewOnly)))
                 case Right(_) =>
                   batchWrites.updateValidated(items, panels, dashboardId, user)
               }
@@ -279,7 +280,7 @@ final class PanelService(
       case Some(_) =>
         accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").map {
           case Left(err)                    => Left(err)
-          case Right(ResourceAccess.Viewer) => Left(ServiceError.Forbidden())
+          case Right(ResourceAccess.Viewer) => Left(ServiceError.Forbidden(DashboardAccessMessages.ViewOnly))
           case Right(_)                     => Right(())
         }
     }
@@ -317,7 +318,7 @@ final class PanelService(
   ): Future[Either[ServiceError, Unit]] =
     accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").map {
       case Left(err)                                                       => Left(err)
-      case Right(ResourceAccess.Viewer)                                    => Left(ServiceError.Forbidden())
+      case Right(ResourceAccess.Viewer)                                    => Left(ServiceError.Forbidden(DashboardAccessMessages.ViewOnly))
       case Right(ResourceAccess.Owner) | Right(ResourceAccess.Editor)     => Right(())
     }
 }

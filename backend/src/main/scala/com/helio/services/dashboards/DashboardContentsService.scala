@@ -145,7 +145,7 @@ final class DashboardContentsService(
       case Some(_) =>
         accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").map {
           case Left(err)                    => Left(err)
-          case Right(ResourceAccess.Viewer) => Left(ServiceError.Forbidden())
+          case Right(ResourceAccess.Viewer) => Left(ServiceError.Forbidden(DashboardAccessMessages.ViewOnly))
           case Right(_)                     => Right(())
         }
     }

@@ -145,7 +145,9 @@ final case class WorkspaceContextPipeline(
     laneTree: Vector[PipelineLaneTreeNode]
 )
 
-final case class WorkspaceContextDashboard(id: String, name: String, panelCount: Int)
+/** `accessRole` (HEL-1785): the caller's role on the dashboard, `owner`, `editor` or `viewer`; always set. A dashboard shared
+ *  with the caller (a named grant) is listed with its role; one visible only through a public grant never is. */
+final case class WorkspaceContextDashboard(id: String, name: String, panelCount: Int, accessRole: String)
 
 /** HEL-521 (420-C): the caller's agent-authoring preferences plus up to 20 of their
  *  most-recently-useful `AgentMemoryEntry` records, ranked by `lastUsedAt` descending (an entry
@@ -264,7 +266,7 @@ trait WorkspaceContextProtocol
   implicit val workspaceContextPipelineFormat: RootJsonFormat[WorkspaceContextPipeline] =
     jsonFormat13(WorkspaceContextPipeline.apply)
   implicit val workspaceContextDashboardFormat: RootJsonFormat[WorkspaceContextDashboard] =
-    jsonFormat3(WorkspaceContextDashboard.apply)
+    jsonFormat4(WorkspaceContextDashboard.apply)
   implicit val workspaceContextTruncationFormat: RootJsonFormat[WorkspaceContextTruncation] =
     jsonFormat9(WorkspaceContextTruncation.apply)
   implicit val workspaceContextAgentSectionFormat: RootJsonFormat[WorkspaceContextAgentSection] =
