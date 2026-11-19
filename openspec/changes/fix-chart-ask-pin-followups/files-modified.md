@@ -1,7 +1,0 @@
-- `backend/src/main/scala/com/helio/services/ask/AskPinBuilder.scala` - omit the node instead of guessing the pipeline id as rootId
-- `backend/src/test/scala/com/helio/services/ask/AskDataServiceSpec.scala` - fallback test now asserts no rootId/nodeStepId, keeps the round trip
-- `backend/src/test/scala/com/helio/api/routes/ask/AskPinRealRouteSpec.scala` - pin bodies sent to the real create route on a fresh-root pipeline
-- `frontend/src/features/ask/ui/AskPanel.tsx` - question held with its scope key
-- `frontend/src/features/ask/ui/AskPanel.test.tsx` - scope-change reset and in-scope retention tests
-- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.css` - preview chart wrapper is a flex column
-- `e2e/hel1775-output-editor-chart-fills-card.spec.ts` - measured canvas vs card height, 1280/375, light/dark
