@@ -1,7 +1,0 @@
-- `frontend/src/hooks/usePortalPopover.ts` — direction-aware Tab tracking; panel keydown listener moves forward Tab on to the next control after the trigger; focusout refocuses the trigger only for Shift+Tab
-- `frontend/src/hooks/nextTabbableAfter.ts` — new helper: first tabbable after the trigger (dialog scope, wrap, trigger fallback)
-- `frontend/src/hooks/nextTabbableAfter.test.ts` — helper unit tests
-- `frontend/src/hooks/usePortalPopover.test.tsx` — forward-Tab hook tests (next control, dialog trap, Shift+Tab unchanged, non-last, defaultPrevented guard)
-- `frontend/src/features/panels/provenance/ProvenanceTrigger.test.tsx` — real-host tests: loading/ready Tab wrap stays open (guard)
-- `e2e/hel1759-popover-keyboard-focus.spec.ts` — forward-Tab cases (desktop menu, phone step sheet, appearance editor)
-- `frontend/src/features/pipelines/ui/OutputSchemaDisclosure.test.tsx` — forward/Shift+Tab cases pinning the disclosure (it attaches the hook panelRef)
