@@ -318,9 +318,9 @@ class AskDataServiceSpec extends AnyWordSpec with Matchers with HelioRouteTest w
       pin.request.fields("rootId") shouldBe JsString("distinct-root")
     }
 
-    "fall back to the pipeline id as root id (and no node step id) when there is no step and no root id" in {
+    "omit the node (no guessed root id, no node step id) when there is no step and no root id (HEL-1775)" in {
       val pin = awaitDb(pins.build(Q, Vector(output(NodeRef(PipelineId(pid), None, None))), authUser(owner))).get
-      pin.request.fields("rootId") shouldBe JsString(pid)
+      pin.request.fields.keySet should not contain "rootId"
       pin.request.fields.keySet should not contain "nodeStepId"
       val created = awaitDb(createService.create(PipelineId(pid), pin.request.convertTo[CreateOutputRequest], authUser(owner)))
       created.map(_._1.kind) shouldBe Right(OutputKind.Insight)
