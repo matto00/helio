@@ -1,14 +1,20 @@
-import { useEffect, useId } from "react";
+import { useEffect, useId, useMemo } from "react";
 import { Link } from "react-router-dom";
 
 import { useAppSelector } from "../../../hooks/reduxHooks";
+import { selectIsDashboardOwner } from "../../dashboards/state/dashboardAccess";
+import { isOutputPanel } from "../../panels/state/panelNarrowing";
+import { panelsSettledFor } from "../../panels/state/panelsSettled";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { CitationChip } from "../../panels/insight/CitationChip";
 import { InsightMarkdown } from "../../panels/insight/InsightMarkdown";
+import type { Panel } from "../../panels/types/panel";
 import type { InsightCitation } from "../../panels/insight/insightService";
 import { useAskPin } from "../hooks/useAskPin";
 import type { AskCitation, AskResponse, AskScope } from "../types/ask";
 import "./ask.css";
+
+const NO_PANELS: Panel[] = [];
 
 export const PIN_DRAFT_REASON = "Save or discard your draft to pin.";
 
@@ -41,10 +47,39 @@ export function AskAnswerCard({
   );
   const byId = new Map(response.citations.map((c, i) => [c.id, { citation: c, ordinal: i + 1 }]));
   const insightPanelId = `ask:${scope.kind}:${scope.id}`;
+  // HEL-1781 D2: a grantee's dashboard-scope chip reads the per-panel provenance route (the Output route is refused to a
+  // dashboard-only grantee), keyed by the first loaded panel that binds the cited Output.
+  const perPanel = useAppSelector(
+    (s) => scope.kind === "dashboard" && !selectIsDashboardOwner(s, scope.id),
+  );
+  const panelItems = useAppSelector((s) => (perPanel ? s.panels.items : NO_PANELS));
+  const panelsSettled = useAppSelector((s) => perPanel && panelsSettledFor(s.panels, scope.id));
+  const outputPanelIds = useMemo(() => {
+    if (!perPanel || !panelsSettled) return null;
+    const ids = new Map<string, string>();
+    for (const p of panelItems) {
+      if (isOutputPanel(p) && !ids.has(p.config.outputId)) ids.set(p.config.outputId, p.id);
+    }
+    return ids;
+  }, [perPanel, panelsSettled, panelItems]);
 
   function renderCitation(id: string) {
     const entry = byId.get(id);
     if (entry === undefined) return null;
+    if (perPanel) {
+      const panelId = entry.citation.outputId
+        ? outputPanelIds?.get(entry.citation.outputId)
+        : undefined;
+      if (panelId === undefined) return <span>{entry.ordinal}</span>;
+      return (
+        <CitationChip
+          citation={{ ...toInsightCitation(entry.citation), panelId }}
+          ordinal={entry.ordinal}
+          insightPanelId={insightPanelId}
+          source={{ variant: "public", dashboardId: scope.id }}
+        />
+      );
+    }
     return (
       <CitationChip
         citation={toInsightCitation(entry.citation)}

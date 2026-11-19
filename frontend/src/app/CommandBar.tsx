@@ -2,10 +2,7 @@ import { ChevronDown, MessagesSquare, Plus } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
 import { startNewConversation } from "../features/assistant/state/assistantConversationsSlice";
-import {
-  selectCanEditDashboard,
-  selectIsDashboardOwner,
-} from "../features/dashboards/state/dashboardAccess";
+import { selectCanEditDashboard } from "../features/dashboards/state/dashboardAccess";
 import { DashboardAppearanceEditor } from "../features/dashboards/ui/DashboardAppearanceEditor";
 import type { DashboardAppearance } from "../features/dashboards/types/dashboard";
 import { useLayoutUndoRedo } from "../features/layout/hooks/useLayoutUndoRedo";
@@ -78,7 +75,6 @@ export function CommandBar({
   const createPanelAction = useCreatePanelAction();
   // HEL-1773: the phone shell's dashboard menu follows the same role gates as the desktop meta row.
   const canEdit = useAppSelector((state) => selectCanEditDashboard(state, selectedDashboardId));
-  const isOwner = useAppSelector((state) => selectIsDashboardOwner(state, selectedDashboardId));
 
   // `disabled` is carried through rather than filtering the item out: the
   // action is unavailable only when no dashboard is selected, and the menu
@@ -95,7 +91,7 @@ export function CommandBar({
           { label: "Refine with AI", onClick: onOpenRefinement },
         ]
       : []),
-    ...(isOwner
+    ...(selectedDashboard !== null
       ? [
           {
             label: "Ask about this dashboard",

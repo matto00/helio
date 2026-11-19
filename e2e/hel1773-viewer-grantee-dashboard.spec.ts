@@ -330,11 +330,11 @@ test.describe("HEL-1773 dashboard grantees open a shared dashboard", () => {
       "Add panel",
       "Customize dashboard appearance",
       "Share dashboard",
-      "Ask about this dashboard",
     ]) {
       await expect(page.getByRole("button", { name }), `button "${name}"`).toHaveCount(0);
     }
-    // The kebab holds only edit/owner items for these roles (Refine with AI, Share, Ask), so a viewer has none.
+    // HEL-1781: Ask is offered to every reader of the dashboard (the pin is the server's call), so it is no longer here.
+    // The kebab holds only edit/owner items for these roles (Refine with AI, Share), so a viewer has none at this width.
     await expect(page.getByRole("button", { name: "Dashboard actions" })).toHaveCount(0);
   }
 
@@ -458,11 +458,12 @@ test.describe("HEL-1773 dashboard grantees open a shared dashboard", () => {
       editor.page.getByRole("button", { name: `${SHARED_NAME} (Shared)` }),
     ).toBeVisible();
 
-    // Owner-only actions are not offered; editing is.
+    // Owner-only actions (Share) are not offered; editing and asking are.
     await expect(editor.page.getByRole("button", { name: "Share dashboard" })).toHaveCount(0);
-    await expect(editor.page.getByRole("button", { name: "Ask about this dashboard" })).toHaveCount(
-      0,
-    );
+    // HEL-1781: asking is offered to a grantee; the pin is the server's decision.
+    await expect(
+      editor.page.getByRole("button", { name: "Ask about this dashboard" }),
+    ).toBeVisible();
     await expect(editor.page.getByRole("button", { name: "Edit layout" })).toBeVisible();
     await expect(editor.page.getByRole("button", { name: "Add panel" })).toBeVisible();
     // The row's kebab is revealed on hover.

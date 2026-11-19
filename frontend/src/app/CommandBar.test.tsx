@@ -275,11 +275,15 @@ describe("CommandBar — dashboard kebab by role (HEL-1773)", () => {
     ]);
   });
 
-  it("editor: add panel and refine, no ask", () => {
-    expect(kebabItems("editor")).toEqual(["Add panel", "Refine with AI"]);
+  it("editor: add panel, refine and ask (HEL-1781)", () => {
+    expect(kebabItems("editor")).toEqual([
+      "Add panel",
+      "Refine with AI",
+      "Ask about this dashboard",
+    ]);
   });
 
-  it("viewer: no kebab at all", () => {
-    expect(kebabItems("viewer")).toBeNull();
+  it("viewer: the kebab holds only ask (HEL-1781)", () => {
+    expect(kebabItems("viewer")).toEqual(["Ask about this dashboard"]);
   });
 });
