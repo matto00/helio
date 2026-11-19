@@ -16,8 +16,15 @@ interface UpdateDashboardAppearanceRequest {
   appearance: DashboardAppearance;
 }
 
-export async function fetchDashboards(): Promise<Dashboard[]> {
-  const response = await httpClient.get<PagedResult<Dashboard>>("/api/dashboards");
+/** HEL-1773: the app lists the dashboards it can open, so by default it opts in to the named-grant ones
+ *  (`include=shared`); a caller that wants only the dashboards the user owns passes `includeShared: false`. */
+export async function fetchDashboards(
+  options: { includeShared?: boolean } = {},
+): Promise<Dashboard[]> {
+  const { includeShared = true } = options;
+  const response = await httpClient.get<PagedResult<Dashboard>>("/api/dashboards", {
+    params: includeShared ? { include: "shared" } : undefined,
+  });
   return response.data.items;
 }
 

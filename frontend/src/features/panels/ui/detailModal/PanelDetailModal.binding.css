@@ -367,3 +367,10 @@
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
 }
+
+/* HEL-1773: an editor on a shared dashboard sees the binding as a read-only line (the binding section reads Output routes). */
+.panel-detail-modal__bound-note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}

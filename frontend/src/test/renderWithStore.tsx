@@ -41,7 +41,11 @@ import type {
   AssistantConversationSummary,
   AssistantModelsResponse,
 } from "../features/assistant/types";
-import type { DashboardAppearance, DashboardLayout } from "../features/dashboards/types/dashboard";
+import type {
+  DashboardAccessRole,
+  DashboardAppearance,
+  DashboardLayout,
+} from "../features/dashboards/types/dashboard";
 import type { PipelineSummary } from "../features/pipelines/types/pipelineStep";
 import type {
   PanelAppearance,
@@ -70,6 +74,7 @@ interface TestState {
       appearance?: DashboardAppearance;
       layout?: DashboardLayout;
       ownerId?: string;
+      accessRole?: DashboardAccessRole;
       layoutVersion?: number;
     }>;
     selectedDashboardId?: string | null;

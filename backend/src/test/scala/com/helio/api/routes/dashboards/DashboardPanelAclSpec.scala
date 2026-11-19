@@ -278,23 +278,24 @@ class DashboardPanelAclSpec
     }
   }
 
-  "DashboardRepository.findAllVisible" should {
-    "include owned dashboards" in {
+  "DashboardRepository.findAllVisiblePaged" should {
+    val big = Page(offset = 0, limit = 500)
+    "include owned dashboards, marked owner" in {
       val dashId = seedDashboard(userAId)
-      val visible = await(dashboardRepo.findAllVisible(userA))
-      visible.map(_.id.value) should contain(dashId)
+      val visible = await(dashboardRepo.findAllVisiblePaged(userA.id, big)).items
+      visible.map { case (d, role) => d.id.value -> role } should contain(dashId -> "owner")
     }
-    "include granted dashboards for grantee" in {
+    "include granted dashboards for grantee, with the grant's role" in {
       val dashId = seedDashboard(userAId)
       grantRole(dashId, userBId, "viewer")
-      val visible = await(dashboardRepo.findAllVisible(userB))
-      visible.map(_.id.value) should contain(dashId)
+      val visible = await(dashboardRepo.findAllVisiblePaged(userB.id, big)).items
+      visible.map { case (d, role) => d.id.value -> role } should contain(dashId -> "viewer")
       removeGrant(dashId, userBId)
     }
     "not include ungranted dashboards for non-owner" in {
       val dashId = seedDashboard(userAId)
-      val visible = await(dashboardRepo.findAllVisible(userB))
-      visible.map(_.id.value) should not contain dashId
+      val visible = await(dashboardRepo.findAllVisiblePaged(userB.id, big)).items
+      visible.map(_._1.id.value) should not contain dashId
     }
   }
 

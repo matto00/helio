@@ -141,3 +141,26 @@ describe("LayoutThumbnail", () => {
     expect(screen.getByText("No panels yet")).toBeInTheDocument();
   });
 });
+
+// HEL-1773 D7: a dashboard shared with the user is on the shelf, marked "Shared", and counted in "All N".
+describe("DashboardShelf shared dashboards", () => {
+  it("marks the shared card only", () => {
+    const own = dashboard("own", "Mine", new Date(NOW - 3_600_000).toISOString());
+    const theirs = dashboard("vw", "Theirs", new Date(NOW - 7_200_000).toISOString());
+    renderHome(
+      <DashboardShelf
+        dashboards={[own, theirs]}
+        status="succeeded"
+        changedIds={new Set()}
+        sharedIds={new Set(["vw"])}
+        now={NOW}
+        onStepByStep={jest.fn()}
+      />,
+    );
+    expect(screen.getByRole("link", { name: /All 2/ })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("link", { name: /Theirs/ })).getByText("Shared"),
+    ).toBeInTheDocument();
+    expect(within(screen.getByRole("link", { name: /Mine/ })).queryByText("Shared")).toBeNull();
+  });
+});

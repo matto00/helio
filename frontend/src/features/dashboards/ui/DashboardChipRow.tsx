@@ -1,3 +1,4 @@
+import { isSharedDashboard } from "../state/dashboardAccess";
 import { useLayoutEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -116,7 +117,10 @@ export function DashboardChipRow() {
     <div ref={rowRef} className="dashboard-chip-row" role="group" aria-label="Dashboards">
       {ids.map((id) => {
         const active = id === selectedId;
-        const name = byId.get(id)?.name ?? "";
+        const dashboard = byId.get(id);
+        const name = dashboard?.name ?? "";
+        // HEL-1773: a dashboard shared with the user carries the same "Shared" marker as the sidebar list.
+        const isShared = dashboard !== undefined && isSharedDashboard(dashboard, userId);
         return (
           <button
             key={id}
@@ -124,10 +128,15 @@ export function DashboardChipRow() {
             data-dashboard-id={id}
             className={`dashboard-chip${active ? " dashboard-chip--active" : ""}`}
             aria-current={active ? "true" : undefined}
-            aria-label={name}
+            aria-label={isShared ? `${name} (Shared)` : name}
             onClick={() => handleSelect(id)}
           >
             <span className="dashboard-chip__label">{name}</span>
+            {isShared && (
+              <span className="dashboard-chip__shared" aria-hidden="true">
+                Shared
+              </span>
+            )}
           </button>
         );
       })}

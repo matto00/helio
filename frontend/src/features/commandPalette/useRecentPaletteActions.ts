@@ -1,3 +1,5 @@
+import { isSharedDashboard } from "../dashboards/state/dashboardAccess";
+import type { Dashboard } from "../dashboards/types/dashboard";
 import { createElement, useMemo } from "react";
 import { useSyncExternalStore } from "react";
 import { Database, LayoutDashboard, Workflow } from "lucide-react";
@@ -43,6 +45,18 @@ function resolveTitle(
   return collection.find((item) => item.id === entry.id)?.name ?? null;
 }
 
+function sharedDashboardSubtitle(
+  entry: RecentEntry,
+  dashboards: Pick<Dashboard, "id" | "accessRole" | "ownerId">[],
+  currentUserId: string | null,
+): string | undefined {
+  if (entry.kind !== "dashboard") return undefined;
+  const dashboard = dashboards.find((d) => d.id === entry.id);
+  return dashboard !== undefined && isSharedDashboard(dashboard, currentUserId)
+    ? "Shared"
+    : undefined;
+}
+
 /**
  * design.md D5 — synthesizes the palette's "Recent" section entries. Deliberately NOT registered
  * via `useCommandActions`/the shared registry: these are not registered actions, so they cannot
@@ -54,6 +68,7 @@ export function useRecentPaletteActions(): CommandAction[] {
   const navigateToResource = useResourceNavigator();
   const entries = useSyncExternalStore(recentHistoryStore.subscribe, recentHistoryStore.getEntries);
   const dashboards = useAppSelector((state) => state.dashboards.items);
+  const currentUserId = useAppSelector((state) => state.auth?.currentUser?.id ?? null);
   const sources = useAppSelector((state) => state.sources.items);
   const pipelines = useAppSelector((state) => state.pipelines.items);
 
@@ -66,11 +81,13 @@ export function useRecentPaletteActions(): CommandAction[] {
       actions.push({
         id: `recent.${entry.kind}.${entry.id}`,
         title,
+        // HEL-1773: a dashboard shared with the user is marked "Shared".
+        subtitle: sharedDashboardSubtitle(entry, dashboards, currentUserId),
         section: RECENT_SECTION,
         icon: createElement(KIND_ICON[entry.kind]),
         run: () => navigateToResource(ref),
       });
     }
     return actions;
-  }, [entries, dashboards, sources, pipelines, navigateToResource]);
+  }, [entries, dashboards, currentUserId, sources, pipelines, navigateToResource]);
 }

@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react";
 
 import { isOutputPanel } from "../../state/panelNarrowing";
 import { useAppSelector } from "../../../../hooks/reduxHooks";
+import { useCanUseOutputRoutes } from "../../../dashboards/state/dashboardAccessContext";
 import { usePanelData } from "../../hooks/usePanelData";
 import { useOutputMeta } from "../../hooks/useOutputMeta";
 import { useCrossFilterServerOps } from "../../hooks/useCrossFilterServerOps";
@@ -21,9 +22,10 @@ export function usePanelDetailData(panel: Panel) {
   // path sharing that id shares the same source of truth). No sibling `usePanelSortFilter` layer
   // exists on this path (see `usePanelData`'s own doc comment for why composition happens
   // directly here instead), so `controlFilterOps` is threaded straight into `usePanelData`.
-  const controls: OutputControlSpec[] = isOutputPanel(panel)
-    ? panel.config.controls
-    : EMPTY_CONTROLS;
+  // HEL-1773: viewer controls (and their distinct-values reads) are an Output-route feature, off for a dashboard grantee.
+  const canUseOutputRoutes = useCanUseOutputRoutes();
+  const controls: OutputControlSpec[] =
+    isOutputPanel(panel) && canUseOutputRoutes ? panel.config.controls : EMPTY_CONTROLS;
   const {
     values: controlValues,
     setValue: setControlValue,

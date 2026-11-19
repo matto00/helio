@@ -555,7 +555,8 @@
    badge text. As a real sibling with reserved width, `.dashboard-list__name`
    (min-width:0, text-overflow:ellipsis) always truncates to make room for it
    instead. Same pill recipe the old pseudo-element used. */
-.dashboard-list__pinned-badge {
+.dashboard-list__pinned-badge,
+.dashboard-list__shared-badge {
   flex-shrink: 0;
   /* HEL-830: 6px -> 8px, chip/badge padding reads compressed at 4px */
   padding: 2px var(--space-2);

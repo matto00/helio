@@ -10,6 +10,10 @@ import { Modal } from "../../../../shared/ui/Modal";
 import { accumulatePanelUpdate } from "../../state/panelsSlice";
 import { isOutputPanel } from "../../state/panelNarrowing";
 import { useAppDispatch } from "../../../../hooks/reduxHooks";
+import {
+  useCanEditPanels,
+  useCanUseOutputRoutes,
+} from "../../../dashboards/state/dashboardAccessContext";
 import { ProvenanceTrigger } from "../../provenance/ProvenanceTrigger";
 import { OutputViewerControlBar } from "../OutputViewerControlBar";
 import { useTheme } from "../../../../theme/ThemeProvider";
@@ -75,6 +79,10 @@ export function PanelDetailModal({
     totalRowCount,
   } = usePanelDetailData(panel);
   const navigate = useNavigate();
+  // HEL-1773: a viewer grantee never sees edit mode; any non-owner has no Output routes (no provenance, no Output link,
+  // no binding section, no viewer controls), and an editor's edit mode keeps title and appearance only.
+  const canEdit = useCanEditPanels();
+  const canUseOutputRoutes = useCanUseOutputRoutes();
   const {
     modalMode,
     setModalMode,
@@ -102,7 +110,7 @@ export function PanelDetailModal({
     setShowDiscardWarning,
     isAnyDirty,
     resetFormToPanel,
-  } = usePanelDetailEditState(panel, initialMode);
+  } = usePanelDetailEditState(panel, initialMode, canEdit);
 
   function handleDiscard() {
     resetFormToPanel();
@@ -181,7 +189,7 @@ export function PanelDetailModal({
           {modalMode === "edit" && isAnyDirty && (
             <span className="panel-detail-modal__unsaved-badge">Unsaved changes</span>
           )}
-          {modalMode === "view" && viewOutputId && (
+          {modalMode === "view" && viewOutputId && canUseOutputRoutes && (
             <ProvenanceTrigger
               panelId={panel.id}
               panelTitle={panel.title}
@@ -189,7 +197,7 @@ export function PanelDetailModal({
               variant="authenticated"
             />
           )}
-          {modalMode === "view" && (
+          {modalMode === "view" && canEdit && (
             <button
               type="button"
               className="panel-detail-modal__edit-btn"
@@ -250,7 +258,9 @@ export function PanelDetailModal({
               noData={noData}
               neverMaterialized={neverMaterialized}
               onGoToPipeline={
-                viewOutput ? () => navigate(`/pipelines/${viewOutput.pipelineId}`) : undefined
+                viewOutput && canUseOutputRoutes
+                  ? () => navigate(`/pipelines/${viewOutput.pipelineId}`)
+                  : undefined
               }
               paginationRows={paginationRows}
               columns={columns}
@@ -289,14 +299,20 @@ export function PanelDetailModal({
                 setTransparency={setTransparency}
               />
               {isOutputPanel(panel) ? (
-                <>
-                  <OutputPanelSection panel={panel} />
-                  <OutputControlsEditor
-                    ref={controlsEditorRef}
-                    panel={panel}
-                    onDirtyChange={handleSubtypeDirtyChange}
-                  />
-                </>
+                canUseOutputRoutes ? (
+                  <>
+                    <OutputPanelSection panel={panel} />
+                    <OutputControlsEditor
+                      ref={controlsEditorRef}
+                      panel={panel}
+                      onDirtyChange={handleSubtypeDirtyChange}
+                    />
+                  </>
+                ) : (
+                  // HEL-1773: the binding section and the control editor read Output routes (the Output list, the
+                  // Output's panels, its filter capabilities); a non-owner sees the binding as a read-only line.
+                  <p className="panel-detail-modal__bound-note">Bound to an Output</p>
+                )
               ) : (
                 renderSubtypeEditor({
                   panel,

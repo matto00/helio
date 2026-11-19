@@ -3,16 +3,36 @@ import { act, renderHook } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { Provider } from "react-redux";
 
+import type { Dashboard } from "../../dashboards/types/dashboard";
 import { dashboardsReducer } from "../../dashboards/state/dashboardsSlice";
 import { panelsReducer } from "../state/panelsSlice";
 import { useCreatePanelAction } from "./useCreatePanelAction";
 
-function makeStore(selectedDashboardId: string | null) {
+function dashboardFixture(id: string, accessRole: "owner" | "editor" | "viewer"): Dashboard {
+  return {
+    id,
+    name: id,
+    meta: {
+      createdBy: "u1",
+      createdAt: "2026-01-01T00:00:00Z",
+      lastUpdated: "2026-01-01T00:00:00Z",
+    },
+    appearance: { background: "transparent", gridBackground: "transparent" },
+    layout: { lg: [], md: [], sm: [], xs: [] },
+    accessRole,
+  };
+}
+
+function makeStore(
+  selectedDashboardId: string | null,
+  accessRole: "owner" | "editor" | "viewer" = "owner",
+) {
   return configureStore({
     reducer: { panels: panelsReducer, dashboards: dashboardsReducer },
     preloadedState: {
       dashboards: {
-        items: [],
+        items:
+          selectedDashboardId === null ? [] : [dashboardFixture(selectedDashboardId, accessRole)],
         selectedDashboardId,
         status: "idle" as const,
         error: null,
@@ -27,6 +47,21 @@ function wrapper(store: ReturnType<typeof makeStore>) {
     return <Provider store={store}>{children}</Provider>;
   };
 }
+
+// HEL-1773: a viewer grantee cannot add a panel, from any entry that uses this action (meta row, empty state, palette).
+describe("useCreatePanelAction by role", () => {
+  it.each([
+    ["owner", false],
+    ["editor", false],
+    ["viewer", true],
+  ] as const)("a %s on the selected dashboard: disabled = %s", (role, disabled) => {
+    const store = makeStore("dashboard-1", role);
+    const { result } = renderHook(() => useCreatePanelAction(), { wrapper: wrapper(store) });
+    expect(result.current.cta.disabled).toBe(disabled);
+    act(() => result.current.cta.onClick());
+    expect(store.getState().panels.panelCreationModalOpen).toBe(!disabled);
+  });
+});
 
 // HEL-548 D5/D5a/workspace-create-actions — a pure flag-flip create action:
 // it cannot fail and is never in flight, since PanelCreationModal owns its

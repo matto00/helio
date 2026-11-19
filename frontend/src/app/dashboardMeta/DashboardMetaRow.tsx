@@ -3,6 +3,10 @@ import { useRef } from "react";
 
 import { useSaveState } from "../../context/SaveStateContext";
 import { DashboardAppearanceEditor } from "../../features/dashboards/ui/DashboardAppearanceEditor";
+import {
+  selectCanEditDashboard,
+  selectIsDashboardOwner,
+} from "../../features/dashboards/state/dashboardAccess";
 import { useShareDialog } from "../../features/dashboards/state/shareDialogContext";
 import type { DashboardAppearance } from "../../features/dashboards/types/dashboard";
 import { useLayoutEditEscape } from "../../features/layout/hooks/useLayoutEditEscape";
@@ -12,6 +16,7 @@ import {
   selectIsEditingLayout,
   setEditingLayoutDashboardId,
 } from "../../features/layout/state/layoutHistorySlice";
+import { panelsSettledFor } from "../../features/panels/state/panelsSettled";
 import { useCreatePanelAction } from "../../features/panels/hooks/useCreatePanelAction";
 import { useDashboardMeta } from "../../features/panels/hooks/useDashboardMeta";
 import type { Panel } from "../../features/panels/types/panel";
@@ -64,12 +69,18 @@ export function DashboardMetaRow({
       (dashboard) => dashboard.id === state.dashboards.selectedDashboardId,
     ),
   );
+  // HEL-1773: only panels that BELONG to the selected dashboard. `fetchPanels.pending` marks the new dashboard loaded while
+  // `items` still hold the previous one's panels; feeding those to `useDashboardMeta` would have it read (and keep in local
+  // state) Output metadata through the previous dashboard's read scope.
   const panels = useAppSelector((state) =>
-    state.panels.loadedDashboardId === state.dashboards.selectedDashboardId &&
-    state.dashboards.selectedDashboardId !== null
+    panelsSettledFor(state.panels, state.dashboards.selectedDashboardId)
       ? state.panels.items
       : NO_PANELS,
   );
+  // HEL-1773: what the caller's role on this dashboard allows. A viewer gets no editing control at all; an editor gets
+  // the edits the server permits but not the owner-only actions (share) nor the owner-only Ask entry (child 3 of the ticket).
+  const canEdit = useAppSelector((state) => selectCanEditDashboard(state, selectedDashboardId));
+  const isOwner = useAppSelector((state) => selectIsDashboardOwner(state, selectedDashboardId));
   const gridIsMovable = useAppSelector(selectIsDesktopGridMounted(selectedDashboardId));
   const isEditing = useAppSelector(selectIsEditingLayout(selectedDashboardId)) && gridIsMovable;
 
@@ -77,7 +88,10 @@ export function DashboardMetaRow({
   useLayoutUndoRedo(selectedDashboardId);
   useLayoutEditEscape(selectedDashboardId);
 
-  const meta = useDashboardMeta(selectedDashboardId, panels);
+  // The facts read Output metadata and pipeline summaries (Output and pipeline routes): off for a non-owner, whose row
+  // keeps the panel count (known from the panels themselves) and shows no refresh or sources.
+  const ownerMeta = useDashboardMeta(selectedDashboardId, isOwner ? panels : NO_PANELS);
+  const meta = isOwner ? ownerMeta : { ...ownerMeta, panelCount: panels.length };
   const tier = useMetaRowTier(rowRef, isEditing);
   const iconOnly = tier >= 1;
   const shareInKebab = tier >= 2;
@@ -101,13 +115,16 @@ export function DashboardMetaRow({
     dispatch(setEditingLayoutDashboardId(isEditing ? null : selectedDashboardId));
   }
 
-  const kebabItems: ActionsMenuItem[] = [{ label: "Refine with AI", onClick: onOpenRefinement }];
+  const kebabItems: ActionsMenuItem[] = [];
+  if (canEdit) kebabItems.push({ label: "Refine with AI", onClick: onOpenRefinement });
   if (shareInKebab) {
-    kebabItems.push({ label: "Share", ariaLabel: "Share dashboard", onClick: openShare });
-    kebabItems.push({
-      label: "Ask about this dashboard",
-      onClick: () => onOpenAsk(KEBAB_TRIGGER_SELECTOR),
-    });
+    if (isOwner) {
+      kebabItems.push({ label: "Share", ariaLabel: "Share dashboard", onClick: openShare });
+      kebabItems.push({
+        label: "Ask about this dashboard",
+        onClick: () => onOpenAsk(KEBAB_TRIGGER_SELECTOR),
+      });
+    }
     kebabItems.push({ label: "Open assistant", onClick: onOpenQuickLauncher });
   }
 
@@ -150,7 +167,8 @@ export function DashboardMetaRow({
             {isEditing && (
               <DashboardMetaEditTools dashboardId={selectedDashboardId} iconOnly={iconOnly} />
             )}
-            {gridIsMovable &&
+            {canEdit &&
+              gridIsMovable &&
               (iconOnly ? (
                 <IconButton
                   icon={<PencilRuler size={ICON_SIZE.sm} />}
@@ -172,7 +190,8 @@ export function DashboardMetaRow({
                   <PencilRuler size={ICON_SIZE.sm} /> {editLabel}
                 </button>
               ))}
-            {!shareInKebab &&
+            {isOwner &&
+              !shareInKebab &&
               (iconOnly ? (
                 <IconButton
                   icon={<Share2 size={ICON_SIZE.sm} />}
@@ -193,25 +212,29 @@ export function DashboardMetaRow({
                   <Share2 size={ICON_SIZE.sm} /> Share
                 </button>
               ))}
-            <button
-              type="button"
-              className="cmd-btn cmd-btn--primary"
-              onClick={createPanelAction.cta.onClick}
-              disabled={createPanelAction.cta.disabled}
-            >
-              <Plus size={ICON_SIZE.sm} /> Add panel
-            </button>
+            {canEdit && (
+              <button
+                type="button"
+                className="cmd-btn cmd-btn--primary"
+                onClick={createPanelAction.cta.onClick}
+                disabled={createPanelAction.cta.disabled}
+              >
+                <Plus size={ICON_SIZE.sm} /> Add panel
+              </button>
+            )}
           </div>
         )}
-        {selectedDashboard && (
+        {selectedDashboard && canEdit && (
           <DashboardAppearanceEditor
             dashboard={selectedDashboard}
             onPreviewChange={setDraftAppearance}
           />
         )}
-        {selectedDashboard && !shareInKebab && askButton}
+        {selectedDashboard && isOwner && !shareInKebab && askButton}
         {(!shareInKebab || !selectedDashboard) && assistantButton}
-        {selectedDashboard && <ActionsMenu label="Dashboard actions" items={kebabItems} />}
+        {selectedDashboard && kebabItems.length > 0 && (
+          <ActionsMenu label="Dashboard actions" items={kebabItems} />
+        )}
       </div>
     </header>
   );

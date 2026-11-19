@@ -2,6 +2,10 @@ import { ChevronDown, MessagesSquare, Plus } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
 import { startNewConversation } from "../features/assistant/state/assistantConversationsSlice";
+import {
+  selectCanEditDashboard,
+  selectIsDashboardOwner,
+} from "../features/dashboards/state/dashboardAccess";
 import { DashboardAppearanceEditor } from "../features/dashboards/ui/DashboardAppearanceEditor";
 import type { DashboardAppearance } from "../features/dashboards/types/dashboard";
 import { useLayoutUndoRedo } from "../features/layout/hooks/useLayoutUndoRedo";
@@ -72,22 +76,33 @@ export function CommandBar({
   const selectedDashboardName = selectedDashboard?.name ?? "No dashboard selected";
 
   const createPanelAction = useCreatePanelAction();
+  // HEL-1773: the phone shell's dashboard menu follows the same role gates as the desktop meta row.
+  const canEdit = useAppSelector((state) => selectCanEditDashboard(state, selectedDashboardId));
+  const isOwner = useAppSelector((state) => selectIsDashboardOwner(state, selectedDashboardId));
 
   // `disabled` is carried through rather than filtering the item out: the
   // action is unavailable only when no dashboard is selected, and the menu
   // itself is already gated on that — keeping the flag means the descriptor
   // stays the single source of truth for its own availability.
   const dashboardActionItems: ActionsMenuItem[] = [
-    {
-      label: "Add panel",
-      onClick: createPanelAction.cta.onClick,
-      disabled: createPanelAction.cta.disabled,
-    },
-    { label: "Refine with AI", onClick: onOpenRefinement },
-    {
-      label: "Ask about this dashboard",
-      onClick: () => onOpenAsk(COMMAND_BAR_KEBAB_SELECTOR),
-    },
+    ...(canEdit
+      ? [
+          {
+            label: "Add panel",
+            onClick: createPanelAction.cta.onClick,
+            disabled: createPanelAction.cta.disabled,
+          },
+          { label: "Refine with AI", onClick: onOpenRefinement },
+        ]
+      : []),
+    ...(isOwner
+      ? [
+          {
+            label: "Ask about this dashboard",
+            onClick: () => onOpenAsk(COMMAND_BAR_KEBAB_SELECTOR),
+          },
+        ]
+      : []),
   ];
 
   const pickerSelection = usePickerSelection(location.pathname);
@@ -221,7 +236,7 @@ export function CommandBar({
         </div>
       </div>
       <div className="app-command-bar__right" inert={isMobileNavSheetOpen}>
-        {onDashboardView && (
+        {onDashboardView && canEdit && (
           <DashboardAppearanceEditor
             dashboard={selectedDashboard}
             onPreviewChange={setDraftAppearance}
@@ -253,7 +268,7 @@ export function CommandBar({
             The gate STAYS by owner ruling: the palette is global by definition, this kebab is
             contextual by position, and the two affordances doing different jobs is correct,
             not a leftover reach restriction. */}
-        {onDashboardView && selectedDashboard !== null && (
+        {onDashboardView && selectedDashboard !== null && dashboardActionItems.length > 0 && (
           <ActionsMenu label="Dashboard actions" items={dashboardActionItems} />
         )}
         {/* HEL-1583: the phone header no longer carries the avatar menu -- the BottomNav's Me tab replaces it. */}

@@ -1,5 +1,6 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 
+import { isKnownNonOwnedDashboard } from "../../state/dashboardAccess";
 import type { RootState } from "../../../../store/store";
 import { invalidateOutput } from "../../../panels/state/outputFreshness";
 import {
@@ -8,6 +9,7 @@ import {
   restoreFinished,
   restoreStarted,
 } from "../../../panels/state/panelsSlice";
+import { unscopeOutput } from "../../../panels/state/outputMetaCache";
 import { serverNowMs } from "../serverClock";
 import { parseInstant } from "../tabTypes";
 import {
@@ -58,6 +60,9 @@ function restoreFromMemory(
   // The cards about to mount retain their own Outputs; the tab-level hold is no longer needed (the 30 s
   // remount grace covers the gap between this release and their mount effect).
   releaseTab(dashboardId);
+  // HEL-1773: a restore never reaches `fetchPanels`, which is where an owned dashboard clears the per-panel read scope of its
+  // Outputs (set when a shared dashboard bound to the same Output was viewed): do the same here, before any card mounts.
+  for (const outputId of panelOutputIds(entry.panels)) unscopeOutput(outputId);
   dispatch(panelsRestored({ dashboardId, items: entry.panels }));
   return true;
 }
@@ -76,7 +81,11 @@ export const showDashboardPanels = createAsyncThunk<void, string, Thunk>(
       return;
     }
     const userId = first.auth.currentUser?.id ?? null;
-    const warm = userId !== null && isTabWarm(first.dashboardTabs.tabs, dashboardId, serverNowMs());
+    // HEL-1773: a dashboard the caller does not own is never restored from the warm cache (it is never captured).
+    const warm =
+      userId !== null &&
+      !isKnownNonOwnedDashboard(first, dashboardId) &&
+      isTabWarm(first.dashboardTabs.tabs, dashboardId, serverNowMs());
     if (warm && userId !== null) {
       const hadMemoryCopy = getListEntry(dashboardId) !== undefined;
       if (restoreFromMemory(first, dashboardId, dispatch)) return;

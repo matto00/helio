@@ -32,14 +32,19 @@ final class DashboardRoutes(
         pathEndOrSingleSlash {
           concat(
             get {
-              parameters("offset".as[Int].withDefault(Page.Default.offset), "limit".as[Int].withDefault(Page.Default.limit)) { (offsetRaw, limitRaw) =>
+              parameters("offset".as[Int].withDefault(Page.Default.offset), "limit".as[Int].withDefault(Page.Default.limit), "include".?) { (offsetRaw, limitRaw, includeRaw) =>
+                // HEL-1773: `include=shared` opts in to the named-grant dashboards; absent is the original owner-only list.
                 if (offsetRaw < 0)
                   complete(StatusCodes.BadRequest, ErrorResponse("offset must not be negative"))
+                else if (includeRaw.exists(_ != "shared"))
+                  complete(StatusCodes.BadRequest, ErrorResponse("include must be 'shared'"))
                 else {
                   val page = Page(offset = offsetRaw, limit = math.min(limitRaw, Page.MaxLimit))
-                  onSuccess(dashboardService.findAllWithPipelineFedFlag(user, page)) { result =>
+                  onSuccess(dashboardService.findAllWithPipelineFedFlag(user, page, includeShared = includeRaw.isDefined)) { result =>
                     complete(PagedResult(
-                      result.items.map { case (d, fed) => DashboardResponse.fromDomain(d).copy(hasPipelineFedPanels = Some(fed)) },
+                      result.items.map { item =>
+                        DashboardResponse.withRole(item.dashboard, Some(item.accessRole)).copy(hasPipelineFedPanels = Some(item.hasPipelineFedPanels))
+                      },
                       result.total, result.offset, result.limit
                     ))
                   }
@@ -64,7 +69,7 @@ final class DashboardRoutes(
                       // existing dashboard by name — 200, not 201 (nothing was created).
                       case (dashboard, created) =>
                         val status = if (created) StatusCodes.Created else StatusCodes.OK
-                        complete(status, DashboardResponse.fromDomain(dashboard))
+                        complete(status, DashboardResponse.withRole(dashboard, Some("owner")))
                     }
                 }
               }
@@ -75,7 +80,7 @@ final class DashboardRoutes(
           post {
             ServiceResponse.run(dashboardService.duplicate(dashboardId, user)) { case (dashboard, panels) =>
               StatusCodes.Created -> DuplicateDashboardResponse(
-                dashboard = DashboardResponse.fromDomain(dashboard),
+                dashboard = DashboardResponse.withRole(dashboard, Some("owner")),
                 panels    = panels.map(p => PanelResponse.fromDomain(p))
               )
             }
@@ -84,7 +89,7 @@ final class DashboardRoutes(
         path(DashboardIdSegment / "layout" / "repair") { dashboardId =>
           post {
             entity(as[DashboardLayoutPatchPayload]) { request =>
-              ServiceResponse.run(dashboardService.repairLayout(dashboardId, request, user))(DashboardResponse.fromDomain)
+              ServiceResponse.run(dashboardService.repairLayout(dashboardId, request, user))(d => DashboardResponse.withRole(d, Some("owner")))
             }
           }
         },

@@ -11,6 +11,8 @@ interface DashboardShelfProps {
   dashboards: readonly Dashboard[];
   status: "idle" | "loading" | "succeeded" | "failed";
   changedIds: ReadonlySet<string>;
+  /** HEL-1773: ids of dashboards shared with the user (not owned): each card carries a "Shared" marker. */
+  sharedIds?: ReadonlySet<string>;
   now: number;
   onStepByStep: () => void;
 }
@@ -21,6 +23,7 @@ export function DashboardShelf({
   dashboards,
   status,
   changedIds,
+  sharedIds,
   now,
   onStepByStep,
 }: DashboardShelfProps) {
@@ -77,6 +80,11 @@ export function DashboardShelf({
                   <LayoutThumbnail layout={dashboard.layout} />
                   <span className="home-card__foot">
                     <span className="home-card__name">{dashboard.name}</span>
+                    {sharedIds?.has(dashboard.id) ? (
+                      <span className="home-card__shared">
+                        <span className="sr-only">, </span>Shared
+                      </span>
+                    ) : null}
                     <time className="home-card__time mono" dateTime={dashboard.meta.lastUpdated}>
                       {relativeShelfTime(dashboard.meta.lastUpdated, now)}
                     </time>

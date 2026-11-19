@@ -4,6 +4,7 @@ import { fetchPanelPage } from "../state/panelsSlice";
 import { useFirstDashboardRendered } from "../../telemetry/useFirstDashboardRendered";
 import { composeOutputRowsFilter, getDistinctValues } from "../../pipelines/services/outputService";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { useCanUseOutputRoutes } from "../../dashboards/state/dashboardAccessContext";
 import { useOutputMeta } from "../hooks/useOutputMeta";
 import { useCrossFilterServerOps } from "../hooks/useCrossFilterServerOps";
 import { useCrossFilterAnnouncement } from "../hooks/useCrossFilterAnnouncement";
@@ -102,15 +103,20 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   // from exactly ONE fetch — is preserved here, since `OutputPanelContent` no longer performs its
   // own fetch AT ALL once this component supplies one (see its own doc comment).
   const { output, isLoading: isOutputMetaLoading } = useOutputMeta(outputId);
+  // HEL-1773: on a dashboard the caller does not own, the Output routes behind controls, sort/filter, distinct values,
+  // filter capabilities and run events are not available: the viewer controls, the server sort/filter round trip and
+  // the run-event refresh are all off (hidden, never half-working). Rows and metadata still arrive through the per-panel
+  // routes (`fetchPanelPage`, `outputMetaCache`), and a table sorts the rows it has loaded on the client.
+  const canUseOutputRoutes = useCanUseOutputRoutes();
+  const filterOutput = canUseOutputRoutes ? output : null;
 
   // HEL-1190 design.md D1-D4 (tasks 4.1-4.5, 5.1/5.2) — the viewer's own control selection,
   // URL-held (`useViewerControls`) and shared by construction between the desktop grid and the
   // phone stack, since `PanelCardBody` is their common ancestor (mirrors HEL-1027's own
   // `usePanelSortFilter` precedent one line below). `controls` is `[]` for a non-output panel —
   // `useViewerControls`/`buildViewerControlFilterOps` are then no-ops.
-  const controls: OutputControlSpec[] = isOutputPanel(panel)
-    ? panel.config.controls
-    : EMPTY_CONTROLS;
+  const controls: OutputControlSpec[] =
+    isOutputPanel(panel) && canUseOutputRoutes ? panel.config.controls : EMPTY_CONTROLS;
   const {
     values: controlValues,
     setValue: setControlValue,
@@ -134,9 +140,16 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   // HEL-1191 design.md D1/D3/D9b — the ONE cross-filter eligibility decision for this panel:
   // `crossFilterEq` (server path) goes to every dispatch as its own argument, `crossFilterMode`
   // goes down to `PanelContent` so the client-side loaded-rows filter runs ONLY on the fallback.
-  const { crossFilterEq, mode: crossFilterMode } = useCrossFilterServerOps(panel, output);
+  const { crossFilterEq, mode: crossFilterMode } = useCrossFilterServerOps(panel, filterOutput);
   const { filterActive, activeSort, activeFilter, handleSortChange, handleFilterChange } =
-    usePanelSortFilter(panel.id, outputId, output, controlFilterOps, crossFilterEq, mountOwnership);
+    usePanelSortFilter(
+      panel.id,
+      outputId,
+      filterOutput,
+      controlFilterOps,
+      crossFilterEq,
+      mountOwnership,
+    );
   // HEL-1027 design.md D10 — suppresses `PanelContent`'s top-level `noData`/`neverMaterialized`
   // short-circuit whenever a table filter is genuinely active, so a filter matching zero rows
   // across the whole Output falls through to `TableRenderer`'s own correct
@@ -172,7 +185,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
     refresh();
     setRefreshAnnouncement((n) => n + 1);
   }, [refresh]);
-  usePanelRunRefresh(outputId, handleFanoutRefresh);
+  usePanelRunRefresh(canUseOutputRoutes ? outputId : null, handleFanoutRefresh);
 
   // HEL-1027 skeptic-final-1.md follow-on finding — "Load more" (page > 0) must carry the SAME
   // active sort/filter the current page-0 window was fetched under, or the appended page would
@@ -273,8 +286,8 @@ export const PanelCardBody = React.memo(function PanelCardBody({
         rowsTruncated={rowsTruncated}
         compact={compact}
         onDataPointSelect={onDataPointSelect}
-        onSortChange={handleSortChange}
-        onFilterChange={handleFilterChange}
+        onSortChange={canUseOutputRoutes ? handleSortChange : undefined}
+        onFilterChange={canUseOutputRoutes ? handleFilterChange : undefined}
         // HEL-1027 design.md D5/D7 — the server's row count for the CURRENT sort/filter (D5),
         // threaded through to `TableRenderer`'s loaded-scope disclosure so a filtered count
         // describes the WHOLE Output, never just the currently-loaded page (task 5.2).

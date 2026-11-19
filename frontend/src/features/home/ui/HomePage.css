@@ -193,6 +193,19 @@ a.home-card:hover {
   transform: translateY(-50%);
 }
 
+.home-card__shared {
+  flex-shrink: 0;
+  padding: 2px var(--space-2);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-accent-dim);
+  color: var(--app-accent-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .home-card__name {
   flex: 1;
   min-width: 0;

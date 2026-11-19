@@ -54,9 +54,11 @@ const initialState: DashboardsState = {
 };
 
 // The backend guarantees dashboards are returned sorted by lastUpdated desc,
-// so the first item is always the most recently updated.
+// so the first owned item is always the most recently updated one the user owns.
+// HEL-1773: shared dashboards (accessRole editor/viewer) are in `items` so they can be opened, but the default
+// landing dashboard is always one the user owns; an item with no role (a hand-built fixture) counts as owned.
 function getMostRecentDashboardId(dashboards: Dashboard[]): string | null {
-  return dashboards[0]?.id ?? null;
+  return dashboards.find((d) => d.accessRole === undefined || d.accessRole === "owner")?.id ?? null;
 }
 
 // HEL-1457: a response that is NOT adopted over a newer local layout keeps the local layout BY REFERENCE and
@@ -74,10 +76,19 @@ function keepLocalLayout(response: Dashboard, local: Dashboard): Dashboard {
 // HEL-1646: only the list route emits `hasPipelineFedPanels`, so every single-dashboard response that replaces an
 // existing item (rename, appearance, layout, repair, upsert) must carry the previously-known value forward instead
 // of silently dropping it. Applied at every replace site; only `fetchDashboards.fulfilled` overwrites from the wire.
+//
+// HEL-1773: `accessRole` is carried the same way. Only the list route (and the owner-only create/duplicate/repair
+// responses) send it, so a patch-set apply, layout save or rename response that omits it must not erase the role the
+// list reported: losing it would turn a viewer's dashboard back into one the fail-closed rule re-derives from `ownerId`.
 function withKnownFlag(prev: Dashboard, next: Dashboard): Dashboard {
-  return next.hasPipelineFedPanels === undefined && prev.hasPipelineFedPanels !== undefined
-    ? { ...next, hasPipelineFedPanels: prev.hasPipelineFedPanels }
-    : next;
+  let merged = next;
+  if (merged.hasPipelineFedPanels === undefined && prev.hasPipelineFedPanels !== undefined) {
+    merged = { ...merged, hasPipelineFedPanels: prev.hasPipelineFedPanels };
+  }
+  if (merged.accessRole === undefined && prev.accessRole !== undefined) {
+    merged = { ...merged, accessRole: prev.accessRole };
+  }
+  return merged;
 }
 
 // HEL-1119: push-or-replace-by-id, shared by every reducer that adds a

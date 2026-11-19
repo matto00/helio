@@ -45,6 +45,7 @@ import { TextField } from "../../../shared/ui/TextField";
 import { useLayoutSlide } from "../../../shared/motion/useLayoutSlide";
 import { useStaggeredEntrance } from "../../../shared/motion/useStaggeredEntrance";
 import { useShareDialog } from "../state/shareDialogContext";
+import { dashboardAccessRole } from "../state/dashboardAccess";
 
 /** Escapes `"` and `\` for safe embedding inside a double-quoted CSS attribute-selector value
  *  (`[aria-label="..."]`) -- e.g. `escapeAttributeSelectorValue('Say "hi"')` -- unlike
@@ -84,6 +85,7 @@ export function DashboardList() {
     null,
   );
   const [filterQuery, setFilterQuery] = useState("");
+  const currentUserId = useAppSelector((state) => state.auth?.currentUser?.id ?? null);
   // HEL-590 (evaluation-1.md CR4): opens the dialog via shell-level context rather than local
   // state + a locally-rendered `DashboardShareDialog` -- see `shareDialogContext.tsx`'s docstring
   // for why (this component's DOM subtree is hidden entirely below the desktop breakpoint).
@@ -305,6 +307,63 @@ export function DashboardList() {
       : "dashboard-list__item";
 
     const isConfirmingDelete = confirmDeleteId === dashboard.id;
+    // HEL-1773: a dashboard shared with the user carries a "Shared" marker, and its menu offers only what the role permits:
+    // an editor renames and exports (the server allows both), a viewer gets no menu; share, duplicate, move and delete are
+    // owner-only.
+    const role = dashboardAccessRole(dashboard, currentUserId);
+    const isShared = role !== "owner";
+    const menuItems = [
+      ...(role !== "viewer"
+        ? [{ label: "Rename", onClick: () => startEditing(dashboard.id, dashboard.name) }]
+        : []),
+      ...(role === "owner"
+        ? [
+            {
+              label: "Duplicate",
+              onClick: () =>
+                guardedDuplicateRun(dashboard.id, () => handleDuplicateDashboard(dashboard.id)),
+              disabled: isDuplicatePending(dashboard.id),
+            },
+            {
+              label: "Share",
+              onClick: () =>
+                shareDialog.open({
+                  dashboardId: dashboard.id,
+                  dashboardName: dashboard.name,
+                  restoreFocusSelector: `button[aria-label="${escapeAttributeSelectorValue(`${dashboard.name} actions`)}"]`,
+                }),
+            },
+          ]
+        : []),
+      ...(role !== "viewer"
+        ? [
+            {
+              label: "Export",
+              onClick: () => void handleExportDashboard(dashboard.id, dashboard.name),
+            },
+          ]
+        : []),
+      ...(role === "owner" && folders.length > 0
+        ? [
+            {
+              label: "Move to…",
+              onClick: () => {
+                setConfirmDeleteId(null);
+                setMovingId(dashboard.id);
+              },
+            },
+          ]
+        : []),
+      ...(role === "owner"
+        ? [
+            {
+              label: "Delete",
+              onClick: () => setConfirmDeleteId(dashboard.id),
+              danger: true,
+            },
+          ]
+        : []),
+    ];
     const entrance = stagger.itemProps(rowIndex++);
     return (
       <li
@@ -342,7 +401,7 @@ export function DashboardList() {
             <button
               type="button"
               className="dashboard-list__button"
-              aria-label={dashboard.name}
+              aria-label={isShared ? `${dashboard.name} (Shared)` : dashboard.name}
               aria-pressed={selectedDashboardId === dashboard.id}
               onMouseDown={suppressMiddleMouseDown}
               onAuxClick={(event) => {
@@ -359,6 +418,11 @@ export function DashboardList() {
             >
               <span className="dashboard-list__name-group">
                 <span className="dashboard-list__name">{dashboard.name}</span>
+                {isShared && (
+                  <span className="dashboard-list__shared-badge" aria-hidden="true">
+                    Shared
+                  </span>
+                )}
                 {isOutsideFilter && (
                   <span className="dashboard-list__pinned-badge" aria-hidden="true">
                     active
@@ -370,56 +434,8 @@ export function DashboardList() {
               )}
             </button>
           )}
-          {editingId !== dashboard.id && !isConfirmingDelete ? (
-            <ActionsMenu
-              label={`${dashboard.name} actions`}
-              items={[
-                {
-                  label: "Rename",
-                  onClick: () => startEditing(dashboard.id, dashboard.name),
-                },
-                {
-                  label: "Duplicate",
-                  onClick: () =>
-                    guardedDuplicateRun(dashboard.id, () => handleDuplicateDashboard(dashboard.id)),
-                  disabled: isDuplicatePending(dashboard.id),
-                },
-                {
-                  label: "Share",
-                  onClick: () =>
-                    shareDialog.open({
-                      dashboardId: dashboard.id,
-                      dashboardName: dashboard.name,
-                      // HEL-590 (evaluation-2.md CR-E): this ActionsMenu's own trigger
-                      // button carries `aria-label={`${dashboard.name} actions`}` --
-                      // see ActionsMenu.tsx. Restoring focus to it on close is the
-                      // sensible target, since the item just clicked unmounts along
-                      // with the popover in the same commit the dialog opens in.
-                      restoreFocusSelector: `button[aria-label="${escapeAttributeSelectorValue(`${dashboard.name} actions`)}"]`,
-                    }),
-                },
-                {
-                  label: "Export",
-                  onClick: () => void handleExportDashboard(dashboard.id, dashboard.name),
-                },
-                ...(folders.length > 0
-                  ? [
-                      {
-                        label: "Move to…",
-                        onClick: () => {
-                          setConfirmDeleteId(null);
-                          setMovingId(dashboard.id);
-                        },
-                      },
-                    ]
-                  : []),
-                {
-                  label: "Delete",
-                  onClick: () => setConfirmDeleteId(dashboard.id),
-                  danger: true,
-                },
-              ]}
-            />
+          {editingId !== dashboard.id && !isConfirmingDelete && menuItems.length > 0 ? (
+            <ActionsMenu label={`${dashboard.name} actions`} items={menuItems} />
           ) : null}
         </div>
         {isConfirmingDelete ? (

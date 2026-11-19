@@ -49,13 +49,15 @@ export interface PublicPanelRowsResult {
 export async function fetchPublicPanelRows(
   dashboardId: string,
   panelId: string,
-  token: string,
+  token: string | undefined,
   offset = 0,
   limit = 200,
   sort?: OutputRowsSort,
   filter?: OutputRowsFilter,
 ): Promise<PublicPanelRowsResult> {
-  const params: Record<string, string | number> = { token, offset, limit };
+  // HEL-1773: `token` is absent for a signed-in dashboard grantee, whom the route admits by their grant alone.
+  const params: Record<string, string | number> = { offset, limit };
+  if (token !== undefined) params.token = token;
   if (sort) params.sort = `${sort.column}:${sort.direction}`;
   if (isFilterActive(filter)) params.filter = JSON.stringify(filter);
   const response = await httpClient.get<PublicPanelRowsResult>(
@@ -73,13 +75,15 @@ export async function fetchPublicPanelRows(
 export async function fetchPublicOutputMeta(
   dashboardId: string,
   panelId: string,
-  token: string,
+  token?: string,
 ): Promise<PublicOutputMeta> {
   const response = await httpClient.get<{
     kind: string;
     config: Record<string, unknown>;
     schema: OutputSchemaField[];
-  }>(`/api/dashboards/${dashboardId}/panels/${panelId}/output-meta`, { params: { token } });
+  }>(`/api/dashboards/${dashboardId}/panels/${panelId}/output-meta`, {
+    params: token === undefined ? undefined : { token },
+  });
   const { kind, config, schema } = response.data;
   // HEL-1760: start loading the chart code now; it overlaps the rows fetch instead of waiting for the chart to mount.
   if (kind === "chart") preloadChartPanel();

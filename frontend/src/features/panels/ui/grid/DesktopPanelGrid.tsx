@@ -43,6 +43,7 @@ import {
   setDesktopGridDashboardId,
   setEditingLayoutDashboardId,
 } from "../../../layout/state/layoutHistorySlice";
+import { useCanEditPanels } from "../../../dashboards/state/dashboardAccessContext";
 import { useLayoutSave } from "../../hooks/useLayoutSave";
 import type { LayoutFlush } from "../../hooks/usePanelUpdatesFlush";
 import { PanelDetailModal } from "../detailModal/PanelDetailModal";
@@ -90,7 +91,10 @@ export function DesktopPanelGrid({
   const panelsStatus = useAppSelector((state) => state.panels.status);
   const { theme } = useTheme();
   // HEL-1576: panels move and resize only while layout edit mode is on (the meta row's Edit layout toggle).
-  const isEditingLayout = useAppSelector(selectIsEditingLayout(dashboardId));
+  // HEL-1773: and only for a caller who may edit the dashboard (a viewer's grid never moves, whatever the store says).
+  const canEditPanels = useCanEditPanels();
+  const isEditingLayoutState = useAppSelector(selectIsEditingLayout(dashboardId));
+  const isEditingLayout = canEditPanels && isEditingLayoutState;
   // Tells the meta row a movable grid is on screen (below the `sm` boundary the read-only stack renders
   // instead, so Edit layout and Tidy layout are not offered there).
   const dispatch = useAppDispatch();

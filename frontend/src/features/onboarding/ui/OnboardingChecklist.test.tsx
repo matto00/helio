@@ -447,3 +447,26 @@ describe("OnboardingChecklist", () => {
     });
   });
 });
+
+// HEL-1773 D0: the "make a dashboard" step counts the dashboards the user OWNS; one shared with them does not complete it.
+describe("OnboardingChecklist and shared dashboards (HEL-1773)", () => {
+  it("a list with only a shared dashboard still offers New dashboard, and never Add panel", () => {
+    renderWithStore(
+      <OnboardingChecklist
+        createDashboardAction={noopCreateDashboardAction()}
+        emphasisVariant="primary"
+      />,
+      {
+        auth: { status: "authenticated", currentUser: { id: "me" } as never },
+        dashboards: {
+          items: [{ id: "shared-1", name: "Theirs", accessRole: "viewer", ownerId: "other" }],
+          selectedDashboardId: "shared-1",
+          status: "succeeded",
+        },
+        ...withSource,
+      },
+    );
+    expect(screen.getByRole("button", { name: "New dashboard" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add panel" })).not.toBeInTheDocument();
+  });
+});
