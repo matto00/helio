@@ -300,7 +300,7 @@ class WorkspaceContextServiceApplyBudgetSpec extends AnyWordSpec with Matchers w
           laneTree = Vector.empty
         )
       )
-      val dashboards = Vector(WorkspaceContextDashboard("dash-1", "Overview", panelCount = 4))
+      val dashboards = Vector(WorkspaceContextDashboard("dash-1", "Overview", panelCount = 4, accessRole = "owner"))
 
       val response = baseResponse(richDataTypes).copy(
         counts = WorkspaceContextCounts(dataSources = 1, dataTypes = 1, pipelines = 1, dashboards = 1),

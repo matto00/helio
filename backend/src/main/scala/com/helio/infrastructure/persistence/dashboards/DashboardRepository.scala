@@ -188,6 +188,21 @@ class DashboardRepository(protected val ctx: DbContext)(implicit protected val e
     )
   }
 
+  /** One dashboard the caller can see through ownership or a NAMED grant, with the caller's role (HEL-1785): the same
+   *  join as `findAllVisiblePaged`, filtered by id, in the caller's user context so `dashboards_select` applies on the
+   *  app pool. `None` for no access, for a public-only grant and for an unknown id (indistinguishable). */
+  def findVisibleWithRole(id: DashboardId, userId: UserId): Future[Option[(Dashboard, String)]] = {
+    val uid = UUID.fromString(userId.value)
+    val visible = table
+      .filter(_.id === id.value)
+      .joinLeft(permTable.filter(p => p.resourceType === "dashboard" && p.granteeId === uid && p.role.inSet(GrantRoles)))
+      .on((d, p) => d.id === p.resourceId)
+      .filter { case (d, p) => d.ownerId === uid || p.map(_.role).isDefined }
+    ctx.withUserContext(userId.value)(visible.result.headOption).map(_.map { case (row, grant) =>
+      (rowToDomain(row), if (row.ownerId == uid) AccessRoleOwner else grant.map(_.role).getOrElse(AccessRoleViewer))
+    })
+  }
+
   def insert(dashboard: Dashboard): Future[Dashboard] =
     ctx.withUserContext(dashboard.ownerId.value)(table += domainToRow(dashboard))
       .map(_ => dashboard)

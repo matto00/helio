@@ -68,7 +68,11 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
     {
       title: "List dashboards",
       description:
-        "List all dashboards visible to the authenticated user (paginated envelope: items, total, offset, limit).",
+        "List the dashboards the authenticated user owns plus those shared with them by a named grant (paginated " +
+        "envelope: items, total, offset, limit). Every item carries `accessRole`: `owner`, `editor` or `viewer`. A " +
+        "`viewer` dashboard is read-only (a write tool on it fails with the server's 403 and view-only message) and an " +
+        "`editor` cannot delete, share or duplicate it; check `accessRole` before any write by name. The list is one " +
+        "page of owned and shared dashboards together, newest first, so page with `offset` when `total` exceeds it.",
       inputSchema: {
         limit: z.number().int().positive().max(500).optional(),
         offset: z.number().int().nonnegative().optional(),
@@ -82,9 +86,11 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
     {
       title: "Get dashboard (with panels)",
       description:
-        "Get one dashboard with its panels. Composed from the dashboard list record and the " +
-        "/export snapshot, because the backend on `main` exposes neither GET /api/dashboards/:id " +
-        "nor GET /api/dashboards/:id/panels. Each panel includes its title, type, typed config " +
+        "Get one dashboard with its panels and the caller's `accessRole`. Composed from the dashboard list " +
+        "record and the /export snapshot (a `viewer` grantee's export is refused, so a viewer's panels come from " +
+        "GET /api/dashboards/:id/panels instead, in the same shape), because the backend exposes no " +
+        "GET /api/dashboards/:id. A shared dashboard shows its panels and the Output ids they bind, never that " +
+        "Output's rows. Each panel includes its title, type, typed config " +
         "(the config carries the bound DataType id + field mapping for data panels), and a stable " +
         "`id` (the panel's real, non-remapped id) — use `id` for programmatic identification.",
       inputSchema: { dashboardId: z.string().min(1) },

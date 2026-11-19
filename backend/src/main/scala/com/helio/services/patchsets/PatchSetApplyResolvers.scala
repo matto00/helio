@@ -1,6 +1,7 @@
 package com.helio.services.patchsets
 
 import com.helio.services.ServiceError
+import com.helio.services.dashboards.DashboardAccessMessages
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse}
 import com.helio.api.protocols.patchsets.Edit
 import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, OutputKind, PipelineId, ResourceAccess}
@@ -124,7 +125,7 @@ private[services] object PatchSetApplyResolvers {
           case Some(existing) =>
             ctx.accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").map {
               case Left(err)                    => Left(err)
-              case Right(ResourceAccess.Viewer) => Left(ServiceError.Forbidden())
+              case Right(ResourceAccess.Viewer) => Left(ServiceError.Forbidden(s"edit $index: ${DashboardAccessMessages.ViewOnly}"))
               case Right(_)                     => buildDashboardUpdateResolved(edit, index, existing)
             }
         }
@@ -156,7 +157,7 @@ private[services] object PatchSetApplyResolvers {
         val dashboardId = DashboardId(idStr)
         ctx.dashboardRepo.findById(dashboardId, Some(user)).map {
           case None                                          => Left(ServiceError.NotFound(s"edit $index: dashboard not found"))
-          case Some(existing) if existing.ownerId != user.id => Left(ServiceError.Forbidden())
+          case Some(existing) if existing.ownerId != user.id => Left(ServiceError.Forbidden(s"edit $index: ${DashboardAccessMessages.OwnerOnlyDelete}"))
           case Some(existing) =>
             Right(ResolvedEdit(
               index, "dashboard", "delete",
@@ -197,11 +198,12 @@ private[patchsets] object PatchSetResolverSupport {
   private[patchsets] def authorizeEditorOnDashboard(
       dashboardId: DashboardId,
       user: AuthenticatedUser,
-      ctx: PatchSetApplyContext
+      ctx: PatchSetApplyContext,
+      index: Int
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
     ctx.accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").map {
       case Left(err)                    => Left(err)
-      case Right(ResourceAccess.Viewer) => Left(ServiceError.Forbidden())
+      case Right(ResourceAccess.Viewer) => Left(ServiceError.Forbidden(s"edit $index: ${DashboardAccessMessages.ViewOnly}"))
       case Right(_)                     => Right(())
     }
 

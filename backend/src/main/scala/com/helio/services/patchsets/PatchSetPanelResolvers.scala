@@ -35,7 +35,7 @@ private[patchsets] object PatchSetPanelResolvers {
         ctx.panelRepo.findById(panelId, Some(user)).flatMap {
           case None => Future.successful(Left(ServiceError.NotFound(s"edit $index: panel not found")))
           case Some(panel) =>
-            authorizeEditorOnDashboard(panel.dashboardId, user, ctx).flatMap {
+            authorizeEditorOnDashboard(panel.dashboardId, user, ctx, index).flatMap {
               case Left(err) => Future.successful(Left(err))
               case Right(_) =>
                 edit.panelPatch match {
@@ -68,7 +68,7 @@ private[patchsets] object PatchSetPanelResolvers {
         ctx.panelRepo.findById(panelId, Some(user)).flatMap {
           case None => Future.successful(Left(ServiceError.NotFound(s"edit $index: panel not found")))
           case Some(panel) =>
-            authorizeEditorOnDashboard(panel.dashboardId, user, ctx).map {
+            authorizeEditorOnDashboard(panel.dashboardId, user, ctx, index).map {
               case Left(err) => Left(err)
               case Right(_) =>
                 Right(ResolvedEdit(
@@ -132,7 +132,7 @@ private[patchsets] object PatchSetPanelResolvers {
         PanelServiceHelpers.validateCreatePanelRequest(request) match {
           case Left(msg) => Future.successful(Left(ServiceError.BadRequest(s"edit $index: $msg")))
           case Right(dashboardId) =>
-            authorizeEditorOnDashboard(dashboardId, user, ctx).flatMap {
+            authorizeEditorOnDashboard(dashboardId, user, ctx, index).flatMap {
               case Left(err) => Future.successful(Left(err))
               case Right(_) =>
                 PanelServiceHelpers.resolveCreateConfig(request) match {

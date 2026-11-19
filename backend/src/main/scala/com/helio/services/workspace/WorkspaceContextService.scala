@@ -11,6 +11,7 @@ import com.helio.api.protocols.workspace.{ResourceDashboardPanel, WorkspaceConte
 import com.helio.api.protocols.pipelines.PipelineLaneTreeNode
 import com.helio.domain.model.{AgentMemoryEntry, AuthenticatedUser, DashboardLayout, DataField, DataFieldType, DataSource, DataSourceId, Dashboard, FieldTypeCategory, Output, Page, PipelineId, PipelineRootId, PipelineStep, PipelineStepId}
 import com.helio.domain.panels.OutputPanel
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
@@ -123,7 +124,7 @@ final class WorkspaceContextService(
   ): Future[WorkspaceContextResponse] = {
     val sourcesF      = dataSourceService.findAll(user, Page.Default)
     val typesF        = outputRepo.findAllByOwner(user.id, Page.Default)
-    val dashboardsF   = dashboardService.findAll(user, Page.Default)
+    val dashboardsF   = dashboardService.findAllVisible(user, Page.Default)
     val summariesF    = pipelineService.listSummaries(user)
     val agentContextF = buildAgentContext(user)
     val connectorsF   = buildConnectors(user)
@@ -164,7 +165,7 @@ final class WorkspaceContextService(
       }
       pipelines      <- Future.traverse(summaries)(buildPipeline(_, user, rootDataSources, rootIdOfStepAll, stepsByPipeline))
       dataTypes      <- Future.traverse(typesPage.items)(toDataTypeEntry(_, user))
-      dashboards     <- Future.traverse(dashboardsPage.items)(toDashboardEntry(_, user))
+      dashboards     <- Future.traverse(dashboardsPage.items) { case (d, role) => toDashboardEntry(d, user, role) }
       agentContext   <- agentContextF
       connectors     <- connectorsF
     } yield {
@@ -456,8 +457,8 @@ final class WorkspaceContextService(
    *  precedent. `Future`-returning (beta UI-audit F-004 fix) -- `panelCountFor` needs a real DB
    *  read when `panelRepoOpt` is wired, matching `toDataTypeEntry`'s existing
    *  `(entity, user) => Future[...]` shape immediately below. */
-  private[services] def toDashboardEntry(d: Dashboard, user: AuthenticatedUser): Future[WorkspaceContextDashboard] =
-    panelCountFor(d, user).map(count => WorkspaceContextDashboard(id = d.id.value, name = d.name, panelCount = count))
+  private[services] def toDashboardEntry(d: Dashboard, user: AuthenticatedUser, accessRole: String = DashboardRepository.AccessRoleOwner): Future[WorkspaceContextDashboard] =
+    panelCountFor(d, user).map(count => WorkspaceContextDashboard(id = d.id.value, name = d.name, panelCount = count, accessRole = accessRole))
 
   /** HEL-1639 D1: a dashboard's panels with the Output each is bound to and that Output's pipeline, so the assistant can
    *  walk dashboard -> panel -> Output -> pipeline without a name search. Best effort: an Output the caller cannot read

@@ -2,6 +2,7 @@ package com.helio.services.panels
 
 import com.helio.services.auth.AccessChecker
 import com.helio.services.ServiceError
+import com.helio.services.dashboards.DashboardAccessMessages
 import com.helio.services.audit.AuditService
 import com.helio.api.protocols.dashboards.AutoLayoutRequest
 import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DashboardLayout, DashboardLayoutItem, PanelId, Page, ResourceAccess}
@@ -161,7 +162,7 @@ final class AutoLayoutService(
       case Some(existing) =>
         accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").map {
           case Left(err)                    => Left(err)
-          case Right(ResourceAccess.Viewer) => Left(ServiceError.Forbidden())
+          case Right(ResourceAccess.Viewer) => Left(ServiceError.Forbidden(DashboardAccessMessages.ViewOnly))
           case Right(_)                     => Right(existing)
         }
     }

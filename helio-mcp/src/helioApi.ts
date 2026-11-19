@@ -6,9 +6,11 @@
  * A few capabilities the Phase-2 brief named as single endpoints do not exist
  * as such on `main`; those are COMPOSED here from the endpoints that do exist,
  * and the composition is documented at each call site:
- *   - `getDashboard`      — no `GET /api/dashboards/:id` and no
- *                           `/:id/panels`; compose the list record with the
- *                           `/:id/export` snapshot (which carries the panels).
+ *   - `getDashboard`      — no `GET /api/dashboards/:id`; compose the list
+ *                           record with the `/:id/export` snapshot (which
+ *                           carries the panels) or, for a `viewer` grantee (the
+ *                           export refuses viewers), the `/:id/panels` list
+ *                           (HEL-1785).
  *   - `getPipeline`       — `GET /api/pipelines/:id` returns a summary with no
  *                           steps; compose it with `/:id/steps`.
  *   - `listSourceObjects` — no `GET /api/data-sources/:id/sources`; surface the
@@ -241,11 +243,37 @@ export interface SourceObjects {
 export class HelioApi {
   constructor(private readonly http: HelioHttpClient) {}
 
+  /** HEL-1785: always `include=shared`, so the list is the caller's own dashboards plus those shared with them
+   *  (a named grant), each with `accessRole`. The server param is opt-in; without it only owned dashboards return. */
   listDashboards(limit = 200, offset = 0): Promise<Paged<DashboardResponse>> {
-    return this.http.get<Paged<DashboardResponse>>("/api/dashboards", { limit, offset });
+    return this.http.get<Paged<DashboardResponse>>("/api/dashboards", {
+      limit,
+      offset,
+      include: "shared",
+    });
   }
 
-  /** Compose: list-find (id/name/appearance/layout/owner) + export (panels). */
+  /** Every panel of a dashboard from `GET /api/dashboards/:id/panels` (the route a viewer grantee can read), following
+   *  `total` page by page so a large dashboard is not truncated. */
+  private async listAllPanels(dashboardId: string): Promise<PanelResponse[]> {
+    const limit = 500;
+    const panels: PanelResponse[] = [];
+    for (;;) {
+      const page = await this.http.get<Paged<PanelResponse>>(
+        `/api/dashboards/${dashboardId}/panels`,
+        {
+          limit,
+          offset: panels.length,
+        },
+      );
+      panels.push(...page.items);
+      if (page.items.length === 0 || panels.length >= page.total) return panels;
+    }
+  }
+
+  /** Compose: list-find (id/name/appearance/layout/owner/accessRole) + panels. An owner or editor reads the panels from
+   *  the export snapshot; a viewer's export is refused (403), so a viewer reads `/panels` and the items are mapped to
+   *  the export's panel shape (`snapshotId` = `id`; `dataAsOf` and `orphanedControlIds` are not carried). */
   async getDashboard(dashboardId: string): Promise<DashboardWithPanels> {
     const page = await this.listDashboards();
     const record = page.items.find((d) => d.id === dashboardId);
@@ -255,6 +283,20 @@ export class HelioApi {
         `/api/dashboards/${dashboardId}`,
         `No dashboard with id ${dashboardId} is visible to this token.`,
       );
+    }
+    if (record.accessRole === "viewer") {
+      const panels = await this.listAllPanels(dashboardId);
+      return {
+        ...record,
+        panels: panels.map((p) => ({
+          snapshotId: p.id,
+          id: p.id,
+          title: p.title,
+          type: p.type,
+          appearance: p.appearance,
+          config: p.config,
+        })),
+      };
     }
     const snapshot = await this.http.get<DashboardSnapshot>(
       `/api/dashboards/${dashboardId}/export`,
