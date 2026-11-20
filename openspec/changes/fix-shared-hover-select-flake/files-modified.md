@@ -1,3 +1,0 @@
-- `e2e/hel1675-shared-hover.spec.ts` — desktop describe reads "rest" only after `settleToRest` and "hover" after `settleToHover` (all six instances); assertions unchanged
-- `e2e/support/hel1790Rest.ts` — new helper: pointer tracker from real mouse events, `settleToRest`/`settleToHover` (asserted preconditions with `elementFromPoint` + `:hover`, no running animation)
-- `e2e/hel1790-hover-probe.spec.ts` — forced-condition guard (red before the fix at 2aa530bce, green with it): sheet slide landing under a stationary pointer
