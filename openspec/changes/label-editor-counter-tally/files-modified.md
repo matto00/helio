@@ -1,0 +1,7 @@
+- `frontend/src/features/panels/ui/form/counterTallyCaption.ts` — exported COUNTER_TALLY_CAPTION constant
+- `frontend/src/features/panels/ui/form/FormFieldControl.tsx` — tallyCaption prop, caption paragraph, id appended to aria-describedby
+- `frontend/src/features/panels/ui/form/FormPanelView.tsx` — caption iff non-owner compact counter; zero seed flag
+- `frontend/src/features/panels/ui/form/useFormPanelValues.ts` — zeroCounterSeed option, narrow re-seed key
+- `frontend/src/features/panels/ui/form/CounterControl.css` — .counter-control__caption rule
+- `frontend/src/features/panels/ui/form/FormPanelView.nonOwner.test.tsx`, `FormFieldControl.test.tsx` — jest tests
+- `e2e/hel1784-editor-form-submit.spec.ts` — editor caption + a11y description; owner none

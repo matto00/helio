@@ -68,25 +68,38 @@ function seedValueFor(field: FormFieldSpec): FormFieldValue {
   return String(field.initialValue);
 }
 
-function seedValues(fields: FormFieldSpec[]): Record<string, FormFieldValue> {
+/** HEL-1788 design.md D3a: `zeroCounterSeed` seeds every counter empty (shown as 0) instead of from its
+ *  `initialValue` -- a non-owner's compact counter is a tally of their own clicks, which starts at nothing. */
+function seedValues(
+  fields: FormFieldSpec[],
+  zeroCounterSeed: boolean,
+): Record<string, FormFieldValue> {
   const next: Record<string, FormFieldValue> = {};
-  for (const field of fields) next[field.sourceField] = seedValueFor(field);
+  for (const field of fields) {
+    next[field.sourceField] =
+      zeroCounterSeed && field.control === "counter"
+        ? emptyValueFor(field.control)
+        : seedValueFor(field);
+  }
   return next;
 }
 
 /** `fields` keyed by field identity so a genuine field-list edit (not merely a re-render with a
  *  structurally-equal-but-new array) triggers the re-seed below. */
-function fieldsKey(fields: FormFieldSpec[]): string {
-  return fields.map((f) => f.sourceField).join("|");
+function fieldsKey(fields: FormFieldSpec[], zeroCounterSeed: boolean): string {
+  // The flag is part of the key (and nothing else about `initialValue` is) so a role change that alters the seed
+  // re-seeds, while an unrelated `initialValue` edit never resets an owner's mid-session tally.
+  return fields.map((f) => f.sourceField).join("|") + (zeroCounterSeed ? "#zero" : "");
 }
 
 export function useFormPanelValues(
   fields: FormFieldSpec[],
   schema: DatasetFieldResponse[],
+  zeroCounterSeed = false,
 ): UseFormPanelValuesResult {
-  const key = fieldsKey(fields);
+  const key = fieldsKey(fields, zeroCounterSeed);
   const [seededKey, setSeededKey] = useState(key);
-  const [values, setValues] = useState(() => seedValues(fields));
+  const [values, setValues] = useState(() => seedValues(fields, zeroCounterSeed));
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [externalErrors, setExternalErrorsState] = useState<Record<string, string>>({});
 
@@ -94,7 +107,7 @@ export function useFormPanelValues(
   // during render rather than via an effect, so no stale-values frame is ever painted.
   if (key !== seededKey) {
     setSeededKey(key);
-    setValues(seedValues(fields));
+    setValues(seedValues(fields, zeroCounterSeed));
     setTouched({});
   }
 
@@ -137,7 +150,7 @@ export function useFormPanelValues(
   }
 
   function reset() {
-    setValues(seedValues(fields));
+    setValues(seedValues(fields, zeroCounterSeed));
     setTouched({});
   }
 
