@@ -23,6 +23,8 @@ import { frameSchema, toJsonRows } from "../../evaluator";
 import type { Frame } from "../../evaluator";
 import { useStepPreviewFetch, type SavedPreviewCache } from "../../hooks/useStepPreviewFetch";
 import { fetchStepPreview } from "../../services/pipelineService";
+import { foldOrderRenamesOf } from "../../state/draftColumnOrder";
+import { draftSchemaFields } from "../../state/draftSchemaFields";
 import type { DraftStepView } from "../../state/draftStepView";
 import type { InFlightDedupe } from "../../state/inFlightDedupe";
 import { isTempStepId, renamesOf } from "../../state/stepNarrowing";
@@ -156,20 +158,43 @@ export function StepPreviewTable({
     setFlash({ source: draftFrame, keys: new Set(scannedKeys), shown, changed: new Set(newKeys) });
   }
 
+  // HEL-1777: the draft grid's real render condition, read by the grid and the schema chips so they cannot drift.
+  const showsDraftGrid =
+    step.enabled &&
+    !isCreating &&
+    !isDraft &&
+    draftActive &&
+    draftFrame !== null &&
+    view?.status !== "notPreviewed";
+
+  // HEL-1732: the draft's column order (declared source order, the step handlers' placement, saved analyze for server-resolved
+  // steps), never the arrival order of the rows' keys; a name it lacks follows in code-unit order (`orderColumns`). HEL-1777:
+  // one field list (name + type) feeds both the grid and the chips.
+  const draftFields = useMemo<SchemaField[] | undefined>(() => {
+    if (!showsDraftGrid || draftFrame === null) return undefined;
+    return draftSchemaFields({
+      frame: draftFrame,
+      names: orderColumns(frameSchema(draftFrame), draft?.columnOrder ?? []),
+      savedOutput: analyzeOutputSchema,
+      savedInput: analyzeSchema,
+      renames: foldOrderRenamesOf(step),
+    });
+  }, [showsDraftGrid, draftFrame, analyzeOutputSchema, analyzeSchema, draft?.columnOrder, step]);
+
   const draftColumns = useMemo<ColumnDef[] | undefined>(() => {
-    if (draftFrame === null) return undefined;
-    const types = new Map(analyzeOutputSchema.map((f) => [f.name, f.type]));
-    // HEL-1732: the draft's column order (declared source order, the step handlers' placement, saved analyze for server-resolved
-    // steps), never the arrival order of the rows' keys; a name it lacks follows in code-unit order (`orderColumns`).
-    const names = orderColumns(frameSchema(draftFrame), draft?.columnOrder ?? []);
-    return names.map((name) => ({
-      key: name,
-      header: name,
-      headerType: types.get(name),
+    if (draftFields === undefined) return undefined;
+    return draftFields.map((field) => ({
+      key: field.name,
+      header: field.name,
+      headerType: field.type,
       cellClassName: (row: Record<string, unknown>) =>
         flash.changed.has(rowKey(row)) ? "step-preview__cell--changed" : undefined,
     }));
-  }, [draftFrame, analyzeOutputSchema, draft?.columnOrder, flash.changed]);
+  }, [draftFields, flash.changed]);
+
+  // A zero-row draft frame has no columns to list (and an empty `columnOrder`): the chips keep the saved schema.
+  const chipFields =
+    draftFields !== undefined && draftFields.length > 0 ? draftFields : analyzeOutputSchema;
 
   const showDiff = !isDraft && hasOwnAnalyze && !draftActive;
   const draftCount = view?.count ?? null;
@@ -216,7 +241,7 @@ export function StepPreviewTable({
             ))}
           </div>
         )}
-        {draftFrame !== null && view?.status !== "notPreviewed" && (
+        {showsDraftGrid && (
           <DataGrid
             variant="preview"
             density="condensed"
@@ -283,17 +308,17 @@ export function StepPreviewTable({
             renames={step.opType.id === "rename" ? renamesOf(step) : undefined}
           />
         )}
-        {analyzeOutputSchema.length > 0 &&
-          (analyzeOutputSchema.length <= SCHEMA_FIELD_VIEWER_SMALL_THRESHOLD ? (
+        {chipFields.length > 0 &&
+          (chipFields.length <= SCHEMA_FIELD_VIEWER_SMALL_THRESHOLD ? (
             <span className="step-preview__schema" aria-label="Output schema">
-              {analyzeOutputSchema.map((field) => (
+              {chipFields.map((field) => (
                 <span key={field.name} className="step-preview__schema-chip">
                   {field.name}
                 </span>
               ))}
             </span>
           ) : (
-            <OutputSchemaDisclosure fields={analyzeOutputSchema} />
+            <OutputSchemaDisclosure fields={chipFields} />
           ))}
       </header>
       <div className="step-preview__body">{body}</div>

@@ -46,7 +46,8 @@ export interface ColumnOrderInput {
   savedOutputNames: (stepId: string) => readonly string[] | undefined;
 }
 
-function renamesOf(step: Step): Array<[string, string]> | undefined {
+/** The step's renames in Scala fold order (a rename step only); `undefined` otherwise or when its config does not decode. */
+export function foldOrderRenamesOf(step: Step): Array<[string, string]> | undefined {
   if (step.opType.id !== "rename") return undefined;
   try {
     return (handlerFor("rename")?.decode(step.config) as { renames: Array<[string, string]> })
@@ -141,7 +142,7 @@ export function createColumnOrderResolver(
         const names = saved !== undefined && saved.length > 0 ? saved : clientAncestorOrder(step);
         order = orderColumns(frameSchema(rows), names);
       } else {
-        const renames = renamesOf(step);
+        const renames = foldOrderRenamesOf(step);
         order = draftColumnOrder(rows, () => {
           const parent = parentOrderOf(step);
           return renames === undefined ? parent : renameKeyOrder(parent, renames);
