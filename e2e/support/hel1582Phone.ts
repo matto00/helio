@@ -1,4 +1,4 @@
-// Shared fixtures and probes for the HEL-1582 phone pipeline e2e specs (`hel1582-mobile-pipeline.spec.ts` and the
+// Shared fixtures and probes for the HEL-1582 phone pipeline e2e specs (`hel1582-mobile-pipeline-*.spec.ts` and the
 // per-viewport sweep specs `hel1582-sweep-<width>.spec.ts`): the seed (`seedPipeline`), the AC1 fit assertion and the
 // two-axis touch-floor sweep (`sweepFloor`). Split out so the heavy sweeps can land on different CI shards.
 
@@ -335,9 +335,27 @@ export async function sweepFloor(
 
 type Viewport = (typeof SIZES)[number];
 
-/** Registers the two heavy sweeps (the every-step-kind C8 hit-area sweep and the MAXIMAL sweep) for one viewport. Each
- *  `hel1582-sweep-<width>.spec.ts` calls it with its own size so CI's file-level sharding can place them apart. */
+/** Which of the two heavy sweeps a registration includes (HEL-1789: the 375 sweeps are two spec files, so each calls one). */
+type SweepKind = "c8" | "maximal";
+
+/** Registers the two heavy sweeps (the every-step-kind C8 hit-area sweep and the MAXIMAL sweep) for one viewport. The
+ *  `hel1582-sweep-390.spec.ts` and `-768` files call it with their own size so CI's file-level sharding can place them
+ *  apart; the 375 pair calls `registerC8Sweep` and `registerMaximalSweep`, which register the same two tests one per file. */
 export function registerHeavySweeps(size: Viewport) {
+  registerSweeps(size, ["c8", "maximal"]);
+}
+
+/** The every-step-kind C8 hit-area sweep alone (`hel1582-sweep-375-c8.spec.ts`). */
+export function registerC8Sweep(size: Viewport) {
+  registerSweeps(size, ["c8"]);
+}
+
+/** The MAXIMAL sweep alone (`hel1582-sweep-375-maximal.spec.ts`). */
+export function registerMaximalSweep(size: Viewport) {
+  registerSweeps(size, ["maximal"]);
+}
+
+function registerSweeps(size: Viewport, kinds: readonly SweepKind[]) {
   test.use({
     viewport: { width: 375, height: 812 },
     isMobile: true,
@@ -345,7 +363,7 @@ export function registerHeavySweeps(size: Viewport) {
     deviceScaleFactor: 2,
   });
   test.describe("HEL-1582 phone pipeline page (live)", () => {
-    {
+    if (kinds.includes("c8")) {
       test(`AC4 (C8): every step kind's editor in the sheet clears the 44px touch floor by real hit area at ${size.width}x${size.height}`, async ({
         page,
         request,
@@ -388,7 +406,7 @@ export function registerHeavySweeps(size: Viewport) {
       });
     }
 
-    {
+    if (kinds.includes("maximal")) {
       test(`MAXIMAL sweep (C8, both axes): header, every tab, every menu and every step kind's editor and preview on the widest fixture at ${size.width}x${size.height}`, async ({
         page,
         request,

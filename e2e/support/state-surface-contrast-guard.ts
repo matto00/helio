@@ -1,27 +1,31 @@
 import {
-  expect,
-  test,
   type APIRequestContext,
   type CDPSession,
+  expect,
   type Locator,
   type Page,
+  test,
 } from "@playwright/test";
 
 import {
-  CONTRAST_THRESHOLD,
   classifyState,
   compositeStack,
+  CONTRAST_THRESHOLD,
   parseColor,
   type StateVerdict,
-} from "./support/stateContrast.mjs";
-import { INTERACTIVE_SELECTOR } from "./support/stateContrastProbe";
-import { forceFocusVisible } from "./support/forceFocusVisible";
-import { waitForSettingsAuditTable } from "./support/settingsReady";
-import { settleTransitions } from "./support/settleTransitions";
-import { isolateLivePage } from "./support/isolateLivePage";
-import { currentUserId, registerUser } from "./support/auth";
-import { seedPipelineRuns } from "./support/homeSeed";
-import { assertTypeStyleActive, seedTypeStyle, typeStyleUnderTest } from "./support/typeStyle";
+} from "./stateContrast.mjs";
+import { INTERACTIVE_SELECTOR } from "./stateContrastProbe";
+import { forceFocusVisible } from "./forceFocusVisible";
+import { waitForSettingsAuditTable } from "./settingsReady";
+import { settleTransitions } from "./settleTransitions";
+import { isolateLivePage } from "./isolateLivePage";
+import { currentUserId, registerUser } from "./auth";
+import { seedPipelineRuns } from "./homeSeed";
+import { assertTypeStyleActive, seedTypeStyle, typeStyleUnderTest } from "./typeStyle";
+
+// HEL-1789: the shared half of e2e/state-surface-contrast-guard-*.spec.ts, moved here verbatim (only `export` added, the route loop wrapped
+// in `registerRouteCells`, and one comment naming the split hel1582-mobile-pipeline spec updated) when the spec was split
+// so CI's file-level sharding can place the parts on different legs. The comment that opened the spec follows.
 
 // HEL-866 — the mechanical, RENDERED state-surface contrast guard (AC5,
 // design.md D4). Walks the RUNNING app (not a static parse of theme.css or
@@ -70,17 +74,17 @@ import { assertTypeStyleActive, seedTypeStyle, typeStyleUnderTest } from "./supp
 // complete within `<main>` + the named overlays, up to
 // MAX_ELEMENTS_PER_VIEW per view (task 5.2a's per-view counts make the
 // actual coverage legible rather than implied by a single headline total).
-const CSRF_HEADER = "X-Helio-Requested-With";
-const MAX_ELEMENTS_PER_VIEW = 24;
+export const CSRF_HEADER = "X-Helio-Requested-With";
+export const MAX_ELEMENTS_PER_VIEW = 24;
 
-const AUTH = { prefix: "hel866", displayName: "HEL-866" } as const;
+export const AUTH = { prefix: "hel866", displayName: "HEL-866" } as const;
 
-interface Backdrop {
+export interface Backdrop {
   layers: { bg: string }[];
   resolved: boolean;
 }
 
-interface Snapshot {
+export interface Snapshot {
   ownBg: string;
   afterBg: string;
   beforeBg: string;
@@ -89,7 +93,7 @@ interface Snapshot {
   outlineColor: string;
 }
 
-async function readBackdrop(locator: Locator): Promise<Backdrop> {
+export async function readBackdrop(locator: Locator): Promise<Backdrop> {
   return locator.evaluate((el) => {
     const layers: { bg: string }[] = [];
     let node: Element | null = el.parentElement;
@@ -134,7 +138,7 @@ async function readBackdrop(locator: Locator): Promise<Backdrop> {
   });
 }
 
-async function readSnapshot(locator: Locator): Promise<Snapshot> {
+export async function readSnapshot(locator: Locator): Promise<Snapshot> {
   return locator.evaluate((el) => {
     const own = window.getComputedStyle(el);
     const after = window.getComputedStyle(el, "::after");
@@ -150,7 +154,7 @@ async function readSnapshot(locator: Locator): Promise<Snapshot> {
   });
 }
 
-function describeElement(el: {
+export function describeElement(el: {
   tag: string;
   role: string | null;
   text: string;
@@ -179,7 +183,7 @@ function describeElement(el: {
 // module's own doc comment for the CDP mechanism and rationale). Re-run of
 // this CI-gated spec after the extraction is recorded in files-modified.md.
 
-interface ElementResult {
+export interface ElementResult {
   view: string;
   theme: string;
   desc: string;
@@ -188,7 +192,7 @@ interface ElementResult {
   ratio: number | null;
 }
 
-interface CandidateInfo {
+export interface CandidateInfo {
   locator: Locator;
   tag: string;
   role: string | null;
@@ -199,7 +203,7 @@ interface CandidateInfo {
   docId: string | null;
 }
 
-const DOC_ID_ATTR = "data-hel866-doc-id";
+export const DOC_ID_ATTR = "data-hel866-doc-id";
 
 /**
  * evaluation-3.md CR2 / skeptic-final-1.md CR3 / skeptic-final-1B.md CR2 —
@@ -218,7 +222,7 @@ const DOC_ID_ATTR = "data-hel866-doc-id";
  * silently never being measured (which is exactly how `.dashboard-list__
  * button` and `/pipelines/:id`'s step-card buttons shipped broken).
  */
-async function stampDocument(page: Page): Promise<number> {
+export async function stampDocument(page: Page): Promise<number> {
   return page.evaluate(
     ({ selector, attr }) => {
       const els = Array.from(document.querySelectorAll(selector)).filter((el) => {
@@ -245,7 +249,7 @@ async function stampDocument(page: Page): Promise<number> {
  * elements' identities, if any were not — this is what actually enforces
  * "the whole document is partitioned", not merely documented as an intent.
  */
-async function assertPartitioned(
+export async function assertPartitioned(
   page: Page,
   label: string,
   totalStamped: number,
@@ -284,7 +288,7 @@ async function assertPartitioned(
  * route with more elements than the cap is visibly under-sampled in the
  * log (task 5.2a), not silently truncated from the front.
  */
-async function collectCandidates(
+export async function collectCandidates(
   page: Page,
   scope?: Locator,
   cap = MAX_ELEMENTS_PER_VIEW,
@@ -349,7 +353,7 @@ async function collectCandidates(
 /** Runs the full contrast probe (backdrop + before/during, both hover and
  *  focus) against every candidate in `view` under the current theme, and
  *  accumulates results into `results`/`counts`. */
-async function probeView(
+export async function probeView(
   page: Page,
   client: CDPSession,
   viewName: string,
@@ -501,16 +505,16 @@ async function probeView(
 // element fails the suite either way); `assertPartitioned` was already per-route and is
 // unchanged; the run-wide `unresolvedFraction < 0.5` ceiling is now PER CELL (stricter) and each
 // cell logs its own fraction.
-const THEMES = ["dark", "light"] as const;
-type Theme = (typeof THEMES)[number];
-const DASH_NAME = "HEL-866 Guard Dashboard";
-const PIPELINE_NAME = "HEL-866 Guard Pipeline";
-const SOURCE_NAME = "HEL-866 Guard Source";
+export const THEMES = ["dark", "light"] as const;
+export type Theme = (typeof THEMES)[number];
+export const DASH_NAME = "HEL-866 Guard Dashboard";
+export const PIPELINE_NAME = "HEL-866 Guard Pipeline";
+export const SOURCE_NAME = "HEL-866 Guard Source";
 
 // `/sources/:id` and the `*/review` routes remain deliberately excluded — named here rather than
 // left implicit, per design.md D6.2. Runtime ids are resolved inside the cell; titles and logged
 // view names use the static label.
-type RouteKey =
+export type RouteKey =
   | "/home"
   | "/dashboards"
   | "/sources"
@@ -520,7 +524,7 @@ type RouteKey =
   | "/chat"
   | "/settings";
 // Densest routes first (measured cell time on CI: /settings and pipeline-detail ~21 s, the rest 6-12 s).
-const ROUTE_KEYS_HEAVIEST_FIRST: RouteKey[] = [
+export const ROUTE_KEYS_HEAVIEST_FIRST: RouteKey[] = [
   "/settings",
   "pipeline-detail",
   "/sources",
@@ -531,7 +535,7 @@ const ROUTE_KEYS_HEAVIEST_FIRST: RouteKey[] = [
   "/connectors",
 ];
 
-type Counts = {
+export type Counts = {
   resolved: number;
   unresolved: number;
   pass: number;
@@ -543,9 +547,9 @@ type Counts = {
 // `<main>` and the sidebar's per-route rail. See the unsplit guard's history: the `.app-skip-link`
 // sits OUTSIDE `.app-command-bar`/`.app-rail`, so a container scope cannot reach it. HEL-1574: the rail
 // is chrome (probed with the command bar); the context list has its own per-route view.
-const CHROME_EXCLUDE = "main, .context-list";
+export const CHROME_EXCLUDE = "main, .context-list";
 
-async function newCell(
+export async function newCell(
   page: Page,
   request: APIRequestContext,
   theme: Theme,
@@ -646,7 +650,7 @@ async function newCell(
 }
 
 /** Reports counts and asserts (exemptions, failures, per-cell unresolved ceiling). */
-function finishCell(cell: string, results: ElementResult[], counts: Counts) {
+export function finishCell(cell: string, results: ElementResult[], counts: Counts) {
   // Task 2.7 — report resolved/unresolved and pass/fail/advisory counts
   // BEFORE remediation is evaluated. Printed unconditionally so a CI log
   // always carries this even when the run is green.
@@ -691,7 +695,7 @@ function finishCell(cell: string, results: ElementResult[], counts: Counts) {
   //      all" absence this guard exists to catch.
   //   (A fourth, `.pipeline-detail-page__tab`, the river view's Steps/Outputs tab strip, was exempted here until
   //   HEL-1582 deleted that strip. The phone's own tabs are at 375px, outside this 1440px guard; their hover is
-  //   measured by e2e/hel1582-mobile-pipeline.spec.ts.)
+  //   measured by e2e/hel1582-mobile-pipeline-*.spec.ts.)
   // evaluation-1.md CR5 / evaluation-2.md CR9 — keyed on STABLE IDENTITY
   // (the `[class]` token `describeElement` always emits), never on
   // `#index`: an ordinal shifts if any element upstream in DOM order
@@ -744,7 +748,7 @@ function finishCell(cell: string, results: ElementResult[], counts: Counts) {
 }
 
 /** Polls the persisted recents until `kind`/`id` is recorded WITH a resolved title. */
-async function expectRecentRecorded(page: Page, kind: string, id: string) {
+export async function expectRecentRecorded(page: Page, kind: string, id: string) {
   await expect
     .poll(
       () =>
@@ -767,107 +771,10 @@ async function expectRecentRecorded(page: Page, kind: string, id: string) {
     .toBe(true);
 }
 
-test.describe("HEL-866 state-surface contrast guard", () => {
-  test.describe.configure({ mode: "parallel" });
-  test.setTimeout(120_000);
-
-  // Cells are registered heaviest-first (overlays ~35 s, then the dense routes), then the cheap
-  // ones: a worker that picks up a ~35 s cell last is the tail of the whole shard, so putting
-  // the long cells first (longest-processing-time order) shortens the shard's makespan. Titles
-  // and populations are unaffected by registration order.
-  for (const theme of THEMES) {
-    test(`overlays: command palette, modal and actions menu state backgrounds differ measurably from their backdrop (${theme})`, async ({
-      page,
-      request,
-    }) => {
-      const { client, pipelineId } = await newCell(page, request, theme);
-      const results: ElementResult[] = [];
-      const counts: Counts = { resolved: 0, unresolved: 0, pass: 0, fail: 0, advisory: 0 };
-
-      // The unsplit walk reached the palette having visited, in order, `/home` -> `/sources` ->
-      // `/pipelines` -> `/pipelines/<id>` -> `/connectors` -> `/chat` -> `/settings` -> `/home`, which
-      // fills the palette's empty-query Recent section ({dashboard, pipeline}; localStorage
-      // `helio.recentVisits`). Replay EXACTLY that sequence (never `/sources/<id>`, which the
-      // unsplit walk never visits) so the palette population is the same SET, gating each step on
-      // a readiness signal instead of a bare `goto` chain.
-      await page.goto("/dashboards");
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-      await expect(page.getByRole("button", { name: DASH_NAME, exact: true })).toBeVisible();
-      await page.goto("/sources");
-      await expect(page.getByText(SOURCE_NAME, { exact: true }).first()).toBeVisible();
-      await page.goto("/pipelines");
-      await expect(page.getByText(PIPELINE_NAME, { exact: true }).first()).toBeVisible();
-      await page.goto(`/pipelines/${pipelineId}`);
-      await expect(page.getByText(PIPELINE_NAME, { exact: true }).first()).toBeVisible();
-      await expectRecentRecorded(page, "pipeline", pipelineId);
-      await page.goto("/connectors");
-      await expect(page).toHaveURL(/\/connectors$/);
-      await expect(page.locator("main")).toBeVisible();
-      await page.goto("/chat");
-      await expect(page).toHaveURL(/\/chat$/);
-      await expect(page.locator("main")).toBeVisible();
-      await page.goto("/settings");
-      await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
-      await page.goto("/dashboards");
-      await expect(page.getByRole("button", { name: DASH_NAME, exact: true })).toBeVisible();
-
-      // Overlay: command palette (this ticket's canonical defect surface).
-      await page.waitForTimeout(150);
-      await page.keyboard.press(process.platform === "darwin" ? "Meta+k" : "Control+k");
-      const palette = page.locator(".command-palette[open]");
-      await expect(palette).toHaveCount(1);
-      // Per-run guarantee that the replayed recents are present (the equality proof is otherwise
-      // one-time): the Recent rows must include the seeded dashboard and pipeline.
-      const recentTitles = palette.locator(".command-palette__item-title");
-      await expect(recentTitles.filter({ hasText: DASH_NAME }).first()).toBeVisible();
-      await expect(recentTitles.filter({ hasText: PIPELINE_NAME }).first()).toBeVisible();
-      await page.waitForTimeout(150);
-      await probeView(page, client, "command-palette", theme, palette, results, counts);
-      await page.keyboard.press("Escape");
-      await expect(palette).toHaveCount(0);
-
-      // Overlay: modal (AddSourceModal, on /sources). NOTE: DashboardList's "Add dashboard"
-      // control is an INLINE form, not a `<Modal>`/native `<dialog>`, so it does not exercise the
-      // modal-hosted population; AddSourceModal does.
-      await page.goto("/sources");
-      const addSourceTrigger = page.getByRole("button", { name: "Add source" }).first();
-      await expect(addSourceTrigger).toBeVisible();
-      await addSourceTrigger.click();
-      const modal = page.getByRole("dialog").filter({ visible: true }).first();
-      await expect(modal).toBeVisible();
-      await page.waitForTimeout(150);
-      await probeView(page, client, "modal:add-source", theme, modal, results, counts);
-      await page.keyboard.press("Escape");
-      await expect(modal).toHaveCount(0);
-      await page.waitForTimeout(150);
-
-      // Overlay: ActionsMenu (dashboard row). evaluation-2.md CR8 — navigate to `/home`, where the
-      // dashboard row genuinely renders, and assert the trigger exists rather than conditionally
-      // skipping — a missing overlay fails loudly.
-      await page.goto("/dashboards");
-      await expect(page.getByRole("button", { name: DASH_NAME, exact: true })).toBeVisible();
-      const row = page.locator(".dashboard-list__item-row", { hasText: DASH_NAME });
-      await expect(row).toHaveCount(1);
-      const trigger = row.locator(`button[aria-label="${DASH_NAME} actions"]`);
-      await expect(trigger).toHaveCount(1);
-      // DashboardList.css clips the trigger to a 1x1 box until the row's own `:hover` (or
-      // `:focus-within`) reveals it; hover the row first.
-      await row.hover();
-      await expect(trigger).toBeVisible();
-      await trigger.click();
-      const menu = page
-        .locator("[role=menu], .actions-menu__panel")
-        .filter({ visible: true })
-        .first();
-      await expect(menu).toBeVisible();
-      await page.waitForTimeout(150);
-      await probeView(page, client, "actions-menu", theme, menu, results, counts);
-      await page.keyboard.press("Escape");
-      finishCell(`overlays(${theme})`, results, counts);
-    });
-  }
-
-  for (const routeKey of ROUTE_KEYS_HEAVIEST_FIRST) {
+/** Registers the per-route cells (every route in `routeKeys`, both themes). Called inside the guard's describe by each
+ *  `state-surface-contrast-guard-routes-*.spec.ts` part, so the cell body lives once. */
+export function registerRouteCells(routeKeys: readonly RouteKey[]) {
+  for (const routeKey of routeKeys) {
     for (const theme of THEMES) {
       test(`${routeKey}: every interactive state background differs measurably from its resolved backdrop (${theme})`, async ({
         page,
@@ -964,30 +871,4 @@ test.describe("HEL-866 state-surface contrast guard", () => {
       });
     }
   }
-
-  for (const theme of THEMES) {
-    test(`chrome: every interactive state background differs measurably from its resolved backdrop (${theme})`, async ({
-      page,
-      request,
-    }) => {
-      const { client } = await newCell(page, request, theme);
-      const results: ElementResult[] = [];
-      const counts: Counts = { resolved: 0, unresolved: 0, pass: 0, fail: 0, advisory: 0 };
-      await page.goto("/dashboards");
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-      await expect(page.locator(".app-command-bar")).toBeVisible();
-      await page.waitForTimeout(200);
-      await probeView(
-        page,
-        client,
-        "chrome",
-        theme,
-        page.locator("body"),
-        results,
-        counts,
-        CHROME_EXCLUDE,
-      );
-      finishCell(`chrome(${theme})`, results, counts);
-    });
-  }
-});
+}

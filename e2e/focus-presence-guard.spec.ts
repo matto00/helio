@@ -46,7 +46,7 @@ const AUTH = { prefix: "hel520", displayName: "HEL-520" } as const;
 // CR5 (evaluation-1.md) — the coverage claim must be SELF-CHECKING, not
 // merely `totalMeasured > 0` (a headline total that seven empty views
 // could satisfy). On the sibling HEL-866 guard's `stampDocument`/
-// `assertPartitioned` pattern (state-surface-contrast-guard.spec.ts),
+// `assertPartitioned` pattern (state-surface-contrast-guard-*.spec.ts),
 // adapted for this spec's simpler single-view-per-route shape (no
 // chrome/sidebar-rail split to union): stamp every element THIS spec's
 // own filter would accept (visible, enabled, `FOCUSABLE_SELECTOR`-matched)

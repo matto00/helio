@@ -1,0 +1,1035 @@
+dev | 375px dark > markdown-only dashboard: no slot in the skeleton or after, and no jump
+dev | 375px dark > pipeline-fed dashboard: the slot is reserved in the skeleton and the placeholders sit where the real cards land
+dev | 375px light > markdown-only dashboard: no slot in the skeleton or after, and no jump
+dev | 375px light > pipeline-fed dashboard: the slot is reserved in the skeleton and the placeholders sit where the real cards land
+dev | 430px dark > markdown-only dashboard: no slot in the skeleton or after, and no jump
+dev | 430px dark > pipeline-fed dashboard: the slot is reserved in the skeleton and the placeholders sit where the real cards land
+dev | 430px light > markdown-only dashboard: no slot in the skeleton or after, and no jump
+dev | 430px light > pipeline-fed dashboard: the slot is reserved in the skeleton and the placeholders sit where the real cards land
+dev | Full motion: after a pull-started round the settling indicator reads Refreshed, never Pull to refresh
+dev | HEL-1003 dashboard-row ActionsMenu keyboard reachability (desktop) > keyboard: Tab reaches trigger, Enter opens menu, Escape restores focus (no-regression, not the red-arm proof)
+dev | HEL-1003 dashboard-row ActionsMenu keyboard reachability (desktop) > negative control: probe reports not-found against a name with no rendered row
+dev | HEL-1003 dashboard-row ActionsMenu keyboard reachability (desktop) > resting geometry unchanged and reveal paints correctly (position/clip/size/reflow)
+dev | HEL-1003 dashboard-row ActionsMenu keyboard reachability (desktop) > resting trigger is a real focus target: .focus() lands on the trigger, not <body>
+dev | HEL-1007 reorder every root's lane > keyboard reorder in root 1's lane persists across reload; root 0 untouched; names and focus
+dev | HEL-1023 derive/repair the breakpoint layout at render > A_lg_only: no overlap, inside the container, no PATCH on view, at every width
+dev | HEL-1023 derive/repair the breakpoint layout at render > B_partial: no overlap, inside the container, no PATCH on view, at every width
+dev | HEL-1023 derive/repair the breakpoint layout at render > C_lg_coords_everywhere: no overlap, inside the container, no PATCH on view, at every width
+dev | HEL-1023 derive/repair the breakpoint layout at render > D_md_overlap: no overlap, inside the container, no PATCH on view, at every width
+dev | HEL-1023 derive/repair the breakpoint layout at render > V_valid_with_gaps: a valid authored layout renders exactly as saved at every breakpoint
+dev | HEL-1028 layout undo/redo visually reverts the grid > lg dark: drag, immediate undo, redo via button
+dev | HEL-1028 layout undo/redo visually reverts the grid > lg dark: drag, immediate undo, redo via keyboard
+dev | HEL-1028 layout undo/redo visually reverts the grid > lg light: drag, immediate undo, redo via button
+dev | HEL-1028 layout undo/redo visually reverts the grid > lg light: drag, immediate undo, redo via keyboard
+dev | HEL-1028 layout undo/redo visually reverts the grid > lg: drag, undo, flush sends no layout PATCH
+dev | HEL-1028 layout undo/redo visually reverts the grid > lg: resize, immediate undo, redo (keyboard)
+dev | HEL-1028 layout undo/redo visually reverts the grid > sm dark: drag, immediate undo, redo via button
+dev | HEL-1028 layout undo/redo visually reverts the grid > sm dark: drag, immediate undo, redo via keyboard
+dev | HEL-1028 layout undo/redo visually reverts the grid > sm light: drag, immediate undo, redo via button
+dev | HEL-1028 layout undo/redo visually reverts the grid > sm light: drag, immediate undo, redo via keyboard
+dev | HEL-1028 layout undo/redo visually reverts the grid > sm: drag, undo, flush sends no layout PATCH
+dev | HEL-1028 layout undo/redo visually reverts the grid > sm: resize, immediate undo, redo (keyboard)
+dev | HEL-1028 layout undo/redo visually reverts the grid > xs: a container under 768px renders the mobile stack with no RGL grid to revert
+dev | HEL-1065 pin-toggle CSS fixes (rendered geometry) > desktop/fine-pointer control: header row height is unaffected outside the coarse-pointer/<=430px media query
+dev | HEL-1065 pin-toggle CSS fixes (rendered geometry) > issue 1: header label ellipsizes before the pin icon, no overlap, with columns pinned (dark)
+dev | HEL-1065 pin-toggle CSS fixes (rendered geometry) > issue 1: header label ellipsizes before the pin icon, no overlap, with columns pinned (light)
+dev | HEL-1065 pin-toggle CSS fixes (rendered geometry) > issue 2: pin-toggle button + focus ring stay fully inside the header cell at <=430px (dark)
+dev | HEL-1065 pin-toggle CSS fixes (rendered geometry) > issue 2: pin-toggle button + focus ring stay fully inside the header cell at <=430px (light)
+dev | HEL-1079 dataset management UI — real backend > a confirmed drop combined with a rejected retype in the same submission leaves BOTH fields on screen
+dev | HEL-1079 dataset management UI — real backend > adding a required field with no default to a non-empty dataset blocks submit, no request sent
+dev | HEL-1079 dataset management UI — real backend > creates a dataset with 3 fields via keyboard input and the declared schema matches
+dev | HEL-1079 dataset management UI — real backend > dropping a field on a non-empty dataset requires confirmation, then the field's data is gone
+dev | HEL-1079 dataset management UI — real backend > retyping a field to an incompatible type surfaces the 409 reason inline, editor stays open
+dev | HEL-1080 dataset row grid — real backend (skeptic-final-3.md CR-G) > a successful add-row Save under injected network latency still leaves focus on the 'Add row' button (CR-J)
+dev | HEL-1080 dataset row grid — real backend (skeptic-final-3.md CR-G) > add row succeeds on a schema with a required field and no default, driven entirely by keyboard
+dev | HEL-1080 dataset row grid — real backend (skeptic-final-3.md CR-G) > editing a row concurrently deleted by another client shows the 404 'already deleted' recovery UI, not a 409 conflict
+dev | HEL-1080 dataset row grid — real backend (skeptic-final-3.md CR-G) > pager state stays correct after an add-row lands on page 2
+dev | HEL-1085 form field renderers — keyboard completion (real backend) > all six controls are reachable and completable by keyboard alone, with computed name/description and error association
+dev | HEL-1087 form submit path (real backend) > API-bypass client-blocked payloads are rejected server-side, writing nothing
+dev | HEL-1087 form submit path (real backend) > UI server rejection is announced, associates the invalid control, preserves input, and focuses it
+dev | HEL-1087 form submit path (real backend) > a successful submit appends exactly one row to the bound source, none to another, and announces success
+dev | HEL-1087 form submit path (real backend) > a transport failure announces, preserves input, and leaves focus on the submit button
+dev | HEL-1088 compact single-counter-field layout (real backend) > computed ARIA, keyboard operability, immediate submit landing on the bound source, and rejection writes nothing
+dev | HEL-1090 assembled form panel — keyboard + screen-reader audit (real backend) > HEL-1158 re-measurement: submit-button fold position, same-frame re-announcement, and error-text duplication on the assembled panel
+dev | HEL-1090 assembled form panel — keyboard + screen-reader audit (real backend) > an asynchronously-arriving server error is measured for live-region text change
+dev | HEL-1090 assembled form panel — keyboard + screen-reader audit (real backend) > focus stays on submit while pending, moves predictably on success, and lands on the invalid field after a genuine server rejection
+dev | HEL-1090 assembled form panel — keyboard + screen-reader audit (real backend) > tab order matches authored field order across every control type, keyboard-only submit succeeds
+dev | HEL-1090 assembled form panel — keyboard + screen-reader audit (real backend) > the panel exposes a computed role and accessible name in the dashboard grid, distinct from the form's own
+dev | HEL-1094 SSE fan-out panel refresh (real backend, default tick interval) > a form panel submit's downstream auto-run visibly refreshes a bound table panel, with a computed a11y announcement, and survives a second run
+dev | HEL-1095 optimistic pending/rollback ARIA state (real backend) > aria-busy is true while pending and clears on reconciliation (dark theme)
+dev | HEL-1095 optimistic pending/rollback ARIA state (real backend) > aria-busy is true while pending and clears on reconciliation (light theme)
+dev | HEL-1095 optimistic pending/rollback ARIA state (real backend) > rejected submit rolls back with an announced error, computed ARIA only (dark theme)
+dev | HEL-1095 optimistic pending/rollback ARIA state (real backend) > rejected submit rolls back with an announced error, computed ARIA only (light theme)
+dev | HEL-1096 run-to-update affordance (real backend) > a denied form submit shows the specific-rule toast; clicking 'Run to update' submits a real run that refreshes the bound panel via the existing SSE fan-out
+dev | HEL-1096 run-to-update affordance (real backend) > a guard-rejected 'Run to update' (429) shows a distinct rate/concurrency-limited message, never the gate-denial copy
+dev | HEL-1169 network-vs-rejection reconcile ARIA state (real backend) > a definite (400) rejection rolls back, marks the control invalid, and survives its own successful reconciliation (dark theme)
+dev | HEL-1169 network-vs-rejection reconcile ARIA state (real backend) > a definite (400) rejection rolls back, marks the control invalid, and survives its own successful reconciliation (light theme)
+dev | HEL-1169 network-vs-rejection reconcile ARIA state (real backend) > an indeterminate failure whose reconciliation also fails does not roll back and announces "couldn't confirm", distinct from a rejection (dark theme)
+dev | HEL-1169 network-vs-rejection reconcile ARIA state (real backend) > an indeterminate failure whose reconciliation also fails does not roll back and announces "couldn't confirm", distinct from a rejection (light theme)
+dev | HEL-1189 output panel controls — live verification > adds a date-range control in two clicks, auto-bound to the date column (dark theme)
+dev | HEL-1189 output panel controls — live verification > adds a date-range control in two clicks, auto-bound to the date column (light theme)
+dev | HEL-1345 — rootId step create placement persists > append then insert, reload: persisted order equals the displayed order
+dev | HEL-1392 desktop <-> phone crossing request burst > an active cross-filter, then a crossing
+dev | HEL-1392 desktop <-> phone crossing request burst > crossing within seconds of the first load
+dev | HEL-1392 desktop <-> phone crossing request burst > read > 30s on the dashboard, then 3 crossings in a burst
+dev | HEL-1392 staleness in the running app > an Output edit and a pipeline re-run are visible after a remount (dark)
+dev | HEL-1392 staleness in the running app > an Output edit and a pipeline re-run are visible after a remount (light)
+dev | HEL-1398 (dark) > item 4: "matching rows" wording live under a viewer filter
+dev | HEL-1398 (dark) > w=2,h=4 chart with annotation + truncation note keeps >= 96px canvas
+dev | HEL-1398 (light) > item 4: "matching rows" wording live under a viewer filter
+dev | HEL-1398 (light) > w=2,h=4 chart with annotation + truncation note keeps >= 96px canvas
+dev | HEL-1398 containment: w=2,h=4 @1504px no control bar (dark)
+dev | HEL-1398 containment: w=2,h=4 @1504px no control bar (light)
+dev | HEL-1398 containment: w=2,h=4 @1504px with control bar (dark)
+dev | HEL-1398 containment: w=2,h=4 @1504px with control bar (light)
+dev | HEL-1398 containment: w=2,h=4 @1900px no control bar (dark)
+dev | HEL-1398 containment: w=2,h=4 @1900px no control bar (light)
+dev | HEL-1398 containment: w=2,h=4 @1900px with control bar (dark)
+dev | HEL-1398 containment: w=2,h=4 @1900px with control bar (light)
+dev | HEL-1398 scope: non-footnote w=2,h=4 cards keep an unclamped title (dark)
+dev | HEL-1398 scope: non-footnote w=2,h=4 cards keep an unclamped title (light)
+dev | HEL-1444 D2 is keyed on the chart output (footnote-less chart inlines, table stays stacked)
+dev | HEL-1444 canvas floors, containment, title, y-axis @1504px (dark)
+dev | HEL-1444 canvas floors, containment, title, y-axis @1504px (light)
+dev | HEL-1444 canvas floors, containment, title, y-axis @1900px (dark)
+dev | HEL-1444 canvas floors, containment, title, y-axis @1900px (light)
+dev | HEL-1444 phone stack at 375px is unchanged (dark)
+dev | HEL-1444 phone stack at 375px is unchanged (light)
+dev | HEL-1444 typing into a footnoted chart's text control never moves the input @1504px
+dev | HEL-1444 typing into a footnoted chart's text control never moves the input @1900px
+dev | HEL-1521 — lane picker disables descendants and lane-linked dependents > a descendant and a lane-linked dependent are disabled; an unrelated node is selectable
+dev | HEL-1562 landing page > GET / returns the hero text and the share tags as raw HTML, with no app shell
+dev | HEL-1562 landing page > Request beta access announces the 204 outcome
+dev | HEL-1562 landing page > Request beta access announces the 409 outcome
+dev | HEL-1562 landing page > Request beta access announces the 429 outcome
+dev | HEL-1562 landing page > Request beta access announces the 503 outcome
+dev | HEL-1562 landing page > Request beta access as a signed-out visitor offers the free account, via the real endpoint
+dev | HEL-1562 landing page > a hard refresh on /auth/callback is served the app shell
+dev | HEL-1562 landing page > a hard refresh on /dashboards/00000000-0000-0000-0000-000000000000 is served the app shell
+dev | HEL-1562 landing page > a hard refresh on /dashboards/00000000-0000-0000-0000-000000000000/panels is served the app shell
+dev | HEL-1562 landing page > a hard refresh on /home is served the app shell
+dev | HEL-1562 landing page > a hard refresh on /login is served the app shell
+dev | HEL-1562 landing page > a hard refresh on /pipelines/00000000-0000-0000-0000-000000000000 is served the app shell
+dev | HEL-1562 landing page > a hard refresh on /register is served the app shell
+dev | HEL-1562 landing page > a signed-in user is sent from / to /home, and signing out brings the landing page back
+dev | HEL-1562 landing page > a signed-out visitor sees the landing page at /
+dev | HEL-1562 landing page > a stale hint bounces once through /home to /login and clears itself
+dev | HEL-1562 landing page > at 375px the reel pills and the nav button hit 44px through the expander, with a painted box under it
+dev | HEL-1562 landing page > no horizontal scroll at 1440px in dark
+dev | HEL-1562 landing page > no horizontal scroll at 1440px in light
+dev | HEL-1562 landing page > no horizontal scroll at 375px in dark
+dev | HEL-1562 landing page > no horizontal scroll at 375px in light
+dev | HEL-1562 landing page > single-class spacing rules are not zeroed by the paragraph reset
+dev | HEL-1562 landing page > the login page renders in a real browser after a hard refresh
+dev | HEL-1562 landing page > the wordmark, headlines and closing line use the heading face token
+dev | HEL-1572 Appearance tap targets > accent swatches and segments clear the 44px floor by hit extent at 1280px
+dev | HEL-1572 Appearance tap targets > accent swatches and segments clear the 44px floor by hit extent at 375px
+dev | HEL-1572 Appearance tap targets > accent swatches and segments clear the 44px floor by hit extent at 768px
+dev | HEL-1572 Appearance tap targets > clipping sweep is failable: an injected fixed-width label is flagged
+dev | HEL-1572 Appearance tap targets > under Mono no Appearance control or bottom-nav/command-bar label is clipped (non-ellipsized overflow) at 375/768/820/1280
+dev | HEL-1572 density > Compact changes the grid gutter and row padding; panel tops do not move
+dev | HEL-1572 density > Compact tightens overview list rows and the context list by the documented token difference
+dev | HEL-1572 motion > Off pins the tokens near zero; Full keeps them; no saved choice follows OS reduce-motion; explicit Full beats it
+dev | HEL-1572 tabular numerals under every style > equal-digit durations render at equal width under sans / mono / serif, and the check fails without tabular-nums
+dev | HEL-1572 type style > no flash: Home's opening sentence is serif on a new device (no cache) after sign-in (HEL-1578)
+dev | HEL-1572 type style > no flash: cached reload applies the style before React's first DOM, and the first heading is already serif
+dev | HEL-1572 type style > no flash: first heading is serif on a new device (no cache) too
+dev | HEL-1572 type style > probe sensitivity (negative control): the heading probe FAILS when the server value is withheld
+dev | HEL-1572 type style > probe sensitivity (negative control): with the pre-paint script stripped, the attribute lands only after React's first DOM
+dev | HEL-1572 type style > re-renders headings with no reload and survives a fresh browser context (another device)
+dev | HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) > chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it
+dev | HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) > grid: a real drag and a real resize track the pointer with no transition, and the siblings then reflow at the move token
+dev | HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) > grid: dragging / resizing / placeholder-resizing keep transition none, and our timing wins in either stylesheet order
+dev | HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) > shrinking a mounted panel after load keeps every chart canvas and table inside its card (Crossfade sizing, C3)
+dev | HEL-1573 primitives under Motion = full, dark theme
+dev | HEL-1573 primitives under Motion = full, light theme
+dev | HEL-1573 primitives under Motion = off, dark theme
+dev | HEL-1573 primitives under Motion = off, light theme
+dev | HEL-1573 primitives under Motion = os-reduce, dark theme
+dev | HEL-1573 primitives under Motion = os-reduce, light theme
+dev | HEL-1573 primitives under Motion = subtle, dark theme
+dev | HEL-1573 primitives under Motion = subtle, light theme
+dev | HEL-1573 the Motion group's own indicator snaps when Motion changes from Full to Subtle
+dev | HEL-1574 shell rail and context list > 375px, list at 400: double-clicking a row's Delete (confirm below the viewport) on Pipelines and Sources opens one confirm and stays on the page
+dev | HEL-1574 shell rail and context list > 820px, list at 400: double-clicking a row's Delete (confirm below the viewport) on Pipelines and Sources opens one confirm and stays on the page
+dev | HEL-1574 shell rail and context list > Delete is a row action on the Pipelines and Sources overviews, keyboard reachable, at desktop 1280px
+dev | HEL-1574 shell rail and context list > Delete is a row action on the Pipelines and Sources overviews, keyboard reachable, at phone 375px
+dev | HEL-1574 shell rail and context list > a pointer drag clamps at the maximum and issues one preference write
+dev | HEL-1574 shell rail and context list > at 375px a confirm opened with the table scrolled to its end stays in view, and Share/Delete have a gap
+dev | HEL-1574 shell rail and context list > at 375px the bottom nav tabs are each at least 44px wide and do not overlap
+dev | HEL-1574 shell rail and context list > collapses to rail-only, keeps every section one click away, and stays collapsed after a reload
+dev | HEL-1574 shell rail and context list > creates a folder, files a dashboard in it, and both survive a reload
+dev | HEL-1574 shell rail and context list > exactly 768px is the phone shell: no rail, no context list, the glass bottom nav with Home first
+dev | HEL-1574 shell rail and context list > renders the rail and the dashboards list at 1280px, and no bottom nav
+dev | HEL-1574 shell rail and context list > renders the rail and the dashboards list at 769px, and no bottom nav
+dev | HEL-1574 shell rail and context list > renders the rail and the dashboards list at 820px, and no bottom nav
+dev | HEL-1574 shell rail and context list > resizes from the keyboard within 200..400 and the width survives a reload
+dev | HEL-1574 shell rail and context list > row Delete confirm opens below its row: double-click, and the last row of a long list keeps the scroll, at 1280px
+dev | HEL-1574 shell rail and context list > row Delete confirm opens below its row: double-click, and the last row of a long list keeps the scroll, at 375px
+dev | HEL-1574 shell rail and context list > the Pipelines list is a compact Recent and Scheduled list, not a copy of the table
+dev | HEL-1574 shell rail and context list > the folder holding the open dashboard can be collapsed, and the saved state survives a reload
+dev | HEL-1575 changed dot and own edits > a dragged panel: switch and return is warm with no dot, also after a reload and in a second context
+dev | HEL-1575 changed dot and own edits > a renamed panel: switch and return is warm with no dot, also after a reload and in a second context
+dev | HEL-1575 changed dot and own edits > a run while the tab is active, then leave and return within the TTL: still warm
+dev | HEL-1575 changed dot and own edits > a run while the tab is away marks it with a dot, refreshes its rows on return without a panel-list request, and the dot clears
+dev | HEL-1575 changed dot and own edits > another user's edit would mark; the own session never marks itself (content edit by API from a second session)
+dev | HEL-1575 changed dot and own edits > data changed before a reload: the restored tab refetches its rows instead of showing the old ones
+dev | HEL-1575 changed dot and own edits > own edit, leave, then a run: the dot shows (own edits never hide new data)
+dev | HEL-1575 dashboard tabs > a /dashboards/:id deep link beats the saved active tab, with no panel request for another dashboard
+dev | HEL-1575 dashboard tabs > a plain list click replaces the active tab and keeps the others
+dev | HEL-1575 dashboard tabs > a warm switch makes no panel-list or rows request; reload within the TTL is warm; a second context restores the tabs
+dev | HEL-1575 dashboard tabs > an expired tab (16 minutes) refetches its panels
+dev | HEL-1575 dashboard tabs > an idle, visible device never overwrites the tab set another device saved (two devices, 125 s idle)
+dev | HEL-1575 dashboard tabs > deleting an open dashboard: the active one moves to its neighbour, an inactive one just loses its tab
+dev | HEL-1575 dashboard tabs > logout clears the browser-stored warm copy
+dev | HEL-1575 dashboard tabs > logout with an already-expired session (the sign-out request answers 401) still clears the warm copy
+dev | HEL-1575 dashboard tabs > open, activate, replace, close and reorder by mouse and keyboard; the order survives a reload
+dev | HEL-1575 dashboard tabs > open-tab mode: the + button opens the palette listing dashboards, and a pick opens a new active tab
+dev | HEL-1575 dashboard tabs > reload of the only, never-left dashboard is warm: no panel list or rows request
+dev | HEL-1575 dashboard tabs > touch: a tap on a tab's left edge lands in that tab, not on the previous tab's close expander
+dev | HEL-1575 palette box and ask handoff > Ask the assistant hands the text to /chat and sends exactly one converse request
+dev | HEL-1575 palette box and ask handoff > Ask the assistant while already on /chat sends once per ask, and a reload sends nothing
+dev | HEL-1575 palette box and ask handoff > the Search, jump, or ask box opens the palette
+dev | HEL-1575 warm vs cold tab switch on a 12-panel dashboard (owner tier, median of 5)
+dev | HEL-1578 Home changed dot (real backend) > an own edit followed by a plain-click switch never marks the edited dashboard
+dev | HEL-1578 Home changed dot (real backend) > opening X from Home while Y is selected leaves Y's dot
+dev | HEL-1578 Home changed dot (real backend) > shows after another session's edit, clears after opening the dashboard, and Home adds one request of its own
+dev | HEL-1578 Home changed dot (real backend) > shows after new data (a run), and clears after opening
+dev | HEL-1578 Home changed dot (real backend) > visiting twelve pipelines does not evict a dashboard's stamp
+dev | HEL-1578 Home page (real backend) > 'Set up step by step' on Home opens /dashboards with the checklist
+dev | HEL-1578 Home page (real backend) > a brand-new user lands on /home and sees the empty states, with no error and no horizontal scroll
+dev | HEL-1578 Home page (real backend) > a seeded user: one summary request, no per-pipeline request, a failed run under Needs attention, Retry posts one run
+dev | HEL-1579 pipeline detail step spine (live) > 1280x800: spine, editor and at least 8 preview rows fit without page scroll
+dev | HEL-1579 pipeline detail step spine (live) > 1440x900 (HEL-1585 check for this page): the document does not scroll
+dev | HEL-1579 pipeline detail step spine (live) > 820/900/1100px [dark]: the header keeps one row and the page does not scroll (screenshots)
+dev | HEL-1579 pipeline detail step spine (live) > 820/900/1100px [light]: the header keeps one row and the page does not scroll (screenshots)
+dev | HEL-1579 pipeline detail step spine (live) > a branch renders as a labelled sub-spine and a lane row is selectable
+dev | HEL-1579 pipeline detail step spine (live) > accent audit [dark #3b82f6]: only Run, the selected step and focus use the accent (every kind)
+dev | HEL-1579 pipeline detail step spine (live) > accent audit [dark #ec4899]: only Run, the selected step and focus use the accent (every kind)
+dev | HEL-1579 pipeline detail step spine (live) > accent audit [light #3b82f6]: only Run, the selected step and focus use the accent (every kind)
+dev | HEL-1579 pipeline detail step spine (live) > accent audit [light #ec4899]: only Run, the selected step and focus use the accent (every kind)
+dev | HEL-1579 pipeline detail step spine (live) > an edit made just before selecting another step stays in the draft (no edit is lost, no request)
+dev | HEL-1579 pipeline detail step spine (live) > evidence: the running page at 1440, 1280 and 820 wide [dark]
+dev | HEL-1579 pipeline detail step spine (live) > evidence: the running page at 1440, 1280 and 820 wide [light]
+dev | HEL-1579 pipeline detail step spine (live) > selecting a step updates the focused editor heading and the preview header
+dev | HEL-1579 pipeline detail step spine (live) > sweep 769-1100px: header and editor actions fit, both themes, list at default and max width
+dev | HEL-1582 phone pipeline page (live) > AC1 guard can fail: a taller row makes the fit assertion go red
+dev | HEL-1582 phone pipeline page (live) > AC1: a never-run pipeline fits at 375x812 too (the status line has no label)
+dev | HEL-1582 phone pipeline page (live) > AC1: a truncated last run with an 8-digit row count and a paused cron chip still fits at 375x812 on page open, with the Partial badge visible
+dev | HEL-1582 phone pipeline page (live) > AC1: at 375x812 the source, all 3 steps and the Output fit without scrolling, in both themes
+dev | HEL-1582 phone pipeline page (live) > AC1: the Output card still clears the action bar at 375x812 while a Run is queued and after it succeeds (the persisted last-run meta is not shown beside the in-session status)
+dev | HEL-1582 phone pipeline page (live) > AC2: a touch drag on the handle dismisses the sheet; a short drag returns it; the body never drags it; the close control closes it
+dev | HEL-1582 phone pipeline page (live) > AC2: every step kind's editor opens in the sheet at 375px with every control inside it
+dev | HEL-1582 phone pipeline page (live) > AC2: the sheet's Step actions menu opens above the modal, Move step down works from it, and focus stays in the sheet
+dev | HEL-1582 phone pipeline page (live) > AC3: scrolled to the end the last item clears the pills and the pills clear the nav (and the guard can fail)
+dev | HEL-1582 phone pipeline page (live) > AC4 (C8): every step kind's editor in the sheet clears the 44px touch floor by real hit area at 375x812
+dev | HEL-1582 phone pipeline page (live) > AC4 (C8): every step kind's editor in the sheet clears the 44px touch floor by real hit area at 390x844
+dev | HEL-1582 phone pipeline page (live) > AC4 (C8): every step kind's editor in the sheet clears the 44px touch floor by real hit area at 768x1024
+dev | HEL-1582 phone pipeline page (live) > AC4 (C8): tapping the Analyze with AI "Move output field 2 up" button moves that field up, at the sheet's real hit area
+dev | HEL-1582 phone pipeline page (live) > AC4 guard can fail: a shrunk tab and a removed hit expander are caught by the same probe
+dev | HEL-1582 phone pipeline page (live) > AC4: every interactive element of each tab and the open sheet clears the 44px touch floor at 375x812
+dev | HEL-1582 phone pipeline page (live) > AC4: every interactive element of each tab and the open sheet clears the 44px touch floor at 390x844
+dev | HEL-1582 phone pipeline page (live) > AC4: every interactive element of each tab and the open sheet clears the 44px touch floor at 768x1024
+dev | HEL-1582 phone pipeline page (live) > AC4: the header of a never-run pipeline (and in rename mode) clears the 44px touch floor at 375x812
+dev | HEL-1582 phone pipeline page (live) > AC4: the header of a never-run pipeline (and in rename mode) clears the 44px touch floor at 390x844
+dev | HEL-1582 phone pipeline page (live) > AC4: the header of a never-run pipeline (and in rename mode) clears the 44px touch floor at 768x1024
+dev | HEL-1582 phone pipeline page (live) > HEL-1669: the Dry run hover is distinct from its rest fill (>= 1.10) and the Run pill rests on --app-accent / hovers on --app-accent-strong, in both themes
+dev | HEL-1582 phone pipeline page (live) > MAXIMAL sweep (C8, both axes): header, every tab, every menu and every step kind's editor and preview on the widest fixture at 375x812
+dev | HEL-1582 phone pipeline page (live) > MAXIMAL sweep (C8, both axes): header, every tab, every menu and every step kind's editor and preview on the widest fixture at 390x844
+dev | HEL-1582 phone pipeline page (live) > MAXIMAL sweep (C8, both axes): header, every tab, every menu and every step kind's editor and preview on the widest fixture at 768x1024
+dev | HEL-1582 phone pipeline page (live) > a long step list never lets the page scroll away its header: the visually hidden headings stay inside the scroller
+dev | HEL-1582 phone pipeline page (live) > desktop (1440x900): the "N fields" panel opens on the side of its trigger with room, fully inside the viewport
+dev | HEL-1582 phone pipeline page (live) > phone hover, focus and pressed states of the new controls clear the state-surface floor (1.10), text 4.5:1 and non-text 3:1, in both themes (and the measurement can fail)
+dev | HEL-1582 phone pipeline page (live) > the "N fields" panel opens fully on screen, above the sheet, with a real filter hit area, on a 3-step pipeline with a 17-column source at 375x812
+dev | HEL-1582 phone pipeline page (live) > the "N fields" panel opens fully on screen, above the sheet, with a real filter hit area, on a 3-step pipeline with a 17-column source at 390x844
+dev | HEL-1582 phone pipeline page (live) > the sheet composes HEL-1584's Modal motion: one entrance, no transform at rest, a held exit with no flash, an anchored popover, under Full, Subtle and Off in both themes
+dev | HEL-1583 glass nav, dark theme > a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+dev | HEL-1583 glass nav, dark theme > a free-tier user reaches the assistant overlay in one tap; the header has no avatar
+dev | HEL-1583 glass nav, dark theme > active pill contrast from rendered pixels at 320px over every backdrop
+dev | HEL-1583 glass nav, dark theme > active pill contrast from rendered pixels at 375px over every backdrop
+dev | HEL-1583 glass nav, dark theme > active pill contrast from rendered pixels at 768px over every backdrop
+dev | HEL-1583 glass nav, dark theme > an owner reaches Usage through the Me menu, which opens above the nav
+dev | HEL-1583 glass nav, dark theme > at 320px nothing crosses the capsule, the lozenge stays in its tab, and a long label truncates
+dev | HEL-1583 glass nav, dark theme > five tabs, the active label visible, exactly one current tab per route; Connectors via Data
+dev | HEL-1583 glass nav, dark theme > tap targets are at least 44px and do not overlap at 320px
+dev | HEL-1583 glass nav, dark theme > tap targets are at least 44px and do not overlap at 375px
+dev | HEL-1583 glass nav, dark theme > tap targets are at least 44px and do not overlap at 768px
+dev | HEL-1583 glass nav, dark theme > the active pill is content-sized and tabs are evenly spaced at 430px
+dev | HEL-1583 glass nav, dark theme > the active pill is content-sized and tabs are evenly spaced at 768px
+dev | HEL-1583 glass nav, dark theme > the icon box and its vertical position do not change on activation
+dev | HEL-1583 glass nav, dark theme > the refreshed line sits above the chip row on a dashboard whose pipeline has run
+dev | HEL-1583 glass nav, light theme > a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+dev | HEL-1583 glass nav, light theme > a free-tier user reaches the assistant overlay in one tap; the header has no avatar
+dev | HEL-1583 glass nav, light theme > active pill contrast from rendered pixels at 320px over every backdrop
+dev | HEL-1583 glass nav, light theme > active pill contrast from rendered pixels at 375px over every backdrop
+dev | HEL-1583 glass nav, light theme > active pill contrast from rendered pixels at 768px over every backdrop
+dev | HEL-1583 glass nav, light theme > an owner reaches Usage through the Me menu, which opens above the nav
+dev | HEL-1583 glass nav, light theme > at 320px nothing crosses the capsule, the lozenge stays in its tab, and a long label truncates
+dev | HEL-1583 glass nav, light theme > five tabs, the active label visible, exactly one current tab per route; Connectors via Data
+dev | HEL-1583 glass nav, light theme > tap targets are at least 44px and do not overlap at 320px
+dev | HEL-1583 glass nav, light theme > tap targets are at least 44px and do not overlap at 375px
+dev | HEL-1583 glass nav, light theme > tap targets are at least 44px and do not overlap at 768px
+dev | HEL-1583 glass nav, light theme > the active pill is content-sized and tabs are evenly spaced at 430px
+dev | HEL-1583 glass nav, light theme > the active pill is content-sized and tabs are evenly spaced at 768px
+dev | HEL-1583 glass nav, light theme > the icon box and its vertical position do not change on activation
+dev | HEL-1583 glass nav, light theme > the refreshed line sits above the chip row on a dashboard whose pipeline has run
+dev | HEL-1583 measurements > measure 320px dark
+dev | HEL-1583 measurements > measure 320px light
+dev | HEL-1583 measurements > measure 375px dark
+dev | HEL-1583 measurements > measure 375px light
+dev | HEL-1583 measurements > measure 390px dark
+dev | HEL-1583 measurements > measure 390px light
+dev | HEL-1583 measurements > measure 430px dark
+dev | HEL-1583 measurements > measure 430px light
+dev | HEL-1583 measurements > measure 768px dark
+dev | HEL-1583 measurements > measure 768px light
+dev | HEL-1583 phone dashboard (dark) > a non-panel .panel-list child shares the 12px edge
+dev | HEL-1583 phone dashboard (dark) > markdown text is within 28px of each edge at 375px; cards 12px from the edge; gaps 8-12px
+dev | HEL-1583 phone dashboard (dark) > one tap on a chip switches dashboards; the active chip is visible on load, 44px hit areas tile
+dev | HEL-1583 phone dashboard (dark) > renders the single-column stack (not the grid) and no zoom widget at 375px
+dev | HEL-1583 phone dashboard (dark) > renders the single-column stack (not the grid) and no zoom widget at 600px
+dev | HEL-1583 phone dashboard (dark) > renders the single-column stack (not the grid) and no zoom widget at 768px
+dev | HEL-1583 phone dashboard (dark) > the last card sits above the glass nav when scrolled to the end
+dev | HEL-1583 phone dashboard (light) > a non-panel .panel-list child shares the 12px edge
+dev | HEL-1583 phone dashboard (light) > markdown text is within 28px of each edge at 375px; cards 12px from the edge; gaps 8-12px
+dev | HEL-1583 phone dashboard (light) > one tap on a chip switches dashboards; the active chip is visible on load, 44px hit areas tile
+dev | HEL-1583 phone dashboard (light) > renders the single-column stack (not the grid) and no zoom widget at 375px
+dev | HEL-1583 phone dashboard (light) > renders the single-column stack (not the grid) and no zoom widget at 600px
+dev | HEL-1583 phone dashboard (light) > renders the single-column stack (not the grid) and no zoom widget at 768px
+dev | HEL-1583 phone dashboard (light) > the last card sits above the glass nav when scrolled to the end
+dev | HEL-1584 D13 performance: cold dashboard load and a three-cell drag, 12 panels, Full motion
+dev | HEL-1584 chart refresh > a same-shape data refresh morphs the series in place under Full (bars never collapse to zero)
+dev | HEL-1584 grid, modal and palette: full / dark
+dev | HEL-1584 grid, modal and palette: full / light
+dev | HEL-1584 grid, modal and palette: off / dark
+dev | HEL-1584 grid, modal and palette: off / light
+dev | HEL-1584 grid, modal and palette: os-reduce / dark
+dev | HEL-1584 grid, modal and palette: os-reduce / light
+dev | HEL-1584 grid, modal and palette: subtle / dark
+dev | HEL-1584 grid, modal and palette: subtle / light
+dev | HEL-1584 save and run feedback > a layout save pops a check beside the save state under Full (dark)
+dev | HEL-1584 save and run feedback > a layout save pops a check beside the save state under Full (light)
+dev | HEL-1584 the new crossfade layers keep their container's width > grid root, phone stack and a lazily loaded route at 1440px
+dev | HEL-1584 the new crossfade layers keep their container's width > grid root, phone stack and a lazily loaded route at 375px
+dev | HEL-1584 when the grid enters > a warm tab switch, a Home round trip and an edit refetch play no entrance; an added panel pops
+dev | HEL-1605 overview row Delete confirm > 375px: I14: A's confirm scrolled above the viewport -- both presses land on B, only B's confirm opens, it is revealed above the BottomNav
+dev | HEL-1605 overview row Delete confirm > 375px: I19 -- switching rows near the top of the page: press 2 lands on a Confirm/Cancel button and deletes nothing
+dev | HEL-1605 overview row Delete confirm > 375px: I8: B directly below A's confirm -- both presses land on B, only B's confirm opens, it is revealed above the BottomNav
+dev | HEL-1605 overview row Delete confirm > 375px: a keyboard reveal leaves the confirm above the BottomNav, on both pages (I6)
+dev | HEL-1605 overview row Delete confirm > 375px: a pointer reveal leaves the confirm above the BottomNav, on both pages (I4)
+dev | HEL-1605 overview row Delete confirm > 768px: I14 (1px-overflowing table scroller): page scrolled by about A's confirm height -- both presses land on B, only B's confirm opens, it is revealed above the BottomNav
+dev | HEL-1605 overview row Delete confirm > 820px, list at 400: double-clicking the last row at maximum scroll opens one confirm, stays on the page, then reveals it (I17)
+dev | HEL-1628 source sample store and label (live) > captures once on open, never per edit, once per refresh, and a reload starts fresh
+dev | HEL-1628 source sample store and label (live) > phone viewport: the source card carries the label and refresh, one capture on open
+dev | HEL-1628 source sample store and label (live) > the four label cases render in both themes
+dev | HEL-1631 draft mode (live) > Back with a draft open does not lose it: forward again shows the same draft (skeptic-final-1 CR1)
+dev | HEL-1631 draft mode (live) > Discard restores the saved pipeline exactly, with zero requests
+dev | HEL-1631 draft mode (live) > Save & run is ONE draft save with a run and ONE journal row; Undo restores the saved definition; a disabled step stays disabled
+dev | HEL-1631 draft mode (live) > a base that changed under the draft offers ONLY 'Reload the saved pipeline', and the draft survives the reload
+dev | HEL-1631 draft mode (live) > a draft kept across Back is NOT silently saved over a change made while away: the stale path applies (skeptic-final-2)
+dev | HEL-1631 draft mode (live) > a run the guard refused after the save committed says so, with the retry time and a Run now action
+dev | HEL-1631 draft mode (live) > a server-only step updates through the draft-preview transport: pending, paced, never a run endpoint
+dev | HEL-1631 draft mode (live) > after Discard, a step first opened during the draft fetches exactly its own saved preview and nothing else
+dev | HEL-1631 draft mode (live) > while a draft exists Add source is enabled and the last source cannot be removed; the step, Output and shape actions are enabled (HEL-1684, HEL-1733, HEL-1734)
+dev | HEL-1631 draft mode on a phone (live) > 375px: the draft status fills the action bar's slot and the pills become Discard and Save & run
+dev | HEL-1632 live Output column > a server-only step shows updating, then live; Discard returns to the saved render with zero requests
+dev | HEL-1632 live Output column > an Output below an AI step shows its saved data labelled stale
+dev | HEL-1632 live Output column > an error above the Output's node keeps the last good render and shows stale
+dev | HEL-1632 live Output column > one baseline history read at load, then a burst of edits sends nothing and the Output follows the draft
+dev | HEL-1632 live Output column > screenshot motion full
+dev | HEL-1632 live Output column > screenshot motion off
+dev | HEL-1632 live Output column > screenshot motion subtle
+dev | HEL-1632 live Output column > screenshots 1280 dark
+dev | HEL-1632 live Output column > screenshots 1280 light
+dev | HEL-1632 live Output column > screenshots 375 dark
+dev | HEL-1632 live Output column > screenshots 375 light
+dev | HEL-1632 live Output column > screenshots 430 dark
+dev | HEL-1632 live Output column > screenshots 430 light
+dev | HEL-1632 live Output column > screenshots 900 dark
+dev | HEL-1632 live Output column > screenshots 900 light
+dev | HEL-1648 pipeline-scoped source sample (live) > editor sees the label desktop + phone in both themes; viewer sees none and sends no request
+dev | HEL-1656 pull to refresh at 375 > a pull past the threshold refreshes each output panel once, runs no pipeline, and opens no detail
+dev | HEL-1656 pull to refresh at 375 > a scrolled page scrolls natively upward and never engages
+dev | HEL-1656 pull to refresh at 375 > a short pull releases back with no request
+dev | HEL-1656 pull to refresh at 375 > an engaged touchmove is cancelable and prevented, so the page does not scroll natively
+dev | HEL-1656 pull to refresh at 375 > an upward drag scrolls the page and never engages
+dev | HEL-1656 pull to refresh at 375 > overscroll is contained on the phone dashboard only
+dev | HEL-1656 pull to refresh at 390 > a pull past the threshold refreshes each output panel once, runs no pipeline, and opens no detail
+dev | HEL-1656 pull to refresh at 390 > a scrolled page scrolls natively upward and never engages
+dev | HEL-1656 pull to refresh at 390 > a short pull releases back with no request
+dev | HEL-1656 pull to refresh at 390 > an engaged touchmove is cancelable and prevented, so the page does not scroll natively
+dev | HEL-1656 pull to refresh at 390 > an upward drag scrolls the page and never engages
+dev | HEL-1656 pull to refresh at 390 > overscroll is contained on the phone dashboard only
+dev | HEL-1656 pull to refresh motion levels > Full motion: the stack follows the finger damped, then settles to rest
+dev | HEL-1656 pull to refresh motion levels > Motion off: nothing translates mid-pull and the release still refreshes
+dev | HEL-1656 pull to refresh motion levels > Motion subtle: nothing translates mid-pull and the release still refreshes
+dev | HEL-1656 screenshots at 430 (dark): resting, pulling and busy
+dev | HEL-1656 screenshots at 430 (light): resting, pulling and busy
+dev | HEL-1668 item 4 desktop schema panel at 1000x800 > a panel whose content fits above its trigger opens above although its 24rem cap would not (1000x800)
+dev | HEL-1668 item 4 desktop schema panel at 1000x800 > content taller than the room above opens on the roomier side, capped, inside the viewport (1000x800)
+dev | HEL-1668 item 4 desktop schema panel at 1280x840 > a panel whose content fits above its trigger opens above although its 24rem cap would not (1280x840)
+dev | HEL-1668 item 4 desktop schema panel at 1280x840 > content taller than the room above opens on the roomier side, capped, inside the viewport (1280x840)
+dev | HEL-1668 item 4 phone schema panel at 375x812 > a panel opened below its trigger on the phone Preview tab ends above the bottom nav (375x812)
+dev | HEL-1668 item 4 phone schema panel at 768x1024 > a panel opened below its trigger on the phone Preview tab ends above the bottom nav (768x1024)
+dev | HEL-1668 item 5 compact spine on a touch tablet (1024x800) > a tapped compact row keeps its accent select, shows a transparent menu clear of the title and opens its step menu, light and dark
+dev | HEL-1668 item 6 copy at 1000x800 > the source card names Static once, the Output reads "from", and an 8-digit row count never clips the time (1000x800)
+dev | HEL-1668 item 6 copy at 1280x800 > the source card names Static once, the Output reads "from", and an 8-digit row count never clips the time (1280x800)
+dev | HEL-1668 item 6 copy at 375x812 > the source card names Static once, the Output reads "from", and an 8-digit row count never clips the time (375x812)
+dev | HEL-1668 item 6 copy at 390x844 > the source card names Static once, the Output reads "from", and an 8-digit row count never clips the time (390x844)
+dev | HEL-1668 item 6 copy at 768x1024 > the source card names Static once, the Output reads "from", and an 8-digit row count never clips the time (768x1024)
+dev | HEL-1668 phone sheet polish at 375x812 > item 1: narrowing a desktop page to the phone width opens no sheet (375x812)
+dev | HEL-1668 phone sheet polish at 375x812 > item 1: the ?step= deep link opens that step's sheet, closing clears it, an unknown id opens none (375x812)
+dev | HEL-1668 phone sheet polish at 375x812 > item 2: a failed step move's error toast shows above the sheet, is dismissable and was announced after its region sat empty for two frames (375x812)
+dev | HEL-1668 phone sheet polish at 375x812 > item 3: Escape closes only the schema panel, then only the step menu, then the sheet (375x812)
+dev | HEL-1668 phone sheet polish at 375x812 > item 5: a touch tap leaves no sticky hover fill on the step row (375x812)
+dev | HEL-1668 phone sheet polish at 390x844 > item 1: narrowing a desktop page to the phone width opens no sheet (390x844)
+dev | HEL-1668 phone sheet polish at 390x844 > item 1: the ?step= deep link opens that step's sheet, closing clears it, an unknown id opens none (390x844)
+dev | HEL-1668 phone sheet polish at 390x844 > item 2: a failed step move's error toast shows above the sheet, is dismissable and was announced after its region sat empty for two frames (390x844)
+dev | HEL-1668 phone sheet polish at 390x844 > item 3: Escape closes only the schema panel, then only the step menu, then the sheet (390x844)
+dev | HEL-1668 phone sheet polish at 390x844 > item 5: a touch tap leaves no sticky hover fill on the step row (390x844)
+dev | HEL-1668 phone sheet polish at 768x1024 > item 1: narrowing a desktop page to the phone width opens no sheet (768x1024)
+dev | HEL-1668 phone sheet polish at 768x1024 > item 1: the ?step= deep link opens that step's sheet, closing clears it, an unknown id opens none (768x1024)
+dev | HEL-1668 phone sheet polish at 768x1024 > item 2: a failed step move's error toast shows above the sheet, is dismissable and was announced after its region sat empty for two frames (768x1024)
+dev | HEL-1668 phone sheet polish at 768x1024 > item 3: Escape closes only the schema panel, then only the step menu, then the sheet (768x1024)
+dev | HEL-1668 phone sheet polish at 768x1024 > item 5: a touch tap leaves no sticky hover fill on the step row (768x1024)
+dev | HEL-1675 desktop: hover unchanged > a mouse hover paints the recorded values (dark)
+dev | HEL-1675 desktop: hover unchanged > a mouse hover paints the recorded values (light)
+dev | HEL-1675 touch: no sticky hover on shared controls > a real tap leaves every shared control at its rest paint (dark)
+dev | HEL-1675 touch: no sticky hover on shared controls > a real tap leaves every shared control at its rest paint (light)
+dev | HEL-1681 refresh button at 375 > a second activation while a round is busy sends nothing
+dev | HEL-1681 refresh button at 375 > a single tap refreshes each output panel once, runs no pipeline, and shows a busy cue
+dev | HEL-1681 refresh button at 375 > keyboard: Enter on the focused button refreshes once and announces Refreshing then Refreshed
+dev | HEL-1681 refresh button at 375 > no button on a dashboard with no output-bound panel
+dev | HEL-1681 refresh button at 375 > showing the button does not move the stack's resting position
+dev | HEL-1681 refresh button at 375 > the tap area is at least 44x44, inside the panel list, and leaves the chip row its own taps
+dev | HEL-1681 refresh button at 430 > a second activation while a round is busy sends nothing
+dev | HEL-1681 refresh button at 430 > a single tap refreshes each output panel once, runs no pipeline, and shows a busy cue
+dev | HEL-1681 refresh button at 430 > keyboard: Enter on the focused button refreshes once and announces Refreshing then Refreshed
+dev | HEL-1681 refresh button at 430 > no button on a dashboard with no output-bound panel
+dev | HEL-1681 refresh button at 430 > showing the button does not move the stack's resting position
+dev | HEL-1681 refresh button at 430 > the tap area is at least 44x44, inside the panel list, and leaves the chip row its own taps
+dev | HEL-1683 client regex main-thread guard (live) > a catastrophic extractRegex pattern in a draft never blocks the main thread for more than 100 ms
+dev | HEL-1684 draft structure actions: desktop, dark (live) > insert step: a draft entry, saved atomically with the structure the draft showed
+dev | HEL-1684 draft structure actions: desktop, light (live) > + lane step: Discard restores the saved pipeline with no request
+dev | HEL-1684 draft structure actions: desktop, light (live) > + lane step: a draft entry, saved atomically with the structure the draft showed
+dev | HEL-1684 draft structure actions: desktop, light (live) > Move down: Discard restores the saved pipeline with no request
+dev | HEL-1684 draft structure actions: desktop, light (live) > Move down: a draft entry, saved atomically with the structure the draft showed
+dev | HEL-1684 draft structure actions: desktop, light (live) > Move up: Discard restores the saved pipeline with no request
+dev | HEL-1684 draft structure actions: desktop, light (live) > Move up: a draft entry, saved atomically with the structure the draft showed
+dev | HEL-1684 draft structure actions: desktop, light (live) > add step: Discard restores the saved pipeline with no request
+dev | HEL-1684 draft structure actions: desktop, light (live) > add step: a draft entry, saved atomically with the structure the draft showed
+dev | HEL-1684 draft structure actions: desktop, light (live) > drag reorder: a draft entry, saved atomically with the structure the draft showed
+dev | HEL-1684 draft structure actions: desktop, light (live) > duplicate step: Discard restores the saved pipeline with no request
+dev | HEL-1684 draft structure actions: desktop, light (live) > duplicate step: a draft entry, saved atomically with the structure the draft showed
+dev | HEL-1684 draft structure actions: desktop, light (live) > insert step: Discard restores the saved pipeline with no request
+dev | HEL-1684 draft structure actions: desktop, light (live) > insert step: a draft entry, saved atomically with the structure the draft showed
+dev | HEL-1684 draft structure actions: phone, dark (live) > + lane step: a draft entry, saved atomically with the structure the draft showed
+dev | HEL-1684 draft structure actions: phone, dark (live) > Move down: a draft entry, saved atomically with the structure the draft showed
+dev | HEL-1684 draft structure actions: phone, dark (live) > Move up: a draft entry, saved atomically with the structure the draft showed
+dev | HEL-1684 draft structure actions: phone, dark (live) > add step: a draft entry, saved atomically with the structure the draft showed
+dev | HEL-1684 draft structure actions: phone, dark (live) > duplicate step: a draft entry, saved atomically with the structure the draft showed
+dev | HEL-1684 draft structure actions: phone, dark (live) > insert step: a draft entry, saved atomically with the structure the draft showed
+dev | HEL-1684 draft structure actions: phone, light (live) > insert step: a draft entry, saved atomically with the structure the draft showed
+dev | HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) > Undo after saving an insert and a Move down restores the pre-draft structure, selection on a surviving step
+dev | HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) > [guard] a draft kept in the earlier format (deleted ids) still restores
+dev | HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) > a draft with an inserted step survives Back and Forward and is shown again
+dev | HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) > a kept draft with a new step over a base that changed is restored as stale; Reload keeps the step
+dev | HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) > deleting a step inserted after a step that has a tail removes the tail, and Save & run asks to confirm it by name
+dev | HEL-1685 draft polish (live) > 1280x800: Save & run that removes an Output requests no preview of it (item 7)
+dev | HEL-1685 draft polish (live) > 1280x800: a refused save's notice takes only its own height and the page does not scroll (item 4)
+dev | HEL-1685 draft polish (live) > 375px: an Output card's menu never takes a tap meant for the floating action bar (item 5)
+dev | HEL-1685 draft polish (live) > 430px: an Output card's menu never takes a tap meant for the floating action bar (item 5)
+dev | HEL-1685 draft polish (live) > 900px wide: with the Output section open the step editor shows its first input row with no inner scroll (addendum G)
+dev | HEL-1692 at 375 > G1 guard: no element on the handle's hit chain restricts a vertical pan
+dev | HEL-1692 at 375 > G2 guard: a vertical drag from Table header text scrolls the page
+dev | HEL-1692 at 375 > G2 guard: a vertical drag from a Table header resize handle scrolls the page
+dev | HEL-1692 at 375 > capped body: a downward drag in a vertically overflowing grid at scrollTop 0 chains to the page
+dev | HEL-1692 at 430 > G1 guard: no element on the handle's hit chain restricts a vertical pan
+dev | HEL-1692 at 430 > G2 guard: a vertical drag from Table header text scrolls the page
+dev | HEL-1692 at 430 > G2 guard: a vertical drag from a Table header resize handle scrolls the page
+dev | HEL-1692 at 430 > capped body: a downward drag in a vertically overflowing grid at scrollTop 0 chains to the page
+dev | HEL-1692 desktop resize > G3 guard: a mouse drag on a resize handle still widens the column
+dev | HEL-1704 narrow-desktop step preview title (live) > with the Output section open, the preview title and the editor's first condition row both stay visible
+dev | HEL-1705 live Output column > D: an unfocused server-resolved Output refreshes from the one draft-preview request
+dev | HEL-1705 live Output column > E: plain-chart LATEST tile and the compare overlay, desktop and phone (dark)
+dev | HEL-1705 live Output column > E: plain-chart LATEST tile and the compare overlay, desktop and phone (light)
+dev | HEL-1705 live Output column > H: a saved table panel and the live column lay columns out in the Output's schema order
+dev | HEL-1733 draft Outputs and shapes: desktop, dark (live) > create Output on a saved step: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs and shapes: desktop, light (live) > Discard drops a created Output with no request
+dev | HEL-1733 draft Outputs and shapes: desktop, light (live) > aggregate tail: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs and shapes: desktop, light (live) > create Output on a draft-new step: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs and shapes: desktop, light (live) > create Output on a saved step: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs and shapes: desktop, light (live) > create Output on the root: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs and shapes: desktop, light (live) > delete an Output bound to a panel: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs and shapes: desktop, light (live) > delete an Output created in the draft: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs and shapes: desktop, light (live) > edit an Output: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs and shapes: desktop, light (live) > shape: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs and shapes: phone, dark (live) > aggregate tail: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs and shapes: phone, dark (live) > create Output on a draft-new step: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs and shapes: phone, dark (live) > create Output on a saved step: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs and shapes: phone, dark (live) > create Output on the root: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs and shapes: phone, dark (live) > delete an Output bound to a panel: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs and shapes: phone, dark (live) > delete an Output created in the draft: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs and shapes: phone, dark (live) > edit an Output: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs and shapes: phone, dark (live) > shape: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs and shapes: phone, light (live) > create Output on a saved step: a draft entry, saved atomically
+dev | HEL-1733 draft Outputs: kept drafts, stale base, undo, the draft-aware sheet, a shape with an Output (live) > (stubbed /expand) a shape with an Output is one draft entry: the step and the Output are saved together
+dev | HEL-1733 draft Outputs: kept drafts, stale base, undo, the draft-aware sheet, a shape with an Output (live) > Undo after saving a created Output and an edit of it restores the prior Outputs
+dev | HEL-1733 draft Outputs: kept drafts, stale base, undo, the draft-aware sheet, a shape with an Output (live) > [guard] a draft kept in the v2 format (no Outputs in it) restores, and is NOT stale
+dev | HEL-1733 draft Outputs: kept drafts, stale base, undo, the draft-aware sheet, a shape with an Output (live) > a draft with a created Output survives Back and Forward and shows it again
+dev | HEL-1733 draft Outputs: kept drafts, stale base, undo, the draft-aware sheet, a shape with an Output (live) > a stale base keeps an Output edit: Reload re-applies it and Save & run sends it
+dev | HEL-1733 draft Outputs: kept drafts, stale base, undo, the draft-aware sheet, a shape with an Output (live) > the sheet on a draft-new step lists the draft's columns from the server projection and names no draft id in any request
+dev | HEL-1733 draft Outputs: the Live Output column, Discard of everything, the type seam (live) > Discard drops a created Output, an edit, a delete, a shape and an aggregate tail at once, with no request
+dev | HEL-1733 draft Outputs: the Live Output column, Discard of everything, the type seam (live) > the Live Output column renders a created Output from the draft rows and requests nothing by its client id
+dev | HEL-1733 draft Outputs: the Live Output column, Discard of everything, the type seam (live) > the sheet's histogram field follows the DRAFT's column types from the real analyze-proposal: a draft cast makes a text column offerable
+dev | HEL-1733 the sheet's draft hint is read before Save: desktop, dark (live) > create and edit mode show it in view, spaced from the fields
+dev | HEL-1733 the sheet's draft hint is read before Save: desktop, light (live) > create and edit mode show it in view, spaced from the fields
+dev | HEL-1733 the sheet's draft hint is read before Save: phone, dark (live) > create and edit mode show it in view, spaced from the fields
+dev | HEL-1733 the sheet's draft hint is read before Save: phone, light (live) > create and edit mode show it in view, spaced from the fields
+dev | HEL-1734 draft roots (live) > Discard drops a drafted source and a drafted removal: no root request is made
+dev | HEL-1734 draft roots (live) > a kept draft restores a drafted add and a drafted removal after a reload, and saves them
+dev | HEL-1734 draft roots (live) > a stale base (another writer added a source) keeps the drafted source through Reload, then saves
+dev | HEL-1734 draft roots (live) > desktop dark: the drafted source card and the drafted removal read as draft changes (screenshots)
+dev | HEL-1734 draft roots (live) > desktop light: add a source in a draft, see it, and Save & run sends it in ONE draft/save
+dev | HEL-1734 draft roots (live) > desktop light: remove a source in a draft, confirm the cascade, and Save & run removes it
+dev | HEL-1734 draft roots (live) > desktop light: the drafted source card and the drafted removal read as draft changes (screenshots)
+dev | HEL-1734 draft roots (live) > phone dark: add a source in a draft, see it, and Save & run sends it in ONE draft/save
+dev | HEL-1734 draft roots (live) > phone dark: remove a source in a draft, confirm the cascade, and Save & run removes it
+dev | HEL-1734 draft roots (live) > phone dark: the drafted source card and the drafted removal read as draft changes (screenshots)
+dev | HEL-1734 draft roots (live) > phone light: the drafted source card and the drafted removal read as draft changes (screenshots)
+dev | HEL-1738 desktop browser at 375 (non-touch), dark > a press during the first load queues exactly one refresh per panel, held busy until it settles
+dev | HEL-1738 desktop browser at 375 (non-touch), light > a press during the first load queues exactly one refresh per panel, held busy until it settles
+dev | HEL-1738 phone 375, dark > a press during the first load queues exactly one refresh per panel, held busy until it settles
+dev | HEL-1738 phone 375, light > a press during the first load queues exactly one refresh per panel, held busy until it settles
+dev | HEL-1738 phone 430, dark > a press during the first load queues exactly one refresh per panel, held busy until it settles
+dev | HEL-1738 phone 430, light > a press during the first load queues exactly one refresh per panel, held busy until it settles
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 1024px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 1280px: one bar spans the one-line sentence
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 1280px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 320px: bars are 0.8em thick, >= 8px apart, with rounded ends
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 320px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 375px: bars are 0.8em thick, >= 8px apart, with rounded ends
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 375px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 430px: bars are 0.8em thick, >= 8px apart, with rounded ends
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 430px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 431px: bars are 0.8em thick, >= 8px apart, with rounded ends
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 431px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 480px: bars are 0.8em thick, >= 8px apart, with rounded ends
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 480px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 500px: bars are 0.8em thick, >= 8px apart, with rounded ends
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 540px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 604px: bars are 0.8em thick, >= 8px apart, with rounded ends
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 604px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark 605px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark mono 1280px: one fragment per line
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark reduced motion (off): flat fill, still one bar per line
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark reduced motion (os): flat fill, still one bar per line
+dev | HEL-1749 home opening skeleton lines (dark) > HEL-1749 dark serif 1280px: one fragment per line
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 1024px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 1280px: one bar spans the one-line sentence
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 1280px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 320px: bars are 0.8em thick, >= 8px apart, with rounded ends
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 320px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 375px: bars are 0.8em thick, >= 8px apart, with rounded ends
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 375px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 430px: bars are 0.8em thick, >= 8px apart, with rounded ends
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 430px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 431px: bars are 0.8em thick, >= 8px apart, with rounded ends
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 431px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 480px: bars are 0.8em thick, >= 8px apart, with rounded ends
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 480px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 500px: bars are 0.8em thick, >= 8px apart, with rounded ends
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 540px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 604px: bars are 0.8em thick, >= 8px apart, with rounded ends
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 604px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light 605px: one painted bar fragment per line of the hidden sentence
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light mono 1280px: one fragment per line
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light reduced motion (off): flat fill, still one bar per line
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light reduced motion (os): flat fill, still one bar per line
+dev | HEL-1749 home opening skeleton lines (light) > HEL-1749 light serif 1280px: one fragment per line
+dev | HEL-1750 actions menu fits the viewport > desktop: last dashboard-list row's menu is fully reachable in a short viewport
+dev | HEL-1750 actions menu fits the viewport > phone > phone (short, touch-sized): the step sheet's Step actions menu is fully reachable
+dev | HEL-1752 Output editor footer fit: 375px, dark > confirm delete keeps its full label inside its button
+dev | HEL-1752 Output editor footer fit: 375px, dark > create mode: Add as tail with aggregate is contained, not squeezed
+dev | HEL-1752 Output editor footer fit: 375px, light > confirm delete keeps its full label inside its button
+dev | HEL-1752 Output editor footer fit: 375px, light > create mode: Add as tail with aggregate is contained, not squeezed
+dev | HEL-1752 Output editor footer: desktop 1280x800 unchanged > confirm state: one row of single-line --control-md buttons
+dev | HEL-1752 Output editor footer: desktop 1280x800 unchanged > create mode with add-tail: one row of single-line --control-md buttons
+dev | HEL-1757 committed copy guard > every css2 URL in the app HTML entries has a committed stylesheet
+dev | HEL-1757 committed copy guard > every font file a committed stylesheet references is committed
+dev | HEL-1757 committed copy guard > no e2e file requests a fonts host from Node
+dev | HEL-1757 web fonts are served locally > a bare page.goto completes with the upstream stalled, and the web faces rasterise
+dev | HEL-1757 web fonts are served locally > the same in a context the spec creates itself
+dev | HEL-1757 web fonts are served locally > the same with a page route that continues every request
+dev | HEL-1759 desktop dark > actions menu: Shift+Tab from the first item closes it and focuses its trigger
+dev | HEL-1759 desktop dark > actions menu: forward Tab off the last item closes it and moves on to the next control
+dev | HEL-1759 desktop dark > appearance editor: Shift+Tab from the first preset closes it and focuses its trigger
+dev | HEL-1759 desktop dark > appearance editor: a failed keyboard save keeps it open, the pick intact and focus on Save
+dev | HEL-1759 desktop dark > appearance editor: forward Tab off Save closes it and moves on to the next control
+dev | HEL-1759 desktop light > actions menu: Shift+Tab from the first item closes it and focuses its trigger
+dev | HEL-1759 desktop light > actions menu: forward Tab off the last item closes it and moves on to the next control
+dev | HEL-1759 desktop light > appearance editor: Shift+Tab from the first preset closes it and focuses its trigger
+dev | HEL-1759 desktop light > appearance editor: a failed keyboard save keeps it open, the pick intact and focus on Save
+dev | HEL-1759 desktop light > appearance editor: forward Tab off Save closes it and moves on to the next control
+dev | HEL-1759 phone dark > actions menu: Shift+Tab from the first item closes it and focuses its trigger
+dev | HEL-1759 phone dark > actions menu: forward Tab off the last item closes it and moves on to the next control
+dev | HEL-1759 phone dark > appearance editor: Shift+Tab from the first preset closes it and focuses its trigger
+dev | HEL-1759 phone dark > appearance editor: a failed keyboard save keeps it open, the pick intact and focus on Save
+dev | HEL-1759 phone dark > appearance editor: forward Tab off Save closes it and moves on to the next control
+dev | HEL-1759 phone light > actions menu: Shift+Tab from the first item closes it and focuses its trigger
+dev | HEL-1759 phone light > actions menu: forward Tab off the last item closes it and moves on to the next control
+dev | HEL-1759 phone light > appearance editor: Shift+Tab from the first preset closes it and focuses its trigger
+dev | HEL-1759 phone light > appearance editor: a failed keyboard save keeps it open, the pick intact and focus on Save
+dev | HEL-1759 phone light > appearance editor: forward Tab off Save closes it and moves on to the next control
+dev | HEL-1763 Output editor chart preview: desktop 1280x800 > the canvas renders non-empty inside its preview wrapper and the dialog stays bounded
+dev | HEL-1763 Output editor scroll extent: 375x812, dark > the dialog and its body end at their content
+dev | HEL-1763 Output editor scroll extent: 375x812, light > the dialog and its body end at their content
+dev | HEL-1763 Output editor scroll extent: 390x844, dark > the dialog and its body end at their content
+dev | HEL-1763 Output editor scroll extent: 390x844, light > the dialog and its body end at their content
+dev | HEL-1773 dashboard grantees open a shared dashboard > editor grantee edits within what the server permits, through per-panel routes only
+dev | HEL-1773 dashboard grantees open a shared dashboard > editor: switching from a shared dashboard to an owned one binding the same Output shows its facts
+dev | HEL-1773 dashboard grantees open a shared dashboard > owner control: the owner is unchanged (edit controls, no Shared marker)
+dev | HEL-1773 dashboard grantees open a shared dashboard > stranger control: a user with no grant gets not-found
+dev | HEL-1773 dashboard grantees open a shared dashboard > viewer grantee opens the shared dashboard on a phone
+dev | HEL-1773 dashboard grantees open a shared dashboard > viewer grantee opens the shared dashboard read-only, through per-panel routes only
+dev | HEL-1773 dashboard grantees open a shared dashboard > viewer grantee: Home lists the shared dashboard with the Shared marker
+dev | HEL-1773 dashboard grantees open a shared dashboard > viewer grantee: signing in lands on their own dashboard, not a newer shared one
+dev | HEL-1774 modal scroll extent (dashboard-dialogs): 1280x800, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (dashboard-dialogs): 1280x800, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (dashboard-dialogs): 375x812, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (dashboard-dialogs): 375x812, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (dashboard-dialogs): 390x844, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (dashboard-dialogs): 390x844, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (dashboard-panels): 1280x800, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (dashboard-panels): 1280x800, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (dashboard-panels): 375x812, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (dashboard-panels): 375x812, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (dashboard-panels): 390x844, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (dashboard-panels): 390x844, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-dialogs): 1280x800, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-dialogs): 1280x800, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-dialogs): 375x812, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-dialogs): 375x812, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-dialogs): 390x844, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-dialogs): 390x844, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-editor): 1280x800, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-editor): 1280x800, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-editor): 375x812, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-editor): 375x812, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-editor): 390x844, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-editor): 390x844, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-palettes): 1280x800, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-palettes): 1280x800, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-palettes): 375x812, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-palettes): 375x812, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-palettes): 390x844, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (pipeline-palettes): 390x844, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (shell): 1280x800, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (shell): 1280x800, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (shell): 375x812, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (shell): 375x812, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (shell): 390x844, dark > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 modal scroll extent (shell): 390x844, light > every modal in the group ends at its content, natural and with an injected hidden element
+dev | HEL-1774 popover inside a modal: 1280x800 > the Select listbox opens adjacent to its trigger
+dev | HEL-1774 popover inside a modal: 375x812 > the Select listbox opens adjacent to its trigger
+dev | HEL-1775 editor chart fills its card: 1280x800, dark > the canvas height equals the 240px preview card's content height
+dev | HEL-1775 editor chart fills its card: 1280x800, light > the canvas height equals the 240px preview card's content height
+dev | HEL-1775 editor chart fills its card: 375x812, dark > the canvas height equals the 240px preview card's content height
+dev | HEL-1775 editor chart fills its card: 375x812, light > the canvas height equals the 240px preview card's content height
+dev | HEL-1780 grantees get panel features through per-panel routes > dual-grant user (pipeline grant AND dashboard grant): per-panel routes on the shared dashboard
+dev | HEL-1780 grantees get panel features through per-panel routes > editor (dashboard-only): every feature, and the binding stays read-only
+dev | HEL-1780 grantees get panel features through per-panel routes > switch shared -> own -> shared: no request goes out under the wrong role
+dev | HEL-1780 grantees get panel features through per-panel routes > viewer (dashboard-only): every feature through per-panel routes
+dev | HEL-1780 grantees get panel features through per-panel routes > viewer: the same dashboard on a phone
+dev | HEL-1781 ask about a shared dashboard > editor with no pipeline grant: asks and sees no pin
+dev | HEL-1781 ask about a shared dashboard > free-tier grantee: the upsell, and no ask request
+dev | HEL-1781 ask about a shared dashboard > owner regression: the chip still reads the Output provenance route and a pin is offered
+dev | HEL-1781 ask about a shared dashboard > viewer (desktop): asks, sees a cited answer and no pin, opens provenance through the per-panel route only
+dev | HEL-1781 ask about a shared dashboard > viewer (phone): asks, sees a cited answer and no pin, opens provenance through the per-panel route only
+dev | HEL-1782 read-only viewer shell > Home and the sidebar entry offer the first-run drop zone to a shared-only user
+dev | HEL-1782 read-only viewer shell > a user who owns nothing lands on the newest shared dashboard, read-only
+dev | HEL-1782 read-only viewer shell > editor on a phone: no View only, no Share on the shared row
+dev | HEL-1782 read-only viewer shell > the owner sees no View only and no Build your own entry
+dev | HEL-1782 read-only viewer shell > viewer on a phone: View only on the meta line, one Shared badge, refresh on per-panel routes
+dev | HEL-1783 a grantee's shared dashboard tab is warm and shows data-change dots > warm switch and reload make no panel requests; new data shows the dot and refreshes through the per-panel route
+dev | HEL-1784 editors submit form panels > a direct submit: the owner's response carries seq, the editor's does not
+dev | HEL-1784 editors submit form panels > a stranger sees Dashboard not found and a direct submit is 404
+dev | HEL-1784 editors submit form panels > a viewer sees no submit control and a direct submit is 403
+dev | HEL-1784 editors submit form panels > an editor submits the note form through the UI and the row lands on the owner's source
+dev | HEL-1784 editors submit form panels > an editor's compact counter is enabled and + lands a row, with no dataset read
+dev | HEL-1784 editors submit form panels > the form-schema route returns only the bound fields to an editor, and 403 to a viewer
+dev | HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge > editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only
+dev | HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge > viewer on a phone: the refreshed caption and the Refresh dashboard control
+dev | HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge > viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only
+dev | HEL-287 httpOnly-cookie session migration > CSRF: a mutating request without the header is rejected (403); with the header, it succeeds
+dev | HEL-287 httpOnly-cookie session migration > OAuth callback (network-intercepted exchange): sets the cookie, no token in sessionStorage
+dev | HEL-287 httpOnly-cookie session migration > PAT bearer auth (helio-mcp-style) still authenticates unchanged, independent of the session cookie
+dev | HEL-287 httpOnly-cookie session migration > authenticated GET succeeds via the cookie alone, and never via a manual Authorization header
+dev | HEL-287 httpOnly-cookie session migration > login: sets the session cookie, response body has no token, sessionStorage stays empty
+dev | HEL-287 httpOnly-cookie session migration > logout clears the cookie; a subsequent authenticated request returns 401
+dev | HEL-287 httpOnly-cookie session migration > pipeline run-events SSE endpoint authenticates via the session cookie alone (not a header)
+dev | HEL-287 httpOnly-cookie session migration > register: sets an HttpOnly session cookie, response body has no token, sessionStorage stays empty
+dev | HEL-503 global resource search — the / route, primary acceptance test > searching for a dashboard by name selects it without leaving /
+dev | HEL-503 global resource search — the / route, primary acceptance test > searching for a source and a pipeline on / with NO prior navigation finds both
+dev | HEL-503 global resource search — the / route, primary acceptance test > searching for an output on / with NO prior navigation finds it, and selecting it opens the pipeline sheet
+dev | HEL-503 global resource search — the / route, primary acceptance test > selecting a source result navigates to its detail page from /
+dev | HEL-503 global resource search — the / route, primary acceptance test > the overflow notice is unreachable by keyboard, unclickable, and aligned with icon rows
+dev | HEL-503 global resource search — the / route, primary acceptance test > the palette names which kinds are still loading immediately after opening, on a slow network
+dev | HEL-510 keyboard-shortcut help overlay > ? does nothing while focus is in a text input
+dev | HEL-510 keyboard-shortcut help overlay > ? does nothing while the command palette is already open
+dev | HEL-510 keyboard-shortcut help overlay > ? opens the help overlay from an authenticated route
+dev | HEL-510 keyboard-shortcut help overlay > ? overlay's row list has no inherited UA list spacing (list-style/margin/padding reset)
+dev | HEL-510 keyboard-shortcut help overlay > Cmd/Ctrl+K still opens the palette while the palette is already open
+dev | HEL-510 keyboard-shortcut help overlay > Esc closes the overlay and restores focus to the previously-focused element
+dev | HEL-510 keyboard-shortcut help overlay > Tab/Shift+Tab stay inside the overlay
+dev | HEL-516 design.md D3a — the StrictMode-masked production defect, positive direction > Add source opens IN PLACE on /sources/:id (a sibling route, not a child of /sources)
+dev | HEL-516 design.md D3b — OutputPicker parity between / and off-route > an Output already placed via / shows the SAME 'On this board' marking when the picker is reopened off-route
+dev | HEL-516 palette quick-create — never presented twice > Add panel on ITS OWN route (/) still shows exactly one dialog
+dev | HEL-516 palette quick-create — never presented twice > Add source on ITS OWN route (/sources) still shows exactly one dialog
+dev | HEL-516 palette quick-create — never presented twice > Add source while a NESTED AddSourceModal (from CreatePipelineModal) is already open still shows exactly one dialog
+dev | HEL-516 palette quick-create — reach > Add panel opens in place from /pipelines (host NOT mounted there)
+dev | HEL-516 palette quick-create — reach > Add source opens in place from /pipelines (host NOT mounted there)
+dev | HEL-516 palette quick-create — reach > New dashboard creates immediately from /pipelines, with no navigation
+dev | HEL-516 palette quick-create — reach > New pipeline opens in place from /sources (host NOT mounted there)
+dev | HEL-516 palette quick-create — section order determinism > section order is identical across 5 independent fresh page loads
+dev | HEL-519 recent navigation — recording fires in a real browser > a fresh profile shows no Recent section, and the default sections still render
+dev | HEL-519 recent navigation — recording fires in a real browser > a full reload's auto-selected dashboard is recorded under Recent
+dev | HEL-519 recent navigation — recording fires in a real browser > a source visited earlier renders under Recent on / after a full reload
+dev | HEL-519 recent navigation — recording fires in a real browser > arriving at a pipeline via direct URL records it under Recent
+dev | HEL-519 recent navigation — recording fires in a real browser > back/forward between two pipelines records BOTH under Recent
+dev | HEL-519 recent navigation — recording fires in a real browser > selecting a recent entry from the palette navigates, and persists across reload
+dev | HEL-519 recent navigation — recording fires in a real browser > typing a query hides the Recent section
+dev | HEL-519 recent navigation — recording fires in a real browser > visiting a source from its list records it under Recent
+dev | HEL-520 focus-presence guard (AC2) > every focusable element on /dashboards presents an unclipped, conforming focus indicator (dark)
+dev | HEL-520 focus-presence guard (AC2) > every focusable element on /dashboards presents an unclipped, conforming focus indicator (light)
+dev | HEL-520 focus-presence guard (AC2) > every focusable element on /home presents an unclipped, conforming focus indicator (dark)
+dev | HEL-520 focus-presence guard (AC2) > every focusable element on /home presents an unclipped, conforming focus indicator (light)
+dev | HEL-520 focus-presence guard (AC2) > every focusable element on /settings presents an unclipped, conforming focus indicator (dark)
+dev | HEL-520 focus-presence guard (AC2) > every focusable element on /settings presents an unclipped, conforming focus indicator (light)
+dev | HEL-520 focus-presence guard (AC2) > every focusable element on /sources presents an unclipped, conforming focus indicator (dark)
+dev | HEL-520 focus-presence guard (AC2) > every focusable element on /sources presents an unclipped, conforming focus indicator (light)
+dev | HEL-520 focus-presence guard (AC2) > every focusable element on pipeline-detail presents an unclipped, conforming focus indicator (dark)
+dev | HEL-520 focus-presence guard (AC2) > every focusable element on pipeline-detail presents an unclipped, conforming focus indicator (light)
+dev | HEL-520 focus-presence guard (AC2) > every focusable element on source-detail presents an unclipped, conforming focus indicator (dark)
+dev | HEL-520 focus-presence guard (AC2) > every focusable element on source-detail presents an unclipped, conforming focus indicator (light)
+dev | HEL-572 chart click drilldown (real backend, real browser) > ActionsMenu Inspect entry still works with NO stored appearance.chart (tasks.md 6.5, HEL-1178)
+dev | HEL-572 chart click drilldown (real backend, real browser) > clicking inside Fullscreen opens Inspect nested on top; Escape closes only Inspect (tasks.md 4.3)
+dev | HEL-572 chart click drilldown (real backend, real browser) > keyboard-only: ActionsMenu Inspect opens the view with focus inside it (tasks.md 5.2)
+dev | HEL-588 cross-filter panels (real backend, real browser) > CrossFilterIndicator renders correctly across breakpoints and both themes (evaluation-1.md CR3)
+dev | HEL-588 cross-filter panels (real backend, real browser) > a cross-filtered Table panel's truncation disclosure matches its actually-rendered rows when > 200 rows are loaded
+dev | HEL-588 cross-filter panels (real backend, real browser) > filtering by a chart selection narrows a Table-kind sibling panel's ACTUAL rendered rows (evaluation-1.md CR1/CR2)
+dev | HEL-588 cross-filter panels (real backend, real browser) > grid and Fullscreen Inspect agree on row content for a dimension-mismatch panel under an active cross-filter (evaluation-3.md CR1-CR3)
+dev | HEL-773 top-anchored mobile nav sheet — live verification > direction change reads as anchored on a create-action section at 375px, dark theme
+dev | HEL-773 top-anchored mobile nav sheet — live verification > direction change reads as anchored on a create-action section at 375px, light theme
+dev | HEL-773 top-anchored mobile nav sheet — live verification > direction change reads as anchored on a create-action section at 430px, dark theme
+dev | HEL-773 top-anchored mobile nav sheet — live verification > direction change reads as anchored on a create-action section at 430px, light theme
+dev | HEL-773 top-anchored mobile nav sheet — live verification > every row, the header create action, the empty-branch CTA, and the drag strip compute to >=44px at 430 and 768
+dev | HEL-773 top-anchored mobile nav sheet — live verification > prefers-reduced-motion: reduce disables the entrance on the panel, wrapper, and backdrop
+dev | HEL-773 top-anchored mobile nav sheet — live verification > sheet top tracks --app-safe-top at 0/47/59px, forced on document.documentElement only
+dev | HEL-773 top-anchored mobile nav sheet — live verification > the command bar is never overlapped or dimmed by the sheet or its scrim, at any frame
+dev | HEL-773 top-anchored mobile nav sheet — live verification > the drag strip's bottom edge sits above the floating bottom nav's top edge at 430px
+dev | HEL-773 top-anchored mobile nav sheet — live verification > the header create action's icon renders at ~1em, not the lucide SVG's intrinsic 24px, in both themes
+dev | HEL-773 top-anchored mobile nav sheet — live verification > the sheet reopens on the first tap after a create action fires from it (dashboards and sources)
+dev | HEL-813 mobile touch-target floor guard > at 430px [mono] > surface 1: mobile nav sheet / command bar
+dev | HEL-813 mobile touch-target floor guard > at 430px [mono] > surface 2 + D4 discriminator: settings preferences color swatch row
+dev | HEL-813 mobile touch-target floor guard > at 430px [mono] > surface 3: toast dismiss control
+dev | HEL-813 mobile touch-target floor guard > at 430px [mono] > surface 4: empty-state CTA
+dev | HEL-813 mobile touch-target floor guard > at 430px [mono] > surface 5: ui-select trigger + option list
+dev | HEL-813 mobile touch-target floor guard > at 430px [mono] > surface 6: panel-list zoom + dashboard-actions controls
+dev | HEL-813 mobile touch-target floor guard > at 430px [mono] > surface 7: Connectors page
+dev | HEL-813 mobile touch-target floor guard > at 430px [sans] > surface 1: mobile nav sheet / command bar
+dev | HEL-813 mobile touch-target floor guard > at 430px [sans] > surface 2 + D4 discriminator: settings preferences color swatch row
+dev | HEL-813 mobile touch-target floor guard > at 430px [sans] > surface 3: toast dismiss control
+dev | HEL-813 mobile touch-target floor guard > at 430px [sans] > surface 4: empty-state CTA
+dev | HEL-813 mobile touch-target floor guard > at 430px [sans] > surface 5: ui-select trigger + option list
+dev | HEL-813 mobile touch-target floor guard > at 430px [sans] > surface 6: panel-list zoom + dashboard-actions controls
+dev | HEL-813 mobile touch-target floor guard > at 430px [sans] > surface 7: Connectors page
+dev | HEL-813 mobile touch-target floor guard > at 768px [mono] > surface 1: mobile nav sheet / command bar
+dev | HEL-813 mobile touch-target floor guard > at 768px [mono] > surface 2 + D4 discriminator: settings preferences color swatch row
+dev | HEL-813 mobile touch-target floor guard > at 768px [mono] > surface 3: toast dismiss control
+dev | HEL-813 mobile touch-target floor guard > at 768px [mono] > surface 4: empty-state CTA
+dev | HEL-813 mobile touch-target floor guard > at 768px [mono] > surface 5: ui-select trigger + option list
+dev | HEL-813 mobile touch-target floor guard > at 768px [mono] > surface 6: panel-list zoom + dashboard-actions controls
+dev | HEL-813 mobile touch-target floor guard > at 768px [mono] > surface 7: Connectors page
+dev | HEL-813 mobile touch-target floor guard > at 768px [sans] > surface 1: mobile nav sheet / command bar
+dev | HEL-813 mobile touch-target floor guard > at 768px [sans] > surface 2 + D4 discriminator: settings preferences color swatch row
+dev | HEL-813 mobile touch-target floor guard > at 768px [sans] > surface 3: toast dismiss control
+dev | HEL-813 mobile touch-target floor guard > at 768px [sans] > surface 4: empty-state CTA
+dev | HEL-813 mobile touch-target floor guard > at 768px [sans] > surface 5: ui-select trigger + option list
+dev | HEL-813 mobile touch-target floor guard > at 768px [sans] > surface 6: panel-list zoom + dashboard-actions controls
+dev | HEL-813 mobile touch-target floor guard > at 768px [sans] > surface 7: Connectors page
+dev | HEL-866 state-surface contrast guard > /chat: every interactive state background differs measurably from its resolved backdrop (dark)
+dev | HEL-866 state-surface contrast guard > /chat: every interactive state background differs measurably from its resolved backdrop (light)
+dev | HEL-866 state-surface contrast guard > /connectors: every interactive state background differs measurably from its resolved backdrop (dark)
+dev | HEL-866 state-surface contrast guard > /connectors: every interactive state background differs measurably from its resolved backdrop (light)
+dev | HEL-866 state-surface contrast guard > /dashboards: every interactive state background differs measurably from its resolved backdrop (dark)
+dev | HEL-866 state-surface contrast guard > /dashboards: every interactive state background differs measurably from its resolved backdrop (light)
+dev | HEL-866 state-surface contrast guard > /home: every interactive state background differs measurably from its resolved backdrop (dark)
+dev | HEL-866 state-surface contrast guard > /home: every interactive state background differs measurably from its resolved backdrop (light)
+dev | HEL-866 state-surface contrast guard > /pipelines: every interactive state background differs measurably from its resolved backdrop (dark)
+dev | HEL-866 state-surface contrast guard > /pipelines: every interactive state background differs measurably from its resolved backdrop (light)
+dev | HEL-866 state-surface contrast guard > /settings: every interactive state background differs measurably from its resolved backdrop (dark)
+dev | HEL-866 state-surface contrast guard > /settings: every interactive state background differs measurably from its resolved backdrop (light)
+dev | HEL-866 state-surface contrast guard > /sources: every interactive state background differs measurably from its resolved backdrop (dark)
+dev | HEL-866 state-surface contrast guard > /sources: every interactive state background differs measurably from its resolved backdrop (light)
+dev | HEL-866 state-surface contrast guard > chrome: every interactive state background differs measurably from its resolved backdrop (dark)
+dev | HEL-866 state-surface contrast guard > chrome: every interactive state background differs measurably from its resolved backdrop (light)
+dev | HEL-866 state-surface contrast guard > overlays: command palette, modal and actions menu state backgrounds differ measurably from their backdrop (dark)
+dev | HEL-866 state-surface contrast guard > overlays: command palette, modal and actions menu state backgrounds differ measurably from their backdrop (light)
+dev | HEL-866 state-surface contrast guard > pipeline-detail: every interactive state background differs measurably from its resolved backdrop (dark)
+dev | HEL-866 state-surface contrast guard > pipeline-detail: every interactive state background differs measurably from its resolved backdrop (light)
+dev | HEL-908 PipelineDetailPage/StepCard split live verification > initial load fires /analyze once; reorder/duplicate/toggle/run all work
+dev | HEL-908 trunk-to-trunk reorder — real drag gesture > dragging a tailed trunk node to a new position carries its tail with it
+dev | HEL-908 trunk-to-trunk reorder — real order assertion > reordering 3 distinct trunk steps via the UI actually changes their visible order
+dev | HEL-910 place an already-existing Output on a dashboard (<= 2 interactions) > empty-state 'Add panel' CTA -> click the Output card places it
+dev | HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof) > New pipeline with a manually-entered ('pasted') table -> three table Outputs -> all placed on a dashboard
+dev | HEL-958 join step editor > a join built in the UI runs and yields joined rows with a right_<name> collision column
+dev | History view: scrub, changed-rows highlight, summary-only point (dark)
+dev | History view: scrub, changed-rows highlight, summary-only point (light)
+dev | Home at 1280px (dark): shelf keeps 4 columns
+dev | Home at 1280px (light): shelf keeps 4 columns
+dev | Home at 1280px: the default opening sentence is 1 line(s)
+dev | Home at 1280x900 (dark) with a 24px default font size: no horizontal scroll, timeline does not move
+dev | Home at 1280x900 (light) with a 24px default font size: no horizontal scroll, timeline does not move
+dev | Home at 375px (dark): where the run timeline starts below the four shelf cards
+dev | Home at 375px (light): where the run timeline starts below the four shelf cards
+dev | Home at 375px: the All N and +N more links keep a 44px hit region without a 44px box
+dev | Home at 375px: the default opening sentence is 2 line(s)
+dev | Home at 375x667 (dark): the timeline heading and the top of the first row are above the bottom nav (guard)
+dev | Home at 375x667 (dark): timeline starts above the bottom nav (info only)
+dev | Home at 375x667 (light): the timeline heading and the top of the first row are above the bottom nav (guard)
+dev | Home at 375x667 (light): timeline starts above the bottom nav (info only)
+dev | Home at 375x800 (dark): timeline starts above the bottom nav
+dev | Home at 375x800 (light): timeline starts above the bottom nav
+dev | Home at 375x812 (dark) with a 24px default font size: no horizontal scroll, timeline does not move
+dev | Home at 375x812 (light) with a 24px default font size: no horizontal scroll, timeline does not move
+dev | Home at 430px (dark): where the run timeline starts below the four shelf cards
+dev | Home at 430px (light): where the run timeline starts below the four shelf cards
+dev | Home at 430px: the default opening sentence is 2 line(s)
+dev | Home at 430x800 (dark): timeline starts above the bottom nav
+dev | Home at 430x800 (light): timeline starts above the bottom nav
+dev | Home at 480px: the default opening sentence is 2 line(s)
+dev | Home at 604px: the default opening sentence is 2 line(s)
+dev | Home at 605px: the default opening sentence is 1 line(s)
+dev | Home at 768px: the default opening sentence is 1 line(s)
+dev | Home at 820px (dark): shelf keeps 2 columns
+dev | Home at 820px (light): shelf keeps 2 columns
+dev | Home at 820px: the default opening sentence is 1 line(s)
+dev | Home data before the web font (1024x900 dark): the timeline does not move when the font arrives
+dev | Home data before the web font (1024x900 light): the timeline does not move when the font arrives
+dev | Home data before the web font (1280x900 dark): the timeline does not move when the font arrives
+dev | Home data before the web font (1280x900 light): the timeline does not move when the font arrives
+dev | Home data before the web font (1440x900 dark): the timeline does not move when the font arrives
+dev | Home data before the web font (1440x900 light): the timeline does not move when the font arrives
+dev | Home load (1024x900 dark dashboards-first): the timeline and the shelf do not move
+dev | Home load (1024x900 dark summary-first): the timeline and the shelf do not move
+dev | Home load (1024x900 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (1024x900 light summary-first): the timeline and the shelf do not move
+dev | Home load (1280x900 dark dashboards-first): the timeline and the shelf do not move
+dev | Home load (1280x900 dark summary-first): the timeline and the shelf do not move
+dev | Home load (1280x900 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (1280x900 light summary-first): the timeline and the shelf do not move
+dev | Home load (1440x900 dark dashboards-first): the timeline and the shelf do not move
+dev | Home load (1440x900 dark summary-first): the timeline and the shelf do not move
+dev | Home load (1440x900 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (1440x900 light summary-first): the timeline and the shelf do not move
+dev | Home load (375x667 dark dashboards-first): the timeline and the shelf do not move
+dev | Home load (375x667 dark summary-first): the timeline and the shelf do not move
+dev | Home load (375x667 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (375x667 light summary-first): the timeline and the shelf do not move
+dev | Home load (375x667 light): a longer opening sentence moves the timeline by its extra lines only
+dev | Home load (375x812 dark dashboards-first): the timeline and the shelf do not move
+dev | Home load (375x812 dark summary-first): the timeline and the shelf do not move
+dev | Home load (375x812 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (375x812 light summary-first): the timeline and the shelf do not move
+dev | Home load (430x932 dark dashboards-first): the timeline and the shelf do not move
+dev | Home load (430x932 dark summary-first): the timeline and the shelf do not move
+dev | Home load (430x932 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (430x932 light summary-first): the timeline and the shelf do not move
+dev | Home load (480x900 dark dashboards-first): the timeline and the shelf do not move
+dev | Home load (480x900 dark summary-first): the timeline and the shelf do not move
+dev | Home load (480x900 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (480x900 light summary-first): the timeline and the shelf do not move
+dev | Home load (540x900 dark dashboards-first): the timeline and the shelf do not move
+dev | Home load (540x900 dark summary-first): the timeline and the shelf do not move
+dev | Home load (540x900 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (540x900 light summary-first): the timeline and the shelf do not move
+dev | Home load (605x900 dark dashboards-first): the timeline and the shelf do not move
+dev | Home load (605x900 dark summary-first): the timeline and the shelf do not move
+dev | Home load (605x900 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (605x900 light summary-first): the timeline and the shelf do not move
+dev | Home load (606x900 dark dashboards-first): the timeline and the shelf do not move
+dev | Home load (606x900 dark summary-first): the timeline and the shelf do not move
+dev | Home load (606x900 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (606x900 light summary-first): the timeline and the shelf do not move
+dev | Home load (608x900 dark dashboards-first): the timeline and the shelf do not move
+dev | Home load (608x900 dark summary-first): the timeline and the shelf do not move
+dev | Home load (608x900 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (608x900 light summary-first): the timeline and the shelf do not move
+dev | Home load (610x900 dark dashboards-first): the timeline and the shelf do not move
+dev | Home load (610x900 dark summary-first): the timeline and the shelf do not move
+dev | Home load (610x900 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (610x900 light summary-first): the timeline and the shelf do not move
+dev | Home load (612x900 dark dashboards-first): the timeline and the shelf do not move
+dev | Home load (612x900 dark summary-first): the timeline and the shelf do not move
+dev | Home load (612x900 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (612x900 light summary-first): the timeline and the shelf do not move
+dev | Home load (613x900 dark dashboards-first): the timeline and the shelf do not move
+dev | Home load (613x900 dark summary-first): the timeline and the shelf do not move
+dev | Home load (613x900 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (613x900 light summary-first): the timeline and the shelf do not move
+dev | Home load (620x900 dark dashboards-first): the timeline and the shelf do not move
+dev | Home load (620x900 dark summary-first): the timeline and the shelf do not move
+dev | Home load (620x900 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (620x900 light summary-first): the timeline and the shelf do not move
+dev | Home load (mono 1280x900 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (mono 375x667 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (serif 1280x900 light dashboards-first): the timeline and the shelf do not move
+dev | Home load (serif 375x667 light dashboards-first): the timeline and the shelf do not move
+dev | Home settled at 1280x900 (dark): boxes equal the pinned base numbers
+dev | Home settled at 1280x900 (light): boxes equal the pinned base numbers
+dev | Home settled at 1280x900 (mono dark): a long opening sentence keeps the web font's 40ch width and its line count
+dev | Home settled at 1280x900 (mono light): a long opening sentence keeps the web font's 40ch width and its line count
+dev | Home settled at 1280x900 (sans dark): a long opening sentence keeps the web font's 40ch width and its line count
+dev | Home settled at 1280x900 (sans light): a long opening sentence keeps the web font's 40ch width and its line count
+dev | Home settled at 1280x900 (serif dark): a long opening sentence keeps the web font's 40ch width and its line count
+dev | Home settled at 1280x900 (serif light): a long opening sentence keeps the web font's 40ch width and its line count
+dev | Output config.chartType renders on batch-placed panels (dark)
+dev | Output config.chartType renders on batch-placed panels (light)
+dev | Output editor edits reference lines and bands (dark-1440)
+dev | Output editor edits reference lines and bands (dark-375)
+dev | Output editor edits reference lines and bands (light-1440)
+dev | Output editor edits reference lines and bands (light-375)
+dev | Output editor offers heatmap and histogram controls (dark-1440)
+dev | Output editor offers heatmap and histogram controls (dark-375)
+dev | Output editor offers heatmap and histogram controls (light-1440)
+dev | Output editor offers heatmap and histogram controls (light-375)
+dev | a conflict that cannot be rebased shows the other writer's panel, and a further drag keeps its item
+dev | a drag saved from a stale tab keeps a panel created meanwhile
+dev | a reload with a slow browser-store read shows the panels with no update-depth errors
+dev | a text panel added through the UI is still there after a reload after 1.2 s
+dev | a text panel added through the UI is still there after a reload after 1.8 s
+dev | a text panel added through the UI is still there after a reload after 2.4 s
+dev | a text panel added through the UI is still there after a reload after 300 ms
+dev | a text panel added through the UI is still there after a reload immediately
+dev | actions menu clears the bottom nav (phone width 390, dark)
+dev | actions menu clears the bottom nav (phone width 390, light)
+dev | aggregated chart Output: grouped bars, "vs 7d" overlay and compact legend (dark)
+dev | aggregated chart Output: grouped bars, "vs 7d" overlay and compact legend (light)
+dev | an editor's phone refresh sends one pipeline-scoped sample request, answered 200, and the label stays (375x812)
+dev | an editor's phone refresh sends one pipeline-scoped sample request, answered 200, and the label stays (768x1024)
+dev | an empty markers slot leaves the flow on every desktop row
+dev | appearance editor: Save and a save error stay reachable after the contrast warning (1280x320, dark)
+dev | appearance editor: Save and a save error stay reachable after the contrast warning (1280x320, light)
+dev | appearance editor: Save and a save error stay reachable after the contrast warning (1280x400, dark)
+dev | appearance editor: Save and a save error stay reachable after the contrast warning (1280x400, light)
+dev | appearance editor: a keyboard open puts focus in the form and Tab keeps it open (dark)
+dev | appearance editor: a keyboard open puts focus in the form and Tab keeps it open (light)
+dev | appearance editor: a save error alone (no contrast warning) stays reachable (1280x320, dark)
+dev | appearance editor: a save error alone (no contrast warning) stays reachable (1280x320, light)
+dev | appearance editor: tabbing between controls and clicking the colour input keep it open
+dev | ask: a viewer sees no pin, a free user sees the upsell and sends no ask, and the error states (dark desktop)
+dev | ask: a viewer sees no pin, a free user sees the upsell and sends no ask, and the error states (dark phone)
+dev | ask: a viewer sees no pin, a free user sees the upsell and sends no ask, and the error states (light desktop)
+dev | ask: a viewer sees no pin, a free user sees the upsell and sends no ask, and the error states (light phone)
+dev | ask: at a narrow desktop width Ask moves into the kebab and focus returns to the kebab trigger (dark)
+dev | ask: at a narrow desktop width Ask moves into the kebab and focus returns to the kebab trigger (light)
+dev | ask: keyboard-only drawer, cited answer, chip provenance, real pin placed (keyless failed state), focus return (dark desktop)
+dev | ask: keyboard-only drawer, cited answer, chip provenance, real pin placed (keyless failed state), focus return (dark phone)
+dev | ask: keyboard-only drawer, cited answer, chip provenance, real pin placed (keyless failed state), focus return (light desktop)
+dev | ask: keyboard-only drawer, cited answer, chip provenance, real pin placed (keyless failed state), focus return (light phone)
+dev | ask: the Output sheet asks about a saved Output, pins through the real backend, and disables Pin during a draft (dark)
+dev | ask: the Output sheet asks about a saved Output, pins through the real backend, and disables Pin during a draft (light)
+dev | ask: the Output sheet on a phone asks, shows the answer and the pin, in frame (dark)
+dev | ask: the Output sheet on a phone asks, shows the answer and the pin, in frame (light)
+dev | at 1280 there is no refresh button and the first load sends one request per panel
+dev | beta-owned pipeline: enable the toggle, save, reopen shows it on (dark)
+dev | beta-owned pipeline: enable the toggle, save, reopen shows it on (light)
+dev | chart Compare picker sets compare and the dashboard draws the "vs 7d" overlay (dark)
+dev | chart Compare picker sets compare and the dashboard draws the "vs 7d" overlay (light)
+dev | chart Output 'Add as tail with aggregate' stores xAxis/yAxis slots
+dev | compact mode is on at 769-1009px and off at 1100px (list default); elsewhere it follows the column
+dev | compact spine rows: a 6-character row count never overlaps the summary
+dev | conditional formatting renders the tone tokens, one wash per cell, and keeps the unit colour (dark)
+dev | conditional formatting renders the tone tokens, one wash per cell, and keeps the unit colour (light)
+dev | creating a text panel through the UI stores an item in every breakpoint and the position survives a reload (dark)
+dev | creating a text panel through the UI stores an item in every breakpoint and the position survives a reload (light)
+dev | crossing 768px keeps the same zoom container and a non-zero grid width
+dev | dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+dev | dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+dev | dashboard with no pipeline-fed panels: no reserved gap and no shift (dark)
+dev | dashboard with no pipeline-fed panels: no reserved gap and no shift (light)
+dev | deleting the last panel of a pipeline-fed dashboard leaves no slot, now or on a slow reopen
+dev | drag, then add a panel, then Save now PATCHes the dragged position
+dev | free-owned pipeline: disabled toggle, note, and the link lands on Beta access (dark)
+dev | free-owned pipeline: disabled toggle, note, and the link lands on Beta access (light)
+dev | heatmap and histogram axes show every label that fits (dark-1504)
+dev | heatmap and histogram axes show every label that fits (dark-375)
+dev | heatmap and histogram axes show every label that fits (light-1504)
+dev | heatmap and histogram axes show every label that fits (light-375)
+dev | heatmap and histogram render on a dashboard (dark-1440)
+dev | heatmap and histogram render on a dashboard (dark-375)
+dev | heatmap and histogram render on a dashboard (light-1440)
+dev | heatmap and histogram render on a dashboard (light-1440-yellow)
+dev | heatmap and histogram render on a dashboard (light-375)
+dev | hidden count reserves no width; count shows when there is room (1280x800)
+dev | hidden count reserves no width; count shows when there is room (1440x800)
+dev | in-app dashboard switches (375px, light) > markdown-only -> pipeline-fed: the slot is reserved in the target's skeleton and the tops match
+dev | in-app dashboard switches (375px, light) > pipeline-fed -> markdown-only: no slot while the target's skeleton shows, nor after
+dev | insight refresh: run trigger, panel Refresh button, pin trigger (keyless backend)
+dev | insight: a free-tier pipeline owner with no render sees the upsell
+dev | insight: author, two cited sentences, chip popover focus, public viewer (dark desktop)
+dev | insight: author, two cited sentences, chip popover focus, public viewer (dark phone)
+dev | insight: author, two cited sentences, chip popover focus, public viewer (light desktop)
+dev | insight: author, two cited sentences, chip popover focus, public viewer (light phone)
+dev | last-run meta never shows a cut figure: 12,345,678 rows at 1000x800
+dev | last-run meta never shows a cut figure: 12,345,678 rows at 1024x800
+dev | last-run meta never shows a cut figure: 12,345,678 rows at 375x812
+dev | last-run meta never shows a cut figure: 14 rows at 1000x800
+dev | last-run meta never shows a cut figure: 14 rows at 1024x800
+dev | last-run meta never shows a cut figure: 14 rows at 375x812
+dev | metric panel shows the server headline, ▲ 12% vs 7d, a sparkline and the compared-with row (dark)
+dev | metric panel shows the server headline, ▲ 12% vs 7d, a sparkline and the compared-with row (light)
+dev | no refresh button at 1280
+dev | no-hover input > a tap on a hidden menu selects the row; a second tap on the revealed menu opens it
+dev | owner open of an orphaned text panel sends one repair POST and stores every breakpoint (dark)
+dev | owner open of an orphaned text panel sends one repair POST and stores every breakpoint (light)
+dev | phone dark: the appearance editor trigger is hidden, so the editor cases run on desktop only
+dev | phone light: the appearance editor trigger is hidden, so the editor cases run on desktop only
+dev | pipeline-fed dashboard: the cards do not move when the refreshed line resolves (dark)
+dev | pipeline-fed dashboard: the cards do not move when the refreshed line resolves (light)
+dev | provenance popover clears the bottom nav (phone 390x844, dark)
+dev | provenance popover clears the bottom nav (phone 390x844, light)
+dev | provenance popover clears the bottom nav (phone short 390x400, dark)
+dev | provenance popover clears the bottom nav (phone short 390x400, light)
+dev | provenance popover: a cache-miss open re-fits once its content arrives (tall window)
+dev | provenance popover: focus lands inside the panel after a keyboard open
+dev | provenance popover: its height never exceeds the 70vh design cap
+dev | provenance popover: last section reachable (desktop short 1280x400, dark)
+dev | provenance popover: last section reachable (desktop short 1280x400, light)
+dev | provenance popover: last section reachable (desktop very short 1280x320, dark)
+dev | provenance popover: last section reachable (desktop very short 1280x320, light)
+dev | provenance popover: last section reachable (phone short 390x400, dark)
+dev | provenance popover: last section reachable (phone short 390x400, light)
+dev | rail: hovering the last row, scrolled to its end, does not shift it (1280x400, dark)
+dev | rail: hovering the last row, scrolled to its end, does not shift it (1280x400, light)
+dev | rail: no phantom page scroll and no row shift on hover (1280x400, dark)
+dev | rail: no phantom page scroll and no row shift on hover (1280x400, light)
+dev | reference lines and bands render on a dashboard (dark-1440)
+dev | reference lines and bands render on a dashboard (dark-375)
+dev | reference lines and bands render on a dashboard (light-1440)
+dev | reference lines and bands render on a dashboard (light-375)
+dev | spine row menu: one rule (cards and the selected row always show it, unselected rows on hover/focus); empty markers take no space
+dev | table Output editor at 1100px: an 86-char column name overflows nothing
+dev | time axis and gaps render on a dashboard (dark-1440)
+dev | time axis and gaps render on a dashboard (dark-375)
+dev | time axis and gaps render on a dashboard (light-1440)
+dev | time axis and gaps render on a dashboard (light-375)
+dev | time-axis follow-ups render on a dashboard (dark-1440)
+dev | time-axis follow-ups render on a dashboard (dark-375)
+dev | time-axis follow-ups render on a dashboard (light-1440)
+dev | time-axis follow-ups render on a dashboard (light-375)
+dev | time-axis labels stay legible at 375px (dark)
+dev | time-axis labels stay legible at 375px (light)
+dev | waitForPanelGrid returns only once the real grid is up and the skeleton has unmounted
+dev | waitForPanelStack returns only once the real phone stack is up and the skeleton has unmounted

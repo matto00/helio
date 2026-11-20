@@ -153,7 +153,7 @@ export interface Backdrop {
 }
 
 /** Same ancestor-walk-and-accumulate-alpha backdrop resolution the sibling
- *  HEL-866 guard uses (state-surface-contrast-guard.spec.ts's
+ *  HEL-866 guard uses (state-surface-contrast-guard-*.spec.ts's
  *  `readBackdrop`) — re-implemented here rather than imported because
  *  that function is module-local to that spec (not extracted; unlike
  *  `forceFocusVisible`, this ticket's tasks did not name it for

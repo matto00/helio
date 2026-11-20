@@ -1,10 +1,14 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
-import { attachApiRequestCounter, type ApiRequestCounter } from "./support/apiRequestCounter";
-import { registerAndLogin } from "./support/auth";
-import { evidencePath } from "./support/evidencePath";
-import { clickRowMenuItem, editorAction, selectRow, spineRows } from "./support/pipelineSpine";
-import { settleTransitions } from "./support/settleTransitions";
+import { type ApiRequestCounter, attachApiRequestCounter } from "./apiRequestCounter";
+import { registerAndLogin } from "./auth";
+import { evidencePath } from "./evidencePath";
+import { clickRowMenuItem, editorAction, selectRow, spineRows } from "./pipelineSpine";
+import { settleTransitions } from "./settleTransitions";
+
+// HEL-1789: the shared half of e2e/hel1684-draft-structural-*.spec.ts, moved here verbatim (only `export` added) when the
+// spec was split so CI's file-level sharding can place the parts on different legs. The rationale comment that opened the
+// spec follows.
 
 // HEL-1684: the step structure actions (add, insert, duplicate, "+ lane", Move up/down, drag) are DRAFT entries while a
 // pipeline draft is open. Each one, with a draft already open: is enabled, sends no step write (and no request carrying a
@@ -13,37 +17,37 @@ import { settleTransitions } from "./support/settleTransitions";
 // pipeline with no request. Desktop runs in light, the 375px phone in dark; one desktop-dark and one phone-light smoke
 // cover the other two theme/size pairs. Every wait is a readiness signal (an aria-current row, a loaded row count).
 
-const CSRF = { "X-Helio-Requested-With": "1" };
-const AUTH = { prefix: "hel1684", displayName: "HEL-1684", domain: "example.test" } as const;
-const KEPT_DRAFT_PREFIX = "helio.pipelineDraft.";
+export const CSRF = { "X-Helio-Requested-With": "1" };
+export const AUTH = { prefix: "hel1684", displayName: "HEL-1684", domain: "example.test" } as const;
+export const KEPT_DRAFT_PREFIX = "helio.pipelineDraft.";
 
-const FILTER = "Filter rows";
-const SORT = "Sort rows";
-const COMPUTE = "Compute column";
-const LIMIT = "Limit rows";
+export const FILTER = "Filter rows";
+export const SORT = "Sort rows";
+export const COMPUTE = "Compute column";
+export const LIMIT = "Limit rows";
 
-type Viewport = "desktop" | "phone";
-type Theme = "light" | "dark";
+export type Viewport = "desktop" | "phone";
+export type Theme = "light" | "dark";
 
-interface Seeded {
+export interface Seeded {
   pipelineId: string;
   stepIds: string[];
   email: string;
 }
 
-async function post<T>(page: Page, url: string, data: unknown): Promise<T> {
+export async function post<T>(page: Page, url: string, data: unknown): Promise<T> {
   const res = await page.request.post(url, { data, headers: CSRF });
   expect(res.status(), `${url} ${await res.text()}`).toBeLessThan(300);
   return (await res.json()) as T;
 }
 
-interface SeedOptions {
+export interface SeedOptions {
   /** A "+ lane" step hanging off step 1 (a rename), so step 1 has a tail. */
   tail?: boolean;
 }
 
 /** 14 rows; filter >= 260 keeps all 14. Steps: filter, sort, compute (a trunk of three). */
-async function seed(page: Page, email: string, options: SeedOptions = {}): Promise<Seeded> {
+export async function seed(page: Page, email: string, options: SeedOptions = {}): Promise<Seeded> {
   const rows = Array.from({ length: 14 }, (_, i) => [
     `2026-09-${String(i + 10).padStart(2, "0")}`,
     i % 5 === 0 ? "failed" : "success",
@@ -88,13 +92,13 @@ async function seed(page: Page, email: string, options: SeedOptions = {}): Promi
   return { pipelineId: pipeline.id, stepIds, email };
 }
 
-interface Api {
+export interface Api {
   stop: () => string[];
   bodies: () => { url: string; method: string; body: string | null }[];
 }
 
 /** Everything the page asks of /api (any method) from now until `stop` is called. */
-function recordApi(page: Page): Api {
+export function recordApi(page: Page): Api {
   const log: string[] = [];
   const full: { url: string; method: string; body: string | null }[] = [];
   const onRequest = (r: { method(): string; url(): string; postData(): string | null }) => {
@@ -114,7 +118,7 @@ function recordApi(page: Page): Api {
 }
 
 /** A step write: any non-GET to a step route, or ANY request that names a client id (`draft-...`). */
-function stepWrites(log: string[]): string[] {
+export function stepWrites(log: string[]): string[] {
   return log.filter(
     (r) =>
       (!r.startsWith("GET ") && /\/(pipeline-steps|steps)(\/|$|\?)/.test(r)) ||
@@ -122,16 +126,17 @@ function stepWrites(log: string[]): string[] {
   );
 }
 
-const DRAFT_TEXT = "Draft · unsaved changes";
-const sheet = (page: Page) => page.getByRole("dialog", { name: "Step editor" });
-const titles = (page: Page) => spineRows(page).locator(".spine-row__title").allTextContents();
+export const DRAFT_TEXT = "Draft · unsaved changes";
+export const sheet = (page: Page) => page.getByRole("dialog", { name: "Step editor" });
+export const titles = (page: Page) =>
+  spineRows(page).locator(".spine-row__title").allTextContents();
 
-async function setTheme(page: Page, theme: Theme): Promise<void> {
+export async function setTheme(page: Page, theme: Theme): Promise<void> {
   await page.evaluate((t) => window.localStorage.setItem("helio-theme", t), theme);
 }
 
 /** Opens the pipeline and waits until step 1 shows its saved row count (the page has settled), in the given theme. */
-async function openPipeline(page: Page, pipelineId: string, theme: Theme): Promise<void> {
+export async function openPipeline(page: Page, pipelineId: string, theme: Theme): Promise<void> {
   await setTheme(page, theme);
   await page.goto(`/pipelines/${pipelineId}`);
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
@@ -139,7 +144,7 @@ async function openPipeline(page: Page, pipelineId: string, theme: Theme): Promi
   await page.evaluate(() => document.fonts.ready);
 }
 
-async function closeSheet(page: Page): Promise<void> {
+export async function closeSheet(page: Page): Promise<void> {
   const s = sheet(page);
   if (await s.isVisible()) {
     await s.getByRole("button", { name: "Close" }).first().click();
@@ -148,7 +153,7 @@ async function closeSheet(page: Page): Promise<void> {
 }
 
 /** Opens a draft by editing step 1's filter threshold, the way HEL-1631's own specs do. */
-async function openDraft(page: Page, viewport: Viewport): Promise<void> {
+export async function openDraft(page: Page, viewport: Viewport): Promise<void> {
   if (viewport === "phone") {
     await page.getByRole("button", { name: /^Step 1:/ }).click();
     await expect(sheet(page)).toBeVisible();
@@ -165,7 +170,7 @@ async function openDraft(page: Page, viewport: Viewport): Promise<void> {
   await expect(page.getByText(DRAFT_TEXT).first()).toBeVisible();
 }
 
-async function pickStep(page: Page, kind: string): Promise<void> {
+export async function pickStep(page: Page, kind: string): Promise<void> {
   const option = page.locator(`#step-palette-option-${kind}`);
   await expect(option).toBeVisible();
   await option.click();
@@ -173,7 +178,7 @@ async function pickStep(page: Page, kind: string): Promise<void> {
 }
 
 /** Opens step `index`'s quiet menu (the desktop row menu, or the phone sheet's "Step actions") and clicks an item. */
-async function stepMenu(
+export async function stepMenu(
   page: Page,
   viewport: Viewport,
   index: number,
@@ -192,7 +197,7 @@ async function stepMenu(
   await page.getByRole("menuitem", { name: item }).click();
 }
 
-interface Action {
+export interface Action {
   name: string;
   /** Spine titles after the action, in document order. */
   expected: string[];
@@ -206,7 +211,7 @@ interface Action {
   verifyBody?: (steps: BodyStep[], stepIds: string[]) => void;
 }
 
-const ACTIONS: Action[] = [
+export const ACTIONS: Action[] = [
   {
     name: "add step",
     expected: [FILTER, SORT, COMPUTE, LIMIT],
@@ -328,11 +333,11 @@ const ACTIONS: Action[] = [
   },
 ];
 
-function rowCount(page: Page): Locator {
+export function rowCount(page: Page): Locator {
   return spineRows(page);
 }
 
-interface BodyStep {
+export interface BodyStep {
   id?: string;
   clientId?: string;
   type: string;
@@ -341,7 +346,7 @@ interface BodyStep {
   position: number;
 }
 
-async function saveAndRun(page: Page): Promise<{ steps: BodyStep[] }> {
+export async function saveAndRun(page: Page): Promise<{ steps: BodyStep[] }> {
   const saved = page.waitForResponse(
     (r) => r.url().includes("/draft/save") && r.request().method() === "POST",
   );
@@ -351,7 +356,12 @@ async function saveAndRun(page: Page): Promise<{ steps: BodyStep[] }> {
   return JSON.parse(response.request().postData() ?? "{}");
 }
 
-function describeMode(viewport: Viewport, theme: Theme, actions: Action[], discard: boolean) {
+export function describeMode(
+  viewport: Viewport,
+  theme: Theme,
+  actions: Action[],
+  discard: boolean,
+) {
   test.describe(`HEL-1684 draft structure actions: ${viewport}, ${theme} (live)`, () => {
     test.use({
       viewport: viewport === "phone" ? { width: 375, height: 812 } : { width: 1280, height: 800 },
@@ -451,192 +461,3 @@ function describeMode(viewport: Viewport, theme: Theme, actions: Action[], disca
     }
   });
 }
-
-describeMode("desktop", "light", ACTIONS, true);
-describeMode(
-  "phone",
-  "dark",
-  ACTIONS.filter((a) => !a.desktopOnly),
-  false,
-);
-describeMode(
-  "desktop",
-  "dark",
-  ACTIONS.filter((a) => a.name === "insert step"),
-  false,
-);
-describeMode(
-  "phone",
-  "light",
-  ACTIONS.filter((a) => a.name === "insert step"),
-  false,
-);
-
-test.describe("HEL-1684 draft structure: kept drafts, stale base, undo, delete (live)", () => {
-  test.use({ viewport: { width: 1280, height: 800 }, actionTimeout: 15_000 });
-  test.setTimeout(120_000);
-
-  test("a draft with an inserted step survives Back and Forward and is shown again", async ({
-    page,
-    request,
-  }) => {
-    const creds = await registerAndLogin(page, request, { ...AUTH, label: "back" });
-    const { pipelineId } = await seed(page, creds.email);
-    await page.goto("/pipelines");
-    await page.locator(`a[href="/pipelines/${pipelineId}"]`).first().click();
-    await expect(page.getByRole("button", { name: /^Step 1: Filter rows, 14 rows/ })).toBeVisible();
-    await openDraft(page, "desktop");
-    await clickRowMenuItem(page, 0, "Insert step after");
-    await pickStep(page, "limit");
-    await expect.poll(() => titles(page)).toEqual([FILTER, LIMIT, SORT, COMPUTE]);
-
-    await page.goBack();
-    await expect(page).toHaveURL(/\/pipelines$/);
-    await page.goForward();
-    await expect(page.getByText(DRAFT_TEXT).first()).toBeVisible();
-    await expect.poll(() => titles(page)).toEqual([FILTER, LIMIT, SORT, COMPUTE]);
-  });
-
-  test("[guard] a draft kept in the earlier format (deleted ids) still restores", async ({
-    page,
-    request,
-  }) => {
-    const creds = await registerAndLogin(page, request, { ...AUTH, label: "v1" });
-    const { pipelineId, stepIds } = await seed(page, creds.email);
-    await openPipeline(page, pipelineId, "light");
-    await openDraft(page, "desktop");
-    const key = KEPT_DRAFT_PREFIX + pipelineId;
-    await expect
-      .poll(() => page.evaluate((k) => window.sessionStorage.getItem(k), key))
-      .not.toBeNull();
-    // Rewrite the kept copy exactly as the earlier build stored it: `{overlay: {configs, enabled, deleted}, base}`.
-    await page.evaluate(
-      ([k, deletedId]) => {
-        const kept = JSON.parse(window.sessionStorage.getItem(k) ?? "{}") as {
-          overlay: { configs: unknown; enabled: unknown };
-          base: string;
-        };
-        window.sessionStorage.setItem(
-          k,
-          JSON.stringify({
-            overlay: {
-              configs: kept.overlay.configs,
-              enabled: kept.overlay.enabled,
-              deleted: [deletedId],
-            },
-            base: kept.base,
-          }),
-        );
-      },
-      [key, stepIds[1]],
-    );
-    await page.goto("/pipelines");
-    await page.goto(`/pipelines/${pipelineId}`);
-    await expect(page.getByText(DRAFT_TEXT).first()).toBeVisible();
-    await expect.poll(() => titles(page)).toEqual([FILTER, COMPUTE]);
-  });
-
-  test("a kept draft with a new step over a base that changed is restored as stale; Reload keeps the step", async ({
-    page,
-    request,
-  }) => {
-    const creds = await registerAndLogin(page, request, { ...AUTH, label: "stale" });
-    const { pipelineId, stepIds } = await seed(page, creds.email);
-    await page.goto("/pipelines");
-    await page.locator(`a[href="/pipelines/${pipelineId}"]`).first().click();
-    await expect(page.getByRole("button", { name: /^Step 1: Filter rows, 14 rows/ })).toBeVisible();
-    await openDraft(page, "desktop");
-    await clickRowMenuItem(page, 0, "Insert step after");
-    await pickStep(page, "limit");
-    await expect.poll(() => titles(page)).toEqual([FILTER, LIMIT, SORT, COMPUTE]);
-    await page.goBack();
-    await expect(page).toHaveURL(/\/pipelines$/);
-
-    const patch = await page.request.patch(`/api/pipeline-steps/${stepIds[1]}`, {
-      data: { config: { sortBy: [{ field: "status", direction: "asc" }] } },
-      headers: CSRF,
-    });
-    expect(patch.status(), await patch.text()).toBeLessThan(300);
-
-    await page.goForward();
-    const notice = page
-      .getByRole("alert")
-      .filter({ hasText: "This pipeline changed since you started editing." });
-    await expect(notice).toBeVisible();
-    await expect.poll(() => titles(page)).toEqual([FILTER, LIMIT, SORT, COMPUTE]);
-    const recording = recordApi(page);
-    await page.getByRole("button", { name: "Save and run" }).click();
-    await page.waitForTimeout(800);
-    expect(recording.stop().some((r) => r.includes("/draft/save"))).toBe(false);
-
-    await notice.getByRole("button", { name: "Reload the saved pipeline" }).click();
-    await expect(notice).toHaveCount(0);
-    await expect.poll(() => titles(page)).toEqual([FILTER, LIMIT, SORT, COMPUTE]);
-    const body = await saveAndRun(page);
-    expect(body.steps.filter((s) => s.clientId !== undefined)).toHaveLength(1);
-  });
-
-  test("Undo after saving an insert and a Move down restores the pre-draft structure, selection on a surviving step", async ({
-    page,
-    request,
-  }) => {
-    const creds = await registerAndLogin(page, request, { ...AUTH, label: "undo" });
-    const { pipelineId } = await seed(page, creds.email);
-    const read = async () => {
-      const res = await page.request.get(`/api/pipelines/${pipelineId}?definition=true`);
-      return (await res.json()) as { fingerprint: string };
-    };
-    const original = await read();
-    await openPipeline(page, pipelineId, "light");
-    const before = await titles(page);
-    await openDraft(page, "desktop");
-    await clickRowMenuItem(page, 0, "Insert step after");
-    await pickStep(page, "limit");
-    await expect.poll(() => titles(page)).toEqual([FILTER, LIMIT, SORT, COMPUTE]);
-    // Select the new step so the save has to resolve its selection, then Move it down.
-    await selectRow(page, 1);
-    await clickRowMenuItem(page, 1, /^Move step down/);
-    await expect.poll(() => titles(page)).toEqual([FILTER, SORT, LIMIT, COMPUTE]);
-
-    await saveAndRun(page);
-    await expect(page.getByLabel("Notifications").getByText("Saved.")).toBeVisible();
-    // The selected new step is now the saved step it became: same row, and the URL no longer names a client id.
-    await expect(
-      page.locator(".spine-row__select[aria-current='true'] .spine-row__title"),
-    ).toHaveText(LIMIT);
-    await expect.poll(() => new URL(page.url()).searchParams.get("step")).not.toMatch(/^draft-/);
-    await expect.poll(() => titles(page)).toEqual([FILTER, SORT, LIMIT, COMPUTE]);
-
-    await page.getByRole("button", { name: "Undo" }).click();
-    await expect(page.getByLabel("Notifications").getByText("Undone.")).toBeVisible();
-    expect((await read()).fingerprint).toBe(original.fingerprint);
-    await expect.poll(() => titles(page)).toEqual(before);
-    await expect(page.locator(".spine-row__select[aria-current='true']")).toHaveCount(1);
-  });
-
-  test("deleting a step inserted after a step that has a tail removes the tail, and Save & run asks to confirm it by name", async ({
-    page,
-    request,
-  }) => {
-    const creds = await registerAndLogin(page, request, { ...AUTH, label: "tail" });
-    const { pipelineId } = await seed(page, creds.email, { tail: true });
-    await openPipeline(page, pipelineId, "light");
-    await expect(spineRows(page)).toHaveCount(4);
-    await openDraft(page, "desktop");
-    await clickRowMenuItem(page, 0, "Insert step after");
-    await pickStep(page, "limit");
-    await expect(spineRows(page)).toHaveCount(5);
-    const newRow = spineRows(page).filter({ hasText: LIMIT }).first();
-    await newRow.locator(".spine-row__select").click();
-    await expect(newRow.locator(".spine-row__select")).toHaveAttribute("aria-current", "true");
-    await editorAction(page, "Remove step").click();
-    // The new step is gone, the first child (sort) took its slot, and the tail went with it.
-    await expect.poll(() => titles(page)).toEqual([FILTER, SORT, COMPUTE]);
-    await expect(page.getByText(DRAFT_TEXT).first()).toBeVisible();
-
-    await page.getByRole("button", { name: "Save and run" }).click();
-    const dialog = page.getByRole("dialog").filter({ hasText: "Rename column" });
-    await expect(dialog).toBeVisible();
-    await page.screenshot({ path: evidencePath("HEL-1684", "desktop-light-tail-cascade.png") });
-  });
-});

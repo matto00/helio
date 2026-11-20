@@ -117,7 +117,7 @@
    home, not inert chrome" per CommandBar.tsx), but had NO hover/focus
    feedback at all: no background, border, outline, or shadow change on
    `:hover`/`:focus-visible` — the D4a "nothing changed at all" absence
-   shape, caught by the rendered guard (state-surface-contrast-guard.spec.ts)
+   shape, caught by the rendered guard (state-surface-contrast-guard-*.spec.ts)
    directly, not by any grep (there was no `--app-surface-raised` reference
    here to find). Same on-surface backdrop as `.cmd-btn` above — soft in light, strong in dark (see `.cmd-btn:hover`'s
    comment for the measured derivation). */
