@@ -1,3 +1,5 @@
+import { registerSessionReset } from "../../../shared/session/sessionReset";
+
 /**
  * HEL-1578 design D5 — the per-dashboard "last seen" store beside the palette's recent-visit list.
  *
@@ -59,6 +61,9 @@ export interface DashboardSeenStore {
   /** Drops entries for dashboards that no longer exist. Call only once the dashboards list has resolved. */
   pruneMissing(existingIds: ReadonlySet<string>): void;
   subscribe(listener: () => void): () => void;
+  /** HEL-1634: sign-out. Empties the in-memory map, removes the storage key and notifies subscribers (who stay
+   *  subscribed). The stamps feed the Home "changed" dot and the viewed ids of the Home summary request. */
+  clear(): void;
 }
 
 export function createDashboardSeenStore(
@@ -98,6 +103,15 @@ export function createDashboardSeenStore(
       if (kept.length === Object.keys(entries).length) return;
       commit(Object.fromEntries(kept));
     },
+    clear() {
+      entries = {};
+      try {
+        window.localStorage.removeItem(storageKey);
+      } catch {
+        // Storage unavailable: the in-memory map is already empty.
+      }
+      for (const listener of listeners) listener();
+    },
     subscribe(listener) {
       listeners.add(listener);
       return () => {
@@ -108,3 +122,8 @@ export function createDashboardSeenStore(
 }
 
 export const dashboardSeenStore = createDashboardSeenStore();
+
+registerSessionReset("dashboardSeen", {
+  covers: ["features/commandPalette/model/dashboardSeenStore.ts#dashboardSeenStore"],
+  reset: () => dashboardSeenStore.clear(),
+});

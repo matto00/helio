@@ -25,6 +25,7 @@ import { refreshChangeSignals } from "./refreshChangeSignals";
 import { serverNowIso } from "./serverClock";
 import { cancelTabsWrite, scheduleTabsWrite, toTabsWire } from "./tabsPersistence";
 import { captureTab } from "./warm/warmCapture";
+import { declareSessionResetCoverage } from "../../../shared/session/sessionReset";
 import { sweepWarmForState } from "./warm/warmSweep";
 import { addWarmListeners } from "./warm/warmListeners";
 
@@ -201,3 +202,9 @@ export function addDashboardTabsListeners(startListening: AppStartListening): vo
 export function resetTabsListenerState(): void {
   hydratingFor = null;
 }
+
+declareSessionResetCoverage(
+  "features/dashboards/tabs/dashboardTabsListeners.ts",
+  ["hydratingFor"],
+  "clearAuthListener",
+);

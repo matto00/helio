@@ -1,3 +1,5 @@
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
+import { registerSessionReset } from "../../../shared/session/sessionReset";
 import type { OutputHistory } from "./outputHistoryService";
 
 /** HEL-1275 design.md D1 — module-level history cache modelled on `provenanceCache.ts`: the
@@ -34,9 +36,11 @@ export function loadHistory(
   const existing = promises.get(key);
   if (existing) return existing;
   const generation = generations.get(key) ?? 0;
+  const epoch = getSessionEpoch();
   const promise = fetcher().then(
     (value) => {
-      if ((generations.get(key) ?? 0) === generation) {
+      // HEL-1634: a load that started in an earlier session never lands in this one.
+      if ((generations.get(key) ?? 0) === generation && epoch === getSessionEpoch()) {
         values.set(key, value);
         listeners.forEach((l) => l());
       }
@@ -68,8 +72,10 @@ export function refreshHistory(key: string, fetcher: () => Promise<OutputHistory
     clearTimeout(pending);
     retryTimers.delete(key);
   }
+  const epoch = getSessionEpoch();
   loadHistory(key, fetcher).then(
     (value) => {
+      if (epoch !== getSessionEpoch()) return;
       if ((value.current?.capturedAt ?? null) !== before) return;
       retryTimers.set(
         key,
@@ -90,6 +96,27 @@ export function subscribeHistory(listener: () => void): () => void {
     listeners.delete(listener);
   };
 }
+
+/** HEL-1634: sign-out. Clears the DATA (values, in-flight loads, retry timers) and tells subscribers to re-read an empty
+ *  cache; the subscriber set stays so a still-mounted consumer receives the next user's loads. Not the test seam below. */
+function clearForSessionEnd(): void {
+  promises.clear();
+  values.clear();
+  generations.clear();
+  retryTimers.forEach((t) => clearTimeout(t));
+  retryTimers.clear();
+  listeners.forEach((l) => l());
+}
+
+registerSessionReset("outputHistoryCache", {
+  covers: [
+    "features/panels/history/outputHistoryCache.ts#promises",
+    "features/panels/history/outputHistoryCache.ts#values",
+    "features/panels/history/outputHistoryCache.ts#generations",
+    "features/panels/history/outputHistoryCache.ts#retryTimers",
+  ],
+  reset: clearForSessionEnd,
+});
 
 /** Test seam. */
 export function resetHistoryCache(): void {

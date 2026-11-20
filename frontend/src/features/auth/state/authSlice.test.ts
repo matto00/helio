@@ -1,5 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 
+import { store } from "../../../store/store";
+
 import * as authService from "../services/authService";
 import type { AuthResponse, MfaRequiredResponse, User } from "../types/user";
 import {
@@ -284,7 +286,9 @@ describe("logout thunk", () => {
     window.sessionStorage.setItem("helio.pipelineDraft.p1", "{}");
     window.sessionStorage.setItem("helio.pipelineDraft.p2", "{}");
     window.sessionStorage.setItem("unrelated", "keep");
-    await makeStore().dispatch(logout());
+    // HEL-1634: the drafts are cleared by the registered session-reset hook that `clearAuth` runs, so this goes
+    // through the real store (which wires that listener), the same path the 401 sign-out takes.
+    await store.dispatch(logout());
     expect(window.sessionStorage.getItem("helio.pipelineDraft.p1")).toBeNull();
     expect(window.sessionStorage.getItem("helio.pipelineDraft.p2")).toBeNull();
     expect(window.sessionStorage.getItem("unrelated")).toBe("keep");

@@ -8,6 +8,8 @@ export interface PublishedComparison {
   baselineText: string;
 }
 
+import { registerSessionReset } from "../../../shared/session/sessionReset";
+
 const slots = new Map<string, Map<symbol, PublishedComparison | null>>();
 const listeners = new Set<() => void>();
 
@@ -56,6 +58,14 @@ export function subscribeComparisons(listener: () => void): () => void {
     listeners.delete(listener);
   };
 }
+
+registerSessionReset("metricComparisonStore", {
+  covers: ["features/panels/history/metricComparisonStore.ts#slots"],
+  reset: () => {
+    slots.clear();
+    notify();
+  },
+});
 
 /** Test seam. */
 export function resetComparisonStore(): void {

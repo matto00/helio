@@ -72,7 +72,8 @@ function registerPruneListener<K extends "dashboards" | "sources" | "pipelines">
 ) {
   startListening({
     predicate: (_action, currentState: RootState, previousState: RootState) =>
-      currentState[slice].status === "succeeded" && previousState[slice].status !== "succeeded",
+      (currentState[slice] as { status: string }).status === "succeeded" &&
+      (previousState[slice] as { status: string }).status !== "succeeded",
     effect: (_action, listenerApi) => {
       const ids = new Set(getItemIds(listenerApi.getState()));
       store.pruneMissing(kind, ids);

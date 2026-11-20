@@ -1,0 +1,60 @@
+Running 1 test using 1 worker
+[HEL-1300 e2e] throwaway user: hel1634-a-1795201400093-48468@example.test
+[HEL-1634 e2e] user A id: fb65c041-2713-412c-883e-eea57af82390
+[HEL-1300 e2e] throwaway user: hel1634-b-1795201404748-30082@example.test
+  ✘  1 [dev] › e2e/hel1634-logout-user-switch.spec.ts:99:7 › HEL-1634 sign-out then another user on the same tab › user B sees nothing of user A's dashboards, panels, history, provenance or recents, and sends no request with A's ids (2.0m)
+[HEL-1301 e2e] deleted 2 recorded throwaway user(s)
+  1) [dev] › e2e/hel1634-logout-user-switch.spec.ts:99:7 › HEL-1634 sign-out then another user on the same tab › user B sees nothing of user A's dashboards, panels, history, provenance or recents, and sends no request with A's ids 
+    Error: requests in B's session that carry an id of user A's
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 1
+    + Received  + 5
+    - Array []
+    + Array [
+    +   "http://localhost:7066/api/dashboard-changes?ids=2d84955b-afd5-4e93-a6c1-bb8d0c948e14",
+    +   "http://localhost:7066/api/home-summary?dashboardIds=2d84955b-afd5-4e93-a6c1-bb8d0c948e14",
+    +   "http://localhost:7066/api/users/me/preferences",
+    + ]
+      167 |             "requests in B's session that carry an id of user A's",
+      168 |           )
+    > 169 |           .toEqual([]);
+          |            ^
+      170 |       };
+      171 |       page.on("request", (req: Request) => {
+      172 |         if (req.url().includes("/api/")) sent.push({ url: req.url(), body: req.postData() ?? "" });
+        at assertNoLeak (/home/matt/Development/helio/.claude/worktrees/bug/logout-resets-per-user-caches/HEL-1634/e2e/hel1634-logout-user-switch.spec.ts:169:12)
+        at /home/matt/Development/helio/.claude/worktrees/bug/logout-resets-per-user-caches/HEL-1634/e2e/hel1634-logout-user-switch.spec.ts:181:7
+    Error: expect(locator).toHaveCount(expected) failed
+    Locator:  getByText('HEL-1634 A private board')
+    Expected: 0
+    Received: 4
+    Timeout:  5000ms
+    Call log:
+      - Expect "soft toHaveCount" with timeout 5000ms
+      - waiting for getByText('HEL-1634 A private board')
+        2 × locator resolved to 2 elements
+          - unexpected value "2"
+        7 × locator resolved to 4 elements
+          - unexpected value "4"
+      182 |       await page.getByRole("link", { name: "Dashboards" }).first().click();
+      183 |       // The list B is shown must never hold A's board, not even before B's own list arrives.
+    > 184 |       await expect.soft(page.getByText(A_BOARD)).toHaveCount(0);
+          |                                                  ^
+      185 |       await page.getByText(B_BOARD).first().click();
+      186 |       const cardB = page.locator(".react-grid-item", { hasText: B_PANEL });
+      187 |       await expect(cardB.getByText("122", { exact: true })).toBeVisible({ timeout: 15_000 });
+        at /home/matt/Development/helio/.claude/worktrees/bug/logout-resets-per-user-caches/HEL-1634/e2e/hel1634-logout-user-switch.spec.ts:184:50
+    Test timeout of 120000ms exceeded.
+    Error: locator.click: Test ended.
+    Call log:
+      - waiting for getByText('HEL-1634 B board').first()
+      183 |       // The list B is shown must never hold A's board, not even before B's own list arrives.
+      184 |       await expect.soft(page.getByText(A_BOARD)).toHaveCount(0);
+    > 185 |       await page.getByText(B_BOARD).first().click();
+          |                                             ^
+      186 |       const cardB = page.locator(".react-grid-item", { hasText: B_PANEL });
+      187 |       await expect(cardB.getByText("122", { exact: true })).toBeVisible({ timeout: 15_000 });
+      188 |       await cardB.getByRole("button", { name: "Data provenance" }).click();
+        at /home/matt/Development/helio/.claude/worktrees/bug/logout-resets-per-user-caches/HEL-1634/e2e/hel1634-logout-user-switch.spec.ts:185:45
+    Error Context: test-results/hel1634-logout-user-switch-c6a87-nds-no-request-with-A-s-ids-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────

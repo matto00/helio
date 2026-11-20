@@ -6,7 +6,9 @@
 // plus a grace window), so a desktop <-> phone swap — which unmounts the old tree and mounts the new
 // one in the same commit — never loses the Output, however long the user had been reading before it.
 // Module-level (not Redux) so services and the SSE fan-out can invalidate without an import cycle;
-// this file must stay import-free.
+// this file may import only the dependency-free session registry.
+
+import { registerSessionReset } from "../../../shared/session/sessionReset";
 
 /** How long an Output stays trusted after its last card left the screen. */
 export const REMOUNT_GRACE_MS = 30_000;
@@ -106,3 +108,17 @@ export function resetOutputFreshness(): void {
   retention.clear();
   for (const hook of resetHooks) hook();
 }
+
+// HEL-1634 D3: one registered hook; `outputMetaCache`, `panelStatusStore` and `pipelineRunFanout` hang off
+// `onFreshnessReset` above and declare their identifiers with `via: "outputFreshness"`.
+registerSessionReset("outputFreshness", {
+  covers: [
+    "features/panels/state/outputFreshness.ts#globalGeneration",
+    "features/panels/state/outputFreshness.ts#invalidationSequence",
+    "features/panels/state/outputFreshness.ts#outputGeneration",
+    "features/panels/state/outputFreshness.ts#pipelineGeneration",
+    "features/panels/state/outputFreshness.ts#pipelineOfOutput",
+    "features/panels/state/outputFreshness.ts#retention",
+  ],
+  reset: resetOutputFreshness,
+});

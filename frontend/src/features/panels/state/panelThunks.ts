@@ -71,6 +71,7 @@ import type {
 // re-exported by the slice once it is constructed.
 import { markDashboardPanelsStale } from "./panelActions";
 import { adoptPlacedLayouts } from "./panelPlacement";
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 
 export const fetchPanels = createAsyncThunk<
   Panel[],
@@ -122,7 +123,10 @@ export const createPanel = createAsyncThunk<
     { dispatch, getState, rejectWithValue },
   ) => {
     try {
+      const startEpoch = getSessionEpoch();
       const createdPanel = await createPanelRequest(dashboardId, type, title, outputId, config);
+      // HEL-1634: nothing below may touch the next user's state after a sign-out.
+      if (startEpoch !== getSessionEpoch()) return createdPanel;
       // The server computes the placement (every kind, HEL-1260) and returns the item it stored in each
       // breakpoint; adopt those verbatim (see `panelPlacement.ts`).
       adoptPlacedLayouts(dispatch, getState, dashboardId, createdPanel);
@@ -161,7 +165,9 @@ export const swapPanelOutput = createAsyncThunk<
   "panels/swapPanelOutput",
   async ({ panelId, outputId, dashboardId }, { dispatch, rejectWithValue }) => {
     try {
+      const startEpoch = getSessionEpoch();
       const updated = await patchPanelOutputIdRequest(panelId, outputId);
+      if (startEpoch !== getSessionEpoch()) return updated;
       dispatch(markDashboardPanelsStale(dashboardId));
       await dispatch(fetchPanels(dashboardId));
       return updated;
@@ -177,7 +183,9 @@ export const deletePanel = createAsyncThunk<
   { rejectValue: string }
 >("panels/deletePanel", async ({ panelId, dashboardId }, { dispatch, rejectWithValue }) => {
   try {
+    const startEpoch = getSessionEpoch();
     await deletePanelRequest(panelId);
+    if (startEpoch !== getSessionEpoch()) return panelId;
     dispatch(markDashboardPanelsStale(dashboardId));
     return panelId;
   } catch {
@@ -193,7 +201,9 @@ export const duplicatePanel = createAsyncThunk<
   "panels/duplicatePanel",
   async ({ panelId, dashboardId }, { dispatch, getState, rejectWithValue }) => {
     try {
+      const startEpoch = getSessionEpoch();
       const created = await duplicatePanelRequest(panelId);
+      if (startEpoch !== getSessionEpoch()) return created;
       adoptPlacedLayouts(dispatch, getState, dashboardId, created);
       dispatch(markDashboardPanelsStale(dashboardId));
       await dispatch(fetchPanels(dashboardId));

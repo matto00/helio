@@ -21,6 +21,7 @@ import {
 } from "../../pipelines/services/pipelineService";
 import { httpClient } from "../../../services/httpClient";
 import { logout } from "../../auth/state/authSlice";
+import { store } from "../../../store/store";
 import { currentGeneration, registerOutputPipeline } from "./outputFreshness";
 
 // HEL-1392 design.md D4 -- every client write that can change an Output's metadata or rows
@@ -112,8 +113,9 @@ describe("write paths invalidate reusable Output data", () => {
     await swallow(() => updateOutput("o1", { name: "n" } as never));
     expect(currentGeneration("o1")).toBeGreaterThan(0);
     http.post.mockResolvedValue(ok);
-    const dispatch = jest.fn();
-    await logout()(dispatch, () => ({}), undefined);
+    // HEL-1634: the freshness reset is a registered session-reset hook run by `clearAuth`, so logout goes
+    // through the real store, which wires that listener.
+    await store.dispatch(logout());
     expect(currentGeneration("o1")).toBe(0);
   });
 });

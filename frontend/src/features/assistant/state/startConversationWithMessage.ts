@@ -5,6 +5,7 @@ import {
   converse,
   setSelectedConversationId,
 } from "./assistantConversationsSlice";
+import { dispatchIfSameSession, getSessionEpoch } from "../../../shared/session/sessionEpoch";
 
 export interface StartConversationArgs {
   message: string;
@@ -29,12 +30,15 @@ export function startConversationWithMessage({
   onCreated,
 }: StartConversationArgs) {
   return async (dispatch: AppDispatch): Promise<string> => {
+    const startEpoch = getSessionEpoch();
     const created = await createConversation({});
     const id = created.id;
+    // HEL-1634: a conversation created by a previous session is never added to or selected for the next user.
+    if (startEpoch !== getSessionEpoch()) return id;
     // Sidebar `items` are otherwise populated only by `fetchConversations` on mount.
-    dispatch(conversationCreated(created));
+    dispatchIfSameSession(dispatch, startEpoch, conversationCreated(created));
     onCreated?.(id);
-    dispatch(setSelectedConversationId(id));
+    dispatchIfSameSession(dispatch, startEpoch, setSelectedConversationId(id));
     await dispatch(converse({ id, message, idempotencyKey, model: model ?? undefined })).unwrap();
     return id;
   };

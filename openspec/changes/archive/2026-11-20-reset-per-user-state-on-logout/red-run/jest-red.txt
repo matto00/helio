@@ -1,0 +1,1282 @@
+FAIL src/shared/session/signOutReset.storage.test.tsx
+  ● helio.recentVisits › recents of A are gone from the store snapshot and from storage after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 8
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "id": "dash-A",
+    +     "kind": "dashboard",
+    +     "title": "A's private board",
+    +     "visitedAt": 1795201067524,
+    +   },
+    + ]
+
+      38 |     onChange.mockClear();
+      39 |     store.dispatch(clearAuth());
+    > 40 |     expect(recentHistoryStore.getEntries()).toEqual([]);
+         |                                             ^
+      41 |     expect(window.localStorage.getItem("helio.recentVisits")).toBeNull();
+      42 |     expect(onChange).toHaveBeenCalled();
+      43 |     onChange.mockClear();
+
+      at Object.<anonymous> (src/shared/session/signOutReset.storage.test.tsx:40:45)
+
+  ● helio.dashboardSeen › view stamps of A are gone from the store snapshot and from storage after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 5
+
+    - Object {}
+    + Object {
+    +   "dash-A": Object {
+    +     "viewedAt": 1000,
+    +   },
+    + }
+
+      57 |     onChange.mockClear();
+      58 |     store.dispatch(clearAuth());
+    > 59 |     expect(dashboardSeenStore.getAll()).toEqual({});
+         |                                         ^
+      60 |     expect(window.localStorage.getItem("helio.dashboardSeen")).toBeNull();
+      61 |     expect(onChange).toHaveBeenCalled();
+      62 |     onChange.mockClear();
+
+      at Object.<anonymous> (src/shared/session/signOutReset.storage.test.tsx:59:41)
+
+  ● helio.dashboardSeen › the Home shelf shows no changed dot from A's view stamp for the next user
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: false
+    Received: true
+
+      93 |       await store.dispatch(loadHomeSummary() as never);
+      94 |     });
+    > 95 |     expect(result.current.has("dash-shared")).toBe(false);
+         |                                               ^
+      96 |   });
+      97 |
+      98 |   test("B's Home summary request carries none of A's viewed dashboard ids", async () => {
+
+      at Object.<anonymous> (src/shared/session/signOutReset.storage.test.tsx:95:47)
+
+  ● helio.dashboardSeen › B's Home summary request carries none of A's viewed dashboard ids
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 4
+
+    - Array []
+    + Array [
+    +   "dash-shared",
+    +   "dash-A",
+    + ]
+
+      109 |     });
+      110 |     expect(fetchHomeSummary).toHaveBeenCalledTimes(1);
+    > 111 |     expect((fetchHomeSummary as jest.Mock).mock.calls[0][0]).toEqual([]);
+          |                                                              ^
+      112 |   });
+      113 | });
+      114 |
+
+      at Object.<anonymous> (src/shared/session/signOutReset.storage.test.tsx:111:62)
+
+  ● sessionStorage helio.refinement.conversationId.* › every refinement conversation id of A is removed, and unrelated keys are kept
+
+    expect(received).toBeNull()
+
+    Received: "conv-A"
+
+      119 |     window.sessionStorage.setItem("helio.auth.returnTo", "/dashboards/x");
+      120 |     store.dispatch(clearAuth());
+    > 121 |     expect(window.sessionStorage.getItem("helio.refinement.conversationId.dash-A")).toBeNull();
+          |                                                                                     ^
+      122 |     expect(window.sessionStorage.getItem("helio.refinement.conversationId.dash-A2")).toBeNull();
+      123 |     expect(window.sessionStorage.getItem("helio.auth.returnTo")).toBe("/dashboards/x");
+      124 |   });
+
+      at Object.<anonymous> (src/shared/session/signOutReset.storage.test.tsx:121:85)
+
+FAIL src/shared/session/sessionResetGuard.test.ts
+  ● static half › every module-level mutable identifier is registered or allowlisted with a reason
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -   1
+    + Received  + 135
+
+    - Array []
+    + Array [
+    +   "app/dashboardMeta/DashboardMetaRow.tsx#NO_PANELS",
+    +   "app/dashboardMeta/DashboardRefreshLine.tsx#NO_PANELS",
+    +   "app/shell/contextListLayout.ts#pendingFocus",
+    +   "app/shell/useContextListLayout.ts#keyWriteTimer",
+    +   "features/ask/ui/AskAnswerCard.tsx#NO_PANELS",
+    +   "features/commandPalette/model/dashboardSeenStore.ts#dashboardSeenStore",
+    +   "features/commandPalette/model/recentHistoryStore.ts#recentHistoryStore",
+    +   "features/dashboards/state/dashboardFoldersSlice.ts#previousFilings",
+    +   "features/dashboards/tabs/dashboardTabsListeners.ts#hydratingFor",
+    +   "features/dashboards/tabs/serverClock.ts#serverOffsetMs",
+    +   "features/dashboards/tabs/tabsPersistence.ts#timer",
+    +   "features/dashboards/tabs/tabsPersistence.ts#pending",
+    +   "features/dashboards/tabs/warm/clearWarmHook.ts#hook",
+    +   "features/dashboards/tabs/warm/warmCache.ts#lists",
+    +   "features/dashboards/tabs/warm/warmCache.ts#ownWrites",
+    +   "features/dashboards/tabs/warm/warmCache.ts#fetchStarts",
+    +   "features/dashboards/tabs/warm/warmCache.ts#retentions",
+    +   "features/dashboards/tabs/warm/warmCache.ts#store",
+    +   "features/dashboards/ui/DashboardChipRow.tsx#sessionOrder",
+    +   "features/dashboards/ui/ProposalReview.tsx#DATA_PANEL_TYPES",
+    +   "features/panels/history/metricComparisonStore.ts#slots",
+    +   "features/panels/history/metricComparisonStore.ts#listeners",
+    +   "features/panels/history/outputHistoryCache.ts#promises",
+    +   "features/panels/history/outputHistoryCache.ts#values",
+    +   "features/panels/history/outputHistoryCache.ts#listeners",
+    +   "features/panels/history/outputHistoryCache.ts#generations",
+    +   "features/panels/history/outputHistoryCache.ts#retryTimers",
+    +   "features/panels/hooks/useCrossFilterServerOps.ts#NO_CONTROLS",
+    +   "features/panels/insight/insightChromeStore.ts#entries",
+    +   "features/panels/insight/insightChromeStore.ts#listeners",
+    +   "features/panels/insight/usePipelineOwnership.ts#ownerByPipeline",
+    +   "features/panels/provenance/provenanceCache.ts#promises",
+    +   "features/panels/provenance/provenanceCache.ts#values",
+    +   "features/panels/provenance/provenanceCache.ts#listeners",
+    +   "features/panels/provenance/provenanceCache.ts#invalidationListeners",
+    +   "features/panels/provenance/provenanceCache.ts#generations",
+    +   "features/panels/provenance/provenanceCache.ts#inFlightStatus",
+    +   "features/panels/services/pipelineRunFanout.ts#TERMINAL_STATUSES",
+    +   "features/panels/services/pipelineRunFanout.ts#entries",
+    +   "features/panels/services/pipelineRunFanout.ts#lastObservedRunIdByPipeline",
+    +   "features/panels/state/filterCapabilitiesStore.ts#entries",
+    +   "features/panels/state/filterCapabilitiesStore.ts#listeners",
+    +   "features/panels/state/formUploadConfig.ts#ALLOWED_EXTENSIONS",
+    +   "features/panels/state/outputFreshness.ts#globalGeneration",
+    +   "features/panels/state/outputFreshness.ts#invalidationSequence",
+    +   "features/panels/state/outputFreshness.ts#outputGeneration",
+    +   "features/panels/state/outputFreshness.ts#pipelineGeneration",
+    +   "features/panels/state/outputFreshness.ts#pipelineOfOutput",
+    +   "features/panels/state/outputFreshness.ts#retention",
+    +   "features/panels/state/outputFreshness.ts#resetHooks",
+    +   "features/panels/state/outputMetaCache.ts#cache",
+    +   "features/panels/state/outputMetaCache.ts#panelScopes",
+    +   "features/panels/state/outputMetaCache.ts#knownKinds",
+    +   "features/panels/state/panelStatusStore.ts#entries",
+    +   "features/panels/state/panelStatusStore.ts#seeds",
+    +   "features/panels/state/panelStatusStore.ts#visibilityHooked",
+    +   "features/panels/state/restoreMarkers.ts#markers",
+    +   "features/panels/state/restoreMarkers.ts#serial",
+    +   "features/panels/ui/PanelCardBody.tsx#EMPTY_CONTROLS",
+    +   "features/panels/ui/PanelFullscreenOverlay.tsx#EMPTY_CONTROLS",
+    +   "features/panels/ui/detailModal/usePanelDetailData.ts#EMPTY_CONTROLS",
+    +   "features/panels/ui/editors/useFormEditorState.ts#nextRowIdCounter",
+    +   "features/panels/ui/renderers/chartPanelModule.ts#pending",
+    +   "features/pipelines/evaluator/evaluatePipeline.ts#LIST_PRODUCERS",
+    +   "features/pipelines/evaluator/expression/compile.ts#cache",
+    +   "features/pipelines/evaluator/expression/interpreter.ts#TEXT_ARG_FUNCTIONS",
+    +   "features/pipelines/evaluator/expression/parser.ts#KEYWORDS",
+    +   "features/pipelines/evaluator/javaRegex.ts#ESCAPED_META",
+    +   "features/pipelines/evaluator/javaRegex.ts#SIMPLE_ESCAPES",
+    +   "features/pipelines/evaluator/javaRegex.ts#cache",
+    +   "features/pipelines/evaluator/scalaGroup.ts#f64",
+    +   "features/pipelines/evaluator/scalaGroup.ts#f32",
+    +   "features/pipelines/evaluator/scalaGroup.ts#u32of64",
+    +   "features/pipelines/evaluator/scalaGroup.ts#i32of32",
+    +   "features/pipelines/evaluator/steps/exactSum.ts#f64",
+    +   "features/pipelines/evaluator/steps/exactSum.ts#bits",
+    +   "features/pipelines/evaluator/steps/window.ts#FIELD_REQUIRED",
+    +   "features/pipelines/hooks/usePipelineAnalyzeLookups.ts#EMPTY_ANALYZE_COLUMNS",
+    +   "features/pipelines/hooks/usePipelineAnalyzeLookups.ts#EMPTY_ANALYZE_SCHEMA",
+    +   "features/pipelines/hooks/usePipelineAnalyzeLookups.ts#EMPTY_ANALYZE_WARNINGS",
+    +   "features/pipelines/hooks/usePipelineDetailPage.ts#EMPTY_ROOTS",
+    +   "features/pipelines/hooks/usePipelineDraftFrames.ts#NO_SOURCES",
+    +   "features/pipelines/hooks/usePipelineRunEvents.ts#TERMINAL_STATUSES",
+    +   "features/pipelines/hooks/useRunHistory.ts#openTokenCounter",
+    +   "features/pipelines/hooks/useRunHistory.ts#NO_RUNS",
+    +   "features/pipelines/hooks/useSavedOutputRows.ts#cache",
+    +   "features/pipelines/hooks/useSavedOutputRows.ts#listeners",
+    +   "features/pipelines/hooks/useSavedOutputRows.ts#version",
+    +   "features/pipelines/services/draftPreviewCaps.ts#encoder",
+    +   "features/pipelines/services/draftPreviewTestSupport.ts#encoder",
+    +   "features/pipelines/state/draftEvaluation.ts#columnTypeCache",
+    +   "features/pipelines/state/draftPreviewRequest.ts#frameIds",
+    +   "features/pipelines/state/draftPreviewRequest.ts#nextFrameId",
+    +   "features/pipelines/state/draftPreviewRequest.ts#encoded",
+    +   "features/pipelines/state/outputsSlice.ts#EMPTY_OUTPUTS",
+    +   "features/pipelines/state/stepNarrowing.ts#AI_STEP_KINDS",
+    +   "features/pipelines/state/stepNarrowing.ts#stepCounter",
+    +   "features/pipelines/ui/StepCardFocused.tsx#EMPTY_ALL_STEPS",
+    +   "features/pipelines/ui/StepOpEditor.tsx#EMPTY_ALL_STEPS",
+    +   "features/pipelines/ui/outputEditor/useOutputKindState.ts#NO_IDS",
+    +   "features/pipelines/ui/stepConfigs/AggregateConfig.tsx#NUMERIC_TYPES",
+    +   "features/pipelines/ui/stepConfigs/FilterConfig.tsx#UNARY_OPERATORS",
+    +   "features/pipelines/ui/stepConfigs/FilterConfig.tsx#NUMERIC_TYPES",
+    +   "features/proposals/ui/CombinedProposalReview.tsx#DATA_PANEL_TYPES",
+    +   "features/settings/ui/PreferencesEditor.tsx#rowIdCounter",
+    +   "features/sources/hooks/useRestSourceForm.ts#BODIED_METHODS",
+    +   "features/sources/state/sourceSamplesSlice.ts#decoded",
+    +   "features/sources/ui/FieldDeclarationTable.tsx#nextRowId",
+    +   "features/sources/utils/csvSourceCreate.ts#csvLimitsPromise",
+    +   "features/telemetry/firstDashboardFlag.ts#pending",
+    +   "features/telemetry/track.ts#queue",
+    +   "features/telemetry/track.ts#flushTimer",
+    +   "features/telemetry/track.ts#flushing",
+    +   "features/telemetry/track.ts#warned",
+    +   "features/telemetry/track.ts#rejectionLogged",
+    +   "features/telemetry/track.ts#listenersInstalled",
+    +   "features/telemetry/track.ts#currentUserId",
+    +   "features/toasts/state/toastsSlice.ts#nextId",
+    +   "hooks/useNow.ts#tickers",
+    +   "shared/chrome/rowDeleteFocus.ts#mode",
+    +   "shared/chrome/rowDeleteFocus.ts#pin",
+    +   "shared/chrome/rowDeleteFocus.ts#pinFrame",
+    +   "shared/chrome/rowDeleteFocus.ts#mounted",
+    +   "shared/chrome/rowDeleteFocus.ts#timer",
+    +   "shared/chrome/shortcuts.ts#TEXT_ENTRY_TAGS",
+    +   "shared/chrome/useShortcut.ts#registry",
+    +   "shared/chrome/useShortcut.ts#listenerAttached",
+    +   "shared/motion/useFirstMountForToken.ts#seen",
+    +   "shared/ui/Toast.tsx#toastLife",
+    +   "shared/ui/modalDialogRegistry.ts#open",
+    +   "shared/ui/modalDialogRegistry.ts#listeners",
+    +   "shared/ui/modalDialogRegistry.ts#top",
+    +   "shared/ui/panelFit.ts#safeAreaProbe",
+    + ]
+
+      134 |       }
+      135 |     }
+    > 136 |     expect(unaccounted).toEqual([]);
+          |                         ^
+      137 |   });
+      138 |
+      139 |   test("every allowlist entry names a reason and a real declaration", () => {
+
+      at Object.<anonymous> (src/shared/session/sessionResetGuard.test.ts:136:25)
+
+  ● runtime half › sign-out clears the cleared keys, keeps the kept keys, and leaves no other key
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+      Array [
+        "helio.recentVisits",
+    -   null,
+    +   "seeded",
+      ]
+
+      216 |     }
+      217 |     for (const entry of STORAGE_KEYS_CLEARED_BY_HOOK) {
+    > 218 |       expect([entry.key, storeFor(entry.store)?.getItem(seedKey(entry.key)) ?? null]).toEqual([
+          |                                                                                       ^
+      219 |         entry.key,
+      220 |         null,
+      221 |       ]);
+
+      at Object.<anonymous> (src/shared/session/sessionResetGuard.test.ts:218:87)
+
+FAIL src/shared/session/signOutReset.slices.test.ts
+  ● clearAuth resets every per-user slice › assistantConversations holds nothing of user A after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 6
+
+    @@ -3,13 +3,17 @@
+          "data": null,
+          "error": null,
+          "status": "idle",
+        },
+        "error": null,
+    -   "items": Array [],
+    +   "items": Array [
+    +     Object {
+    +       "id": "conv-A",
+    +     },
+    +   ],
+        "lastTurnOutcome": null,
+        "modelError": null,
+        "pendingModel": null,
+        "selectedConversationId": null,
+        "startingNewConversation": false,
+    -   "status": "idle",
+    +   "status": "succeeded",
+      }
+
+       96 |     expect(slice(key)).not.toEqual(initialSnapshot[key]); // the seed really landed
+       97 |     store.dispatch(clearAuth());
+    >  98 |     expect(slice(key)).toEqual(initialSnapshot[key]);
+          |                        ^
+       99 |   });
+      100 |
+      101 |   test("every root state key except the self-resetting ones equals its initial state", () => {
+
+      at src/shared/session/signOutReset.slices.test.ts:98:24
+
+  ● clearAuth resets every per-user slice › assistantModels holds nothing of user A after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 6
+
+      Object {
+    -   "data": null,
+    -   "status": "idle",
+    +   "data": Object {
+    +     "defaultModel": "model-of-A",
+    +     "models": Array [],
+    +     "serverDefault": "m",
+    +   },
+    +   "status": "succeeded",
+      }
+
+       96 |     expect(slice(key)).not.toEqual(initialSnapshot[key]); // the seed really landed
+       97 |     store.dispatch(clearAuth());
+    >  98 |     expect(slice(key)).toEqual(initialSnapshot[key]);
+          |                        ^
+       99 |   });
+      100 |
+      101 |   test("every root state key except the self-resetting ones equals its initial state", () => {
+
+      at src/shared/session/signOutReset.slices.test.ts:98:24
+
+  ● clearAuth resets every per-user slice › auditEvents holds nothing of user A after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 3
+    + Received  + 7
+
+      Object {
+        "error": null,
+    -   "items": Array [],
+    -   "status": "idle",
+    -   "total": 0,
+    +   "items": Array [
+    +     Object {
+    +       "id": "audit-A",
+    +     },
+    +   ],
+    +   "status": "succeeded",
+    +   "total": 1,
+      }
+
+       96 |     expect(slice(key)).not.toEqual(initialSnapshot[key]); // the seed really landed
+       97 |     store.dispatch(clearAuth());
+    >  98 |     expect(slice(key)).toEqual(initialSnapshot[key]);
+          |                        ^
+       99 |   });
+      100 |
+      101 |   test("every root state key except the self-resetting ones equals its initial state", () => {
+
+      at src/shared/session/signOutReset.slices.test.ts:98:24
+
+  ● clearAuth resets every per-user slice › connectors holds nothing of user A after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 6
+
+      Object {
+        "deleteConflict": Object {},
+        "error": null,
+    -   "items": Array [],
+    -   "status": "idle",
+    +   "items": Array [
+    +     Object {
+    +       "id": "conn-A",
+    +     },
+    +   ],
+    +   "status": "succeeded",
+      }
+
+       96 |     expect(slice(key)).not.toEqual(initialSnapshot[key]); // the seed really landed
+       97 |     store.dispatch(clearAuth());
+    >  98 |     expect(slice(key)).toEqual(initialSnapshot[key]);
+          |                        ^
+       99 |   });
+      100 |
+      101 |   test("every root state key except the self-resetting ones equals its initial state", () => {
+
+      at src/shared/session/signOutReset.slices.test.ts:98:24
+
+  ● clearAuth resets every per-user slice › dashboards holds nothing of user A after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 3
+    + Received  + 8
+
+      Object {
+        "error": null,
+        "hasPendingLayout": false,
+    -   "items": Array [],
+    +   "items": Array [
+    +     Object {
+    +       "id": "dash-A",
+    +       "name": "A's board",
+    +     },
+    +   ],
+        "layoutSaveSeq": 0,
+    -   "selectedDashboardId": null,
+    -   "status": "idle",
+    +   "selectedDashboardId": "dash-A",
+    +   "status": "succeeded",
+      }
+
+       96 |     expect(slice(key)).not.toEqual(initialSnapshot[key]); // the seed really landed
+       97 |     store.dispatch(clearAuth());
+    >  98 |     expect(slice(key)).toEqual(initialSnapshot[key]);
+          |                        ^
+       99 |   });
+      100 |
+      101 |   test("every root state key except the self-resetting ones equals its initial state", () => {
+
+      at src/shared/session/signOutReset.slices.test.ts:98:24
+
+  ● clearAuth resets every per-user slice › layoutHistory holds nothing of user A after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 10
+
+      Object {
+    -   "byDashboard": Object {},
+    +   "byDashboard": Object {
+    +     "dash-A": Object {
+    +       "applied": null,
+    +       "future": Array [],
+    +       "past": Array [
+    +         Object {},
+    +       ],
+    +       "revision": 0,
+    +     },
+    +   },
+        "desktopGridDashboardId": null,
+        "editingLayoutDashboardId": null,
+      }
+
+       96 |     expect(slice(key)).not.toEqual(initialSnapshot[key]); // the seed really landed
+       97 |     store.dispatch(clearAuth());
+    >  98 |     expect(slice(key)).toEqual(initialSnapshot[key]);
+          |                        ^
+       99 |   });
+      100 |
+      101 |   test("every root state key except the self-resetting ones equals its initial state", () => {
+
+      at src/shared/session/signOutReset.slices.test.ts:98:24
+
+  ● clearAuth resets every per-user slice › panels holds nothing of user A after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 3
+    + Received  + 8
+
+      Object {
+        "crossFilter": null,
+        "error": null,
+        "interactionState": Object {},
+    -   "items": Array [],
+    +   "items": Array [
+    +     Object {
+    +       "id": "panel-A",
+    +       "title": "A's panel",
+    +     },
+    +   ],
+        "itemsOrigin": "network",
+        "lastSavedAt": null,
+        "latestFetchRequestId": Object {},
+    -   "loadId": 0,
+    +   "loadId": 1,
+        "loadedDashboardId": null,
+        "paginationState": Object {},
+        "panelCreationModalOpen": false,
+        "panelSaveSeq": 0,
+        "pendingPanelUpdates": Object {},
+        "restoringDashboardId": null,
+        "staleDashboardId": null,
+    -   "status": "idle",
+    +   "status": "succeeded",
+      }
+
+       96 |     expect(slice(key)).not.toEqual(initialSnapshot[key]); // the seed really landed
+       97 |     store.dispatch(clearAuth());
+    >  98 |     expect(slice(key)).toEqual(initialSnapshot[key]);
+          |                        ^
+       99 |   });
+      100 |
+      101 |   test("every root state key except the self-resetting ones equals its initial state", () => {
+
+      at src/shared/session/signOutReset.slices.test.ts:98:24
+
+  ● clearAuth resets every per-user slice › patchSets holds nothing of user A after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 4
+
+      Object {
+        "applyError": null,
+        "applyStatus": "idle",
+    -   "preview": null,
+    +   "preview": Object {
+    +     "summary": "A's patch",
+    +   },
+        "previewError": null,
+    -   "previewStatus": "idle",
+    +   "previewStatus": "succeeded",
+        "undoError": null,
+        "undoStatus": "idle",
+      }
+
+       96 |     expect(slice(key)).not.toEqual(initialSnapshot[key]); // the seed really landed
+       97 |     store.dispatch(clearAuth());
+    >  98 |     expect(slice(key)).toEqual(initialSnapshot[key]);
+          |                        ^
+       99 |   });
+      100 |
+      101 |   test("every root state key except the self-resetting ones equals its initial state", () => {
+
+      at src/shared/session/signOutReset.slices.test.ts:98:24
+
+  ● clearAuth resets every per-user slice › pipelines holds nothing of user A after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 6
+
+    @@ -10,11 +10,15 @@
+        "currentPipelineErrorKind": null,
+        "currentPipelineRequestedId": null,
+        "currentPipelineStatus": "idle",
+        "error": null,
+        "errorKind": null,
+    -   "items": Array [],
+    +   "items": Array [
+    +     Object {
+    +       "id": "pipe-A",
+    +     },
+    +   ],
+        "runError": null,
+        "runHistory": Object {},
+        "runHistoryLoadedOpenId": Object {},
+        "runHistoryOpenId": Object {},
+        "runHistoryRequestId": Object {},
+    @@ -32,11 +36,11 @@
+        "schedule": Object {},
+        "scheduleError": Object {},
+        "scheduleSaveError": null,
+        "scheduleSaveStatus": "idle",
+        "scheduleStatus": Object {},
+    -   "status": "idle",
+    +   "status": "succeeded",
+        "steps": Object {},
+        "stepsError": Object {},
+        "stepsStatus": Object {},
+        "updateError": null,
+        "updateStatus": "idle",
+
+       96 |     expect(slice(key)).not.toEqual(initialSnapshot[key]); // the seed really landed
+       97 |     store.dispatch(clearAuth());
+    >  98 |     expect(slice(key)).toEqual(initialSnapshot[key]);
+          |                        ^
+       99 |   });
+      100 |
+      101 |   test("every root state key except the self-resetting ones equals its initial state", () => {
+
+      at src/shared/session/signOutReset.slices.test.ts:98:24
+
+  ● clearAuth resets every per-user slice › outputs holds nothing of user A after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  2
+    + Received  + 10
+
+    @@ -1,14 +1,22 @@
+      Object {
+        "allError": null,
+        "allItems": Array [],
+        "allStatus": "idle",
+    -   "byPipeline": Object {},
+    +   "byPipeline": Object {
+    +     "pipe-A": Array [
+    +       Object {
+    +         "id": "out-A",
+    +       },
+    +     ],
+    +   },
+        "capabilities": Object {},
+        "capabilitiesStatus": Object {},
+        "listError": Object {},
+    -   "listStatus": Object {},
+    +   "listStatus": Object {
+    +     "pipe-A": "succeeded",
+    +   },
+        "previewByKey": Object {},
+        "previewError": Object {},
+        "previewRequestToken": Object {},
+        "previewStatus": Object {},
+        "saveError": null,
+
+       96 |     expect(slice(key)).not.toEqual(initialSnapshot[key]); // the seed really landed
+       97 |     store.dispatch(clearAuth());
+    >  98 |     expect(slice(key)).toEqual(initialSnapshot[key]);
+          |                        ^
+       99 |   });
+      100 |
+      101 |   test("every root state key except the self-resetting ones equals its initial state", () => {
+
+      at src/shared/session/signOutReset.slices.test.ts:98:24
+
+  ● clearAuth resets every per-user slice › combinedProposals holds nothing of user A after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+      Object {
+        "applying": false,
+    -   "error": null,
+    +   "error": "A's error text",
+      }
+
+       96 |     expect(slice(key)).not.toEqual(initialSnapshot[key]); // the seed really landed
+       97 |     store.dispatch(clearAuth());
+    >  98 |     expect(slice(key)).toEqual(initialSnapshot[key]);
+          |                        ^
+       99 |   });
+      100 |
+      101 |   test("every root state key except the self-resetting ones equals its initial state", () => {
+
+      at src/shared/session/signOutReset.slices.test.ts:98:24
+
+  ● clearAuth resets every per-user slice › settings holds nothing of user A after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 6
+
+    @@ -11,14 +11,18 @@
+        "apiTokens": Object {
+          "createError": null,
+          "createStatus": "idle",
+          "createdToken": null,
+          "error": null,
+    -     "items": Array [],
+    +     "items": Array [
+    +       Object {
+    +         "id": "token-A",
+    +       },
+    +     ],
+          "revokeError": Object {},
+          "revokeStatus": Object {},
+    -     "status": "idle",
+    +     "status": "succeeded",
+        },
+        "betaAccess": Object {
+          "redeemError": null,
+          "redeemStatus": "idle",
+          "requestError": null,
+
+       96 |     expect(slice(key)).not.toEqual(initialSnapshot[key]); // the seed really landed
+       97 |     store.dispatch(clearAuth());
+    >  98 |     expect(slice(key)).toEqual(initialSnapshot[key]);
+          |                        ^
+       99 |   });
+      100 |
+      101 |   test("every root state key except the self-resetting ones equals its initial state", () => {
+
+      at src/shared/session/signOutReset.slices.test.ts:98:24
+
+  ● clearAuth resets every per-user slice › shareTokens holds nothing of user A after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 16
+
+      Object {
+    -   "byDashboard": Object {},
+    +   "byDashboard": Object {
+    +     "dash-A": Object {
+    +       "createError": null,
+    +       "createStatus": "idle",
+    +       "createdToken": null,
+    +       "error": null,
+    +       "items": Array [
+    +         Object {
+    +           "id": "share-A",
+    +         },
+    +       ],
+    +       "revokeError": Object {},
+    +       "revokeStatus": Object {},
+    +       "status": "succeeded",
+    +     },
+    +   },
+      }
+
+       96 |     expect(slice(key)).not.toEqual(initialSnapshot[key]); // the seed really landed
+       97 |     store.dispatch(clearAuth());
+    >  98 |     expect(slice(key)).toEqual(initialSnapshot[key]);
+          |                        ^
+       99 |   });
+      100 |
+      101 |   test("every root state key except the self-resetting ones equals its initial state", () => {
+
+      at src/shared/session/signOutReset.slices.test.ts:98:24
+
+  ● clearAuth resets every per-user slice › sources holds nothing of user A after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 6
+
+      Object {
+        "addModalOpen": false,
+        "error": null,
+        "errorKind": null,
+    -   "items": Array [],
+    +   "items": Array [
+    +     Object {
+    +       "id": "src-A",
+    +     },
+    +   ],
+        "references": Object {},
+        "referencesStatus": "idle",
+        "selectedSourceId": null,
+    -   "status": "idle",
+    +   "status": "succeeded",
+      }
+
+       96 |     expect(slice(key)).not.toEqual(initialSnapshot[key]); // the seed really landed
+       97 |     store.dispatch(clearAuth());
+    >  98 |     expect(slice(key)).toEqual(initialSnapshot[key]);
+          |                        ^
+       99 |   });
+      100 |
+      101 |   test("every root state key except the self-resetting ones equals its initial state", () => {
+
+      at src/shared/session/signOutReset.slices.test.ts:98:24
+
+  ● clearAuth resets every per-user slice › datasetRows holds nothing of user A after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 17
+
+      Object {
+    -   "bySource": Object {},
+    +   "bySource": Object {
+    +     "src-A": Object {
+    +       "conflicts": Object {},
+    +       "cursorStack": Array [
+    +         null,
+    +       ],
+    +       "error": null,
+    +       "pending": Object {},
+    +       "rows": Array [],
+    +       "rowsStatus": "idle",
+    +       "schema": Object {
+    +         "fields": Array [],
+    +       },
+    +       "schemaStatus": "succeeded",
+    +       "total": 0,
+    +     },
+    +   },
+      }
+
+       96 |     expect(slice(key)).not.toEqual(initialSnapshot[key]); // the seed really landed
+       97 |     store.dispatch(clearAuth());
+    >  98 |     expect(slice(key)).toEqual(initialSnapshot[key]);
+          |                        ^
+       99 |   });
+      100 |
+      101 |   test("every root state key except the self-resetting ones equals its initial state", () => {
+
+      at src/shared/session/signOutReset.slices.test.ts:98:24
+
+  ● clearAuth resets every per-user slice › toasts holds nothing of user A after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 8
+
+      Object {
+    -   "items": Array [],
+    +   "items": Array [
+    +     Object {
+    +       "duration": 0,
+    +       "id": "1",
+    +       "message": "Applied. Undo",
+    +       "variant": "success",
+    +     },
+    +   ],
+      }
+
+       96 |     expect(slice(key)).not.toEqual(initialSnapshot[key]); // the seed really landed
+       97 |     store.dispatch(clearAuth());
+    >  98 |     expect(slice(key)).toEqual(initialSnapshot[key]);
+          |                        ^
+       99 |   });
+      100 |
+      101 |   test("every root state key except the self-resetting ones equals its initial state", () => {
+
+      at src/shared/session/signOutReset.slices.test.ts:98:24
+
+  ● clearAuth resets every per-user slice › every root state key except the self-resetting ones equals its initial state
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 18
+
+    - Array []
+    + Array [
+    +   "assistantConversations",
+    +   "assistantModels",
+    +   "auditEvents",
+    +   "connectors",
+    +   "dashboards",
+    +   "layoutHistory",
+    +   "panels",
+    +   "patchSets",
+    +   "pipelines",
+    +   "outputs",
+    +   "combinedProposals",
+    +   "settings",
+    +   "shareTokens",
+    +   "sources",
+    +   "datasetRows",
+    +   "toasts",
+    + ]
+
+      106 |       .filter((key) => !SELF_RESETTING.has(key))
+      107 |       .filter((key) => JSON.stringify(state[key]) !== JSON.stringify(initialSnapshot[key]));
+    > 108 |     expect(failures).toEqual([]);
+          |                      ^
+      109 |   });
+      110 |
+      111 |   test("the seed table covers every slice that is neither self-resetting nor reset today", () => {
+
+      at Object.<anonymous> (src/shared/session/signOutReset.slices.test.ts:108:22)
+
+  ● clearAuth resets every per-user slice › a sticky action toast (with its Undo closure) is gone after clearAuth
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 12
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "action": Object {
+    +       "label": "Undo",
+    +       "onClick": [Function onClick],
+    +     },
+    +     "duration": 0,
+    +     "id": "3",
+    +     "message": "Applied. Undo",
+    +     "variant": "success",
+    +   },
+    + ]
+
+      134 |     expect(store.getState().toasts.items).toHaveLength(1);
+      135 |     store.dispatch(clearAuth());
+    > 136 |     expect(store.getState().toasts.items).toEqual([]);
+          |                                           ^
+      137 |   });
+      138 | });
+      139 |
+
+      at Object.<anonymous> (src/shared/session/signOutReset.slices.test.ts:136:43)
+
+  ● a response that lands after sign-out is dropped › fetchPanels started by A does not populate B's panels
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 6
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "id": "panel-A",
+    +     "title": "A's panel",
+    +   },
+    + ]
+
+      157 |     pending.resolve([{ id: "panel-A", title: "A's panel" }] as never);
+      158 |     await run;
+    > 159 |     expect(store.getState().panels.items).toEqual([]);
+          |                                           ^
+      160 |     expect(store.getState().panels.loadedDashboardId ?? null).toBeNull();
+      161 |   });
+      162 |
+
+      at Object.<anonymous> (src/shared/session/signOutReset.slices.test.ts:159:43)
+
+  ● a response that lands after sign-out is dropped › auth/updateUserPreferences.fulfilled for A does not change B's preferences
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "{\"id\":\"user-B\",\"email\":\"b@example.com\",\"tier\":\"free\"}"
+    Received: "{\"id\":\"user-B\",\"email\":\"b@example.com\",\"tier\":\"free\",\"preferences\":{\"accentColor\":\"#ff0000\"}}"
+
+      170 |     pending.resolve({ accentColor: "#ff0000" } as never);
+      171 |     await run;
+    > 172 |     expect(JSON.stringify(store.getState().auth.currentUser)).toBe(before);
+          |                                                               ^
+      173 |   });
+      174 |
+      175 |   test("redeemInviteCodeThunk for A does not replace B's currentUser", async () => {
+
+      at Object.<anonymous> (src/shared/session/signOutReset.slices.test.ts:172:63)
+
+  ● a response that lands after sign-out is dropped › redeemInviteCodeThunk for A does not replace B's currentUser
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "user-B"
+    Received: "user-A"
+
+      181 |     pending.resolve({ id: "user-A", email: "a@example.com", tier: "beta" } as never);
+      182 |     await run;
+    > 183 |     expect(store.getState().auth.currentUser?.id).toBe("user-B");
+          |                                                   ^
+      184 |   });
+      185 |
+      186 |   test("the combined-proposal apply for A does not insert or select A's dashboard for B", async () => {
+
+      at Object.<anonymous> (src/shared/session/signOutReset.slices.test.ts:183:51)
+
+  ● a response that lands after sign-out is dropped › the combined-proposal apply for A does not insert or select A's dashboard for B
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 6
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "id": "dash-A",
+    +     "name": "A's board",
+    +   },
+    + ]
+
+      194 |     } as never);
+      195 |     await run;
+    > 196 |     expect(store.getState().dashboards.items).toEqual([]);
+          |                                               ^
+      197 |     expect(store.getState().dashboards.selectedDashboardId ?? null).toBeNull();
+      198 |   });
+      199 | });
+
+      at Object.<anonymous> (src/shared/session/signOutReset.slices.test.ts:196:47)
+
+FAIL src/shared/session/signOutReset.caches.test.tsx (8.367 s)
+  ● provenanceCache › serves nothing of A's after clearAuth
+
+    expect(received).toBeUndefined()
+
+    Received: {"outputId": "out-A", "sources": [{"name": "A's source"}]}
+
+      87 |     expect(getCachedProvenance("output:out-A")).toBeDefined();
+      88 |     store.dispatch(clearAuth());
+    > 89 |     expect(getCachedProvenance("output:out-A")).toBeUndefined();
+         |                                                 ^
+      90 |   });
+      91 |
+      92 |   test("a load started before the sign-out is not stored after it", async () => {
+
+      at Object.<anonymous> (src/shared/session/signOutReset.caches.test.tsx:89:49)
+
+  ● provenanceCache › a load started before the sign-out is not stored after it
+
+    expect(received).toBeUndefined()
+
+    Received: {"outputId": "out-A", "sources": [{"name": "A's source"}]}
+
+       96 |     pending.resolve(PROVENANCE_A);
+       97 |     await load;
+    >  98 |     expect(getCachedProvenance("output:out-A")).toBeUndefined();
+          |                                                 ^
+       99 |   });
+      100 |
+      101 |   test("the shared in-flight assertion status of A is not reused by B", async () => {
+
+      at Object.<anonymous> (src/shared/session/signOutReset.caches.test.tsx:98:49)
+
+  ● provenanceCache › the shared in-flight assertion status of A is not reused by B
+
+    thrown: "Exceeded timeout of 5000 ms for a test.
+    Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout."
+
+       99 |   });
+      100 |
+    > 101 |   test("the shared in-flight assertion status of A is not reused by B", async () => {
+          |   ^
+      102 |     const pending = deferred<never>();
+      103 |     (getAssertionStatus as jest.Mock).mockReturnValueOnce(pending.promise);
+      104 |     void getAssertionStatusShared("out-A");
+
+      at src/shared/session/signOutReset.caches.test.tsx:101:3
+      at Object.<anonymous> (src/shared/session/signOutReset.caches.test.tsx:84:1)
+
+  ● provenanceCache › a subscriber survives the reset: notified by it, and still served by later loads
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      117 |     onChange.mockClear();
+      118 |     store.dispatch(clearAuth());
+    > 119 |     expect(onChange).toHaveBeenCalled();
+          |                      ^
+      120 |     onChange.mockClear();
+      121 |     await loadProvenance("output:out-B", () => Promise.resolve(PROVENANCE_A));
+      122 |     expect(onChange).toHaveBeenCalled();
+
+      at Object.<anonymous> (src/shared/session/signOutReset.caches.test.tsx:119:22)
+
+  ● outputHistoryCache › serves nothing of A's after clearAuth
+
+    expect(received).toBeUndefined()
+
+    Received: {"current": {"capturedAt": "2026-01-01T00:00:00Z", "value": 42}}
+
+      133 |     expect(getCachedHistory("output:out-A")).toBeDefined();
+      134 |     store.dispatch(clearAuth());
+    > 135 |     expect(getCachedHistory("output:out-A")).toBeUndefined();
+          |                                              ^
+      136 |   });
+      137 |
+      138 |   test("a load started before the sign-out is not stored after it", async () => {
+
+      at Object.<anonymous> (src/shared/session/signOutReset.caches.test.tsx:135:46)
+
+  ● outputHistoryCache › a load started before the sign-out is not stored after it
+
+    expect(received).toBeUndefined()
+
+    Received: {"current": {"capturedAt": "2026-01-01T00:00:00Z", "value": 42}}
+
+      142 |     pending.resolve(HISTORY_A);
+      143 |     await load;
+    > 144 |     expect(getCachedHistory("output:out-A")).toBeUndefined();
+          |                                              ^
+      145 |   });
+      146 |
+      147 |   test("the delayed retry armed for A never refetches after the sign-out", async () => {
+
+      at Object.<anonymous> (src/shared/session/signOutReset.caches.test.tsx:144:46)
+
+  ● outputHistoryCache › the delayed retry armed for A never refetches after the sign-out
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 2
+
+      161 |         await Promise.resolve();
+      162 |       });
+    > 163 |       expect(fetcher.mock.calls.length).toBe(calls);
+          |                                         ^
+      164 |     } finally {
+      165 |       jest.useRealTimers();
+      166 |     }
+
+      at Object.<anonymous> (src/shared/session/signOutReset.caches.test.tsx:163:41)
+
+  ● outputHistoryCache › a subscriber survives the reset
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      173 |     onChange.mockClear();
+      174 |     store.dispatch(clearAuth());
+    > 175 |     expect(onChange).toHaveBeenCalled();
+          |                      ^
+      176 |     onChange.mockClear();
+      177 |     await loadHistory("output:out-B", () => Promise.resolve(HISTORY_A));
+      178 |     expect(onChange).toHaveBeenCalled();
+
+      at Object.<anonymous> (src/shared/session/signOutReset.caches.test.tsx:175:22)
+
+  ● metricComparisonStore › serves nothing of A's after clearAuth, and its subscriber survives
+
+    expect(received).toBeNull()
+
+    Received: {"baselineAt": "x", "baselineText": "A's baseline"}
+
+      190 |     onChange.mockClear();
+      191 |     store.dispatch(clearAuth());
+    > 192 |     expect(getPublishedComparison("card:panel-A")).toBeNull();
+          |                                                    ^
+      193 |     expect(onChange).toHaveBeenCalled();
+      194 |     onChange.mockClear();
+      195 |     publishComparison("card:panel-B", Symbol("p"), { baselineAt: "x", baselineText: "B" });
+
+      at Object.<anonymous> (src/shared/session/signOutReset.caches.test.tsx:192:52)
+
+  ● insightChromeStore › serves nothing of A's after clearAuth
+
+    expect(received).toBeNull()
+
+    Received: {"owner": Symbol(owner), "refetch": [Function mockConstructor], "renderedAt": "2026-01-01"}
+
+      204 |     expect(getInsightChrome("out-A")).not.toBeNull();
+      205 |     store.dispatch(clearAuth());
+    > 206 |     expect(getInsightChrome("out-A")).toBeNull();
+          |                                       ^
+      207 |   });
+      208 | });
+      209 |
+
+      at Object.<anonymous> (src/shared/session/signOutReset.caches.test.tsx:206:39)
+
+  ● filterCapabilitiesStore › serves nothing of A's after clearAuth, and its subscriber survives
+
+    expect(received).toBeUndefined()
+
+    Received: {"expiresAt": 1795201372529, "status": "unavailable"}
+
+      216 |     onChange.mockClear();
+      217 |     store.dispatch(clearAuth());
+    > 218 |     expect(getCapabilitiesEntry("out-A")).toBeUndefined();
+          |                                           ^
+      219 |     expect(onChange).toHaveBeenCalled();
+      220 |     onChange.mockClear();
+      221 |     invalidateCapabilities("out-B");
+
+      at Object.<anonymous> (src/shared/session/signOutReset.caches.test.tsx:218:43)
+
+  ● filterCapabilitiesStore › a load started before the sign-out does not land after it
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "loading"
+    Received: "unavailable"
+
+      234 |     await flush();
+      235 |     const entry = getCapabilitiesEntry("out-A");
+    > 236 |     expect(entry?.status).toBe("loading");
+          |                           ^
+      237 |   });
+      238 | });
+      239 |
+
+      at Object.<anonymous> (src/shared/session/signOutReset.caches.test.tsx:236:27)
+
+  ● useSavedOutputRows › serves none of A's rows after clearAuth
+
+    expect(received).not.toBe(expected) // Object.is equality
+
+    Expected: not "ready"
+
+      251 |       store.dispatch(clearAuth());
+      252 |     });
+    > 253 |     expect(result.current?.status).not.toBe("ready");
+          |                                        ^
+      254 |   });
+      255 |
+      256 |   test("a read started before the sign-out does not land after it", async () => {
+
+      at Object.<anonymous> (src/shared/session/signOutReset.caches.test.tsx:253:40)
+
+  ● useSavedOutputRows › a read started before the sign-out does not land after it
+
+    expect(received).not.toBe(expected) // Object.is equality
+
+    Expected: not "ready"
+
+      265 |     pending.resolve({ items: [{ secret: "A's row" }], columns: ["secret"], total: 1 } as never);
+      266 |     await flush();
+    > 267 |     expect(result.current?.status).not.toBe("ready");
+          |                                        ^
+      268 |   });
+      269 | });
+      270 |
+
+      at Object.<anonymous> (src/shared/session/signOutReset.caches.test.tsx:267:40)
+
+  ● usePipelineOwnership › A's 403 on a pipeline is not cached as 'not the owner' for B
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    Ignored nodes: comments, script, style
+    <html>
+      <head />
+      <body>
+        <div />
+        <div />
+      </body>
+    </html>
+
+      283 |     (getPipelineById as jest.Mock).mockResolvedValueOnce({ id: "pipe-1", ownerId: "user-B" });
+      284 |     const second = renderHook(() => usePipelineOwnership("pipe-1"), { wrapper });
+    > 285 |     await waitFor(() => expect(second.result.current).toBe(true));
+          |                                                       ^
+      286 |   });
+      287 | });
+      288 |
+
+      at src/shared/session/signOutReset.caches.test.tsx:285:55
+      at runWithExpensiveErrorDiagnosticsDisabled (node_modules/@testing-library/dom/dist/config.js:47:12)
+      at checkCallback (node_modules/@testing-library/dom/dist/wait-for.js:124:77)
+      at checkRealTimersCallback (node_modules/@testing-library/dom/dist/wait-for.js:118:16)
+      at Timeout.task [as _onTimeout] (node_modules/jsdom/lib/jsdom/browser/Window.js:579:19)
+
+  ● useContextListLayout keyboard write timer › a nudge pending at sign-out never PATCHes the next user's preferences
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: {"contextListWidth": 300}
+
+      304 |         jest.advanceTimersByTime(5000);
+      305 |       });
+    > 306 |       expect(patchShellPreferencesRequest).not.toHaveBeenCalled();
+          |                                                ^
+      307 |     } finally {
+      308 |       jest.useRealTimers();
+      309 |     }
+
+      at Object.<anonymous> (src/shared/session/signOutReset.caches.test.tsx:306:48)
+
+Test Suites: 4 failed, 4 total
+Tests:       45 failed, 6 passed, 51 total
+Snapshots:   0 total
+Time:        8.861 s, estimated 11 s
+Ran all test suites matching src/shared/session.

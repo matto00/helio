@@ -2,6 +2,7 @@
 // Settings) does not lose it. It is stored WITH the saved pipeline it was made against: a return over a different saved
 // pipeline must take the stale-base path, never silently re-base. Cleared on logout (keys are per pipeline id, not per user).
 
+import { registerSessionReset } from "../../../shared/session/sessionReset";
 import { isOutputOp, isRootOp } from "./draftOps";
 import type { DraftOp } from "./draftOps";
 import type { DraftOverlay } from "./pipelineDraft";
@@ -153,3 +154,6 @@ export function clearKeptDrafts(): void {
     // Nothing to clear when storage is unavailable.
   }
 }
+
+// HEL-1634: kept drafts are keyed by pipeline id only, so they end with the session (logout, 401, failed rehydrate).
+registerSessionReset("keptDrafts", { covers: [], reset: clearKeptDrafts });

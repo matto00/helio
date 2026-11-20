@@ -8,6 +8,7 @@ import { IconButton } from "../../../shared/ui/IconButton";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { useOverlay } from "../../../shared/chrome/OverlayProvider";
 import { useRefinement } from "../hooks/useRefinement";
+import { REFINEMENT_CONVERSATION_ID_PREFIX } from "../state/refinementConversationIds";
 import { MessageTurn } from "../../assistant/ui/MessageTurn";
 import { fetchAuthoringConversation } from "../services/authoringService";
 import { summarizeRefinementPatchSet } from "../utils/refinementSummary";
@@ -32,7 +33,7 @@ type Phase = "idle" | "loading" | "error";
 // CONVERSATION_ID_STORAGE_KEY precedent), keyed per dashboardId: a refinement conversation is only
 // ever valid against the dashboard it was grounded in, so a stored id must never be reused across a
 // dashboard switch.
-const CONVERSATION_ID_STORAGE_PREFIX = "helio.refinement.conversationId.";
+const CONVERSATION_ID_STORAGE_PREFIX = REFINEMENT_CONVERSATION_ID_PREFIX;
 
 /** Per-kind error copy — mirrors `AuthoringChatDrawer.errorCopyFor` (HEL-401 design.md D5), reusing
  *  the SAME `AuthoringErrorKind` values (design.md D5 — `RefinementRoutes` reuses `AuthoringErrorKind`

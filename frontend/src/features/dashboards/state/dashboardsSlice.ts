@@ -31,6 +31,7 @@ import type {
   DuplicateDashboardResponse,
 } from "../types/dashboard";
 import type { AppliedProposal, DashboardProposal } from "../types/proposal";
+import { dispatchIfSameSession, getSessionEpoch } from "../../../shared/session/sessionEpoch";
 
 interface DashboardsState {
   items: Dashboard[];
@@ -249,13 +250,19 @@ export const updateDashboardLayout = createAsyncThunk<
     { dashboardId, layout, baseLayout, baseVersion },
     { dispatch, getState, rejectWithValue, fulfillWithValue },
   ) => {
+    const startEpoch = getSessionEpoch();
     const showServerLayout = async (known: Dashboard | null): Promise<boolean> => {
       // The dashboard is re-read so the store's authored layout converges on what the server holds. Upserted
       // by id, so a concurrent list fetch that already placed this dashboard is replaced, not duplicated.
       try {
         const fresh = known ?? (await fetchDashboardsRequest()).find((d) => d.id === dashboardId);
         if (!fresh) return false;
-        dispatch(dashboardsSlice.actions.dashboardUpserted(fresh));
+        // HEL-1634: never upsert a previous session's dashboard into the next user's list.
+        dispatchIfSameSession(
+          dispatch,
+          startEpoch,
+          dashboardsSlice.actions.dashboardUpserted(fresh),
+        );
         return true;
       } catch {
         // The failed save is still reported by the caller; the next successful fetch re-syncs.

@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react";
 
+import { registerSessionReset } from "../../../shared/session/sessionReset";
+
 /** HEL-1744 D7 -- what the insight panel body tells the panel chrome (the card footer's "Updated" time and the refresh
  *  action), keyed by Output id. The chrome renders before the Output's kind is known and never reads the insight itself, so
  *  the body publishes here while it is mounted. Several bodies can be mounted for one Output (grid card and fullscreen);
@@ -50,6 +52,11 @@ export function resetInsightChrome(): void {
   entries.clear();
   emit();
 }
+
+registerSessionReset("insightChromeStore", {
+  covers: ["features/panels/insight/insightChromeStore.ts#entries"],
+  reset: resetInsightChrome,
+});
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);

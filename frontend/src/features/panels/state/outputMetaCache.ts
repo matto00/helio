@@ -4,6 +4,8 @@
 // while its Output is retained (`outputFreshness`) and nothing has invalidated it since. A failed
 // fetch is evicted, never cached.
 
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
+import { declareSessionResetCoverage } from "../../../shared/session/sessionReset";
 import { preloadChartPanel } from "../ui/renderers/chartPanelModule";
 import { fetchPublicOutputMeta } from "../../dashboards/services/publicDashboardService";
 import { getOutputById } from "../../pipelines/services/outputService";
@@ -77,6 +79,11 @@ onFreshnessReset(() => {
   knownKinds.clear();
   panelScopes.clear();
 });
+declareSessionResetCoverage(
+  "features/panels/state/outputMetaCache.ts",
+  ["cache", "panelScopes", "knownKinds"],
+  "outputFreshness",
+);
 
 /** The kind this session has resolved for `outputId`, or `undefined` if it never has. */
 export function getKnownOutputKind(outputId: string): string | undefined {
@@ -115,6 +122,7 @@ export function fetchOutputMeta(outputId: string): Promise<Output> {
     if (existing.value === undefined || isRetained(outputId)) return existing.promise;
   }
   const sequenceAtStart = currentInvalidationSequence();
+  const epochAtStart = getSessionEpoch();
   const scope = panelScopes.get(outputId);
   const entry: Entry = {
     generation: currentGeneration(outputId),
@@ -129,6 +137,8 @@ export function fetchOutputMeta(outputId: string): Promise<Output> {
         );
   entry.promise = request.then(
     (output) => {
+      // HEL-1634: a read that started in an earlier session hands its result to its own callers only.
+      if (epochAtStart !== getSessionEpoch()) return output;
       // A panel-scoped read has no pipeline to register (its Output is never refreshed from run events).
       if (scope === undefined) registerOutputPipeline(outputId, output.pipelineId);
       noteKind(outputId, output.kind);
