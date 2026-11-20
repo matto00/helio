@@ -94,11 +94,13 @@ const INSTANCES: Instance[] = [
     control: (page) => page.locator(".app-command-bar__logo").first(),
   },
   {
-    name: "T1 dashboard tab",
+    name: "T1 active dashboard tab",
     ctx: "T",
     rule: "features/dashboards/tabs/ui/DashboardTabBar.css .dashboard-tab__button:hover",
     route: (s) => `/dashboards/${s.dashboardId}`,
-    control: (page) => page.locator(".dashboard-tab__button").first(),
+    // The ACTIVE tab: a restored second tab can render before the route's one (probe: 1 of 6 loads had zz-a first), and a
+    // tap on an inactive first tab activates it, which repaints it by state, not by a stuck hover.
+    control: (page) => page.locator(".dashboard-tab--active .dashboard-tab__button"),
   },
   {
     name: "T2 context-list selected dashboard row",
@@ -264,7 +266,7 @@ const DESKTOP_HOVER: Record<string, Record<string, Paint>> = {
       boxShadow: "none",
       opacity: "1",
     },
-    "T1 dashboard tab": {
+    "T1 active dashboard tab": {
       backgroundColor: "rgb(38, 35, 32)",
       borderTopColor: "rgb(242, 239, 233)",
       borderLeftColor: "rgb(242, 239, 233)",
@@ -375,7 +377,7 @@ const DESKTOP_HOVER: Record<string, Record<string, Paint>> = {
       boxShadow: "none",
       opacity: "1",
     },
-    "T1 dashboard tab": {
+    "T1 active dashboard tab": {
       backgroundColor: "rgb(239, 236, 230)",
       borderTopColor: "rgb(33, 29, 25)",
       borderLeftColor: "rgb(33, 29, 25)",
@@ -485,8 +487,9 @@ for (const ctx of ["P", "T"] as const)
   });
 
 // The one hover REVEAL left ungated (DashboardList.css `.dashboard-list__item-row:hover .popover.actions-menu`, HEL-1003)
-// has two render sites, both in the context list that only mounts outside the phone shell: the dashboards list
-// (DashboardList) and the Assistant conversation rows (SidebarItemList). On a touch tablet a tap on the row must leave
+// has one render site: the dashboards list row in the context list, which only mounts outside the phone shell (the
+// Assistant conversation rows pass no `onDelete`, so they render no actions menu; the test below records that). On a
+// touch tablet a tap on the row must leave
 // its actions trigger painted and tappable, and a tap on the trigger must open the menu. The rule is not edited by this
 // change, so the verdict is identical before and after it.
 test.describe("HEL-1735 touch T: the row actions reveal keeps its touch path", () => {
@@ -520,17 +523,16 @@ test.describe("HEL-1735 touch T: the row actions reveal keeps its touch path", (
   };
 
   for (const theme of THEMES) {
-    test(`both render sites reveal a tappable actions trigger on a tap (${theme})`, async ({
+    test(`the dashboards row reveals a tappable actions trigger on a tap (${theme})`, async ({
       page,
       request,
     }) => {
       test.setTimeout(240_000);
-      const credentials = await registerAndLogin(page, request, {
+      await registerAndLogin(page, request, {
         prefix: "hel1735",
         displayName: "HEL-1735",
         label: `rv-${theme}`,
       });
-      void credentials;
       const userId = await currentUserId(request);
       setUserTierForTest(userId, "beta");
       const s = await seed(page, `rv${theme}`);
