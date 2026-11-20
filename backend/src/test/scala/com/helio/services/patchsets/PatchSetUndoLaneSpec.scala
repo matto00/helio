@@ -84,7 +84,7 @@ class PatchSetUndoLaneSpec extends PatchSetUndoServiceFixture {
     // HEL-914 task 5.6: undoing an "add lane" (pipelineStep create) removes the step, its
     // bound Output, AND that Output's placement (panel) atomically via the same cascade a real
     // delete already relies on -- and reports the placement count.
-    "restore a pipelineStep create edit ('add lane') by removing the step AND cascading its Output/placement, reporting the placement count" in {
+    "restore a pipelineStep create edit ('add lane') by refusing while a later-bound placement exists, then removing the step and its Output once the placement is gone" in {
       val sourceId = seedDatasetSource(userA, "Lane-create pipeline source")
       val pipeline = seedPipeline(userA, sourceId, "Lane-create pipeline")
       val createPatch = JsObject("type" -> JsString("limit"), "config" -> JsObject("count" -> JsNumber(1)))
@@ -108,16 +108,27 @@ class PatchSetUndoLaneSpec extends PatchSetUndoServiceFixture {
         case Left(e)         => fail(s"panel create failed: $e")
       }
 
+      // HEL-1720: the panel was bound AFTER the apply and is not part of the set, so the undo is refused (nothing removed)
+      // instead of cascading it away silently.
+      await(undoService.undo(PatchSetApplicationId(applicationId), userA)) match {
+        case Left(ServiceError.Conflict(msg)) => msg should include("\"Lane panel\" on dashboard")
+        case other                                               => fail(s"expected a Conflict, got $other")
+      }
+      await(pipelineStepRepo.findByIdInternal(PipelineStepId(createdStepId))).isDefined shouldBe true
+      await(outputRepo.findByIdInternal(output.id)).isDefined shouldBe true
+      await(panelRepo.findByIdInternal(panel.id)).isDefined shouldBe true
+
+      // once the user removes the panel themselves, the undo removes the step and its Output
+      await(panelService.delete(panel.id, userA)).isRight shouldBe true
       val undoResponse = await(undoService.undo(PatchSetApplicationId(applicationId), userA)) match {
         case Right(r)  => r
         case Left(err) => fail(s"expected success, got $err")
       }
       undoResponse.edits.head.status shouldBe "restored"
-      undoResponse.edits.head.resultingState.map(_.asJsObject.fields("removedPlacementCount")) shouldBe Some(JsNumber(1))
+      undoResponse.edits.head.resultingState.map(_.asJsObject.fields("removedPlacementCount")) shouldBe Some(JsNumber(0))
 
       await(pipelineStepRepo.findByIdInternal(PipelineStepId(createdStepId))) shouldBe None
       await(outputRepo.findByIdInternal(output.id)) shouldBe None
-      await(panelRepo.findByIdInternal(panel.id)) shouldBe None
     }
 
     // HEL-914 task 5.7: refuses the undo (rather than deleting a node still relied on) when a

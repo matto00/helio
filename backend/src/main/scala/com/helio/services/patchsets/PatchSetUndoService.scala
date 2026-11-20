@@ -98,7 +98,7 @@ final class PatchSetUndoService(
           if (failedOnwards)
             loop(remaining.tail, acc :+ EditUndoOutcome(edit.index, "notAttempted", None, None), failedOnwards = true)
           else
-            safeRestoreOne(edit, user).flatMap {
+            safeRestoreOne(edit, edits, user).flatMap {
               case Right(outcome) => loop(remaining.tail, acc :+ outcome, failedOnwards = false)
               case Left(reason) =>
                 log.error(s"undo restore failed for edit ${edit.index} (kind=${edit.targetKind}, op=${edit.op}): $reason")
@@ -108,26 +108,26 @@ final class PatchSetUndoService(
     loop(edits.reverse, Vector.empty, failedOnwards = false).map(_.sortBy(_.index))
   }
 
-  private def safeRestoreOne(edit: JournaledEdit, user: AuthenticatedUser): Future[Either[String, EditUndoOutcome]] =
-    restoreOne(edit, user).recover { case NonFatal(ex) => Left(s"edit ${edit.index}: ${ex.getMessage}") }
+  private def safeRestoreOne(edit: JournaledEdit, edits: Vector[JournaledEdit], user: AuthenticatedUser): Future[Either[String, EditUndoOutcome]] =
+    restoreOne(edit, edits, user).recover { case NonFatal(ex) => Left(s"edit ${edit.index}: ${ex.getMessage}") }
 
-  private def restoreOne(edit: JournaledEdit, user: AuthenticatedUser): Future[Either[String, EditUndoOutcome]] =
+  private def restoreOne(edit: JournaledEdit, edits: Vector[JournaledEdit], user: AuthenticatedUser): Future[Either[String, EditUndoOutcome]] =
     (edit.targetKind, edit.op) match {
       case ("panel", "update")        => restorePanelUpdate(edit, user)
       case ("panel", "create")        => restoreCreateUndo(edit, id => panelService.delete(PanelId(id), user))
       case ("panel", "delete")        => restorePanelDelete(edit, user)
       case ("dashboard", "update")    => restoreDashboardUpdate(edit, user)
-      case ("dashboard", "create")    => restoreCreateUndo(edit, id => dashboardService.delete(DashboardId(id), user))
+      case ("dashboard", "create")    => ifStillUnbound(edit, edits)(restoreCreateUndo(edit, id => dashboardService.delete(DashboardId(id), user)))
       case ("dataSource", "update")   => restoreDataSourceUpdate(edit, user)
       // HEL-987: `DataSourceService.delete` returns `Either[DataSourceDeleteError, Unit]` now
       // (the 409-conflict wrapper) -- `.err` is `restoreCreateUndo`'s `ServiceError` shape,
       // unaffected by whether the failure carried a structured conflict.
       case ("dataSource", "create")   => restoreCreateUndo(edit, id => dataSourceService.delete(DataSourceId(id), user).map(_.left.map(_.err)))
       case ("pipeline", "update")     => restorePipelineUpdate(edit, user)
-      case ("pipeline", "create")     => restorePipelineCreateUndo(edit, user)
+      case ("pipeline", "create")     => ifStillUnbound(edit, edits)(restorePipelineCreateUndo(edit, user))
       case ("pipelineStep", "update") => restorePipelineStepUpdate(edit, user)
       case ("pipelineStep", "delete") => restorePipelineStepDelete(edit, user)
-      case ("pipelineStep", "create") => restorePipelineStepCreate(edit, user)
+      case ("pipelineStep", "create") => ifStillUnbound(edit, edits)(restorePipelineStepCreate(edit, user))
       // HEL-1639 D2: delete the Output the apply created (and any panel still bound to it; undo walks the set in reverse,
       // so a panel created in the same set is already gone).
       case ("output", "create")       => restoreCreateUndo(edit, id => deleteCreatedOutput(OutputId(id), user))
@@ -138,7 +138,25 @@ final class PatchSetUndoService(
   private def deleteCreatedOutput(id: OutputId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
     context.outputRepo.findById(id, user).flatMap {
       case None    => Future.successful(Left(ServiceError.NotFound("Output not found")))
-      case Some(_) => context.outputRepo.deleteWithPanelsInternal(id).map(_ => Right(()))
+      // HEL-1720 D4: the Output row is locked and its bound panels re-counted inside the delete's own transaction; a panel
+      // bound since Phase 1 aborts it (a Left with a fixed phrase and a count, never a title or id: it is logged at ERROR).
+      case Some(_) =>
+        context.outputRepo.deleteIfUnboundInternal(id).map {
+          case Right(_) => Right(())
+          case Left(n)  => Left(ServiceError.Conflict(PatchSetUndoBoundPanels.boundDuringUndo(n)))
+        }
+    }
+
+  /** HEL-1720 D4 (pipelineStep / pipeline / dashboard arms): re-runs the Phase-1 bound-panels check immediately before the
+   *  delete and reports the edit failed (so the walk stops) when a panel has been bound since. These deletes run inside
+   *  service-owned transactions, so the window from this re-check to the cascade remains: the same accepted residual as
+   *  V130's RESIDUAL paragraph (and HEL-1485's "panel created after the pre-lock"). */
+  private def ifStillUnbound(edit: JournaledEdit, edits: Vector[JournaledEdit])(
+      restore: => Future[Either[String, EditUndoOutcome]]
+  ): Future[Either[String, EditUndoOutcome]] =
+    PatchSetUndoBoundPanels.blockingPanelIds(edit, edits, context).flatMap {
+      case ids if ids.nonEmpty => Future.successful(Left(restoreFailed(edit, PatchSetUndoBoundPanels.boundDuringUndo(ids.size))))
+      case _                   => restore
     }
 
   private def missingPriorState(edit: JournaledEdit): String =
