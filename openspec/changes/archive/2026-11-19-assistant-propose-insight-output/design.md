@@ -113,14 +113,14 @@ The change edits `scripts/check-schema-drift.mjs`, which the pre-commit hook run
 branch that reads the canonical Output kinds from `OutputKind.fromString` in `model.scala` when the assistant tool enum is
 derived from `OutputKind.all`, and empties `KNOWN_PRE_EXISTING_DRIFT`.
 
-- What does it execute? Only node reading files: it reads `model.scala` with `readFileSync` and parses it with regexes.
+- **What does it execute?** Only node reading files: it reads `model.scala` with `readFileSync` and parses it with regexes.
   It spawns no process, runs no git command and makes no network call; the rest of the script is unchanged.
-- What environment does it inherit, and from where? The hook's environment from `.husky/pre-commit` via `npm run`; the
+- **What environment does it inherit, and from where?** The hook's environment from `.husky/pre-commit` via `npm run`; the
   new branch reads no environment variable. Paths are resolved from the script's own `repoRoot`, as before.
-- Does it write anything outside its own sandbox? No. The script writes nothing at all; it prints and sets the exit code.
-- Does it behave differently from a linked worktree than from a main checkout? No. It reads tracked source files relative
+- **Does it write anything outside its own sandbox?** No. The script writes nothing at all; it prints and sets the exit code.
+- **Does it behave differently from a linked worktree than from a main checkout?** No. It reads tracked source files relative
   to `repoRoot`, which is the checkout it runs in, linked worktree or main; it does not touch `.git`.
-- What happens on its first run? It parses `model.scala`; if `object OutputKind` or `fromString` cannot be found, or lists
+- **What happens on its first run?** It parses `model.scala`; if `object OutputKind` or `fromString` cannot be found, or lists
   no kinds, it throws, failing the check loudly rather than passing on an empty set.
 
 ## Risks / Trade-offs
