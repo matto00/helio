@@ -1,6 +1,0 @@
-- `frontend/src/features/home/ui/HomeOpeningLine.tsx` — ghost sentence wrapped in the `ui-skeleton home-opening__ghost-bar` span; separate Skeleton bar removed; direct Skeleton.css import
-- `frontend/src/features/home/ui/HomePage.css` — per-fragment inline bar rule with the rounded-rect thickness mask; absolute single-bar rule and `.home-opening__loading` relative removed
-- `frontend/src/features/home/ui/HomePage.css.test.ts` — stylesheet shape assertions for the inline bar, scoped no-shimmer-outside-Skeleton.css, direct import
-- `frontend/src/features/home/ui/HomePage.test.tsx` — placeholder markup: one bar span in the ghost, no skeleton-line
-- `e2e/hel1749-home-opening-skeleton-lines.spec.ts` — new e2e: fragments per line, painted thickness/gap/corners, computed style, reduced motion, serif/mono
-- `openspec/changes/home-opening-skeleton-per-line/**` — change artifacts and evidence
