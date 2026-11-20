@@ -1,0 +1,397 @@
+[HEL-1774 api] dashboard-dialogs 375 light 12 /api requests, max 60s window 12 (limit 120, target <= 90), 0 x 429; top: 2 POST /api/panels; 1 GET /api/auth/me; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary; 1 GET /api/dashboards; 1 POST /api/pipelines/:id/steps
+  ✓   2 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-dialogs): 375x812, light › every modal in the group ends at its content, natural and with an injected hidden element (3.2s)
+[HEL-1774 api] dashboard-dialogs 375 dark 12 /api requests, max 60s window 12 (limit 120, target <= 90), 0 x 429; top: 2 POST /api/panels; 1 GET /api/auth/me; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary; 1 GET /api/dashboards; 1 POST /api/pipelines/:id/steps
+  ✓   3 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-dialogs): 375x812, dark › every modal in the group ends at its content, natural and with an injected hidden element (2.4s)
+[HEL-1774 natural] panel-detail-edit 375x812 light {"dialog":{"scrollHeight":812,"clientHeight":812,"contentBottom":812},"body":{"scrollHeight":694,"clientHeight":694,"contentBottom":714}}
+[HEL-1774 abs] panel-detail-edit 375x812 light [{"el":"div.panel-detail-modal__scroll-fade","position":"absolute","containingBlock":"div.panel-detail-modal__scroll-area","hidden":false,"rect":{"top":61,"left":0,"width":375,"height":694}}]
+[HEL-1774 injected] panel-detail-edit 375x812 light {"dialog":{"scrollHeight":812,"clientHeight":812,"contentBottom":812},"body":{"scrollHeight":2318,"clientHeight":694,"contentBottom":2318}}
+[HEL-1774 api] dashboard-panels 375 light 22 /api requests, max 60s window 22 (limit 120, target <= 90), 0 x 429; top: 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/panels; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary; 1 POST /api/pipelines/:id/steps
+  ✓   1 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-panels): 375x812, light › every modal in the group ends at its content, natural and with an injected hidden element (5.8s)
+[HEL-1774 api] dashboard-dialogs 390 light 12 /api requests, max 60s window 12 (limit 120, target <= 90), 0 x 429; top: 2 POST /api/panels; 1 GET /api/auth/me; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary; 1 GET /api/dashboards; 1 POST /api/pipelines/:id/steps
+  ✓   4 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-dialogs): 390x844, light › every modal in the group ends at its content, natural and with an injected hidden element (2.7s)
+[HEL-1774 api] dashboard-dialogs 390 dark 12 /api requests, max 60s window 12 (limit 120, target <= 90), 0 x 429; top: 2 POST /api/panels; 1 GET /api/auth/me; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary; 1 GET /api/dashboards; 1 POST /api/pipelines/:id/steps
+  ✓   6 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-dialogs): 390x844, dark › every modal in the group ends at its content, natural and with an injected hidden element (2.4s)
+[HEL-1774 natural] panel-detail-edit 375x812 dark {"dialog":{"scrollHeight":812,"clientHeight":812,"contentBottom":812},"body":{"scrollHeight":694,"clientHeight":694,"contentBottom":714}}
+[HEL-1774 abs] panel-detail-edit 375x812 dark [{"el":"div.panel-detail-modal__scroll-fade","position":"absolute","containingBlock":"div.panel-detail-modal__scroll-area","hidden":false,"rect":{"top":61,"left":0,"width":375,"height":694}}]
+[HEL-1774 injected] panel-detail-edit 375x812 dark {"dialog":{"scrollHeight":812,"clientHeight":812,"contentBottom":812},"body":{"scrollHeight":2318,"clientHeight":694,"contentBottom":2318}}
+[HEL-1774 api] dashboard-panels 375 dark 22 /api requests, max 60s window 22 (limit 120, target <= 90), 0 x 429; top: 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/panels; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary; 1 POST /api/pipelines/:id/steps
+  ✓   5 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-panels): 375x812, dark › every modal in the group ends at its content, natural and with an injected hidden element (5.1s)
+[HEL-1774 natural] panel-detail-edit 390x844 light {"dialog":{"scrollHeight":844,"clientHeight":844,"contentBottom":844},"body":{"scrollHeight":726,"clientHeight":726,"contentBottom":746}}
+[HEL-1774 abs] panel-detail-edit 390x844 light [{"el":"div.panel-detail-modal__scroll-fade","position":"absolute","containingBlock":"div.panel-detail-modal__scroll-area","hidden":false,"rect":{"top":61,"left":0,"width":390,"height":726}}]
+[HEL-1774 injected] panel-detail-edit 390x844 light {"dialog":{"scrollHeight":844,"clientHeight":844,"contentBottom":844},"body":{"scrollHeight":2414,"clientHeight":726,"contentBottom":2414}}
+[HEL-1774 api] dashboard-panels 390 light 22 /api requests, max 60s window 22 (limit 120, target <= 90), 0 x 429; top: 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/panels; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary; 1 POST /api/pipelines/:id/steps
+  ✓   8 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-panels): 390x844, light › every modal in the group ends at its content, natural and with an injected hidden element (5.0s)
+[HEL-1774 natural] panel-inspect 1280x800 light {"dialog":{"scrollHeight":303,"clientHeight":303,"contentBottom":303.59375},"body":{"scrollHeight":185,"clientHeight":185,"contentBottom":184.59375}}
+[HEL-1774 abs] panel-inspect 1280x800 light []
+[HEL-1774 injected] panel-inspect 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1785,"clientHeight":600,"contentBottom":1784.59375}}
+[HEL-1774 natural] output-picker 1280x800 light {"dialog":{"scrollHeight":425,"clientHeight":425,"contentBottom":426},"body":{"scrollHeight":364,"clientHeight":364,"contentBottom":364}}
+[HEL-1774 abs] output-picker 1280x800 light []
+[HEL-1774 injected] output-picker 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1964,"clientHeight":657,"contentBottom":1964}}
+[HEL-1774 natural] ask-drawer 1280x800 light {"dialog":{"scrollHeight":145,"clientHeight":145,"contentBottom":146},"body":{"scrollHeight":84,"clientHeight":84,"contentBottom":84}}
+[HEL-1774 abs] ask-drawer 1280x800 light [{"el":"span.sr-only","position":"absolute","containingBlock":"body","hidden":true,"rect":{"top":420.5,"left":824,"width":1,"height":1}},{"el":"p.sr-only","position":"absolute","containingBlock":"body","hidden":true,"rect":{"top":407.5,"left":390,"width":1,"height":1}}]
+[HEL-1774 injected] ask-drawer 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1684,"clientHeight":657,"contentBottom":1684}}
+[HEL-1774 api] dashboard-dialogs 1280 light 51 /api requests, max 60s window 51 (limit 120, target <= 90), 0 x 429; top: 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/dashboard-folders; 3 GET /api/dashboard-changes; 3 GET /api/dashboards/:id/panels; 3 GET /api/outputs/:id; 3 GET /api/outputs/:id/rows; 3 GET /api/outputs/:id/assertion-status
+  ✓   7 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-dialogs): 1280x800, light › every modal in the group ends at its content, natural and with an injected hidden element (10.3s)
+[HEL-1774 natural] panel-detail-edit 390x844 dark {"dialog":{"scrollHeight":844,"clientHeight":844,"contentBottom":844},"body":{"scrollHeight":726,"clientHeight":726,"contentBottom":746}}
+[HEL-1774 abs] panel-detail-edit 390x844 dark [{"el":"div.panel-detail-modal__scroll-fade","position":"absolute","containingBlock":"div.panel-detail-modal__scroll-area","hidden":false,"rect":{"top":61,"left":0,"width":390,"height":726}}]
+[HEL-1774 injected] panel-detail-edit 390x844 dark {"dialog":{"scrollHeight":844,"clientHeight":844,"contentBottom":844},"body":{"scrollHeight":2414,"clientHeight":726,"contentBottom":2414}}
+[HEL-1774 api] dashboard-panels 390 dark 22 /api requests, max 60s window 22 (limit 120, target <= 90), 0 x 429; top: 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/panels; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary; 1 POST /api/pipelines/:id/steps
+  ✓   9 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-panels): 390x844, dark › every modal in the group ends at its content, natural and with an injected hidden element (5.5s)
+[HEL-1774 natural] panel-inspect 1280x800 dark {"dialog":{"scrollHeight":303,"clientHeight":303,"contentBottom":303.59375},"body":{"scrollHeight":185,"clientHeight":185,"contentBottom":184.59375}}
+[HEL-1774 abs] panel-inspect 1280x800 dark []
+[HEL-1774 injected] panel-inspect 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1785,"clientHeight":600,"contentBottom":1784.59375}}
+[HEL-1774 natural] dashboard-share 1280x800 light {"dialog":{"scrollHeight":580,"clientHeight":580,"contentBottom":580.796875},"body":{"scrollHeight":447,"clientHeight":447,"contentBottom":447}}
+[HEL-1774 abs] dashboard-share 1280x800 light []
+[HEL-1774 injected] dashboard-share 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2047,"clientHeight":585,"contentBottom":2047}}
+[HEL-1774 natural] output-picker 1280x800 dark {"dialog":{"scrollHeight":425,"clientHeight":425,"contentBottom":426},"body":{"scrollHeight":364,"clientHeight":364,"contentBottom":364}}
+[HEL-1774 abs] output-picker 1280x800 dark []
+[HEL-1774 injected] output-picker 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1964,"clientHeight":657,"contentBottom":1964}}
+[HEL-1774 natural] panel-detail-edit 1280x800 light {"dialog":{"scrollHeight":678,"clientHeight":678,"contentBottom":679},"body":{"scrollHeight":560,"clientHeight":560,"contentBottom":580}}
+[HEL-1774 abs] panel-detail-edit 1280x800 light [{"el":"div.panel-detail-modal__scroll-fade","position":"absolute","containingBlock":"div.panel-detail-modal__scroll-area","hidden":false,"rect":{"top":122,"left":371,"width":538,"height":560}}]
+[HEL-1774 injected] panel-detail-edit 1280x800 light {"dialog":{"scrollHeight":678,"clientHeight":678,"contentBottom":679},"body":{"scrollHeight":2160,"clientHeight":560,"contentBottom":2160}}
+[HEL-1774 natural] ask-drawer 1280x800 dark {"dialog":{"scrollHeight":145,"clientHeight":145,"contentBottom":146},"body":{"scrollHeight":84,"clientHeight":84,"contentBottom":84}}
+[HEL-1774 abs] ask-drawer 1280x800 dark [{"el":"span.sr-only","position":"absolute","containingBlock":"body","hidden":true,"rect":{"top":420.5,"left":824,"width":1,"height":1}},{"el":"p.sr-only","position":"absolute","containingBlock":"body","hidden":true,"rect":{"top":407.5,"left":390,"width":1,"height":1}}]
+[HEL-1774 injected] ask-drawer 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1684,"clientHeight":657,"contentBottom":1684}}
+[HEL-1774 api] dashboard-dialogs 1280 dark 51 /api requests, max 60s window 51 (limit 120, target <= 90), 0 x 429; top: 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/dashboard-folders; 3 GET /api/dashboard-changes; 3 GET /api/dashboards/:id/panels; 3 GET /api/outputs/:id; 3 GET /api/outputs/:id/rows; 3 GET /api/outputs/:id/assertion-status
+  ✓  10 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-dialogs): 1280x800, dark › every modal in the group ends at its content, natural and with an injected hidden element (10.3s)
+[HEL-1774 natural] panel-fullscreen 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":642,"clientHeight":642,"contentBottom":642.203125}}
+[HEL-1774 abs] panel-fullscreen 1280x800 light [{"el":"canvas.","position":"absolute","containingBlock":"div.","hidden":false,"rect":{"top":136.796875,"left":61,"width":1158,"height":602}},{"el":"dialog.ui-modal","position":"absolute","containingBlock":"body","hidden":true,"rect":{"top":0,"left":0,"width":0,"height":0}}]
+[HEL-1774 injected] panel-fullscreen 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2242,"clientHeight":642,"contentBottom":2242.203125}}
+[HEL-1774 api] dashboard-panels 1280 light 50 /api requests, max 60s window 50 (limit 120, target <= 90), 0 x 429; top: 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/dashboard-folders; 3 GET /api/dashboard-changes; 3 GET /api/dashboards/:id/panels; 3 GET /api/outputs/:id; 3 GET /api/outputs/:id/rows; 3 GET /api/outputs/:id/assertion-status
+  ✓  11 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-panels): 1280x800, light › every modal in the group ends at its content, natural and with an injected hidden element (11.0s)
+[HEL-1774 natural] pipeline-share 375x812 light {"dialog":{"scrollHeight":403,"clientHeight":403,"contentBottom":403.796875},"body":{"scrollHeight":252,"clientHeight":252,"contentBottom":252}}
+[HEL-1774 abs] pipeline-share 375x812 light []
+[HEL-1774 injected] pipeline-share 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1876,"clientHeight":578,"contentBottom":1876}}
+[HEL-1774 natural] dashboard-share 1280x800 dark {"dialog":{"scrollHeight":580,"clientHeight":580,"contentBottom":580.796875},"body":{"scrollHeight":447,"clientHeight":447,"contentBottom":447}}
+[HEL-1774 abs] dashboard-share 1280x800 dark []
+[HEL-1774 injected] dashboard-share 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2047,"clientHeight":585,"contentBottom":2047}}
+[HEL-1774 natural] pipeline-schedule 375x812 light {"dialog":{"scrollHeight":446,"clientHeight":446,"contentBottom":446.796875},"body":{"scrollHeight":295,"clientHeight":295,"contentBottom":295}}
+[HEL-1774 abs] pipeline-schedule 375x812 light []
+[HEL-1774 injected] pipeline-schedule 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1919,"clientHeight":578,"contentBottom":1919}}
+[HEL-1774 natural] panel-detail-edit 1280x800 dark {"dialog":{"scrollHeight":678,"clientHeight":678,"contentBottom":679},"body":{"scrollHeight":560,"clientHeight":560,"contentBottom":580}}
+[HEL-1774 abs] panel-detail-edit 1280x800 dark [{"el":"div.panel-detail-modal__scroll-fade","position":"absolute","containingBlock":"div.panel-detail-modal__scroll-area","hidden":false,"rect":{"top":122,"left":371,"width":538,"height":560}}]
+[HEL-1774 injected] panel-detail-edit 1280x800 dark {"dialog":{"scrollHeight":678,"clientHeight":678,"contentBottom":679},"body":{"scrollHeight":2160,"clientHeight":560,"contentBottom":2160}}
+[HEL-1774 natural] mobile-step-sheet 375x812 light {"dialog":{"scrollHeight":795,"clientHeight":795,"contentBottom":796},"body":{"scrollHeight":730,"clientHeight":730,"contentBottom":521.5}}
+[HEL-1774 abs] mobile-step-sheet 375x812 light []
+[HEL-1774 injected] mobile-step-sheet 375x812 light {"dialog":{"scrollHeight":795,"clientHeight":795,"contentBottom":796},"body":{"scrollHeight":2146,"clientHeight":730,"contentBottom":2145.5}}
+[HEL-1774 api] pipeline-dialogs 375 light 48 /api requests, max 60s window 48 (limit 120, target <= 90), 0 x 429; top: 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/pipelines/:id; 3 GET /api/pipelines/:id/steps; 3 GET /api/pipelines/:id/analyze; 3 GET /api/pipelines/:id/schedule; 3 GET /api/pipelines/:id/outputs; 3 GET /api/data-sources
+  ✓  12 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-dialogs): 375x812, light › every modal in the group ends at its content, natural and with an injected hidden element (9.6s)
+[HEL-1774 natural] panel-fullscreen 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":642,"clientHeight":642,"contentBottom":642.203125}}
+[HEL-1774 abs] panel-fullscreen 1280x800 dark [{"el":"canvas.","position":"absolute","containingBlock":"div.","hidden":false,"rect":{"top":136.796875,"left":61,"width":1158,"height":602}},{"el":"dialog.ui-modal","position":"absolute","containingBlock":"body","hidden":true,"rect":{"top":0,"left":0,"width":0,"height":0}}]
+[HEL-1774 injected] panel-fullscreen 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2242,"clientHeight":642,"contentBottom":2242.203125}}
+[HEL-1774 api] dashboard-panels 1280 dark 50 /api requests, max 60s window 50 (limit 120, target <= 90), 0 x 429; top: 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/dashboard-folders; 3 GET /api/dashboard-changes; 3 GET /api/dashboards/:id/panels; 3 GET /api/outputs/:id; 3 GET /api/outputs/:id/rows; 3 GET /api/outputs/:id/assertion-status
+  ✓  13 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-panels): 1280x800, dark › every modal in the group ends at its content, natural and with an injected hidden element (9.9s)
+[HEL-1774 natural] pipeline-share 375x812 dark {"dialog":{"scrollHeight":403,"clientHeight":403,"contentBottom":403.796875},"body":{"scrollHeight":252,"clientHeight":252,"contentBottom":252}}
+[HEL-1774 abs] pipeline-share 375x812 dark []
+[HEL-1774 injected] pipeline-share 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1876,"clientHeight":578,"contentBottom":1876}}
+[HEL-1774 natural] output-editor 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1982,"clientHeight":611,"contentBottom":1982}}
+[HEL-1774 abs] output-editor 375x812 light [{"el":"input.ui-toggle__input","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1381.09375,"left":56,"width":1,"height":1}},{"el":"span.sr-only","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1530.59375,"left":96,"width":1,"height":1}},{"el":"canvas.","position":"absolute","containingBlock":"div.","hidden":false,"rect":{"top":1627.59375,"left":57,"width":261,"height":240}},{"el":"span.sr-only","position":"absolute","containingBlock":"details.outp
+[HEL-1774 injected] output-editor 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":3606,"clientHeight":611,"contentBottom":3606}}
+[HEL-1774 natural] pipeline-schedule 375x812 dark {"dialog":{"scrollHeight":446,"clientHeight":446,"contentBottom":446.796875},"body":{"scrollHeight":295,"clientHeight":295,"contentBottom":295}}
+[HEL-1774 abs] pipeline-schedule 375x812 dark []
+[HEL-1774 injected] pipeline-schedule 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1919,"clientHeight":578,"contentBottom":1919}}
+[HEL-1774 natural] output-history 375x812 light {"dialog":{"scrollHeight":617,"clientHeight":617,"contentBottom":618.296875},"body":{"scrollHeight":556,"clientHeight":556,"contentBottom":556.296875}}
+[HEL-1774 abs] output-history 375x812 light []
+[HEL-1774 natural] mobile-step-sheet 375x812 dark {"dialog":{"scrollHeight":795,"clientHeight":795,"contentBottom":796},"body":{"scrollHeight":730,"clientHeight":730,"contentBottom":521.5}}
+[HEL-1774 injected] output-history 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":2180,"clientHeight":668,"contentBottom":2180.296875}}
+[HEL-1774 abs] mobile-step-sheet 375x812 dark []
+[HEL-1774 injected] mobile-step-sheet 375x812 dark {"dialog":{"scrollHeight":795,"clientHeight":795,"contentBottom":796},"body":{"scrollHeight":2146,"clientHeight":730,"contentBottom":2145.5}}
+[HEL-1774 api] pipeline-dialogs 375 dark 48 /api requests, max 60s window 48 (limit 120, target <= 90), 0 x 429; top: 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/pipelines/:id; 3 GET /api/pipelines/:id/steps; 3 GET /api/pipelines/:id/analyze; 3 GET /api/pipelines/:id/schedule; 3 GET /api/pipelines/:id/outputs; 3 GET /api/data-sources
+[HEL-1774 api] pipeline-editor 375 light 44 /api requests, max 60s window 44 (limit 120, target <= 90), 0 x 429; top: 3 GET /api/auth/me; 3 GET /api/dashboards; 2 POST /api/panels; 2 GET /api/pipelines/:id; 2 GET /api/pipelines/:id/steps; 2 GET /api/pipelines/:id/analyze; 2 GET /api/pipelines/:id/schedule; 2 GET /api/pipelines/:id/outputs
+  ✓  14 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-dialogs): 375x812, dark › every modal in the group ends at its content, natural and with an injected hidden element (9.5s)
+  ✓  15 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-editor): 375x812, light › every modal in the group ends at its content, natural and with an injected hidden element (8.1s)
+[HEL-1774 natural] pipeline-share 390x844 light {"dialog":{"scrollHeight":403,"clientHeight":403,"contentBottom":403.796875},"body":{"scrollHeight":252,"clientHeight":252,"contentBottom":252}}
+[HEL-1774 abs] pipeline-share 390x844 light []
+[HEL-1774 injected] pipeline-share 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1940,"clientHeight":607,"contentBottom":1940}}
+[HEL-1774 natural] output-editor 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1982,"clientHeight":611,"contentBottom":1982}}
+[HEL-1774 abs] output-editor 375x812 dark [{"el":"input.ui-toggle__input","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1381.09375,"left":56,"width":1,"height":1}},{"el":"span.sr-only","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1530.59375,"left":96,"width":1,"height":1}},{"el":"canvas.","position":"absolute","containingBlock":"div.","hidden":false,"rect":{"top":1627.59375,"left":57,"width":261,"height":240}},{"el":"span.sr-only","position":"absolute","containingBlock":"details.outpu
+[HEL-1774 injected] output-editor 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":3606,"clientHeight":611,"contentBottom":3606}}
+[HEL-1774 natural] pipeline-schedule 390x844 light {"dialog":{"scrollHeight":446,"clientHeight":446,"contentBottom":446.796875},"body":{"scrollHeight":295,"clientHeight":295,"contentBottom":295}}
+[HEL-1774 abs] pipeline-schedule 390x844 light []
+[HEL-1774 injected] pipeline-schedule 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1983,"clientHeight":607,"contentBottom":1983}}
+[HEL-1774 natural] output-history 375x812 dark {"dialog":{"scrollHeight":617,"clientHeight":617,"contentBottom":618.296875},"body":{"scrollHeight":556,"clientHeight":556,"contentBottom":556.296875}}
+[HEL-1774 abs] output-history 375x812 dark []
+[HEL-1774 injected] output-history 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":2180,"clientHeight":668,"contentBottom":2180.296875}}
+[HEL-1774 api] pipeline-editor 375 dark 44 /api requests, max 60s window 44 (limit 120, target <= 90), 0 x 429; top: 3 GET /api/auth/me; 3 GET /api/dashboards; 2 POST /api/panels; 2 GET /api/pipelines/:id; 2 GET /api/pipelines/:id/steps; 2 GET /api/pipelines/:id/analyze; 2 GET /api/pipelines/:id/schedule; 2 GET /api/pipelines/:id/outputs
+  ✓  17 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-editor): 375x812, dark › every modal in the group ends at its content, natural and with an injected hidden element (7.9s)
+[HEL-1774 natural] mobile-step-sheet 390x844 light {"dialog":{"scrollHeight":827,"clientHeight":827,"contentBottom":828},"body":{"scrollHeight":762,"clientHeight":762,"contentBottom":521.5}}
+[HEL-1774 abs] mobile-step-sheet 390x844 light []
+[HEL-1774 injected] mobile-step-sheet 390x844 light {"dialog":{"scrollHeight":827,"clientHeight":827,"contentBottom":828},"body":{"scrollHeight":2210,"clientHeight":762,"contentBottom":2209.5}}
+[HEL-1774 api] pipeline-dialogs 390 light 48 /api requests, max 60s window 48 (limit 120, target <= 90), 0 x 429; top: 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/pipelines/:id; 3 GET /api/pipelines/:id/steps; 3 GET /api/pipelines/:id/analyze; 3 GET /api/pipelines/:id/schedule; 3 GET /api/pipelines/:id/outputs; 3 GET /api/data-sources
+  ✓  16 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-dialogs): 390x844, light › every modal in the group ends at its content, natural and with an injected hidden element (8.9s)
+[HEL-1774 natural] output-editor 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1982,"clientHeight":640,"contentBottom":1982}}
+[HEL-1774 abs] output-editor 390x844 light [{"el":"input.ui-toggle__input","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1382.703125,"left":56,"width":1,"height":1}},{"el":"span.sr-only","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1532.203125,"left":96,"width":1,"height":1}},{"el":"canvas.","position":"absolute","containingBlock":"div.","hidden":false,"rect":{"top":1629.203125,"left":57,"width":276,"height":240}},{"el":"span.sr-only","position":"absolute","containingBlock":"details.o
+[HEL-1774 injected] output-editor 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":3670,"clientHeight":640,"contentBottom":3670}}
+[HEL-1774 natural] pipeline-share 390x844 dark {"dialog":{"scrollHeight":403,"clientHeight":403,"contentBottom":403.796875},"body":{"scrollHeight":252,"clientHeight":252,"contentBottom":252}}
+[HEL-1774 abs] pipeline-share 390x844 dark []
+[HEL-1774 injected] pipeline-share 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1940,"clientHeight":607,"contentBottom":1940}}
+[HEL-1774 natural] output-history 390x844 light {"dialog":{"scrollHeight":617,"clientHeight":617,"contentBottom":618.296875},"body":{"scrollHeight":556,"clientHeight":556,"contentBottom":556.296875}}
+[HEL-1774 abs] output-history 390x844 light []
+[HEL-1774 injected] output-history 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":2244,"clientHeight":697,"contentBottom":2244.296875}}
+[HEL-1774 api] pipeline-editor 390 light 44 /api requests, max 60s window 44 (limit 120, target <= 90), 0 x 429; top: 3 GET /api/auth/me; 3 GET /api/dashboards; 2 POST /api/panels; 2 GET /api/pipelines/:id; 2 GET /api/pipelines/:id/steps; 2 GET /api/pipelines/:id/analyze; 2 GET /api/pipelines/:id/schedule; 2 GET /api/pipelines/:id/outputs
+  ✓  18 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-editor): 390x844, light › every modal in the group ends at its content, natural and with an injected hidden element (7.6s)
+[HEL-1774 natural] pipeline-schedule 390x844 dark {"dialog":{"scrollHeight":446,"clientHeight":446,"contentBottom":446.796875},"body":{"scrollHeight":295,"clientHeight":295,"contentBottom":295}}
+[HEL-1774 abs] pipeline-schedule 390x844 dark []
+[HEL-1774 injected] pipeline-schedule 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1983,"clientHeight":607,"contentBottom":1983}}
+[HEL-1774 natural] mobile-step-sheet 390x844 dark {"dialog":{"scrollHeight":827,"clientHeight":827,"contentBottom":828},"body":{"scrollHeight":762,"clientHeight":762,"contentBottom":521.5}}
+[HEL-1774 abs] mobile-step-sheet 390x844 dark []
+[HEL-1774 injected] mobile-step-sheet 390x844 dark {"dialog":{"scrollHeight":827,"clientHeight":827,"contentBottom":828},"body":{"scrollHeight":2210,"clientHeight":762,"contentBottom":2209.5}}
+[HEL-1774 api] pipeline-dialogs 390 dark 48 /api requests, max 60s window 48 (limit 120, target <= 90), 0 x 429; top: 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/pipelines/:id; 3 GET /api/pipelines/:id/steps; 3 GET /api/pipelines/:id/analyze; 3 GET /api/pipelines/:id/schedule; 3 GET /api/pipelines/:id/outputs; 3 GET /api/data-sources
+  ✓  19 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-dialogs): 390x844, dark › every modal in the group ends at its content, natural and with an injected hidden element (8.8s)
+[HEL-1774 natural] output-editor 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1982,"clientHeight":640,"contentBottom":1982}}
+[HEL-1774 abs] output-editor 390x844 dark [{"el":"input.ui-toggle__input","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1382.703125,"left":56,"width":1,"height":1}},{"el":"span.sr-only","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1532.203125,"left":96,"width":1,"height":1}},{"el":"canvas.","position":"absolute","containingBlock":"div.","hidden":false,"rect":{"top":1629.203125,"left":57,"width":276,"height":240}},{"el":"span.sr-only","position":"absolute","containingBlock":"details.ou
+[HEL-1774 injected] output-editor 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":3670,"clientHeight":640,"contentBottom":3670}}
+[HEL-1774 natural] pipeline-share 1280x800 light {"dialog":{"scrollHeight":373,"clientHeight":373,"contentBottom":373.796875},"body":{"scrollHeight":240,"clientHeight":240,"contentBottom":240}}
+[HEL-1774 abs] pipeline-share 1280x800 light []
+[HEL-1774 injected] pipeline-share 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1840,"clientHeight":585,"contentBottom":1840}}
+[HEL-1774 natural] output-history 390x844 dark {"dialog":{"scrollHeight":617,"clientHeight":617,"contentBottom":618.296875},"body":{"scrollHeight":556,"clientHeight":556,"contentBottom":556.296875}}
+[HEL-1774 abs] output-history 390x844 dark []
+[HEL-1774 injected] output-history 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":2244,"clientHeight":697,"contentBottom":2244.296875}}
+[HEL-1774 api] pipeline-editor 390 dark 44 /api requests, max 60s window 44 (limit 120, target <= 90), 0 x 429; top: 3 GET /api/auth/me; 3 GET /api/dashboards; 2 POST /api/panels; 2 GET /api/pipelines/:id; 2 GET /api/pipelines/:id/steps; 2 GET /api/pipelines/:id/analyze; 2 GET /api/pipelines/:id/schedule; 2 GET /api/pipelines/:id/outputs
+  ✓  20 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-editor): 390x844, dark › every modal in the group ends at its content, natural and with an injected hidden element (7.5s)
+[HEL-1774 natural] pipeline-schedule 1280x800 light {"dialog":{"scrollHeight":404,"clientHeight":404,"contentBottom":404.796875},"body":{"scrollHeight":271,"clientHeight":271,"contentBottom":271}}
+[HEL-1774 abs] pipeline-schedule 1280x800 light []
+[HEL-1774 injected] pipeline-schedule 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1871,"clientHeight":585,"contentBottom":1871}}
+[HEL-1774 natural] run-history 1280x800 light {"dialog":{"scrollHeight":150,"clientHeight":150,"contentBottom":150.796875},"body":{"scrollHeight":89,"clientHeight":89,"contentBottom":88.796875}}
+[HEL-1774 abs] run-history 1280x800 light []
+[HEL-1774 injected] run-history 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1689,"clientHeight":657,"contentBottom":1688.796875}}
+[HEL-1774 api] pipeline-dialogs 1280 light 60 /api requests, max 60s window 60 (limit 120, target <= 90), 0 x 429; top: 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/pipeline-schedules; 3 GET /api/pipelines; 3 GET /api/pipelines/:id; 3 GET /api/pipelines/:id/steps; 3 GET /api/pipelines/:id/analyze; 3 GET /api/pipelines/:id/schedule
+  ✓  21 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-dialogs): 1280x800, light › every modal in the group ends at its content, natural and with an injected hidden element (9.9s)
+[HEL-1774 natural] output-editor 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1683,"clientHeight":600,"contentBottom":1683}}
+[HEL-1774 abs] output-editor 1280x800 light [{"el":"input.ui-toggle__input","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1176.5,"left":317,"width":1,"height":1}},{"el":"span.sr-only","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1251,"left":614,"width":1,"height":1}},{"el":"canvas.","position":"absolute","containingBlock":"div.","hidden":false,"rect":{"top":1348,"left":318,"width":644,"height":240}},{"el":"span.sr-only","position":"absolute","containingBlock":"details.output-editor-sh
+[HEL-1774 injected] output-editor 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":3283,"clientHeight":600,"contentBottom":3283}}
+[HEL-1774 natural] output-history 1280x800 light {"dialog":{"scrollHeight":567,"clientHeight":567,"contentBottom":567.796875},"body":{"scrollHeight":506,"clientHeight":506,"contentBottom":505.796875}}
+[HEL-1774 abs] output-history 1280x800 light [{"el":"canvas.","position":"absolute","containingBlock":"div.","hidden":false,"rect":{"top":372.390625,"left":181,"width":918,"height":260}}]
+[HEL-1774 injected] output-history 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2106,"clientHeight":657,"contentBottom":2105.796875}}
+[HEL-1774 api] pipeline-editor 1280 light 52 /api requests, max 60s window 52 (limit 120, target <= 90), 0 x 429; top: 4 GET /api/outputs/:id/history; 3 GET /api/auth/me; 3 GET /api/dashboards; 2 POST /api/panels; 2 GET /api/pipeline-schedules; 2 GET /api/pipelines; 2 GET /api/pipelines/:id; 2 GET /api/pipelines/:id/steps
+  ✓  22 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-editor): 1280x800, light › every modal in the group ends at its content, natural and with an injected hidden element (8.0s)
+[HEL-1774 natural] pipeline-share 1280x800 dark {"dialog":{"scrollHeight":373,"clientHeight":373,"contentBottom":373.796875},"body":{"scrollHeight":240,"clientHeight":240,"contentBottom":240}}
+[HEL-1774 abs] pipeline-share 1280x800 dark []
+[HEL-1774 injected] pipeline-share 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1840,"clientHeight":585,"contentBottom":1840}}
+[HEL-1774 natural] pipeline-schedule 1280x800 dark {"dialog":{"scrollHeight":404,"clientHeight":404,"contentBottom":404.796875},"body":{"scrollHeight":271,"clientHeight":271,"contentBottom":271}}
+[HEL-1774 abs] pipeline-schedule 1280x800 dark []
+[HEL-1774 injected] pipeline-schedule 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1871,"clientHeight":585,"contentBottom":1871}}
+[HEL-1774 natural] output-editor 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1683,"clientHeight":600,"contentBottom":1683}}
+[HEL-1774 abs] output-editor 1280x800 dark [{"el":"input.ui-toggle__input","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1176.5,"left":317,"width":1,"height":1}},{"el":"span.sr-only","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1251,"left":614,"width":1,"height":1}},{"el":"canvas.","position":"absolute","containingBlock":"div.","hidden":false,"rect":{"top":1348,"left":318,"width":644,"height":240}},{"el":"span.sr-only","position":"absolute","containingBlock":"details.output-editor-she
+[HEL-1774 injected] output-editor 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":3283,"clientHeight":600,"contentBottom":3283}}
+[HEL-1774 natural] run-history 1280x800 dark {"dialog":{"scrollHeight":150,"clientHeight":150,"contentBottom":150.796875},"body":{"scrollHeight":89,"clientHeight":89,"contentBottom":88.796875}}
+[HEL-1774 abs] run-history 1280x800 dark []
+[HEL-1774 injected] run-history 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1689,"clientHeight":657,"contentBottom":1688.796875}}
+[HEL-1774 api] pipeline-dialogs 1280 dark 60 /api requests, max 60s window 60 (limit 120, target <= 90), 0 x 429; top: 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/pipeline-schedules; 3 GET /api/pipelines; 3 GET /api/pipelines/:id; 3 GET /api/pipelines/:id/steps; 3 GET /api/pipelines/:id/analyze; 3 GET /api/pipelines/:id/schedule
+  ✓  23 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-dialogs): 1280x800, dark › every modal in the group ends at its content, natural and with an injected hidden element (9.8s)
+[HEL-1774 natural] output-history 1280x800 dark {"dialog":{"scrollHeight":567,"clientHeight":567,"contentBottom":567.796875},"body":{"scrollHeight":506,"clientHeight":506,"contentBottom":505.796875}}
+[HEL-1774 abs] output-history 1280x800 dark [{"el":"canvas.","position":"absolute","containingBlock":"div.","hidden":false,"rect":{"top":372.390625,"left":181,"width":918,"height":260}}]
+[HEL-1774 injected] output-history 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2106,"clientHeight":657,"contentBottom":2105.796875}}
+[HEL-1774 api] pipeline-editor 1280 dark 52 /api requests, max 60s window 52 (limit 120, target <= 90), 0 x 429; top: 4 GET /api/outputs/:id/history; 3 GET /api/auth/me; 3 GET /api/dashboards; 2 POST /api/panels; 2 GET /api/pipeline-schedules; 2 GET /api/pipelines; 2 GET /api/pipelines/:id; 2 GET /api/pipelines/:id/steps
+  ✓  24 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-editor): 1280x800, dark › every modal in the group ends at its content, natural and with an injected hidden element (8.2s)
+[HEL-1774 popover] 375 {"trigger":{"x":40,"y":319.890625,"width":295,"height":44},"listbox":{"x":40,"y":367.890625,"width":295,"height":98}}
+[HEL-1774 api] popover 375 23 /api requests, max 60s window 23 (limit 120, target <= 90), 0 x 429; top: 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/panels; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary; 1 POST /api/pipelines/:id/steps
+  ✓  25 [dev] › e2e/support/modalScrollExtent.ts:588:11 › HEL-1774 popover inside a modal: 375x812 › the Select listbox opens adjacent to its trigger (4.6s)
+[HEL-1774 natural] step-palette 375x812 light {"dialog":{"scrollHeight":632,"clientHeight":632,"contentBottom":633.1875},"body":{"scrollHeight":571,"clientHeight":571,"contentBottom":571.1875}}
+[HEL-1774 abs] step-palette 375x812 light [{"el":"svg.[object","position":"absolute","containingBlock":"div.command-palette__search","hidden":false,"rect":{"top":178.90625,"left":52,"width":16,"height":16}}]
+[HEL-1774 injected] step-palette 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":668,"clientHeight":668,"contentBottom":667.796875}}
+[HEL-1774 natural] shape-picker 375x812 light {"dialog":{"scrollHeight":658,"clientHeight":658,"contentBottom":658.796875},"body":{"scrollHeight":507,"clientHeight":507,"contentBottom":507}}
+[HEL-1774 abs] shape-picker 375x812 light []
+[HEL-1774 injected] shape-picker 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":2131,"clientHeight":578,"contentBottom":2131}}
+[HEL-1774 popover] 1280 {"trigger":{"x":451,"y":316.890625,"width":378,"height":32},"listbox":{"x":451,"y":352.890625,"width":378,"height":78}}
+[HEL-1774 api] popover 1280 28 /api requests, max 60s window 28 (limit 120, target <= 90), 0 x 429; top: 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/panels; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary; 1 POST /api/pipelines/:id/steps
+  ✓  27 [dev] › e2e/support/modalScrollExtent.ts:588:11 › HEL-1774 popover inside a modal: 1280x800 › the Select listbox opens adjacent to its trigger (5.1s)
+[HEL-1774 natural] add-root 375x812 light {"dialog":{"scrollHeight":248,"clientHeight":248,"contentBottom":249},"body":{"scrollHeight":130,"clientHeight":130,"contentBottom":130}}
+[HEL-1774 abs] add-root 375x812 light []
+[HEL-1774 injected] add-root 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1754,"clientHeight":611,"contentBottom":1754}}
+[HEL-1774 api] pipeline-palettes 375 light 51 /api requests, max 60s window 51 (limit 120, target <= 90), 0 x 429; top: 5 GET /api/data-sources; 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/pipelines/:id; 3 GET /api/pipelines/:id/steps; 3 GET /api/pipelines/:id/analyze; 3 GET /api/pipelines/:id/schedule; 3 GET /api/pipelines/:id/outputs
+  ✓  26 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-palettes): 375x812, light › every modal in the group ends at its content, natural and with an injected hidden element (8.8s)
+[HEL-1774 natural] create-pipeline 375x812 light {"dialog":{"scrollHeight":319,"clientHeight":319,"contentBottom":320},"body":{"scrollHeight":201,"clientHeight":201,"contentBottom":201}}
+[HEL-1774 abs] create-pipeline 375x812 light []
+[HEL-1774 injected] create-pipeline 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1825,"clientHeight":611,"contentBottom":1825}}
+[HEL-1774 natural] step-palette 375x812 dark {"dialog":{"scrollHeight":632,"clientHeight":632,"contentBottom":633.1875},"body":{"scrollHeight":571,"clientHeight":571,"contentBottom":571.1875}}
+[HEL-1774 abs] step-palette 375x812 dark [{"el":"svg.[object","position":"absolute","containingBlock":"div.command-palette__search","hidden":false,"rect":{"top":178.90625,"left":52,"width":16,"height":16}}]
+[HEL-1774 injected] step-palette 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":668,"clientHeight":668,"contentBottom":667.796875}}
+[HEL-1774 natural] add-source 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":892,"clientHeight":611,"contentBottom":892.1875}}
+[HEL-1774 abs] add-source 375x812 light []
+[HEL-1774 injected] add-source 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":2516,"clientHeight":611,"contentBottom":2516.1875}}
+[HEL-1774 natural] shape-picker 375x812 dark {"dialog":{"scrollHeight":658,"clientHeight":658,"contentBottom":658.796875},"body":{"scrollHeight":507,"clientHeight":507,"contentBottom":507}}
+[HEL-1774 abs] shape-picker 375x812 dark []
+[HEL-1774 injected] shape-picker 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":2131,"clientHeight":578,"contentBottom":2131}}
+[HEL-1774 natural] command-palette 375x812 light {"dialog":{"scrollHeight":632,"clientHeight":632,"contentBottom":633.1875},"body":{"scrollHeight":571,"clientHeight":571,"contentBottom":571.1875}}
+[HEL-1774 abs] command-palette 375x812 light [{"el":"svg.[object","position":"absolute","containingBlock":"div.command-palette__search","hidden":false,"rect":{"top":178.90625,"left":52,"width":16,"height":16}}]
+[HEL-1774 injected] command-palette 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":668,"clientHeight":668,"contentBottom":667.796875}}
+[HEL-1774 natural] add-root 375x812 dark {"dialog":{"scrollHeight":248,"clientHeight":248,"contentBottom":249},"body":{"scrollHeight":130,"clientHeight":130,"contentBottom":130}}
+[HEL-1774 abs] add-root 375x812 dark []
+[HEL-1774 injected] add-root 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1754,"clientHeight":611,"contentBottom":1754}}
+[HEL-1774 api] pipeline-palettes 375 dark 51 /api requests, max 60s window 51 (limit 120, target <= 90), 0 x 429; top: 5 GET /api/data-sources; 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/pipelines/:id; 3 GET /api/pipelines/:id/steps; 3 GET /api/pipelines/:id/analyze; 3 GET /api/pipelines/:id/schedule; 3 GET /api/pipelines/:id/outputs
+[HEL-1774 natural] create-connector 375x812 light {"dialog":{"scrollHeight":386,"clientHeight":386,"contentBottom":386.796875},"body":{"scrollHeight":217,"clientHeight":217,"contentBottom":217}}
+[HEL-1774 abs] create-connector 375x812 light []
+  ✓  29 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-palettes): 375x812, dark › every modal in the group ends at its content, natural and with an injected hidden element (8.7s)
+[HEL-1774 injected] create-connector 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1841,"clientHeight":560,"contentBottom":1841}}
+[HEL-1774 natural] quick-launcher 375x812 light {"dialog":{"scrollHeight":560,"clientHeight":560,"contentBottom":561.171875},"body":{"scrollHeight":499,"clientHeight":499,"contentBottom":499.171875}}
+[HEL-1774 abs] quick-launcher 375x812 light []
+[HEL-1774 injected] quick-launcher 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":2123,"clientHeight":668,"contentBottom":2123.171875}}
+[HEL-1774 natural] mfa-enroll 375x812 light {"dialog":{"scrollHeight":553,"clientHeight":553,"contentBottom":554},"body":{"scrollHeight":492,"clientHeight":492,"contentBottom":492}}
+[HEL-1774 abs] mfa-enroll 375x812 light []
+[HEL-1774 injected] mfa-enroll 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":2116,"clientHeight":668,"contentBottom":2116}}
+[HEL-1774 natural] step-palette 390x844 light {"dialog":{"scrollHeight":651,"clientHeight":651,"contentBottom":652.390625},"body":{"scrollHeight":590,"clientHeight":590,"contentBottom":590.390625}}
+[HEL-1774 abs] step-palette 390x844 light [{"el":"svg.[object","position":"absolute","containingBlock":"div.command-palette__search","hidden":false,"rect":{"top":185.296875,"left":52,"width":16,"height":16}}]
+[HEL-1774 injected] step-palette 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":697,"clientHeight":697,"contentBottom":696.59375}}
+[HEL-1774 natural] help-overlay 375x812 light {"dialog":{"scrollHeight":393,"clientHeight":393,"contentBottom":394},"body":{"scrollHeight":332,"clientHeight":332,"contentBottom":332}}
+[HEL-1774 abs] help-overlay 375x812 light []
+[HEL-1774 injected] help-overlay 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1956,"clientHeight":668,"contentBottom":1956}}
+[HEL-1774 api] shell 375 light 70 /api requests, max 60s window 70 (limit 120, target <= 90), 0 x 429; top: 8 GET /api/auth/me; 8 GET /api/dashboards; 7 GET /api/dashboard-changes; 7 GET /api/dashboards/:id/panels; 5 GET /api/data-sources; 4 GET /api/home-summary; 4 GET /api/connectors; 2 POST /api/panels
+  ✓  28 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (shell): 375x812, light › every modal in the group ends at its content, natural and with an injected hidden element (14.7s)
+[HEL-1774 natural] shape-picker 390x844 light {"dialog":{"scrollHeight":658,"clientHeight":658,"contentBottom":658.796875},"body":{"scrollHeight":507,"clientHeight":507,"contentBottom":507}}
+[HEL-1774 abs] shape-picker 390x844 light []
+[HEL-1774 injected] shape-picker 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":2195,"clientHeight":607,"contentBottom":2195}}
+[HEL-1774 natural] add-root 390x844 light {"dialog":{"scrollHeight":248,"clientHeight":248,"contentBottom":249},"body":{"scrollHeight":130,"clientHeight":130,"contentBottom":130}}
+[HEL-1774 abs] add-root 390x844 light []
+[HEL-1774 injected] add-root 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1818,"clientHeight":640,"contentBottom":1818}}
+[HEL-1774 api] pipeline-palettes 390 light 51 /api requests, max 60s window 51 (limit 120, target <= 90), 0 x 429; top: 5 GET /api/data-sources; 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/pipelines/:id; 3 GET /api/pipelines/:id/steps; 3 GET /api/pipelines/:id/analyze; 3 GET /api/pipelines/:id/schedule; 3 GET /api/pipelines/:id/outputs
+  ✓  30 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-palettes): 390x844, light › every modal in the group ends at its content, natural and with an injected hidden element (8.6s)
+[HEL-1774 natural] create-pipeline 375x812 dark {"dialog":{"scrollHeight":319,"clientHeight":319,"contentBottom":320},"body":{"scrollHeight":201,"clientHeight":201,"contentBottom":201}}
+[HEL-1774 abs] create-pipeline 375x812 dark []
+[HEL-1774 injected] create-pipeline 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1825,"clientHeight":611,"contentBottom":1825}}
+[HEL-1774 natural] add-source 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":892,"clientHeight":611,"contentBottom":892.1875}}
+[HEL-1774 abs] add-source 375x812 dark []
+[HEL-1774 injected] add-source 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":2516,"clientHeight":611,"contentBottom":2516.1875}}
+[HEL-1774 natural] step-palette 390x844 dark {"dialog":{"scrollHeight":651,"clientHeight":651,"contentBottom":652.390625},"body":{"scrollHeight":590,"clientHeight":590,"contentBottom":590.390625}}
+[HEL-1774 abs] step-palette 390x844 dark [{"el":"svg.[object","position":"absolute","containingBlock":"div.command-palette__search","hidden":false,"rect":{"top":185.296875,"left":52,"width":16,"height":16}}]
+[HEL-1774 injected] step-palette 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":697,"clientHeight":697,"contentBottom":696.59375}}
+[HEL-1774 natural] command-palette 375x812 dark {"dialog":{"scrollHeight":632,"clientHeight":632,"contentBottom":633.1875},"body":{"scrollHeight":571,"clientHeight":571,"contentBottom":571.1875}}
+[HEL-1774 abs] command-palette 375x812 dark [{"el":"svg.[object","position":"absolute","containingBlock":"div.command-palette__search","hidden":false,"rect":{"top":178.90625,"left":52,"width":16,"height":16}}]
+[HEL-1774 injected] command-palette 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":668,"clientHeight":668,"contentBottom":667.796875}}
+[HEL-1774 natural] create-connector 375x812 dark {"dialog":{"scrollHeight":386,"clientHeight":386,"contentBottom":386.796875},"body":{"scrollHeight":217,"clientHeight":217,"contentBottom":217}}
+[HEL-1774 abs] create-connector 375x812 dark []
+[HEL-1774 injected] create-connector 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1841,"clientHeight":560,"contentBottom":1841}}
+[HEL-1774 natural] shape-picker 390x844 dark {"dialog":{"scrollHeight":658,"clientHeight":658,"contentBottom":658.796875},"body":{"scrollHeight":507,"clientHeight":507,"contentBottom":507}}
+[HEL-1774 abs] shape-picker 390x844 dark []
+[HEL-1774 injected] shape-picker 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":2195,"clientHeight":607,"contentBottom":2195}}
+[HEL-1774 natural] quick-launcher 375x812 dark {"dialog":{"scrollHeight":560,"clientHeight":560,"contentBottom":561.171875},"body":{"scrollHeight":499,"clientHeight":499,"contentBottom":499.171875}}
+[HEL-1774 abs] quick-launcher 375x812 dark []
+[HEL-1774 injected] quick-launcher 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":2123,"clientHeight":668,"contentBottom":2123.171875}}
+[HEL-1774 natural] add-root 390x844 dark {"dialog":{"scrollHeight":248,"clientHeight":248,"contentBottom":249},"body":{"scrollHeight":130,"clientHeight":130,"contentBottom":130}}
+[HEL-1774 abs] add-root 390x844 dark []
+[HEL-1774 injected] add-root 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1818,"clientHeight":640,"contentBottom":1818}}
+[HEL-1774 api] pipeline-palettes 390 dark 51 /api requests, max 60s window 51 (limit 120, target <= 90), 0 x 429; top: 5 GET /api/data-sources; 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/pipelines/:id; 3 GET /api/pipelines/:id/steps; 3 GET /api/pipelines/:id/analyze; 3 GET /api/pipelines/:id/schedule; 3 GET /api/pipelines/:id/outputs
+  ✓  32 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-palettes): 390x844, dark › every modal in the group ends at its content, natural and with an injected hidden element (8.8s)
+[HEL-1774 natural] mfa-enroll 375x812 dark {"dialog":{"scrollHeight":553,"clientHeight":553,"contentBottom":554},"body":{"scrollHeight":492,"clientHeight":492,"contentBottom":492}}
+[HEL-1774 abs] mfa-enroll 375x812 dark []
+[HEL-1774 injected] mfa-enroll 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":2116,"clientHeight":668,"contentBottom":2116}}
+[HEL-1774 natural] help-overlay 375x812 dark {"dialog":{"scrollHeight":393,"clientHeight":393,"contentBottom":394},"body":{"scrollHeight":332,"clientHeight":332,"contentBottom":332}}
+[HEL-1774 abs] help-overlay 375x812 dark []
+[HEL-1774 injected] help-overlay 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1956,"clientHeight":668,"contentBottom":1956}}
+[HEL-1774 api] shell 375 dark 70 /api requests, max 60s window 70 (limit 120, target <= 90), 0 x 429; top: 8 GET /api/auth/me; 8 GET /api/dashboards; 7 GET /api/dashboard-changes; 7 GET /api/dashboards/:id/panels; 5 GET /api/data-sources; 4 GET /api/home-summary; 4 GET /api/connectors; 2 POST /api/panels
+  ✓  31 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (shell): 375x812, dark › every modal in the group ends at its content, natural and with an injected hidden element (15.1s)
+[HEL-1774 natural] step-palette 1280x800 light {"dialog":{"scrollHeight":625,"clientHeight":625,"contentBottom":626},"body":{"scrollHeight":564,"clientHeight":564,"contentBottom":564}}
+[HEL-1774 abs] step-palette 1280x800 light [{"el":"svg.[object","position":"absolute","containingBlock":"div.command-palette__search","hidden":false,"rect":{"top":176.5,"left":313,"width":16,"height":16}}]
+[HEL-1774 injected] step-palette 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":657,"clientHeight":657,"contentBottom":657}}
+[HEL-1774 natural] shape-picker 1280x800 light {"dialog":{"scrollHeight":595,"clientHeight":595,"contentBottom":595.796875},"body":{"scrollHeight":462,"clientHeight":462,"contentBottom":462}}
+[HEL-1774 abs] shape-picker 1280x800 light []
+[HEL-1774 injected] shape-picker 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2062,"clientHeight":585,"contentBottom":2062}}
+[HEL-1774 natural] create-pipeline 390x844 light {"dialog":{"scrollHeight":319,"clientHeight":319,"contentBottom":320},"body":{"scrollHeight":201,"clientHeight":201,"contentBottom":201}}
+[HEL-1774 abs] create-pipeline 390x844 light []
+[HEL-1774 injected] create-pipeline 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1889,"clientHeight":640,"contentBottom":1889}}
+[HEL-1774 natural] add-source 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":892,"clientHeight":640,"contentBottom":892.1875}}
+[HEL-1774 abs] add-source 390x844 light []
+[HEL-1774 injected] add-source 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":2580,"clientHeight":640,"contentBottom":2580.1875}}
+[HEL-1774 natural] add-root 1280x800 light {"dialog":{"scrollHeight":236,"clientHeight":236,"contentBottom":237},"body":{"scrollHeight":118,"clientHeight":118,"contentBottom":118}}
+[HEL-1774 abs] add-root 1280x800 light []
+[HEL-1774 injected] add-root 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1718,"clientHeight":600,"contentBottom":1718}}
+[HEL-1774 api] pipeline-palettes 1280 light 63 /api requests, max 60s window 63 (limit 120, target <= 90), 0 x 429; top: 5 GET /api/data-sources; 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/pipeline-schedules; 3 GET /api/pipelines; 3 GET /api/pipelines/:id; 3 GET /api/pipelines/:id/steps; 3 GET /api/pipelines/:id/analyze
+  ✓  33 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-palettes): 1280x800, light › every modal in the group ends at its content, natural and with an injected hidden element (9.3s)
+[HEL-1774 natural] command-palette 390x844 light {"dialog":{"scrollHeight":651,"clientHeight":651,"contentBottom":652.390625},"body":{"scrollHeight":590,"clientHeight":590,"contentBottom":590.390625}}
+[HEL-1774 abs] command-palette 390x844 light [{"el":"svg.[object","position":"absolute","containingBlock":"div.command-palette__search","hidden":false,"rect":{"top":185.296875,"left":52,"width":16,"height":16}}]
+[HEL-1774 injected] command-palette 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":697,"clientHeight":697,"contentBottom":696.59375}}
+[HEL-1774 natural] create-connector 390x844 light {"dialog":{"scrollHeight":386,"clientHeight":386,"contentBottom":386.796875},"body":{"scrollHeight":217,"clientHeight":217,"contentBottom":217}}
+[HEL-1774 abs] create-connector 390x844 light []
+[HEL-1774 injected] create-connector 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1905,"clientHeight":589,"contentBottom":1905}}
+[HEL-1774 natural] step-palette 1280x800 dark {"dialog":{"scrollHeight":625,"clientHeight":625,"contentBottom":626},"body":{"scrollHeight":564,"clientHeight":564,"contentBottom":564}}
+[HEL-1774 abs] step-palette 1280x800 dark [{"el":"svg.[object","position":"absolute","containingBlock":"div.command-palette__search","hidden":false,"rect":{"top":176.5,"left":313,"width":16,"height":16}}]
+[HEL-1774 injected] step-palette 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":657,"clientHeight":657,"contentBottom":657}}
+[HEL-1774 natural] quick-launcher 390x844 light {"dialog":{"scrollHeight":560,"clientHeight":560,"contentBottom":561.171875},"body":{"scrollHeight":499,"clientHeight":499,"contentBottom":499.171875}}
+[HEL-1774 abs] quick-launcher 390x844 light []
+[HEL-1774 injected] quick-launcher 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":2187,"clientHeight":697,"contentBottom":2187.171875}}
+[HEL-1774 natural] shape-picker 1280x800 dark {"dialog":{"scrollHeight":595,"clientHeight":595,"contentBottom":595.796875},"body":{"scrollHeight":462,"clientHeight":462,"contentBottom":462}}
+[HEL-1774 abs] shape-picker 1280x800 dark []
+[HEL-1774 injected] shape-picker 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2062,"clientHeight":585,"contentBottom":2062}}
+[HEL-1774 natural] mfa-enroll 390x844 light {"dialog":{"scrollHeight":553,"clientHeight":553,"contentBottom":554},"body":{"scrollHeight":492,"clientHeight":492,"contentBottom":492}}
+[HEL-1774 abs] mfa-enroll 390x844 light []
+[HEL-1774 injected] mfa-enroll 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":2180,"clientHeight":697,"contentBottom":2180}}
+[HEL-1774 natural] help-overlay 390x844 light {"dialog":{"scrollHeight":393,"clientHeight":393,"contentBottom":394},"body":{"scrollHeight":332,"clientHeight":332,"contentBottom":332}}
+[HEL-1774 abs] help-overlay 390x844 light []
+[HEL-1774 injected] help-overlay 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":2020,"clientHeight":697,"contentBottom":2020}}
+[HEL-1774 api] shell 390 light 70 /api requests, max 60s window 70 (limit 120, target <= 90), 0 x 429; top: 8 GET /api/auth/me; 8 GET /api/dashboards; 7 GET /api/dashboard-changes; 7 GET /api/dashboards/:id/panels; 5 GET /api/data-sources; 4 GET /api/home-summary; 4 GET /api/connectors; 2 POST /api/panels
+  ✓  34 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (shell): 390x844, light › every modal in the group ends at its content, natural and with an injected hidden element (15.1s)
+[HEL-1774 natural] add-root 1280x800 dark {"dialog":{"scrollHeight":236,"clientHeight":236,"contentBottom":237},"body":{"scrollHeight":118,"clientHeight":118,"contentBottom":118}}
+[HEL-1774 abs] add-root 1280x800 dark []
+[HEL-1774 injected] add-root 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1718,"clientHeight":600,"contentBottom":1718}}
+[HEL-1774 api] pipeline-palettes 1280 dark 63 /api requests, max 60s window 63 (limit 120, target <= 90), 0 x 429; top: 5 GET /api/data-sources; 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/pipeline-schedules; 3 GET /api/pipelines; 3 GET /api/pipelines/:id; 3 GET /api/pipelines/:id/steps; 3 GET /api/pipelines/:id/analyze
+  ✓  35 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (pipeline-palettes): 1280x800, dark › every modal in the group ends at its content, natural and with an injected hidden element (9.2s)
+[HEL-1774 natural] create-pipeline 390x844 dark {"dialog":{"scrollHeight":319,"clientHeight":319,"contentBottom":320},"body":{"scrollHeight":201,"clientHeight":201,"contentBottom":201}}
+[HEL-1774 abs] create-pipeline 390x844 dark []
+[HEL-1774 injected] create-pipeline 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1889,"clientHeight":640,"contentBottom":1889}}
+[HEL-1774 natural] add-source 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":892,"clientHeight":640,"contentBottom":892.1875}}
+[HEL-1774 abs] add-source 390x844 dark []
+[HEL-1774 injected] add-source 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":2580,"clientHeight":640,"contentBottom":2580.1875}}
+[HEL-1774 natural] command-palette 390x844 dark {"dialog":{"scrollHeight":651,"clientHeight":651,"contentBottom":652.390625},"body":{"scrollHeight":590,"clientHeight":590,"contentBottom":590.390625}}
+[HEL-1774 abs] command-palette 390x844 dark [{"el":"svg.[object","position":"absolute","containingBlock":"div.command-palette__search","hidden":false,"rect":{"top":185.296875,"left":52,"width":16,"height":16}}]
+[HEL-1774 injected] command-palette 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":697,"clientHeight":697,"contentBottom":696.59375}}
+[HEL-1774 natural] create-connector 390x844 dark {"dialog":{"scrollHeight":386,"clientHeight":386,"contentBottom":386.796875},"body":{"scrollHeight":217,"clientHeight":217,"contentBottom":217}}
+[HEL-1774 abs] create-connector 390x844 dark []
+[HEL-1774 injected] create-connector 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1905,"clientHeight":589,"contentBottom":1905}}
+[HEL-1774 natural] quick-launcher 390x844 dark {"dialog":{"scrollHeight":560,"clientHeight":560,"contentBottom":561.171875},"body":{"scrollHeight":499,"clientHeight":499,"contentBottom":499.171875}}
+[HEL-1774 abs] quick-launcher 390x844 dark []
+[HEL-1774 injected] quick-launcher 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":2187,"clientHeight":697,"contentBottom":2187.171875}}
+[HEL-1774 natural] mfa-enroll 390x844 dark {"dialog":{"scrollHeight":553,"clientHeight":553,"contentBottom":554},"body":{"scrollHeight":492,"clientHeight":492,"contentBottom":492}}
+[HEL-1774 abs] mfa-enroll 390x844 dark []
+[HEL-1774 injected] mfa-enroll 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":2180,"clientHeight":697,"contentBottom":2180}}
+[HEL-1774 natural] help-overlay 390x844 dark {"dialog":{"scrollHeight":393,"clientHeight":393,"contentBottom":394},"body":{"scrollHeight":332,"clientHeight":332,"contentBottom":332}}
+[HEL-1774 abs] help-overlay 390x844 dark []
+[HEL-1774 injected] help-overlay 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":2020,"clientHeight":697,"contentBottom":2020}}
+[HEL-1774 api] shell 390 dark 70 /api requests, max 60s window 70 (limit 120, target <= 90), 0 x 429; top: 8 GET /api/auth/me; 8 GET /api/dashboards; 7 GET /api/dashboard-changes; 7 GET /api/dashboards/:id/panels; 5 GET /api/data-sources; 4 GET /api/home-summary; 4 GET /api/connectors; 2 POST /api/panels
+  ✓  36 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (shell): 390x844, dark › every modal in the group ends at its content, natural and with an injected hidden element (13.1s)
+[HEL-1774 natural] create-pipeline 1280x800 light {"dialog":{"scrollHeight":307,"clientHeight":307,"contentBottom":308},"body":{"scrollHeight":189,"clientHeight":189,"contentBottom":189}}
+[HEL-1774 abs] create-pipeline 1280x800 light []
+[HEL-1774 injected] create-pipeline 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1789,"clientHeight":600,"contentBottom":1789}}
+[HEL-1774 natural] add-source 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":817,"clientHeight":600,"contentBottom":816.59375}}
+[HEL-1774 abs] add-source 1280x800 light []
+[HEL-1774 injected] add-source 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2417,"clientHeight":600,"contentBottom":2416.59375}}
+[HEL-1774 natural] command-palette 1280x800 light {"dialog":{"scrollHeight":625,"clientHeight":625,"contentBottom":626},"body":{"scrollHeight":564,"clientHeight":564,"contentBottom":564}}
+[HEL-1774 abs] command-palette 1280x800 light [{"el":"svg.[object","position":"absolute","containingBlock":"div.command-palette__search","hidden":false,"rect":{"top":176.5,"left":313,"width":16,"height":16}}]
+[HEL-1774 injected] command-palette 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":657,"clientHeight":657,"contentBottom":657}}
+[HEL-1774 natural] create-connector 1280x800 light {"dialog":{"scrollHeight":356,"clientHeight":356,"contentBottom":356.796875},"body":{"scrollHeight":205,"clientHeight":205,"contentBottom":205}}
+[HEL-1774 abs] create-connector 1280x800 light []
+[HEL-1774 injected] create-connector 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1805,"clientHeight":567,"contentBottom":1805}}
+[HEL-1774 natural] quick-launcher 1280x800 light {"dialog":{"scrollHeight":497,"clientHeight":497,"contentBottom":497.78125},"body":{"scrollHeight":436,"clientHeight":436,"contentBottom":435.78125}}
+[HEL-1774 abs] quick-launcher 1280x800 light []
+[HEL-1774 injected] quick-launcher 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2036,"clientHeight":657,"contentBottom":2035.78125}}
+[HEL-1774 natural] mfa-enroll 1280x800 light {"dialog":{"scrollHeight":535,"clientHeight":535,"contentBottom":536},"body":{"scrollHeight":474,"clientHeight":474,"contentBottom":474}}
+[HEL-1774 abs] mfa-enroll 1280x800 light []
+[HEL-1774 injected] mfa-enroll 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2074,"clientHeight":657,"contentBottom":2074}}
+[HEL-1774 natural] help-overlay 1280x800 light {"dialog":{"scrollHeight":347,"clientHeight":347,"contentBottom":348},"body":{"scrollHeight":286,"clientHeight":286,"contentBottom":286}}
+[HEL-1774 abs] help-overlay 1280x800 light []
+[HEL-1774 injected] help-overlay 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1886,"clientHeight":657,"contentBottom":1886}}
+[HEL-1774 api] shell 1280 light 74 /api requests, max 60s window 74 (limit 120, target <= 90), 0 x 429; top: 8 GET /api/auth/me; 8 GET /api/dashboards; 7 GET /api/dashboard-changes; 7 GET /api/dashboards/:id/panels; 7 GET /api/data-sources; 4 GET /api/home-summary; 4 GET /api/connectors; 2 POST /api/panels
+  ✓  37 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (shell): 1280x800, light › every modal in the group ends at its content, natural and with an injected hidden element (14.7s)
+[HEL-1774 natural] create-pipeline 1280x800 dark {"dialog":{"scrollHeight":307,"clientHeight":307,"contentBottom":308},"body":{"scrollHeight":189,"clientHeight":189,"contentBottom":189}}
+[HEL-1774 abs] create-pipeline 1280x800 dark []
+[HEL-1774 injected] create-pipeline 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1789,"clientHeight":600,"contentBottom":1789}}
+[HEL-1774 natural] add-source 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":817,"clientHeight":600,"contentBottom":816.59375}}
+[HEL-1774 abs] add-source 1280x800 dark []
+[HEL-1774 injected] add-source 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2417,"clientHeight":600,"contentBottom":2416.59375}}
+[HEL-1774 natural] command-palette 1280x800 dark {"dialog":{"scrollHeight":625,"clientHeight":625,"contentBottom":626},"body":{"scrollHeight":564,"clientHeight":564,"contentBottom":564}}
+[HEL-1774 abs] command-palette 1280x800 dark [{"el":"svg.[object","position":"absolute","containingBlock":"div.command-palette__search","hidden":false,"rect":{"top":176.5,"left":313,"width":16,"height":16}}]
+[HEL-1774 injected] command-palette 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":657,"clientHeight":657,"contentBottom":657}}
+[HEL-1774 natural] create-connector 1280x800 dark {"dialog":{"scrollHeight":356,"clientHeight":356,"contentBottom":356.796875},"body":{"scrollHeight":205,"clientHeight":205,"contentBottom":205}}
+[HEL-1774 abs] create-connector 1280x800 dark []
+[HEL-1774 injected] create-connector 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1805,"clientHeight":567,"contentBottom":1805}}
+[HEL-1774 natural] quick-launcher 1280x800 dark {"dialog":{"scrollHeight":497,"clientHeight":497,"contentBottom":497.78125},"body":{"scrollHeight":436,"clientHeight":436,"contentBottom":435.78125}}
+[HEL-1774 abs] quick-launcher 1280x800 dark []
+[HEL-1774 injected] quick-launcher 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2036,"clientHeight":657,"contentBottom":2035.78125}}
+[HEL-1774 natural] mfa-enroll 1280x800 dark {"dialog":{"scrollHeight":535,"clientHeight":535,"contentBottom":536},"body":{"scrollHeight":474,"clientHeight":474,"contentBottom":474}}
+[HEL-1774 abs] mfa-enroll 1280x800 dark []
+[HEL-1774 injected] mfa-enroll 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2074,"clientHeight":657,"contentBottom":2074}}
+[HEL-1774 natural] help-overlay 1280x800 dark {"dialog":{"scrollHeight":347,"clientHeight":347,"contentBottom":348},"body":{"scrollHeight":286,"clientHeight":286,"contentBottom":286}}
+[HEL-1774 abs] help-overlay 1280x800 dark []
+[HEL-1774 injected] help-overlay 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1886,"clientHeight":657,"contentBottom":1886}}
+[HEL-1774 api] shell 1280 dark 74 /api requests, max 60s window 74 (limit 120, target <= 90), 0 x 429; top: 8 GET /api/auth/me; 8 GET /api/dashboards; 7 GET /api/dashboard-changes; 7 GET /api/dashboards/:id/panels; 7 GET /api/data-sources; 4 GET /api/home-summary; 4 GET /api/connectors; 2 POST /api/panels
+  ✓  38 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (shell): 1280x800, dark › every modal in the group ends at its content, natural and with an injected hidden element (15.2s)
+  38 passed (3.1m)

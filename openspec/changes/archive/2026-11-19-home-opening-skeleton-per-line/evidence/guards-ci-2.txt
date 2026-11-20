@@ -1,0 +1,181 @@
+
+Running 73 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1665h-375darkd-1795148206902-68088@example.com
+[HEL-1300 e2e] throwaway user: hel1665h-375darkd-1795148206908-64569@example.com
+HEL1665-SHIFT {"viewport":{"width":375,"height":667,"sentenceLines":2},"theme":"dark","order":"dashboards-first","frames":83,"framesBeforeLoadSeries":148,"fontSwapSpread":0,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":2,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":480.8125,"layoutShifts":[]}
+HEL1665-SHIFT {"viewport":{"width":375,"height":812,"sentenceLines":2},"theme":"dark","order":"dashboards-first","frames":83,"framesBeforeLoadSeries":146,"fontSwapSpread":0,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":2,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":480.8125,"layoutShifts":[{"value":0.02060381227401781,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✓   2 [dev] › e2e/support/hel1665-home-phone-stability.ts:95:9 › Home load (375x667 dark dashboards-first): the timeline and the shelf do not move (7.5s)
+  ✓   1 [dev] › e2e/support/hel1665-home-phone-stability.ts:95:9 › Home load (375x812 dark dashboards-first): the timeline and the shelf do not move (7.6s)
+[HEL-1300 e2e] throwaway user: hel1665h-430darkd-1795148214465-10254@example.com
+[HEL-1300 e2e] throwaway user: hel1665h-480darkd-1795148214510-15162@example.com
+HEL1665-SHIFT {"viewport":{"width":430,"height":932,"sentenceLines":2},"theme":"dark","order":"dashboards-first","frames":82,"framesBeforeLoadSeries":141,"fontSwapSpread":0,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":2,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":504.875,"layoutShifts":[{"value":0.026139042900035003,"sources":["div.home-page__side"]}]}
+  ✓   3 [dev] › e2e/support/hel1665-home-phone-stability.ts:95:9 › Home load (430x932 dark dashboards-first): the timeline and the shelf do not move (7.3s)
+HEL1665-SHIFT {"viewport":{"width":480,"height":900,"sentenceLines":2},"theme":"dark","order":"dashboards-first","frames":83,"framesBeforeLoadSeries":144,"fontSwapSpread":0,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":2,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":536.75,"layoutShifts":[{"value":0.026174074074074075,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+[HEL-1300 e2e] throwaway user: hel1665h-540darkd-1795148221694-17800@example.com
+  ✓   4 [dev] › e2e/support/hel1665-home-phone-stability.ts:95:9 › Home load (480x900 dark dashboards-first): the timeline and the shelf do not move (7.3s)
+[HEL-1300 e2e] throwaway user: hel1665h-605darkd-1795148221833-60452@example.com
+HEL1665-SHIFT {"viewport":{"width":540,"height":900,"sentenceLines":2},"theme":"dark","order":"dashboards-first","frames":84,"framesBeforeLoadSeries":138,"fontSwapSpread":0,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":2,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":563,"layoutShifts":[{"value":0.02261111111111111,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✓   5 [dev] › e2e/support/hel1665-home-phone-stability.ts:95:9 › Home load (540x900 dark dashboards-first): the timeline and the shelf do not move (7.1s)
+[HEL-1300 e2e] throwaway user: hel1665h-606darkd-1795148228828-61919@example.com
+HEL1665-SHIFT {"viewport":{"width":605,"height":900,"sentenceLines":1},"theme":"dark","order":"dashboards-first","frames":82,"framesBeforeLoadSeries":144,"fontSwapSpread":0,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":561.4375,"layoutShifts":[{"value":0.026722222222222224,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✓   6 [dev] › e2e/support/hel1665-home-phone-stability.ts:95:9 › Home load (605x900 dark dashboards-first): the timeline and the shelf do not move (7.6s)
+[HEL-1300 e2e] throwaway user: hel1665h-608darkd-1795148229531-33041@example.com
+HEL1665-SHIFT {"viewport":{"width":606,"height":900,"sentenceLines":1},"theme":"dark","order":"dashboards-first","frames":84,"framesBeforeLoadSeries":136,"fontSwapSpread":0,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":561.875,"layoutShifts":[{"value":0.026585185185185187,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✓   7 [dev] › e2e/support/hel1665-home-phone-stability.ts:95:9 › Home load (606x900 dark dashboards-first): the timeline and the shelf do not move (7.3s)
+[HEL-1300 e2e] throwaway user: hel1665h-610darkd-1795148236148-17238@example.com
+HEL1665-SHIFT {"viewport":{"width":608,"height":900,"sentenceLines":1},"theme":"dark","order":"dashboards-first","frames":86,"framesBeforeLoadSeries":137,"fontSwapSpread":0,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":562.75,"layoutShifts":[{"value":0.026448148148148148,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✓   8 [dev] › e2e/support/hel1665-home-phone-stability.ts:95:9 › Home load (608x900 dark dashboards-first): the timeline and the shelf do not move (7.5s)
+[HEL-1300 e2e] throwaway user: hel1665h-612darkd-1795148237047-73885@example.com
+HEL1665-SHIFT {"viewport":{"width":610,"height":900,"sentenceLines":1},"theme":"dark","order":"dashboards-first","frames":83,"framesBeforeLoadSeries":138,"fontSwapSpread":0,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":563.625,"layoutShifts":[{"value":0.026311111111111115,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✓   9 [dev] › e2e/support/hel1665-home-phone-stability.ts:95:9 › Home load (610x900 dark dashboards-first): the timeline and the shelf do not move (7.4s)
+[HEL-1300 e2e] throwaway user: hel1665h-613darkd-1795148243504-66018@example.com
+HEL1665-SHIFT {"viewport":{"width":612,"height":900,"sentenceLines":1},"theme":"dark","order":"dashboards-first","frames":82,"framesBeforeLoadSeries":136,"fontSwapSpread":0,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":564.5,"layoutShifts":[{"value":0.026174074074074075,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✓  10 [dev] › e2e/support/hel1665-home-phone-stability.ts:95:9 › Home load (612x900 dark dashboards-first): the timeline and the shelf do not move (7.4s)
+[HEL-1300 e2e] throwaway user: hel1665h-620darkd-1795148244465-59740@example.com
+HEL1665-SHIFT {"viewport":{"width":613,"height":900,"sentenceLines":1},"theme":"dark","order":"dashboards-first","frames":82,"framesBeforeLoadSeries":140,"fontSwapSpread":0,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":564.9375,"layoutShifts":[{"value":0.026174074074074075,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✓  11 [dev] › e2e/support/hel1665-home-phone-stability.ts:95:9 › Home load (613x900 dark dashboards-first): the timeline and the shelf do not move (6.8s)
+[HEL-1300 e2e] throwaway user: hel1665h-1024darkd-1795148250293-30963@example.com
+HEL1665-SHIFT {"viewport":{"width":620,"height":900,"sentenceLines":1},"theme":"dark","order":"dashboards-first","frames":85,"framesBeforeLoadSeries":136,"fontSwapSpread":0,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":568,"layoutShifts":[{"value":0.025762962962962967,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✓  12 [dev] › e2e/support/hel1665-home-phone-stability.ts:95:9 › Home load (620x900 dark dashboards-first): the timeline and the shelf do not move (7.0s)
+[HEL-1300 e2e] throwaway user: hel1665h-1280darkd-1795148251465-15729@example.com
+HEL1665-SHIFT {"viewport":{"width":1024,"height":900,"sentenceLines":1},"theme":"dark","order":"dashboards-first","frames":79,"framesBeforeLoadSeries":137,"fontSwapSpread":0,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":725.75,"layoutShifts":[{"value":0.0020350477430555554,"sources":["div.home-page__side"]}]}
+  ✓  13 [dev] › e2e/support/hel1665-home-phone-stability.ts:95:9 › Home load (1024x900 dark dashboards-first): the timeline and the shelf do not move (6.7s)
+[HEL-1300 e2e] throwaway user: hel1665h-1440darkd-1795148256963-33789@example.com
+HEL1665-SHIFT {"viewport":{"width":1280,"height":900,"sentenceLines":1},"theme":"dark","order":"dashboards-first","frames":86,"framesBeforeLoadSeries":133,"fontSwapSpread":0,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":393,"layoutShifts":[{"value":0.00291767578125,"sources":["section.home-card-panel.home-upnext"]}]}
+  ✓  14 [dev] › e2e/support/hel1665-home-phone-stability.ts:95:9 › Home load (1280x900 dark dashboards-first): the timeline and the shelf do not move (6.9s)
+[HEL-1300 e2e] throwaway user: hel1665h-longsanslight-1795148258356-60466@example.com
+HEL1665-LONG {"style":"sans","text":"Two runs failed, one run looks stuck and one scheduled run was missed, everything else is quiet.","settledMax":600,"ch40":600,"width":600,"lines":2}
+  ✓  16 [dev] › e2e/hel1665-home-phone-stability-dark-dashboards-first.spec.ts:37:9 › Home settled at 1280x900 (sans light): a long opening sentence keeps the web font's 40ch width and its line count (4.6s)
+[HEL-1300 e2e] throwaway user: hel1665h-longseriflight-1795148262941-79545@example.com
+HEL1665-SHIFT {"viewport":{"width":1440,"height":900,"sentenceLines":1},"theme":"dark","order":"dashboards-first","frames":83,"framesBeforeLoadSeries":137,"fontSwapSpread":0,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":410.5,"layoutShifts":[{"value":0.002592824074074074,"sources":["section.home-card-panel.home-upnext"]}]}
+  ✓  15 [dev] › e2e/support/hel1665-home-phone-stability.ts:95:9 › Home load (1440x900 dark dashboards-first): the timeline and the shelf do not move (7.1s)
+[HEL-1300 e2e] throwaway user: hel1665h-longmonolight-1795148264037-98516@example.com
+HEL1665-LONG {"style":"serif","text":"Two runs failed, one run looks stuck and one scheduled run was missed, everything else is quiet.","settledMax":640.001,"ch40":640,"width":640,"lines":2}
+  ✓  17 [dev] › e2e/hel1665-home-phone-stability-dark-dashboards-first.spec.ts:37:9 › Home settled at 1280x900 (serif light): a long opening sentence keeps the web font's 40ch width and its line count (4.5s)
+[HEL-1300 e2e] throwaway user: hel1665h-longsansdark-1795148267532-26629@example.com
+HEL1665-LONG {"style":"mono","text":"Two runs failed, one run looks stuck and one scheduled run was missed, everything else is quiet.","settledMax":559.999,"ch40":560,"width":559.984375,"lines":3}
+  ✓  18 [dev] › e2e/hel1665-home-phone-stability-dark-dashboards-first.spec.ts:37:9 › Home settled at 1280x900 (mono light): a long opening sentence keeps the web font's 40ch width and its line count (4.6s)
+[HEL-1300 e2e] throwaway user: hel1665h-longserifdark-1795148268675-51499@example.com
+HEL1665-LONG {"style":"sans","text":"Two runs failed, one run looks stuck and one scheduled run was missed, everything else is quiet.","settledMax":600,"ch40":600,"width":600,"lines":2}
+  ✓  19 [dev] › e2e/hel1665-home-phone-stability-dark-dashboards-first.spec.ts:37:9 › Home settled at 1280x900 (sans dark): a long opening sentence keeps the web font's 40ch width and its line count (4.6s)
+[HEL-1300 e2e] throwaway user: hel1665h-longmonodark-1795148272108-87835@example.com
+HEL1665-LONG {"style":"serif","text":"Two runs failed, one run looks stuck and one scheduled run was missed, everything else is quiet.","settledMax":640.001,"ch40":640,"width":640,"lines":2}
+  ✓  20 [dev] › e2e/hel1665-home-phone-stability-dark-dashboards-first.spec.ts:37:9 › Home settled at 1280x900 (serif dark): a long opening sentence keeps the web font's 40ch width and its line count (4.7s)
+[HEL-1300 e2e] throwaway user: hel1665h-mono1280-1795148273419-678@example.com
+HEL1665-LONG {"style":"mono","text":"Two runs failed, one run looks stuck and one scheduled run was missed, everything else is quiet.","settledMax":559.999,"ch40":560,"width":559.984375,"lines":3}
+  ✓  21 [dev] › e2e/hel1665-home-phone-stability-dark-dashboards-first.spec.ts:37:9 › Home settled at 1280x900 (mono dark): a long opening sentence keeps the web font's 40ch width and its line count (3.8s)
+[HEL-1300 e2e] throwaway user: hel1665h-mono375-1795148275946-37726@example.com
+HEL1665-STYLE {"style":"mono","width":1280,"height":900,"settledSentenceLines":2,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"openingHeightSpread":0}
+  ✓  22 [dev] › e2e/hel1665-home-phone-stability-dark-dashboards-first.spec.ts:117:7 › Home load (mono 1280x900 light dashboards-first): the timeline and the shelf do not move (6.2s)
+[HEL-1300 e2e] throwaway user: hel1665h-serif1280-1795148279625-47637@example.com
+HEL1665-STYLE {"style":"mono","width":375,"height":667,"settledSentenceLines":3,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"openingHeightSpread":0}
+  ✓  23 [dev] › e2e/hel1665-home-phone-stability-dark-dashboards-first.spec.ts:117:7 › Home load (mono 375x667 light dashboards-first): the timeline and the shelf do not move (5.0s)
+[HEL-1300 e2e] throwaway user: hel1665h-serif375-1795148280907-57990@example.com
+HEL1665-STYLE {"style":"serif","width":1280,"height":900,"settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"openingHeightSpread":0}
+  ✓  24 [dev] › e2e/hel1665-home-phone-stability-dark-dashboards-first.spec.ts:117:7 › Home load (serif 1280x900 light dashboards-first): the timeline and the shelf do not move (4.9s)
+[HEL-1300 e2e] throwaway user: hel1665h-lf375light-1795148284486-8473@example.com
+HEL1665-STYLE {"style":"serif","width":375,"height":667,"settledSentenceLines":2,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"openingHeightSpread":0}
+  ✓  25 [dev] › e2e/hel1665-home-phone-stability-dark-dashboards-first.spec.ts:117:7 › Home load (serif 375x667 light dashboards-first): the timeline and the shelf do not move (5.9s)
+[HEL-1300 e2e] throwaway user: hel1665h-lf1280light-1795148286865-80027@example.com
+HEL1678-LARGEFONT {"theme":"light","size":{"width":375,"height":812},"fontSizeDefault16":20,"fontSizeDefault24":30,"runsTopSpread":0,"overflow":{"doc":0,"body":0}}
+  ✓  26 [dev] › e2e/hel1678-home-large-font.spec.ts:38:9 › Home at 375x812 (light) with a 24px default font size: no horizontal scroll, timeline does not move (5.8s)
+[HEL-1300 e2e] throwaway user: hel1665h-lf375dark-1795148290331-94504@example.com
+HEL1678-LARGEFONT {"theme":"light","size":{"width":1280,"height":900},"fontSizeDefault16":24,"fontSizeDefault24":36,"runsTopSpread":0,"overflow":{"doc":0,"body":0}}
+  ✓  27 [dev] › e2e/hel1678-home-large-font.spec.ts:38:9 › Home at 1280x900 (light) with a 24px default font size: no horizontal scroll, timeline does not move (7.0s)
+[HEL-1300 e2e] throwaway user: hel1665h-lf1280dark-1795148293847-47067@example.com
+HEL1678-LARGEFONT {"theme":"dark","size":{"width":375,"height":812},"fontSizeDefault16":20,"fontSizeDefault24":30,"runsTopSpread":0,"overflow":{"doc":0,"body":0}}
+  ✓  28 [dev] › e2e/hel1678-home-large-font.spec.ts:38:9 › Home at 375x812 (dark) with a 24px default font size: no horizontal scroll, timeline does not move (5.8s)
+[HEL-1300 e2e] throwaway user: hel1749-fr320light-1795148296171-67907@example.com
+  ✓  30 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 320px: one painted bar fragment per line of the hidden sentence (2.7s)
+[HEL-1300 e2e] throwaway user: hel1749-fr375light-1795148298854-19641@example.com
+HEL1678-LARGEFONT {"theme":"dark","size":{"width":1280,"height":900},"fontSizeDefault16":24,"fontSizeDefault24":36,"runsTopSpread":0,"overflow":{"doc":0,"body":0}}
+  ✓  29 [dev] › e2e/hel1678-home-large-font.spec.ts:38:9 › Home at 1280x900 (dark) with a 24px default font size: no horizontal scroll, timeline does not move (5.8s)
+[HEL-1300 e2e] throwaway user: hel1749-fr430light-1795148299638-52387@example.com
+  ✓  31 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 375px: one painted bar fragment per line of the hidden sentence (2.6s)
+[HEL-1300 e2e] throwaway user: hel1749-fr431light-1795148301488-9554@example.com
+  ✓  32 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 430px: one painted bar fragment per line of the hidden sentence (2.8s)
+[HEL-1300 e2e] throwaway user: hel1749-fr480light-1795148302463-88992@example.com
+  ✓  33 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 431px: one painted bar fragment per line of the hidden sentence (3.0s)
+[HEL-1300 e2e] throwaway user: hel1749-fr540light-1795148304510-52861@example.com
+  ✓  34 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 480px: one painted bar fragment per line of the hidden sentence (3.2s)
+[HEL-1300 e2e] throwaway user: hel1749-fr604light-1795148305679-58851@example.com
+  ✓  35 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 540px: one painted bar fragment per line of the hidden sentence (2.9s)
+[HEL-1300 e2e] throwaway user: hel1749-fr605light-1795148307377-35352@example.com
+  ✓  36 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 604px: one painted bar fragment per line of the hidden sentence (2.9s)
+[HEL-1300 e2e] throwaway user: hel1749-fr1024light-1795148308609-64418@example.com
+  ✓  37 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 605px: one painted bar fragment per line of the hidden sentence (3.3s)
+[HEL-1300 e2e] throwaway user: hel1749-fr1280light-1795148310661-1691@example.com
+  ✓  38 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 1024px: one painted bar fragment per line of the hidden sentence (3.5s)
+[HEL-1300 e2e] throwaway user: hel1749-geo320light-1795148312091-8591@example.com
+  ✓  39 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 1280px: one painted bar fragment per line of the hidden sentence (3.4s)
+[HEL-1300 e2e] throwaway user: hel1749-geo375light-1795148314111-99369@example.com
+  ✓  40 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 320px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.4s)
+[HEL-1300 e2e] throwaway user: hel1749-geo430light-1795148315496-42558@example.com
+  ✓  41 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 375px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.4s)
+[HEL-1300 e2e] throwaway user: hel1749-geo431light-1795148317577-86441@example.com
+  ✓  42 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 430px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.3s)
+[HEL-1300 e2e] throwaway user: hel1749-geo480light-1795148318859-45842@example.com
+  ✓  43 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 431px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.4s)
+[HEL-1300 e2e] throwaway user: hel1749-geo500light-1795148320971-77058@example.com
+  ✓  44 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 480px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.4s)
+[HEL-1300 e2e] throwaway user: hel1749-geo604light-1795148322286-43088@example.com
+  ✓  45 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 500px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.4s)
+[HEL-1300 e2e] throwaway user: hel1749-onelight-1795148324386-72030@example.com
+  ✓  46 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 604px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.3s)
+[HEL-1300 e2e] throwaway user: hel1749-rmoslight-1795148325550-21377@example.com
+  ✓  47 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:269:9 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 1280px: one bar spans the one-line sentence (3.2s)
+[HEL-1300 e2e] throwaway user: hel1749-rmofflight-1795148327550-20888@example.com
+  ✓  48 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:281:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light reduced motion (os): flat fill, still one bar per line (4.3s)
+[HEL-1300 e2e] throwaway user: hel1749-seriflight-1795148329854-76173@example.com
+  ✓  49 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:281:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light reduced motion (off): flat fill, still one bar per line (4.1s)
+[HEL-1300 e2e] throwaway user: hel1749-monolight-1795148331607-39600@example.com
+  ✓  50 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:327:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light serif 1280px: one fragment per line (3.0s)
+[HEL-1300 e2e] throwaway user: hel1749-fr320dark-1795148332847-14213@example.com
+  ✓  51 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:327:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light mono 1280px: one fragment per line (3.4s)
+[HEL-1300 e2e] throwaway user: hel1749-fr375dark-1795148335005-75475@example.com
+  ✓  52 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 320px: one painted bar fragment per line of the hidden sentence (3.1s)
+[HEL-1300 e2e] throwaway user: hel1749-fr430dark-1795148335923-5483@example.com
+  ✓  53 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 375px: one painted bar fragment per line of the hidden sentence (3.0s)
+[HEL-1300 e2e] throwaway user: hel1749-fr431dark-1795148337988-23779@example.com
+  ✓  54 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 430px: one painted bar fragment per line of the hidden sentence (3.1s)
+[HEL-1300 e2e] throwaway user: hel1749-fr480dark-1795148339058-11338@example.com
+  ✓  55 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 431px: one painted bar fragment per line of the hidden sentence (3.0s)
+[HEL-1300 e2e] throwaway user: hel1749-fr540dark-1795148340990-44995@example.com
+  ✓  56 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 480px: one painted bar fragment per line of the hidden sentence (3.2s)
+[HEL-1300 e2e] throwaway user: hel1749-fr604dark-1795148342239-71834@example.com
+  ✓  57 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 540px: one painted bar fragment per line of the hidden sentence (3.0s)
+[HEL-1300 e2e] throwaway user: hel1749-fr605dark-1795148343984-55095@example.com
+  ✓  58 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 604px: one painted bar fragment per line of the hidden sentence (3.2s)
+[HEL-1300 e2e] throwaway user: hel1749-fr1024dark-1795148345510-52601@example.com
+  ✓  59 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 605px: one painted bar fragment per line of the hidden sentence (3.2s)
+[HEL-1300 e2e] throwaway user: hel1749-fr1280dark-1795148347191-58909@example.com
+  ✓  60 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 1024px: one painted bar fragment per line of the hidden sentence (3.1s)
+[HEL-1300 e2e] throwaway user: hel1749-geo320dark-1795148348650-24591@example.com
+  ✓  61 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 1280px: one painted bar fragment per line of the hidden sentence (3.4s)
+[HEL-1300 e2e] throwaway user: hel1749-geo375dark-1795148350588-96475@example.com
+  ✓  62 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 320px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.3s)
+[HEL-1300 e2e] throwaway user: hel1749-geo430dark-1795148351977-11785@example.com
+  ✓  63 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 375px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.1s)
+[HEL-1300 e2e] throwaway user: hel1749-geo431dark-1795148353705-2653@example.com
+  ✓  64 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 430px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.1s)
+[HEL-1300 e2e] throwaway user: hel1749-geo480dark-1795148355063-25205@example.com
+  ✓  65 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 431px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.3s)
+[HEL-1300 e2e] throwaway user: hel1749-geo500dark-1795148357006-52754@example.com
+  ✓  66 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 480px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.1s)
+[HEL-1300 e2e] throwaway user: hel1749-geo604dark-1795148358140-18612@example.com
+  ✓  67 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 500px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.3s)
+[HEL-1300 e2e] throwaway user: hel1749-onedark-1795148360314-79236@example.com
+  ✓  68 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 604px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.2s)
+[HEL-1300 e2e] throwaway user: hel1749-rmosdark-1795148361343-75088@example.com
+  ✓  69 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:269:9 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 1280px: one bar spans the one-line sentence (3.1s)
+[HEL-1300 e2e] throwaway user: hel1749-rmoffdark-1795148363435-49929@example.com
+  ✓  70 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:281:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark reduced motion (os): flat fill, still one bar per line (4.2s)
+[HEL-1300 e2e] throwaway user: hel1749-serifdark-1795148365603-9456@example.com
+  ✓  71 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:281:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark reduced motion (off): flat fill, still one bar per line (4.0s)
+[HEL-1300 e2e] throwaway user: hel1749-monodark-1795148367501-95884@example.com
+  ✓  72 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:327:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark serif 1280px: one fragment per line (3.2s)
+  ✓  73 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:327:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark mono 1280px: one fragment per line (3.4s)
+[HEL-1301 e2e] deleted 73 recorded throwaway user(s)
+
+  73 passed (2.7m)

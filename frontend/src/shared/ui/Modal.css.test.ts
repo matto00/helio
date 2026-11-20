@@ -175,3 +175,20 @@ describe("Modal.css — one entrance gesture (HEL-1584)", () => {
     expect(fade).not.toMatch(/transform/);
   });
 });
+
+// HEL-1774 guard (static, NOT a discriminator: jsdom has no layout, so the live proof is
+// `e2e/hel1774-modal-scroll-*.spec.ts` and `e2e/support/modalScrollExtent.ts`). The scrolling body must be the containing block for absolutely
+// positioned descendants, so a hidden `.sr-only` element can never stretch the dialog's scroll extent.
+describe("Modal.css — the scrolling body is the containing block for absolute descendants (HEL-1774)", () => {
+  it("`.ui-modal__body` declares `position: relative` and still scrolls", () => {
+    const body = findRuleBodyInSource(css, ".ui-modal__body {");
+    expect(body).toMatch(/position:\s*relative\s*;/);
+    expect(body).toMatch(/overflow-y:\s*auto\s*;/);
+  });
+
+  it("does not use `contain` or a transform, which would re-anchor `position: fixed` popovers", () => {
+    const body = findRuleBodyInSource(css, ".ui-modal__body {");
+    expect(body).not.toMatch(/\bcontain:/);
+    expect(body).not.toMatch(/\btransform:/);
+  });
+});
