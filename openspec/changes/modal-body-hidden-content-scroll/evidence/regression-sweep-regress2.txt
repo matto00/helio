@@ -1,0 +1,31 @@
+  ✓   1 [dev] › e2e/hel1510-output-editor-table-overflow.spec.ts:35:5 › table Output editor at 1100px: an 86-char column name overflows nothing (4.5s)
+  ✓   2 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:46:7 › HEL-1582 phone pipeline page (live) › AC1: at 375x812 the source, all 3 steps and the Output fit without scrolling, in both themes (5.8s)
+  ✓   4 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:62:7 › HEL-1582 phone pipeline page (live) › AC1 guard can fail: a taller row makes the fit assertion go red (3.5s)
+  ✓   3 [dev] › e2e/hel1744-insight-panel.spec.ts:131:9 › insight: author, two cited sentences, chip popover focus, public viewer (light desktop) (12.8s)
+  ✓   5 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:76:7 › HEL-1582 phone pipeline page (live) › AC2: a touch drag on the handle dismisses the sheet; a short drag returns it; the body never drags it; the close control cl
+  ✓   7 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:177:7 › HEL-1582 phone pipeline page (live) › AC2: the sheet's Step actions menu opens above the modal, Move step down works from it, and focus stays in the sheet (4.3s
+  ✓   6 [dev] › e2e/hel1744-insight-panel.spec.ts:131:9 › insight: author, two cited sentences, chip popover focus, public viewer (light phone) (11.3s)
+  ✓   9 [dev] › e2e/hel1744-insight-panel.spec.ts:131:9 › insight: author, two cited sentences, chip popover focus, public viewer (dark desktop) (12.6s)
+  ✓   8 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:223:7 › HEL-1582 phone pipeline page (live) › AC2: every step kind's editor opens in the sheet at 375px with every control inside it (27.3s)
+  ✓  10 [dev] › e2e/hel1744-insight-panel.spec.ts:131:9 › insight: author, two cited sentences, chip popover focus, public viewer (dark phone) (11.6s)
+  ✓  12 [dev] › e2e/hel1744-insight-panel.spec.ts:481:5 › insight: a free-tier pipeline owner with no render sees the upsell (3.8s)
+  ✓  11 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:276:7 › HEL-1582 phone pipeline page (live) › AC3: scrolled to the end the last item clears the pills and the pills clear the nav (and the guard can fail) (4.9s)
+  ✓  13 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:337:9 › HEL-1582 phone pipeline page (live) › AC4: every interactive element of each tab and the open sheet clears the 44px touch floor at 375x812 (7.2s)
+  ✓  14 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:337:9 › HEL-1582 phone pipeline page (live) › AC4: every interactive element of each tab and the open sheet clears the 44px touch floor at 390x844 (7.3s)
+  ✓  15 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:337:9 › HEL-1582 phone pipeline page (live) › AC4: every interactive element of each tab and the open sheet clears the 44px touch floor at 768x1024 (7.2s)
+  ✓  16 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:404:9 › HEL-1582 phone pipeline page (live) › AC4: the header of a never-run pipeline (and in rename mode) clears the 44px touch floor at 375x812 (4.3s)
+  ✓  17 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:404:9 › HEL-1582 phone pipeline page (live) › AC4: the header of a never-run pipeline (and in rename mode) clears the 44px touch floor at 390x844 (4.4s)
+  ✓  18 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:404:9 › HEL-1582 phone pipeline page (live) › AC4: the header of a never-run pipeline (and in rename mode) clears the 44px touch floor at 768x1024 (4.5s)
+  ✓  19 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:430:7 › HEL-1582 phone pipeline page (live) › AC1: a never-run pipeline fits at 375x812 too (the status line has no label) (3.4s)
+  ✓  20 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:444:7 › HEL-1582 phone pipeline page (live) › AC1: the Output card still clears the action bar at 375x812 while a Run is queued and after it succeeds (the persisted las
+  ✓  21 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:492:7 › HEL-1582 phone pipeline page (live) › AC1: a truncated last run with an 8-digit row count and a paused cron chip still fits at 375x812 on page open, with the Pa
+  ✓  22 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:541:7 › HEL-1582 phone pipeline page (live) › a long step list never lets the page scroll away its header: the visually hidden headings stay inside the scroller (4.2s)
+  ✓  23 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:568:7 › HEL-1582 phone pipeline page (live) › the sheet composes HEL-1584's Modal motion: one entrance, no transform at rest, a held exit with no flash, an anchored pop
+  ✓  24 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:730:7 › HEL-1582 phone pipeline page (live) › AC4 (C8): tapping the Analyze with AI "Move output field 2 up" button moves that field up, at the sheet's real hit area (4
+  ✓  25 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:773:9 › HEL-1582 phone pipeline page (live) › the "N fields" panel opens fully on screen, above the sheet, with a real filter hit area, on a 3-step pipeline with a 17-c
+  ✓  26 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:773:9 › HEL-1582 phone pipeline page (live) › the "N fields" panel opens fully on screen, above the sheet, with a real filter hit area, on a 3-step pipeline with a 17-c
+  ✓  27 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:841:7 › HEL-1582 phone pipeline page (live) › desktop (1440x900): the "N fields" panel opens on the side of its trigger with room, fully inside the viewport (3.5s)
+  ✓  28 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:873:7 › HEL-1582 phone pipeline page (live) › AC4 guard can fail: a shrunk tab and a removed hit expander are caught by the same probe (3.4s)
+  ✓  29 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:1041:7 › HEL-1582 phone pipeline page (live) › phone hover, focus and pressed states of the new controls clear the state-surface floor (1.10), text 4.5:1 and non-text 3
+  ✓  30 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:1140:7 › HEL-1582 phone pipeline page (live) › HEL-1669: the Dry run hover is distinct from its rest fill (>= 1.10) and the Run pill rests on --app-accent / hovers on -
+  30 passed (4.3m)
