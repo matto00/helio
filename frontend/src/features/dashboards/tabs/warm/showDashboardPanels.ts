@@ -25,6 +25,7 @@ import { LAZY_RESTORE_TIMEOUT_MS } from "./warmConfig";
 import { applyWarmEntry, readStoredEntry } from "./warmRestore";
 import { knownReadScope, scopeOf } from "./warmScope";
 import { isContentValid, isTabWarm, isWindowFresh, panelOutputIds } from "./warmValidity";
+import { getSessionEpoch } from "../../../../shared/session/sessionEpoch";
 
 type Thunk = { state: RootState };
 
@@ -113,6 +114,7 @@ export const showDashboardPanels = createAsyncThunk<void, string, Thunk>(
       return;
     }
     const userId = first.auth.currentUser?.id ?? null;
+    const startEpoch = getSessionEpoch();
     const warm = userId !== null && isTabWarm(first.dashboardTabs.tabs, dashboardId, serverNowMs());
     if (warm && userId !== null) {
       const hadMemoryCopy = getListEntry(dashboardId) !== undefined;
@@ -127,7 +129,8 @@ export const showDashboardPanels = createAsyncThunk<void, string, Thunk>(
         const stillWanted =
           now.dashboards.selectedDashboardId === dashboardId &&
           now.panels.loadedDashboardId !== dashboardId &&
-          now.auth.currentUser?.id === userId;
+          now.auth.currentUser?.id === userId &&
+          startEpoch === getSessionEpoch();
         if (stillWanted && stored !== undefined) {
           const tab = now.dashboardTabs.tabs.find((t) => t.id === dashboardId);
           const applied = applyWarmEntry({

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { useAppSelector } from "../../../hooks/reduxHooks";
+import { registerSessionReset } from "../../../shared/session/sessionReset";
 import { getPipelineById } from "../../pipelines/services/pipelineService";
 
 /** HEL-1744 D7 -- whether the signed-in user owns the insight's PIPELINE (never the Output's creator: an editor can create
@@ -13,6 +14,12 @@ const ownerByPipeline = new Map<string, Promise<string | null>>();
 export function resetPipelineOwnership(): void {
   ownerByPipeline.clear();
 }
+
+// HEL-1634: the answer depends on the caller (a 403 is cached as "not the owner"), so it is per session.
+registerSessionReset("pipelineOwnership", {
+  covers: ["features/panels/insight/usePipelineOwnership.ts#ownerByPipeline"],
+  reset: resetPipelineOwnership,
+});
 
 function pipelineOwner(pipelineId: string): Promise<string | null> {
   let pending = ownerByPipeline.get(pipelineId);

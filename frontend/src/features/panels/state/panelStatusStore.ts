@@ -6,6 +6,7 @@
 // there is one request in flight per dashboard however many consumers (the meta row, the phone caption, every card) listen.
 
 import { fetchDashboardPanelStatus } from "../services/panelStatusService";
+import { declareSessionResetCoverage } from "../../../shared/session/sessionReset";
 import { onFreshnessReset } from "./outputFreshness";
 
 /** How often a visible page re-reads the status. Run-finish latency for a grantee is up to one interval plus the rows read. */
@@ -220,6 +221,11 @@ function clearAll(): void {
 
 // Logout / account switch: forget every snapshot with the rest of the freshness state.
 onFreshnessReset(clearAll);
+declareSessionResetCoverage(
+  "features/panels/state/panelStatusStore.ts",
+  ["entries", "seeds"],
+  "outputFreshness",
+);
 
 /** Test helper: forget every dashboard, stop every timer. */
 export function resetPanelStatusStoreForTests(): void {

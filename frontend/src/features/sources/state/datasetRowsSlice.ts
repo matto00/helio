@@ -9,6 +9,7 @@ import {
   patchSourceRow,
 } from "../services/dataSourceService";
 import type { DatasetSchemaResponse, RowListResponse, RowResponseRow } from "../types/dataSource";
+import { dispatchIfSameSession, getSessionEpoch } from "../../../shared/session/sessionEpoch";
 
 // HEL-1080 design.md Decision 0a: a fixed page size for the row grid -- a UX/perf choice (a page
 // stays single-viewport-scale), NOT a virtualization dodge (DatasetRowGrid's `variant="preview"`
@@ -188,6 +189,7 @@ export const appendDatasetRow = createAsyncThunk<
   { rejectValue: { sourceId: string; message: string } }
 >("datasetRows/appendRow", async ({ sourceId, data }, { rejectWithValue, dispatch }) => {
   try {
+    const startEpoch = getSessionEpoch();
     await appendSourceRows(sourceId, [data]);
     // design.md Decision 0a / tasks.md 3.6: page forward to the last page so the user sees the
     // row they just added, following `nextCursor` until it's absent -- skeptic-final-2.md CR-C:
@@ -200,7 +202,7 @@ export const appendDatasetRow = createAsyncThunk<
       const result = await dispatch(fetchDatasetRowsPage({ sourceId, cursor })).unwrap();
       if (result.page.nextCursor === undefined) break;
       cursor = result.page.nextCursor;
-      dispatch(pushCursorStack({ sourceId, cursor }));
+      dispatchIfSameSession(dispatch, startEpoch, pushCursorStack({ sourceId, cursor }));
     }
     return { sourceId };
   } catch (err) {

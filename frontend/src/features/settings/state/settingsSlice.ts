@@ -42,6 +42,7 @@ import type {
   MfaStatusResponse,
   User,
 } from "../../auth/types/user";
+import { dispatchIfSameSession, getSessionEpoch } from "../../../shared/session/sessionEpoch";
 
 /** Matches `pipelinesSlice.ts`'s existing error-extraction
  *  pattern: the backend's `ErrorResponse(message)` always uses the `message`
@@ -341,8 +342,10 @@ export const redeemInviteCodeThunk = createAsyncThunk<User, string, { rejectValu
   "settings/redeemInviteCode",
   async (code, { dispatch, rejectWithValue }) => {
     try {
+      const startEpoch = getSessionEpoch();
       const user = await redeemInviteCodeRequest(code);
-      dispatch(setAuth({ user }));
+      // HEL-1634: a redeem that lands after a sign-out must not replace the NEXT user's identity.
+      dispatchIfSameSession(dispatch, startEpoch, setAuth({ user }));
       return user;
     } catch (err: unknown) {
       return rejectWithValue(extractErrorMessage(err, "Invalid or already-used invite code"));

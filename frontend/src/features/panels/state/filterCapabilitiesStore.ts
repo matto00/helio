@@ -4,6 +4,8 @@
 // invalidated from OUTSIDE React (the `fetchPanelPage` thunk, on a cross-filter `eq` rejection).
 // Consumed by `useOutputFilterCapabilities` via `useSyncExternalStore`.
 
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
+import { registerSessionReset } from "../../../shared/session/sessionReset";
 import { fetchPublicFilterCapabilities } from "../../dashboards/services/publicDashboardService";
 import { getFilterCapabilities } from "../../pipelines/services/outputService";
 import type { OutputFilterCapabilitiesResponse } from "../../pipelines/types/output";
@@ -59,9 +61,12 @@ export function ensureCapabilitiesLoaded(
   if (getCapabilitiesEntry(outputId) !== undefined) return;
   entries.set(outputId, { status: "loading" });
   notify();
+  const epoch = getSessionEpoch();
   void (async () => {
     try {
       const response = await load();
+      // HEL-1634: a load that started in an earlier session never lands in this one.
+      if (epoch !== getSessionEpoch()) return;
       const columns = new Map<string, ReadonlySet<string>>(
         response.columns.map((c) => [c.column, new Set<string>(c.operators)]),
       );
@@ -73,6 +78,7 @@ export function ensureCapabilitiesLoaded(
         expiresAt: Date.now() + CAPABILITIES_TTL_MS,
       });
     } catch {
+      if (epoch !== getSessionEpoch()) return;
       if (entries.get(outputId)?.status !== "loading") return;
       entries.set(outputId, { status: "unavailable", expiresAt: Date.now() + CAPABILITIES_TTL_MS });
     }
@@ -102,3 +108,8 @@ export function resetCapabilitiesStoreForTests(): void {
   entries.clear();
   notify();
 }
+
+registerSessionReset("filterCapabilitiesStore", {
+  covers: ["features/panels/state/filterCapabilitiesStore.ts#entries"],
+  reset: resetCapabilitiesStoreForTests,
+});

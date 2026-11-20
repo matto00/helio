@@ -2,6 +2,7 @@ import { useCallback, useEffect } from "react";
 
 import { applyShellPreferences, saveShellPreferences } from "../../features/auth/state/authSlice";
 import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
+import { registerSessionReset } from "../../shared/session/sessionReset";
 import {
   CONTEXT_LIST_DEFAULT_WIDTH,
   clampContextListWidth,
@@ -42,6 +43,12 @@ function cancelKeyWrite() {
     keyWriteTimer = null;
   }
 }
+
+// HEL-1634: a nudge still waiting when the session ends would otherwise PATCH the NEXT user's preferences.
+registerSessionReset("contextListKeyWrite", {
+  covers: ["app/shell/useContextListLayout.ts#keyWriteTimer"],
+  reset: cancelKeyWrite,
+});
 
 /** Shell layout state for the context list (HEL-1574, DESIGN.md §9). The source of truth is the signed-in user's
  *  server-side preferences, already in the auth slice before the shell first renders (every auth response carries

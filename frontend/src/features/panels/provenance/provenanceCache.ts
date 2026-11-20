@@ -1,3 +1,5 @@
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
+import { registerSessionReset } from "../../../shared/session/sessionReset";
 import { getAssertionStatus } from "../../pipelines/services/outputService";
 import type { Provenance } from "./provenanceService";
 
@@ -32,9 +34,11 @@ export function loadProvenance(
   const existing = promises.get(key);
   if (existing) return existing;
   const generation = generations.get(key) ?? 0;
+  const epoch = getSessionEpoch();
   const promise = fetcher().then(
     (value) => {
-      if ((generations.get(key) ?? 0) === generation) {
+      // HEL-1634: a load that started in an earlier session never lands in this one.
+      if ((generations.get(key) ?? 0) === generation && epoch === getSessionEpoch()) {
         values.set(key, value);
         listeners.forEach((l) => l());
       }
@@ -82,6 +86,27 @@ export function resetProvenanceCache(): void {
   generations.clear();
   inFlightStatus.clear();
 }
+
+/** HEL-1634: sign-out. Clears the DATA and tells subscribers to re-read an empty cache; the subscriber sets stay,
+ *  so a still-mounted consumer receives the next user's loads. Not the test seam above. */
+function clearForSessionEnd(): void {
+  promises.clear();
+  values.clear();
+  generations.clear();
+  inFlightStatus.clear();
+  listeners.forEach((l) => l());
+  invalidationListeners.forEach((l) => l());
+}
+
+registerSessionReset("provenanceCache", {
+  covers: [
+    "features/panels/provenance/provenanceCache.ts#promises",
+    "features/panels/provenance/provenanceCache.ts#values",
+    "features/panels/provenance/provenanceCache.ts#generations",
+    "features/panels/provenance/provenanceCache.ts#inFlightStatus",
+  ],
+  reset: clearForSessionEnd,
+});
 
 /** HEL-1207 A4 — one shared in-flight `getAssertionStatus` per output, so N consumers of one
  *  output make one request. Deliberately in-flight only (entry dropped on settle): a cached result

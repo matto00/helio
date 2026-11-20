@@ -3,6 +3,7 @@ import { act, render } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
+import { bumpSessionEpoch } from "../../../shared/session/sessionEpoch";
 import { dashboardSeenStore } from "../../commandPalette/model/dashboardSeenStore";
 import { addRecentVisitsListeners } from "../../commandPalette/state/recentVisitsListeners";
 import { createRecentHistoryStore } from "../../commandPalette/model/recentHistoryStore";
@@ -61,6 +62,17 @@ describe("useDashboardViewStamp (HEL-1578 D5)", () => {
     const store = makeStore({ selected: "seen-a", panelsFor: "seen-a", ids: ["seen-a"] });
     mount(store, "/dashboards");
     expect(stamped("seen-a")).toBeDefined();
+  });
+
+  it("does not write the signed-out user's dashboard back when the view unmounts after a sign-out (HEL-1634)", () => {
+    const store = makeStore({ selected: "seen-z", panelsFor: "seen-z", ids: ["seen-z"] });
+    const view = mount(store, "/dashboards");
+    expect(stamped("seen-z")).toBeDefined();
+    // Sign-out: the stamps are cleared and the epoch bumped, THEN the view unmounts.
+    dashboardSeenStore.clear();
+    bumpSessionEpoch();
+    view.unmount();
+    expect(stamped("seen-z")).toBeUndefined();
   });
 
   it("stamps nothing on /dashboards while the selected dashboard's panels have not loaded", () => {

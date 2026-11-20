@@ -10,6 +10,7 @@ import { buildTemplateDashboard } from "../services/firstRunService";
 import { describeFirstRunError } from "../state/firstRunErrors";
 import { dismissOnboarding } from "../state/onboardingSlice";
 import type { FirstRunState } from "./useFirstRunBuild";
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 
 export const TEMPLATE_STAGE_LABEL = "Loading sample data and building your dashboard…";
 
@@ -36,9 +37,12 @@ export function useFirstRunTemplate(): FirstRunTemplate {
       if (inFlight.current) return;
       inFlight.current = true;
       setState({ status: "working", stage: "building" });
+      const startEpoch = getSessionEpoch();
       try {
         const result = await buildTemplateDashboard(slug);
         const dashboards = await fetchDashboards();
+        // HEL-1634: a build that finishes after a sign-out must not land in, select for or navigate the next user.
+        if (startEpoch !== getSessionEpoch()) return;
         const landed = dashboards.find((d) => d.id === result.dashboardId);
         if (landed) dispatch(dashboardUpserted(landed));
         void dispatch(fetchSources());

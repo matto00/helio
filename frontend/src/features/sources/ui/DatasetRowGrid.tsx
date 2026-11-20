@@ -35,6 +35,7 @@ import {
 } from "../hooks/useDatasetFieldEditor";
 import { parseDatasetRowValidationError } from "../utils/parseDatasetRowValidationError";
 import type { DatasetFieldResponse, RowResponseRow } from "../types/dataSource";
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 
 interface DatasetRowGridProps {
   sourceId: string;
@@ -553,9 +554,12 @@ export function DatasetRowGrid({ sourceId }: DatasetRowGridProps) {
     // failed fetch (a 429 from the rate limiter, a dropped connection) left the "Page N" label
     // advanced while the OLD page's rows stayed on screen -- the counter and the actual rendered
     // page disagreed. Now pushed only once the fetch has actually succeeded.
+    const startEpoch = getSessionEpoch();
     void dispatch(fetchDatasetRowsPage({ sourceId, cursor: nextCursor }))
       .unwrap()
       .then((result) => {
+        // HEL-1634: a page that arrives after a sign-out must not touch the next user's cursor stack.
+        if (startEpoch !== getSessionEpoch()) return;
         dispatch(pushCursorStack({ sourceId, cursor: nextCursor }));
         // skeptic-final-4.md non-blocking note: a stale error banner from an EARLIER failed
         // page fetch must not linger once a later one succeeds.

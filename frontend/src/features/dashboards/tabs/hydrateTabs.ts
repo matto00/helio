@@ -16,6 +16,7 @@ import { HYDRATE_RESTORE_TIMEOUT_MS, LAZY_RESTORE_TIMEOUT_MS } from "./warm/warm
 import { applyWarmEntry, readStoredEntry } from "./warm/warmRestore";
 import { isTabWarm } from "./warm/warmValidity";
 import { knownReadScope } from "./warm/warmScope";
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 
 /** `/dashboards/:id` (the authenticated route, HEL-1209) -> `:id`; anything else -> null. The public
  *  viewer is the longer `/dashboards/:id/panels` and is deliberately not matched. */
@@ -137,6 +138,7 @@ export const hydrateTabs = createAsyncThunk<
     const state = getState();
     const user = state.auth.currentUser;
     if (!user) return;
+    const startEpoch = getSessionEpoch();
     const saved = normalizeSavedTabs(user.preferences?.dashboardTabs);
     const dashboardIds = new Set(state.dashboards.items.map((d) => d.id));
     const currentDeepLink = () =>
@@ -181,6 +183,9 @@ export const hydrateTabs = createAsyncThunk<
         ),
       ]);
     }
+
+    // HEL-1634: the session ended while the restore ran; the next user's own hydration starts fresh.
+    if (startEpoch !== getSessionEpoch()) return;
 
     // The awaits above can take seconds. A navigation made meanwhile (a Home card, the dashboard list, a URL)
     // changes the location, and the dashboard the user opened wins over the saved active tab: re-plan with

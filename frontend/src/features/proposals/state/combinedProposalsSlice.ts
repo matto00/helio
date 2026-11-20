@@ -4,6 +4,7 @@ import { isAxiosError } from "axios";
 import { dashboardUpserted, setSelectedDashboardId } from "../../dashboards/state/dashboardsSlice";
 import { applyCombinedProposal as applyCombinedProposalRequest } from "../services/combinedProposalService";
 import type { CombinedProposal, CombinedProposalApplyResponse } from "../types/combinedProposal";
+import { dispatchIfSameSession, getSessionEpoch } from "../../../shared/session/sessionEpoch";
 
 interface CombinedProposalsState {
   applying: boolean;
@@ -31,9 +32,15 @@ export const applyCombinedProposal = createAsyncThunk<
   { rejectValue: string }
 >("combinedProposals/applyCombinedProposal", async (proposal, { dispatch, rejectWithValue }) => {
   try {
+    const startEpoch = getSessionEpoch();
     const response = await applyCombinedProposalRequest(proposal);
-    dispatch(dashboardUpserted(response.dashboard.dashboard));
-    dispatch(setSelectedDashboardId(response.dashboard.dashboard.id));
+    // HEL-1634: an apply that lands after a sign-out must not insert or select a dashboard for the next user.
+    dispatchIfSameSession(dispatch, startEpoch, dashboardUpserted(response.dashboard.dashboard));
+    dispatchIfSameSession(
+      dispatch,
+      startEpoch,
+      setSelectedDashboardId(response.dashboard.dashboard.id),
+    );
     return response;
   } catch (err) {
     const serverMessage =

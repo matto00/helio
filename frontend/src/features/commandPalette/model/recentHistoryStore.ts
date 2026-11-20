@@ -1,4 +1,5 @@
 import type { ResourceKind } from "../../../shared/chrome/resourceNavigation";
+import { registerSessionReset } from "../../../shared/session/sessionReset";
 
 /**
  * HEL-503 design.md D1/D2, task 1.0 — recents support three kinds, not four: outputs were never
@@ -122,6 +123,9 @@ export interface RecentHistoryStore {
    * call this once that kind's collection has genuinely resolved (design.md D4) — this function
    * itself does not know or check that; see `recentVisitsListeners.ts`. */
   pruneMissing(kind: RecentKind, existingIds: ReadonlySet<string>): void;
+  /** HEL-1634: sign-out. Empties the in-memory snapshot, removes the storage key and notifies subscribers
+   * (who stay subscribed). Recents carry dashboard, source and pipeline titles of the signed-out user. */
+  clear(): void;
 }
 
 /** Framework-free observable store, deliberately not React state — mirrors `commandRegistry.ts`'s
@@ -159,6 +163,15 @@ export function createRecentHistoryStore(
       saveRecentHistory(entries, storageKey);
       notify();
     },
+    clear() {
+      entries = [];
+      try {
+        window.localStorage.removeItem(storageKey);
+      } catch {
+        // Storage unavailable: the in-memory snapshot is already empty.
+      }
+      notify();
+    },
     subscribe(listener) {
       listeners.add(listener);
       return () => {
@@ -171,3 +184,8 @@ export function createRecentHistoryStore(
 /** The one instance the running app actually uses — everything else (the listeners, the palette
  * hook) reads/writes through this. */
 export const recentHistoryStore = createRecentHistoryStore();
+
+registerSessionReset("recentHistory", {
+  covers: ["features/commandPalette/model/recentHistoryStore.ts#recentHistoryStore"],
+  reset: () => recentHistoryStore.clear(),
+});

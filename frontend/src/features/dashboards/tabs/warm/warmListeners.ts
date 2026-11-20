@@ -25,7 +25,6 @@ import {
   updatePanelTitle,
 } from "../../../panels/state/panelsSlice";
 import { swapPanelOutput } from "../../../panels/state/panelThunks";
-import { resetOutputFreshness } from "../../../panels/state/outputFreshness";
 import { deleteOutput } from "../../../pipelines/state/outputsSlice";
 import { deletePipeline } from "../../../pipelines/state/pipelinesSlice";
 import { deleteSource } from "../../../sources/state/sourcesSlice";
@@ -215,7 +214,7 @@ export function addWarmListeners(startListening: AppStartListening): void {
   startListening({
     actionCreator: clearAuth,
     effect: () => {
-      resetOutputFreshness();
+      // The Output freshness reset is a registered session-reset hook (HEL-1634), run on the same action.
       void clearWarmState();
     },
   });

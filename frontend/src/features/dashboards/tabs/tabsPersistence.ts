@@ -7,6 +7,7 @@ import { API_BASE_URL } from "../../../config/env";
 import { patchDashboardTabsRequest } from "../../auth/services/authService";
 import { CSRF_HEADER, CSRF_HEADER_VALUE } from "../../../services/csrfHeader";
 import type { DashboardTab } from "./tabTypes";
+import { declareSessionResetCoverage } from "../../../shared/session/sessionReset";
 
 export const TABS_WRITE_DEBOUNCE_MS = 1000;
 
@@ -72,3 +73,9 @@ export function cancelTabsWrite(): void {
   timer = null;
   pending = null;
 }
+
+declareSessionResetCoverage(
+  "features/dashboards/tabs/tabsPersistence.ts",
+  ["timer", "pending"],
+  "clearAuthListener",
+);

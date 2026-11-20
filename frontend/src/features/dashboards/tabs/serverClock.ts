@@ -4,6 +4,8 @@
 // Module-level (not Redux) so thunks, reducers' meta creators and the warm cache can read it without a
 // store handle.
 
+import { declareSessionResetCoverage } from "../../../shared/session/sessionReset";
+
 let serverOffsetMs = 0;
 
 export function setServerOffsetMs(offsetMs: number): void {
@@ -27,3 +29,9 @@ export function serverNowIso(): string {
 export function resetServerClock(): void {
   serverOffsetMs = 0;
 }
+
+declareSessionResetCoverage(
+  "features/dashboards/tabs/serverClock.ts",
+  ["serverOffsetMs"],
+  "clearWarm",
+);

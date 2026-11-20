@@ -9,6 +9,8 @@
 
 import { useEffect, useRef } from "react";
 
+import { declareSessionResetCoverage } from "../../../shared/session/sessionReset";
+
 /** dashboard id -> panel id -> the marker's serial. The serial lets a deferred consume (a card's unmount) spend only the marker it
  *  saw, never a later restore's marker for the same panel. */
 const markers = new Map<string, Map<string, number>>();
@@ -76,3 +78,5 @@ export function useConsumeRestoreMarkerOnUnmount(panelId: string, enabled: boole
     };
   }, [enabled, panelId]);
 }
+
+declareSessionResetCoverage("features/panels/state/restoreMarkers.ts", ["markers"], "clearWarm");

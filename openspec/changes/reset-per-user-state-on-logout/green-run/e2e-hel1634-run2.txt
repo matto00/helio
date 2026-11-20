@@ -1,0 +1,7 @@
+Running 1 test using 1 worker
+[HEL-1300 e2e] throwaway user: hel1634-a-1795202709184-75853@example.test
+[HEL-1634 e2e] user A id: 3b193bb1-b2ca-4026-9902-f5a9126547c7
+[HEL-1300 e2e] throwaway user: hel1634-b-1795202713093-5216@example.test
+  ✓  1 [dev] › e2e/hel1634-logout-user-switch.spec.ts:99:7 › HEL-1634 sign-out then another user on the same tab › user B sees nothing of user A's dashboards, panels, history, provenance or recents, and sends no request with A's ids (9.5s)
+[HEL-1301 e2e] deleted 2 recorded throwaway user(s)
+  1 passed (10.0s)

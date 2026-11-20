@@ -4,6 +4,7 @@
 // reach it without an import cycle, and `clearWarmState` can empty it in one place.
 
 import type { Dispatch, UnknownAction } from "@reduxjs/toolkit";
+import { declareSessionResetCoverage } from "../../../../shared/session/sessionReset";
 import { dashboardSeenStore } from "../../../commandPalette/model/dashboardSeenStore";
 import { invalidateOutput, release, retain } from "../../../panels/state/outputFreshness";
 import type { Panel } from "../../../panels/types/panel";
@@ -202,3 +203,9 @@ export async function clearWarmState(): Promise<void> {
 }
 
 registerClearWarmHook(clearWarmState);
+
+declareSessionResetCoverage(
+  "features/dashboards/tabs/warm/warmCache.ts",
+  ["lists", "ownWrites", "fetchStarts", "retentions", "store"],
+  "clearWarm",
+);

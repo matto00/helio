@@ -25,6 +25,7 @@ import {
   sourceNameFromUrl,
 } from "../state/firstRunNaming";
 import { dismissOnboarding } from "../state/onboardingSlice";
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 
 export const FIRST_RUN_STAGE_LABEL: Record<FirstRunStage, string> = {
   reading: "Reading columns…",
@@ -70,6 +71,7 @@ export function useFirstRunBuild(): FirstRunBuild {
         setState({ status: "working", stage: next });
       };
       enter(stage);
+      const startEpoch = getSessionEpoch();
       try {
         let sourceId = createdSourceId.current;
         if (sourceId === null) {
@@ -84,6 +86,8 @@ export function useFirstRunBuild(): FirstRunBuild {
         enter("building");
         const result = await buildFirstRunDashboard(sourceId);
         const dashboards = await fetchDashboards();
+        // HEL-1634: a build that finishes after a sign-out must not land in, select for or navigate the next user.
+        if (startEpoch !== getSessionEpoch()) return;
         const landed = dashboards.find((d) => d.id === result.dashboardId);
         if (landed) dispatch(dashboardUpserted(landed));
         dispatch(setSelectedDashboardId(result.dashboardId));

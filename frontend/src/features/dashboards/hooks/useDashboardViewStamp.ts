@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { useAppSelector } from "../../../hooks/reduxHooks";
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 import { dashboardSeenStore } from "../../commandPalette/model/dashboardSeenStore";
 import { serverNowMs } from "../tabs/serverClock";
 
@@ -43,7 +44,13 @@ export function useDashboardViewStamp(): void {
 
   useEffect(() => {
     if (displayedId === null) return;
-    const stamp = () => dashboardSeenStore.recordViewed(displayedId, serverNowMs());
+    // HEL-1634: the cleanup below runs when the view unmounts, which on sign-out is AFTER the stamps were
+    // cleared; it must not write the signed-out user's dashboard id back into the store.
+    const startEpoch = getSessionEpoch();
+    const stamp = () => {
+      if (startEpoch === getSessionEpoch())
+        dashboardSeenStore.recordViewed(displayedId, serverNowMs());
+    };
     stamp();
     window.addEventListener("pagehide", stamp);
     return () => {

@@ -1,5 +1,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
+import { registerSessionReset } from "../../../shared/session/sessionReset";
 import { getOutputRows } from "../services/outputService";
 
 /**
@@ -36,10 +38,21 @@ export function clearSavedOutputRows(): void {
   notify();
 }
 
+registerSessionReset("savedOutputRows", {
+  covers: [
+    "features/pipelines/hooks/useSavedOutputRows.ts#cache",
+    "features/pipelines/hooks/useSavedOutputRows.ts#version",
+  ],
+  reset: clearSavedOutputRows,
+});
+
 function load(outputId: string): void {
   cache.set(outputId, { status: "loading" });
+  const epoch = getSessionEpoch();
   Promise.resolve(getOutputRows(outputId, 0, SAVED_ROW_LIMIT)).then(
     (result) => {
+      // HEL-1634: a read that started in an earlier session never lands in this one.
+      if (epoch !== getSessionEpoch()) return;
       if (cache.get(outputId)?.status !== "loading") return;
       const items = result?.items ?? [];
       cache.set(outputId, {
@@ -51,6 +64,7 @@ function load(outputId: string): void {
       notify();
     },
     () => {
+      if (epoch !== getSessionEpoch()) return;
       if (cache.get(outputId)?.status !== "loading") return;
       cache.set(outputId, { status: "error" });
       notify();

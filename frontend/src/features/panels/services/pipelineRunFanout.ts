@@ -16,6 +16,7 @@
 // record — before opening the live SSE stream, so a missed terminal outcome is still observed on
 // the very next (re)connect.
 
+import { declareSessionResetCoverage } from "../../../shared/session/sessionReset";
 import { invalidatePipeline, onFreshnessReset } from "../state/outputFreshness";
 
 type SucceededListener = () => void;
@@ -49,6 +50,11 @@ const entries = new Map<string, FanoutEntry>();
 const lastObservedRunIdByPipeline = new Map<string, string>();
 // Logout (and every test) forgets them with the rest of the freshness state.
 onFreshnessReset(() => lastObservedRunIdByPipeline.clear());
+declareSessionResetCoverage(
+  "features/panels/services/pipelineRunFanout.ts",
+  ["lastObservedRunIdByPipeline"],
+  "outputFreshness",
+);
 
 function createEntry(pipelineId: string): FanoutEntry {
   return {
