@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 
 import { FormFieldControl } from "./FormFieldControl";
+import { COUNTER_TALLY_CAPTION } from "./counterTallyCaption";
 import type { DatasetFieldResponse } from "../../../sources/types/dataSource";
 import type { FormFieldSpec } from "../../types/panel";
 import type { FormFieldValue } from "./useFormPanelValues";
@@ -374,5 +375,50 @@ describe("FormFieldControl", () => {
     const control = screen.getByLabelText("Size");
     expect(control).toBeDisabled();
     expect(control).toHaveAccessibleDescription("Options must be a non-empty list");
+  });
+
+  // HEL-1788 design.md D4: the caption id is appended to, never replacing, the error/hint id.
+  it("counter: tallyCaption is described alongside an existing error, not instead of it", () => {
+    const field: FormFieldSpec = { sourceField: "delta", control: "counter", label: "Delta" };
+    render(
+      <FormFieldControl
+        field={field}
+        declared={{ name: "delta", type: "integer", required: false }}
+        value="0"
+        error="Something went wrong"
+        onChange={() => {}}
+        onBlur={() => {}}
+        immediate
+        onImmediateStep={() => {}}
+        tallyCaption={COUNTER_TALLY_CAPTION}
+      />,
+    );
+    const control = screen.getByRole("spinbutton", { name: "Delta" });
+    expect(control).toHaveAccessibleDescription(`Something went wrong ${COUNTER_TALLY_CAPTION}`);
+  });
+
+  it("counter: tallyCaption is described alongside an existing hint", () => {
+    const field: FormFieldSpec = {
+      sourceField: "delta",
+      control: "counter",
+      label: "Delta",
+      helpText: "Count widgets",
+    };
+    render(
+      <FormFieldControl
+        field={field}
+        declared={{ name: "delta", type: "integer", required: false }}
+        value="0"
+        error={null}
+        onChange={() => {}}
+        onBlur={() => {}}
+        immediate
+        onImmediateStep={() => {}}
+        tallyCaption={COUNTER_TALLY_CAPTION}
+      />,
+    );
+    expect(screen.getByRole("spinbutton", { name: "Delta" })).toHaveAccessibleDescription(
+      `Count widgets ${COUNTER_TALLY_CAPTION}`,
+    );
   });
 });

@@ -46,6 +46,9 @@ interface FormFieldControlProps {
    *  counter rendered `immediate={false}` (its own submit goes through the shared form button's
    *  `aria-disabled` state instead). */
   busy?: boolean;
+  /** HEL-1788 design.md D4 — meaningful only for `control: "counter"`: a caption rendered under the counter and
+   *  appended to the spinbutton's accessible description (after any error/hint id, never replacing it). */
+  tallyCaption?: string;
 }
 
 export function FormFieldControl({
@@ -59,13 +62,19 @@ export function FormFieldControl({
   immediate,
   onImmediateStep,
   busy,
+  tallyCaption,
 }: FormFieldControlProps) {
   const controlId = useId();
   const errorId = useId();
   const hintId = useId();
+  const captionId = useId();
   const label = field.label ?? field.sourceField;
   const required = declared ? isFieldRequired(field, declared) : false;
-  const describedBy = error ? errorId : field.helpText ? hintId : undefined;
+  const baseDescribedBy = error ? errorId : field.helpText ? hintId : undefined;
+  const showCaption = field.control === "counter" && Boolean(tallyCaption);
+  const describedBy = showCaption
+    ? [baseDescribedBy, captionId].filter(Boolean).join(" ")
+    : baseDescribedBy;
 
   if (issue) {
     return (
@@ -101,6 +110,11 @@ export function FormFieldControl({
           onImmediateStep,
           busy,
         })}
+        {showCaption && (
+          <p id={captionId} className="ui-form-field__hint counter-control__caption">
+            {tallyCaption}
+          </p>
+        )}
       </div>
     </FormField>
   );

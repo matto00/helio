@@ -8,6 +8,8 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 
 import { FormPanelView } from "./FormPanelView";
+import { COUNTER_TALLY_CAPTION } from "./counterTallyCaption";
+import { setAuth } from "../../../auth/state/authSlice";
 import {
   fetchDatasetSchema as fetchDatasetSchemaRequest,
   fetchFieldAggregate as fetchFieldAggregateRequest,
@@ -191,6 +193,106 @@ describe("FormPanelView for a user who is not the form's owner", () => {
     await waitFor(() =>
       expect(submitFormPanelMock).toHaveBeenCalledWith("panel-9", { note: "hi", delta: 2 }, {}),
     );
+  });
+});
+
+describe("FormPanelView counter tally caption (HEL-1788)", () => {
+  beforeEach(() => {
+    fetchDatasetSchemaMock.mockReset();
+    fetchFieldAggregateMock.mockReset();
+    fetchFormSchemaMock.mockReset();
+    submitFormPanelMock.mockReset();
+  });
+
+  it("captions a non-owner's compact counter and ties it to the value's description", async () => {
+    fetchFormSchemaMock.mockResolvedValueOnce(counterFormSchema);
+    renderNonOwner(counterConfig);
+    const control = await screen.findByRole("spinbutton", { name: "Widgets" });
+    expect(screen.getByText(COUNTER_TALLY_CAPTION)).toBeVisible();
+    expect(control).toHaveAccessibleDescription(COUNTER_TALLY_CAPTION);
+  });
+
+  it("starts a non-owner's tally at 0 whatever the initialValue, then adds the step", async () => {
+    fetchFormSchemaMock.mockResolvedValueOnce(counterFormSchema);
+    submitFormPanelMock.mockResolvedValue(rowResponse);
+    const seeded: FormPanelConfig = {
+      ...counterConfig,
+      fields: [{ ...counterConfig.fields[0], initialValue: 10 }],
+    };
+    renderNonOwner(seeded);
+    const control = await screen.findByRole("spinbutton", { name: "Widgets" });
+    expect(control).toHaveAttribute("aria-valuenow", "0");
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "5"));
+  });
+
+  it("makes no /api/data-sources request while captioned", async () => {
+    fetchFormSchemaMock.mockResolvedValueOnce(counterFormSchema);
+    renderNonOwner(counterConfig);
+    await screen.findByText(COUNTER_TALLY_CAPTION);
+    expect(fetchDatasetSchemaMock).not.toHaveBeenCalled();
+    expect(fetchFieldAggregateMock).not.toHaveBeenCalled();
+  });
+
+  it("does not caption a non-owner's counter inside a stacked form", async () => {
+    fetchFormSchemaMock.mockResolvedValueOnce(stackedSchema);
+    renderNonOwner(stackedConfig, "Stacked");
+    await screen.findByRole("form", { name: "Stacked" });
+    expect(screen.queryByText(COUNTER_TALLY_CAPTION)).toBeNull();
+  });
+
+  it("leaves the owner's compact counter uncaptioned and seeded from initialValue", async () => {
+    fetchDatasetSchemaMock.mockResolvedValueOnce({
+      fields: [
+        { name: "delta", type: "integer", required: false },
+        { name: "occurred_at", type: "timestamp", required: false },
+        { name: "value", type: "integer", required: false },
+      ],
+    });
+    const seeded: FormPanelConfig = {
+      ...counterConfig,
+      fields: [{ ...counterConfig.fields[0], initialValue: 10 }],
+    };
+    renderWithStore(
+      <FormPanelView title="Widgets" panelId="panel-9" config={seeded} formOwnerId="signed-in" />,
+      signedIn,
+    );
+    const control = await screen.findByRole("spinbutton", { name: "Widgets" });
+    expect(control).toHaveAttribute("aria-valuenow", "10");
+    expect(screen.queryByText(COUNTER_TALLY_CAPTION)).toBeNull();
+    expect(control).not.toHaveAccessibleDescription(COUNTER_TALLY_CAPTION);
+  });
+
+  it("re-seeds when ownership resolves after mount", async () => {
+    fetchFormSchemaMock.mockResolvedValue(counterFormSchema);
+    fetchDatasetSchemaMock.mockResolvedValue({
+      fields: [
+        { name: "delta", type: "integer", required: false },
+        { name: "occurred_at", type: "timestamp", required: false },
+        { name: "value", type: "integer", required: false },
+      ],
+    });
+    const seeded: FormPanelConfig = {
+      ...counterConfig,
+      fields: [{ ...counterConfig.fields[0], initialValue: 10 }],
+    };
+    const { store } = renderWithStore(
+      <FormPanelView title="Widgets" panelId="panel-9" config={seeded} formOwnerId="signed-in" />,
+      { auth: { currentUser: null } },
+    );
+    const control = await screen.findByRole("spinbutton", { name: "Widgets" });
+    expect(control).toHaveAttribute("aria-valuenow", "0");
+    expect(screen.getByText(COUNTER_TALLY_CAPTION)).toBeVisible();
+
+    store.dispatch(setAuth({ user: testUser(undefined, "signed-in") }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("spinbutton", { name: "Widgets" })).toHaveAttribute(
+        "aria-valuenow",
+        "10",
+      ),
+    );
+    expect(screen.queryByText(COUNTER_TALLY_CAPTION)).toBeNull();
   });
 });
 

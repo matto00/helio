@@ -45,3 +45,9 @@
   font-size: var(--text-3xl);
   font-family: var(--font-mono);
 }
+
+/* HEL-1788 — the caption under a non-owner's compact tally. Size, colour and margin come from the shared
+   `ui-form-field__hint` class (same 12px muted style as every form hint); only centring is added here. */
+.counter-control__caption {
+  text-align: center;
+}
