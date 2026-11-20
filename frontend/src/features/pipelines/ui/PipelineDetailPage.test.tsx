@@ -251,6 +251,7 @@ type PipelinesPreloadedState = {
   runIsDry?: boolean | null;
   runHistory?: Record<string, PipelineRunRecord[]>;
   runResult?: Record<string, unknown>[] | null;
+  runRowCount?: number | null;
   runSourceTruncated?: boolean;
   runSourceAvailableRowCount?: number | null;
   runTruncationNotice?: string | null;
@@ -331,6 +332,7 @@ function makeStore(
         updateStatus: pipelinesState.updateStatus ?? "idle",
         updateError: pipelinesState.updateError ?? null,
         runResult: pipelinesState.runResult ?? null,
+        runRowCount: pipelinesState.runRowCount ?? null,
         runSourceTruncated: pipelinesState.runSourceTruncated ?? false,
         runSourceAvailableRowCount: pipelinesState.runSourceAvailableRowCount ?? null,
         runTruncationNotice: pipelinesState.runTruncationNotice ?? null,
@@ -2231,7 +2233,7 @@ describe("PipelineDetailPage", () => {
       runStatus: "succeeded",
       runId: "run-3",
       runIsDry: false,
-      runResult: [{ a: 1 }, { a: 2 }],
+      runRowCount: 2,
     });
     renderDetailPage("pipe-1", store);
     expect(screen.getByLabelText("Run status: succeeded")).toHaveTextContent(
@@ -3329,7 +3331,7 @@ describe("PipelineDetailPage run success message (HEL-198)", () => {
     const store = makeStore([], {
       runStatus: "succeeded",
       runIsDry: false,
-      runResult: [{}, {}, {}],
+      runRowCount: 3,
     });
     renderDetailPage("pipe-1", store);
     expect(screen.getByLabelText("Run status: succeeded")).toHaveTextContent(
@@ -3341,7 +3343,7 @@ describe("PipelineDetailPage run success message (HEL-198)", () => {
     const store = makeStore([], {
       runStatus: "succeeded",
       runIsDry: true,
-      runResult: [{}, {}],
+      runRowCount: 2,
     });
     renderDetailPage("pipe-1", store);
     expect(screen.getByLabelText("Run status: succeeded")).toHaveTextContent("Preview: 2 rows");
@@ -3351,7 +3353,7 @@ describe("PipelineDetailPage run success message (HEL-198)", () => {
     const store = makeStore([], {
       runStatus: "succeeded",
       runIsDry: false,
-      runResult: [],
+      runRowCount: 0,
     });
     renderDetailPage("pipe-1", store);
     expect(screen.getByLabelText("Run status: succeeded")).toHaveTextContent(

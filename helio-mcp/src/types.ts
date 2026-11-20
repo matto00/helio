@@ -739,10 +739,15 @@ export interface PanelResponse {
  *  HEL-861: `sourceTruncated`/`sourceAvailableRowCount`/`truncationNotice` surface the backend's
  *  1000-row run cap honestly — `sourceTruncated: true` means the run computed everything
  *  (including any filter/sort/aggregate) over only a partial read of the source, and
- *  `truncationNotice` is the server-composed sentence explaining exactly that, verbatim. */
+ *  `truncationNotice` is the server-composed sentence explaining exactly that, verbatim.
+ *
+ *  HEL-1696: `rows` is a preview of at most the first 10 rows of the run's terminal frame; `rowCount` is the frame's total
+ *  and `rowsTruncated` is `true` when the two differ (the full rows are stored: `get_output_rows`). `rowsTruncated` is
+ *  optional here so the client tolerates an older server that never sends it. */
 export interface RunResultResponse {
   rows: Record<string, unknown>[];
   rowCount: number;
+  rowsTruncated?: boolean;
   stepRowCounts?: Record<string, number>;
   sourceRowCount?: number;
   runId?: string;

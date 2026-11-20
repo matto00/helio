@@ -217,7 +217,7 @@ export function usePipelineDetailPage() {
     runStatus: own.runStatus,
     runError: own.runError,
     runIsDry: own.runIsDry,
-    runResult: own.runResult,
+    runRowCount: own.runRowCount,
     runStepRowCounts: own.runStepRowCounts,
     runSourceRowCount: own.runSourceRowCount,
     runSourceTruncated: own.runSourceTruncated,

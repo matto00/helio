@@ -201,14 +201,13 @@ private[pipelines] final class PipelineRunPreview(
                     val allJsRows = outcome.rows.map { rowMap =>
                       JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
                     }.toVector
-                    val totalCount  = allJsRows.size
-                    val previewRows = allJsRows.take(10)
+                    val (previewRows, totalCount, rowsTruncated) = RunResultResponse.preview(allJsRows)
                     val (truncated, availableRowCount, notice, truncatedReads) =
                       truncationFields(dataSource.name, outcome.sourceRowCount, outcome.primaryStats, truncationSink)
                     Right(RunResultResponse(
                       previewRows, totalCount, outcome.stepCounts, outcome.sourceRowCount,
                       sourceTruncated = truncated, sourceAvailableRowCount = availableRowCount,
-                      truncationNotice = notice, truncatedReads = truncatedReads
+                      truncationNotice = notice, truncatedReads = truncatedReads, rowsTruncated = rowsTruncated
                     ))
                   }.recover { case ex =>
                     logExecutionFailure(s"previewAtNode (source-level) failed for pipeline ${pipelineId.value}", ex)
@@ -289,14 +288,13 @@ private[pipelines] final class PipelineRunPreview(
                           val allJsRows = targetRows.map { rowMap =>
                             JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
                           }.toVector
-                          val totalCount  = allJsRows.size
-                          val previewRows = allJsRows.take(10)
+                          val (previewRows, totalCount, rowsTruncated) = RunResultResponse.preview(allJsRows)
                           val (truncated, availableRowCount, notice, truncatedReads) =
                             truncationFields(dataSource.name, outcome.sourceRowCount, outcome.primaryStats, truncationSink)
                           Right(RunResultResponse(
                             previewRows, totalCount, outcome.stepCounts, outcome.sourceRowCount,
                             sourceTruncated = truncated, sourceAvailableRowCount = availableRowCount,
-                            truncationNotice = notice, truncatedReads = truncatedReads
+                            truncationNotice = notice, truncatedReads = truncatedReads, rowsTruncated = rowsTruncated
                           ))
                         }.recover { case ex =>
                           // HEL-311: keep the "Pipeline execution failed" prefix, drop

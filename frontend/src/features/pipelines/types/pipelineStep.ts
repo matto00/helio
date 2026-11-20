@@ -740,7 +740,10 @@ export type RunStatus = "queued" | "running" | "succeeded" | "failed";
 export interface RunStatusResponse {
   runId: string;
   status: RunStatus;
+  /** At most the first 10 rows of the run (HEL-1696); `rowCount` is the total. */
   rows?: Record<string, unknown>[];
+  rowCount?: number;
+  rowsTruncated?: boolean;
   error?: string;
 }
 

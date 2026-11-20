@@ -54,6 +54,7 @@ export interface SpineStoreOptions {
   runStatus?: "queued" | "running" | "succeeded" | "failed" | null;
   runIsDry?: boolean | null;
   runResult?: Record<string, unknown>[] | null;
+  runRowCount?: number | null;
   runStepRowCounts?: Record<string, number>;
   runSourceTruncated?: boolean;
   runTruncationNotice?: string | null;
@@ -159,6 +160,7 @@ export function makeSpineStore(options: SpineStoreOptions = {}) {
         updateStatus: options.updateStatus ?? "idle",
         updateError: options.updateError ?? null,
         runResult: options.runResult ?? null,
+        runRowCount: options.runRowCount ?? null,
         runStepRowCounts: options.runStepRowCounts ?? {},
         runSourceTruncated: options.runSourceTruncated ?? false,
         runSourceAvailableRowCount: null,

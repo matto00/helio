@@ -14,7 +14,8 @@ export interface SpineRunState {
   runStatus: string | null;
   runError: string | null;
   runIsDry: boolean | null;
-  runResult: Record<string, unknown>[] | null;
+  // The run response's total row count (HEL-1696), not the number of its (at most 10) preview rows.
+  runRowCount: number | null;
 }
 
 export function SpineRunStatus({
@@ -26,13 +27,8 @@ export function SpineRunStatus({
 }) {
   const displayStatus = run.sseStatus ?? run.runStatus;
   if (displayStatus !== null) {
-    // A Save & run settles with no rows in hand (`runResult` stays null): the count is then not claimed.
-    const displayRowCount =
-      run.sseRowCount !== null
-        ? run.sseRowCount
-        : run.runResult === null
-          ? null
-          : run.runResult.length;
+    // A Save & run settles with no run response in hand (`runRowCount` stays null): the count is then not claimed.
+    const displayRowCount = run.sseRowCount ?? run.runRowCount;
     const displayErrorLog = run.sseErrorLog ?? run.runError;
     return (
       <span

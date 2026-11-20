@@ -31,7 +31,7 @@ final class PipelineRunStatusRoutes(runService: PipelineRunService, user: Authen
         path("runs" / Segment) { runId =>
           get {
             ServiceResponse.run(runService.runStatus(pipelineId, runId, user)) { cached =>
-              RunStatusResponse(cached.runId, cached.status, cached.rows, cached.error, cached.rowCount)
+              RunStatusResponse(cached.runId, cached.status, cached.rows, cached.error, cached.rowCount, cached.rowsTruncated)
             }
           }
         },

@@ -170,7 +170,7 @@ export function MobilePipelineHeader({
               runStatus: page.runStatus,
               runError: page.runError,
               runIsDry: page.runIsDry,
-              runResult: page.runResult,
+              runRowCount: page.runRowCount,
             }}
             lastRunStatus={currentPipeline.lastRunStatus}
           />

@@ -29,12 +29,14 @@ The engine SHALL emit this lane path; a specification of the format alone SHALL 
 
 #### Scenario: Run with no steps returns source rows unchanged
 - **WHEN** `POST /api/pipelines/:id/run` is called on a single-root pipeline that has no steps
-- **THEN** the response is `200 OK` with all of that root's source rows returned and `last_run_status` is `"succeeded"`
+- **THEN** the response is `200 OK` with a preview of that root's source rows (at most the first 10, `rowCount` the
+  total, per `pipeline-run-response-preview`) and `last_run_status` is `"succeeded"`
 
 #### Scenario: Run with no steps on a multi-root pipeline returns the lowest-positioned root's rows
 - **WHEN** `POST /api/pipelines/:id/run` is called on a two-root pipeline that has no steps
 - **THEN** the response is `200 OK` and `last_run_status` is `"succeeded"`
-- **THEN** the returned rows are the lowest-positioned root's source rows, not the concatenation of both roots' rows
+- **THEN** the returned preview rows and `rowCount` are the lowest-positioned root's source rows, not the
+  concatenation of both roots' rows
 - **THEN** every root's per-node row count is still reported
 
 #### Scenario: A failure in a non-branching pipeline is unchanged in substance
@@ -85,10 +87,8 @@ The engine SHALL emit this lane path; a specification of the format alone SHALL 
 When the `dry=true` query parameter is present the backend SHALL execute all pipeline steps against
 the source data but SHALL NOT write to `node_snapshots` or any Output's `schema` field, and SHALL NOT
 update `last_run_status` or `last_run_at`. The response SHALL be `200 OK` with
-`{ rows: [...], rowCount: N }` reflecting the trunk's terminal frame (per-node preview data is
-available engine-internally via `PipelineExecutionOutcome.nodeOutcomes`, per `pipeline-execution`,
-but this HTTP response shape is unchanged by this ticket — exposing per-Output preview data over HTTP
-is P1.3/HEL-906's job).
+`{ rows: [...], rowCount: N, rowsTruncated: B }` reflecting the trunk's terminal frame, where `rows` is at most the
+frame's first 10 rows and `rowCount` its total (per `pipeline-run-response-preview`).
 
 #### Scenario: Dry run returns rows without updating last_run_status
 - **WHEN** `POST /api/pipelines/:id/run?dry=true` is called

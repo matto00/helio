@@ -1,0 +1,52 @@
+{
+  "rows": [
+    {
+      "name": "row1",
+      "score": 1.0
+    },
+    {
+      "name": "row2",
+      "score": 2.0
+    },
+    {
+      "name": "row3",
+      "score": 3.0
+    },
+    {
+      "name": "row4",
+      "score": 4.0
+    },
+    {
+      "name": "row5",
+      "score": 5.0
+    },
+    {
+      "name": "row6",
+      "score": 6.0
+    },
+    {
+      "name": "row7",
+      "score": 7.0
+    },
+    {
+      "name": "row8",
+      "score": 8.0
+    },
+    {
+      "name": "row9",
+      "score": 9.0
+    },
+    {
+      "name": "row10",
+      "score": 10.0
+    }
+  ],
+  "rowCount": 25,
+  "stepRowCounts": {},
+  "sourceRowCount": 25,
+  "runId": "{{RUN_1}}",
+  "blocked": false,
+  "sourceTruncated": false,
+  "truncatedReads": [],
+  "rowsTruncated": true
+}
