@@ -64,7 +64,9 @@ describe("applyWarmEntry (HEL-1575 D5 restore on reload)", () => {
   it("seeds the list, output metadata, run baseline and row windows, and takes the retention", () => {
     const { dispatch, getState } = makeTabsStore({});
     const entry = fixtures();
-    expect(applyWarmEntry({ dispatch, entry, signal: signal(), tabOwnWriteAt: null })).toBe(true);
+    expect(
+      applyWarmEntry({ dispatch, entry, signal: signal(), tabOwnWriteAt: null, scope: "output" }),
+    ).toBe(true);
 
     expect(getListEntry("d1")?.panels).toHaveLength(2);
     expect(getListEntry("d1")?.contentCapturedAt).toBe(5_000);
@@ -77,7 +79,13 @@ describe("applyWarmEntry (HEL-1575 D5 restore on reload)", () => {
 
   it("a restored window is reusable, and a run after the capture bumps the generation after restore", () => {
     const { dispatch, getState } = makeTabsStore({});
-    applyWarmEntry({ dispatch, entry: fixtures(), signal: signal(), tabOwnWriteAt: null });
+    applyWarmEntry({
+      dispatch,
+      entry: fixtures(),
+      signal: signal(),
+      tabOwnWriteAt: null,
+      scope: "output",
+    });
     const window = getState().panels.paginationState.p1;
     const query = { outputId: "o1", crossFilterEq: null };
     // Restamped with the generation read AFTER the metadata (and its pipeline) was seeded.
@@ -97,7 +105,7 @@ describe("applyWarmEntry (HEL-1575 D5 restore on reload)", () => {
     expect(WARM_WINDOW_KEYS).toContain("columns");
 
     const { dispatch, getState } = makeTabsStore({});
-    applyWarmEntry({ dispatch, entry, signal: signal(), tabOwnWriteAt: null });
+    applyWarmEntry({ dispatch, entry, signal: signal(), tabOwnWriteAt: null, scope: "output" });
     expect(getState().panels.paginationState.p1.columns).toEqual(columns);
     // A copy stored before columns existed restores without any, and renders as before.
     expect(getState().panels.paginationState.p2.columns).toBeUndefined();
@@ -110,7 +118,7 @@ describe("applyWarmEntry (HEL-1575 D5 restore on reload)", () => {
     const { dispatch, getState } = makeTabsStore({});
     const entry = fixtures();
     entry.rows.p1 = storedWindow("o1", 6_000, 41); // 41 was meaningless: counters restart on load
-    applyWarmEntry({ dispatch, entry, signal: signal(), tabOwnWriteAt: null });
+    applyWarmEntry({ dispatch, entry, signal: signal(), tabOwnWriteAt: null, scope: "output" });
     expect(getState().panels.paginationState.p1.generation).toBe(currentGeneration("o1"));
     expect(getState().panels.paginationState.p1.generation).not.toBe(41);
   });
@@ -118,6 +126,7 @@ describe("applyWarmEntry (HEL-1575 D5 restore on reload)", () => {
   it("drops a copy whose content changed since it was captured and seeds nothing", () => {
     const { dispatch, getState } = makeTabsStore({});
     const applied = applyWarmEntry({
+      scope: "output",
       dispatch,
       entry: fixtures(),
       signal: signal({ contentUpdatedAt: iso(9_000) }),
@@ -132,7 +141,13 @@ describe("applyWarmEntry (HEL-1575 D5 restore on reload)", () => {
   it("cannot validate without a signal: loads cold", () => {
     const { dispatch } = makeTabsStore({});
     expect(
-      applyWarmEntry({ dispatch, entry: fixtures(), signal: undefined, tabOwnWriteAt: null }),
+      applyWarmEntry({
+        dispatch,
+        entry: fixtures(),
+        signal: undefined,
+        tabOwnWriteAt: null,
+        scope: "output",
+      }),
     ).toBe(false);
   });
 
@@ -142,6 +157,7 @@ describe("applyWarmEntry (HEL-1575 D5 restore on reload)", () => {
     const a = makeTabsStore({});
     expect(
       applyWarmEntry({
+        scope: "output",
         dispatch: a.dispatch,
         entry: { ...fixtures(), ownWriteAt: 1_000 },
         signal: stale,
@@ -152,6 +168,7 @@ describe("applyWarmEntry (HEL-1575 D5 restore on reload)", () => {
     const b = makeTabsStore({});
     expect(
       applyWarmEntry({
+        scope: "output",
         dispatch: b.dispatch,
         entry: { ...fixtures(), ownWriteAt: 9_000 },
         signal: stale,
@@ -161,6 +178,7 @@ describe("applyWarmEntry (HEL-1575 D5 restore on reload)", () => {
     const c = makeTabsStore({});
     expect(
       applyWarmEntry({
+        scope: "output",
         dispatch: c.dispatch,
         entry: { ...fixtures(), ownWriteAt: 1_000 },
         signal: stale,
@@ -173,6 +191,7 @@ describe("applyWarmEntry (HEL-1575 D5 restore on reload)", () => {
     const { dispatch, getState } = makeTabsStore({});
     const entry = fixtures();
     applyWarmEntry({
+      scope: "output",
       dispatch,
       entry,
       signal: signal({
@@ -190,14 +209,26 @@ describe("applyWarmEntry (HEL-1575 D5 restore on reload)", () => {
     const { dispatch, getState } = makeTabsStore({});
     const live = { ...settledWindow("o1", 9_999, 3), rows: [{ live: true }] };
     dispatch(paginationHydrated({ p1: live }));
-    applyWarmEntry({ dispatch, entry: fixtures(), signal: signal(), tabOwnWriteAt: null });
+    applyWarmEntry({
+      dispatch,
+      entry: fixtures(),
+      signal: signal(),
+      tabOwnWriteAt: null,
+      scope: "output",
+    });
     expect(getState().panels.paginationState.p1.rows).toEqual([{ live: true }]);
     expect(getState().panels.paginationState.p2.rows).toEqual([{ a: 1 }]);
   });
 
   it("never touches latestFetchRequestId", () => {
     const { dispatch, getState } = makeTabsStore({});
-    applyWarmEntry({ dispatch, entry: fixtures(), signal: signal(), tabOwnWriteAt: null });
+    applyWarmEntry({
+      dispatch,
+      entry: fixtures(),
+      signal: signal(),
+      tabOwnWriteAt: null,
+      scope: "output",
+    });
     expect(getState().panels.latestFetchRequestId).toEqual({});
   });
 });

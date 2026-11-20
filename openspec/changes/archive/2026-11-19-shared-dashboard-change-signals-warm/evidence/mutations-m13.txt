@@ -1,0 +1,9 @@
+  ● a marker reuse never leaves rows that disagree with the card's query (final-gate CR1) › (i) an interactive column filter on a CONTROL column: exactly one per-panel rows request, and the window ends unsorted and unfiltered
+  ● a marker reuse never leaves rows that disagree with the card's query (final-gate CR1) › (i) an interactive sort on a CONTROL column: exactly one per-panel rows request, and the window ends unsorted and unfiltered
+  ● a marker reuse never leaves rows that disagree with the card's query (final-gate CR1) › (i) a persisted default sort that was REMOVED after the capture: exactly one per-panel rows request, and the window ends unsorted and unfiltered
+  ● a marker reuse never leaves rows that disagree with the card's query (final-gate CR1) › (ii) a sort on a NON-control column: no rows request (client-only), and the recorded query is the card's
+  ● a marker reuse never leaves rows that disagree with the card's query (final-gate CR1) › (ii) a column filter on a NON-control column: no rows request (client-only), and the recorded query is the card's
+  ● a marker reuse never leaves rows that disagree with the card's query (final-gate CR1) › (iii) memory path, metadata held at mount, an interactive column filter on a CONTROL column: exactly one request
+  ● a marker reuse never leaves rows that disagree with the card's query (final-gate CR1) › (iii) memory path, metadata held at mount, an interactive sort on a CONTROL column: exactly one request
+  ● a marker reuse never leaves rows that disagree with the card's query (final-gate CR1) › (iii) memory path, metadata held at mount, a persisted default sort that was REMOVED after the capture: exactly one request
+Tests:       8 failed, 13 passed, 21 total

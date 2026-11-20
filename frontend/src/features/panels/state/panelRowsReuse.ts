@@ -4,8 +4,9 @@
 import { isFilterActive } from "../../pipelines/services/outputService";
 import type { PanelLastQuery, PanelPaginationState } from "../types/panel";
 import { currentGeneration, isRetained } from "./outputFreshness";
-import { getOutputMetaCached } from "./outputMetaCache";
+import { getOutputMetaCached, getOutputPanelScope } from "./outputMetaCache";
 import { hasRunBaseline } from "../services/pipelineRunFanout";
+import { hasRestoreMarker } from "./restoreMarkers";
 
 /** The query a rows request is made under; `outputId` is part of it. */
 export type RowsQuery = PanelLastQuery;
@@ -48,12 +49,23 @@ export function isPendingFor(entry: PanelPaginationState | undefined, query: Row
 
 /** True when the entry is a settled, successfully fetched window for exactly `query` that nothing
  *  the client observed has invalidated, for an Output that is still on screen or left it recently
- *  (`REMOUNT_GRACE_MS`), bound to a pipeline whose latest completed run the client knows. */
-export function isReusable(entry: PanelPaginationState | undefined, query: RowsQuery): boolean {
+ *  (`REMOUNT_GRACE_MS`), bound to a pipeline whose latest completed run the client knows.
+ *
+ *  HEL-1783 D3b: an Output read through the per-panel routes (a shared dashboard) has no metadata-derived pipeline and no run
+ *  baseline, so it is reusable only for a window a warm restore kept: iff `panelId` holds the restore marker (visible to every
+ *  call during that panel's first mount after the restore, see `restoreMarkers`). Everything else about it must still match. */
+export function isReusable(
+  entry: PanelPaginationState | undefined,
+  query: RowsQuery,
+  panelId?: string,
+): boolean {
   if (!entry || entry.isLoadingMore || entry.lastFetchOk !== true) return false;
   if (normalizeQuery(entry.lastQuery) !== normalizeQuery(query)) return false;
   const { outputId } = query;
   if (!isRetained(outputId) || entry.generation !== currentGeneration(outputId)) return false;
+  if (getOutputPanelScope(outputId) !== undefined) {
+    return panelId !== undefined && hasRestoreMarker(panelId);
+  }
   const pipelineId = getOutputMetaCached(outputId)?.pipelineId;
   return pipelineId !== undefined && hasRunBaseline(pipelineId);
 }

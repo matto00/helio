@@ -274,6 +274,20 @@ private[protocols] trait AssistantProposalToolSchemas {
     "oneOf" -> AssistantStepSchemas.stepVariants
   )
 
+  /** HEL-1779 D3: the `reads.outputs` rule of an insight on a NEW pipeline (`PipelineCreatePreflight` refuses any named id,
+   *  there being no stored Output yet), and what applying the proposal does to an `on_run` insight. */
+  private[assistant] val InsightNewPipelineReadsDoc: String =
+    "insight on a new pipeline: a non-empty reads.outputs is rejected with 400 (the pipeline has no stored Output to read yet), so omit reads " +
+      "(the insight then reads the other Outputs on its node) and add reads later with a propose_patch_set output update. " +
+      "Applying this proposal runs the pipeline, and that run renders an insight whose refresh is on_run (the default) and is charged to the pipeline owner; " +
+      "set refresh: \"manual\" (or daily) unless the user asked for the narrative now."
+
+  /** HEL-1779 D3: the `reads.outputs` rule of an insight on an EXISTING pipeline (output create/update in a patch set). */
+  private[assistant] val InsightExistingPipelineReadsDoc: String =
+    "insight on an existing pipeline (output create or update): reads.outputs names stored ids (from get_resource on the pipeline) of OTHER non-insight Outputs of the same pipeline, " +
+      "never a $ref: and never an Output the same patch set deletes. Creating an insight writes no render and starts no run: it renders on its next trigger " +
+      "(the next real run for on_run, the daily pass for daily, a refresh for manual)."
+
   // HEL-907 task 1.1: a proposal's Output(s) -- zero, one, or many, each optionally targeting a
   // specific step (by clientId) rather than always the pipeline's final trunk step.
   private val PipelineProposalOutputSchema: JsObject = JsObject(
@@ -289,12 +303,12 @@ private[protocols] trait AssistantProposalToolSchemas {
       ),
       "kind" -> JsObject(
         "type" -> JsString("string"),
-        "enum" -> JsArray(Vector("table", "metric", "chart", "collection", "timeline", "markdown").map(JsString(_)))
+        "enum" -> JsArray(OutputKind.all.map(k => JsString(OutputKind.asString(k))))
       ),
       "name"   -> JsObject("type" -> JsString("string")),
       "config" -> JsObject(
         "type"        -> JsString("object"),
-        "description" -> JsString(OutputShapeDoc + " " + OutputConfigValidation.KeysDoc)
+        "description" -> JsString(OutputShapeDoc + " " + OutputConfigValidation.KeysDoc + " " + InsightNewPipelineReadsDoc)
       ),
       "rootClientId" -> JsObject(
         "type" -> JsArray(Vector(JsString("string"), JsString("null"))),
@@ -458,7 +472,7 @@ private[protocols] trait AssistantProposalToolSchemas {
             "patch.parentStepId -- omitting it instead SPLICES the new step in directly after " +
             "patch.parentStepId, reparenting that step's existing children onto the new step (a " +
             "trunk insertion, not a new lane). For target.kind \"output\" update, patch is " +
-            "{ name?, config? } and patch.config is shallow-merged: " + OutputConfigValidation.KeysDoc
+            "{ name?, config? } and patch.config is shallow-merged: " + OutputConfigValidation.KeysDoc + " " + InsightExistingPipelineReadsDoc
         )
       )
     ),

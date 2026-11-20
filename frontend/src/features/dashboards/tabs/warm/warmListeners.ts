@@ -6,6 +6,7 @@ import { isAnyOf, type Action } from "@reduxjs/toolkit";
 import type { AppStartListening } from "../../../../store/listenerMiddleware";
 import type { RootState } from "../../../../store/store";
 import { clearAuth } from "../../../auth/state/authSlice";
+import { isKnownNonOwnedDashboard } from "../../state/dashboardAccess";
 import { applyPatchSet, undoPatchSet } from "../../../patchSets/state/patchSetsSlice";
 import {
   createPanel,
@@ -153,7 +154,16 @@ export function addWarmListeners(startListening: AppStartListening): void {
   });
   startListening({
     actionCreator: fetchPanels.fulfilled,
-    effect: (action) => recordFetchResult(action.meta.arg, action.meta.requestId, action.payload),
+    effect: (action, listenerApi) =>
+      recordFetchResult(
+        action.meta.arg,
+        action.meta.requestId,
+        action.payload,
+        // The same decision `fetchPanels` made for this list's read scope.
+        isKnownNonOwnedDashboard(listenerApi.getState() as RootState, action.meta.arg)
+          ? "panel"
+          : "output",
+      ),
   });
   startListening({
     actionCreator: fetchPanels.rejected,

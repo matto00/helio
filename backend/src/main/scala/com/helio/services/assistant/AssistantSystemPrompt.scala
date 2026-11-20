@@ -71,6 +71,9 @@ object AssistantSystemPrompt {
       "- An Output is attached to ONE node of a pipeline and holds the shape: kind (table, metric, chart, ...) and " +
       "config.fieldMapping, whose values are column names from THAT node's outputSchema. A chart needs " +
       "xAxis and yAxis (config.chartType picks bar/line/...).\n" +
+      "- An insight Output is a short narrative over the OTHER Outputs of its node (attach it to the node whose Outputs it reads). " +
+      "On an existing pipeline it is a propose_patch_set output create; on a new pipeline the apply's run renders an on_run insight, " +
+      "so use refresh \"manual\" unless the user asked for the narrative now. Its config keys are in the tool descriptions.\n" +
       "- A panel is a placement of an Output on a dashboard. It binds config.outputId and nothing else: a panel " +
       "never carries fieldMapping or aggregation, and a chart is a chart because its Output is.\n" +
       "- An Output is not a data source: never use an Output id as a pipeline root. To build on an Output's data, " +

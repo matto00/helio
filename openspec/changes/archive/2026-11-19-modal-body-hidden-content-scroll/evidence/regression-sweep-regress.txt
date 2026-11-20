@@ -1,0 +1,38 @@
+  ✓   1 [dev] › e2e/hel1752-output-editor-footer-fit.spec.ts:265:9 › HEL-1752 Output editor footer fit: 375px, light › confirm delete keeps its full label inside its button (4.7s)
+  ✓   2 [dev] › e2e/hel1668-phone-sheet.spec.ts:36:9 › HEL-1668 phone sheet polish at 375x812 › item 1: the ?step= deep link opens that step's sheet, closing clears it, an unknown id opens none (375x812) (9.6s)
+  ✓   3 [dev] › e2e/hel1752-output-editor-footer-fit.spec.ts:278:9 › HEL-1752 Output editor footer fit: 375px, light › create mode: Add as tail with aggregate is contained, not squeezed (5.0s)
+  ✓   5 [dev] › e2e/hel1752-output-editor-footer-fit.spec.ts:265:9 › HEL-1752 Output editor footer fit: 375px, dark › confirm delete keeps its full label inside its button (3.9s)
+  ✓   4 [dev] › e2e/hel1668-phone-sheet.spec.ts:67:9 › HEL-1668 phone sheet polish at 375x812 › item 1: narrowing a desktop page to the phone width opens no sheet (375x812) (4.2s)
+  ✓   6 [dev] › e2e/hel1752-output-editor-footer-fit.spec.ts:278:9 › HEL-1752 Output editor footer fit: 375px, dark › create mode: Add as tail with aggregate is contained, not squeezed (5.2s)
+  ✓   7 [dev] › e2e/hel1668-phone-sheet.spec.ts:86:9 › HEL-1668 phone sheet polish at 375x812 › item 2: a failed step move's error toast shows above the sheet, is dismissable and was announced after its region sat empty 
+  ✓   8 [dev] › e2e/hel1752-output-editor-footer-fit.spec.ts:300:7 › HEL-1752 Output editor footer: desktop 1280x800 unchanged › confirm state: one row of single-line --control-md buttons (4.3s)
+  ✓  10 [dev] › e2e/hel1752-output-editor-footer-fit.spec.ts:315:7 › HEL-1752 Output editor footer: desktop 1280x800 unchanged › create mode with add-tail: one row of single-line --control-md buttons (4.8s)
+  ✓   9 [dev] › e2e/hel1668-phone-sheet.spec.ts:184:9 › HEL-1668 phone sheet polish at 375x812 › item 3: Escape closes only the schema panel, then only the step menu, then the sheet (375x812) (7.0s)
+  ✓  11 [dev] › e2e/hel1763-output-editor-preview-scroll.spec.ts:141:11 › HEL-1763 Output editor scroll extent: 375x812, light › the dialog and its body end at their content (4.4s)
+  ✓  12 [dev] › e2e/hel1668-phone-sheet.spec.ts:217:9 › HEL-1668 phone sheet polish at 375x812 › item 5: a touch tap leaves no sticky hover fill on the step row (375x812) (7.2s)
+  ✓  13 [dev] › e2e/hel1763-output-editor-preview-scroll.spec.ts:141:11 › HEL-1763 Output editor scroll extent: 375x812, dark › the dialog and its body end at their content (4.4s)
+  ✓  15 [dev] › e2e/hel1763-output-editor-preview-scroll.spec.ts:141:11 › HEL-1763 Output editor scroll extent: 390x844, light › the dialog and its body end at their content (4.5s)
+  ✓  14 [dev] › e2e/hel1668-phone-sheet.spec.ts:36:9 › HEL-1668 phone sheet polish at 390x844 › item 1: the ?step= deep link opens that step's sheet, closing clears it, an unknown id opens none (390x844) (8.8s)
+  ✓  16 [dev] › e2e/hel1763-output-editor-preview-scroll.spec.ts:141:11 › HEL-1763 Output editor scroll extent: 390x844, dark › the dialog and its body end at their content (4.5s)
+  ✓  17 [dev] › e2e/hel1668-phone-sheet.spec.ts:67:9 › HEL-1668 phone sheet polish at 390x844 › item 1: narrowing a desktop page to the phone width opens no sheet (390x844) (4.1s)
+  ✓  18 [dev] › e2e/hel1763-output-editor-preview-scroll.spec.ts:158:7 › HEL-1763 Output editor chart preview: desktop 1280x800 › the canvas renders non-empty inside its preview wrapper and the dialog stays bounded (4.6s
+  ✓  20 [dev] › e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:46:7 › HEL-773 top-anchored mobile nav sheet — live verification › sheet top tracks --app-safe-top at 0/47/59px, forced on document.documentElement only (3
+  ✓  19 [dev] › e2e/hel1668-phone-sheet.spec.ts:86:9 › HEL-1668 phone sheet polish at 390x844 › item 2: a failed step move's error toast shows above the sheet, is dismissable and was announced after its region sat empty 
+  ✓  21 [dev] › e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:99:7 › HEL-773 top-anchored mobile nav sheet — live verification › every row, the header create action, the empty-branch CTA, and the drag strip compute to
+  ✓  22 [dev] › e2e/hel1668-phone-sheet.spec.ts:184:9 › HEL-1668 phone sheet polish at 390x844 › item 3: Escape closes only the schema panel, then only the step menu, then the sheet (390x844) (6.8s)
+  ✓  23 [dev] › e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:201:7 › HEL-773 top-anchored mobile nav sheet — live verification › the header create action's icon renders at ~1em, not the lucide SVG's intrinsic 24px, i
+  ✓  24 [dev] › e2e/hel1668-phone-sheet.spec.ts:217:9 › HEL-1668 phone sheet polish at 390x844 › item 5: a touch tap leaves no sticky hover fill on the step row (390x844) (7.1s)
+  ✓  25 [dev] › e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:243:7 › HEL-773 top-anchored mobile nav sheet — live verification › the command bar is never overlapped or dimmed by the sheet or its scrim, at any frame (
+  ✓  27 [dev] › e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:296:7 › HEL-773 top-anchored mobile nav sheet — live verification › the drag strip's bottom edge sits above the floating bottom nav's top edge at 430px (3.
+  ✓  28 [dev] › e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:331:7 › HEL-773 top-anchored mobile nav sheet — live verification › prefers-reduced-motion: reduce disables the entrance on the panel, wrapper, and backdro
+  ✓  26 [dev] › e2e/hel1668-phone-sheet.spec.ts:36:9 › HEL-1668 phone sheet polish at 768x1024 › item 1: the ?step= deep link opens that step's sheet, closing clears it, an unknown id opens none (768x1024) (9.3s)
+  ✓  30 [dev] › e2e/hel1668-phone-sheet.spec.ts:67:9 › HEL-1668 phone sheet polish at 768x1024 › item 1: narrowing a desktop page to the phone width opens no sheet (768x1024) (4.2s)
+  ✓  29 [dev] › e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:372:7 › HEL-773 top-anchored mobile nav sheet — live verification › the sheet reopens on the first tap after a create action fires from it (dashboards and 
+  ✓  32 [dev] › e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:447:11 › HEL-773 top-anchored mobile nav sheet — live verification › direction change reads as anchored on a create-action section at 430px, dark theme (3.
+  ✓  33 [dev] › e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:447:11 › HEL-773 top-anchored mobile nav sheet — live verification › direction change reads as anchored on a create-action section at 430px, light theme (3
+  ✓  31 [dev] › e2e/hel1668-phone-sheet.spec.ts:86:9 › HEL-1668 phone sheet polish at 768x1024 › item 2: a failed step move's error toast shows above the sheet, is dismissable and was announced after its region sat empty
+  ✓  34 [dev] › e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:447:11 › HEL-773 top-anchored mobile nav sheet — live verification › direction change reads as anchored on a create-action section at 375px, dark theme (3.
+  ✓  36 [dev] › e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:447:11 › HEL-773 top-anchored mobile nav sheet — live verification › direction change reads as anchored on a create-action section at 375px, light theme (3
+  ✓  35 [dev] › e2e/hel1668-phone-sheet.spec.ts:184:9 › HEL-1668 phone sheet polish at 768x1024 › item 3: Escape closes only the schema panel, then only the step menu, then the sheet (768x1024) (6.8s)
+  ✓  37 [dev] › e2e/hel1668-phone-sheet.spec.ts:217:9 › HEL-1668 phone sheet polish at 768x1024 › item 5: a touch tap leaves no sticky hover fill on the step row (768x1024) (6.9s)
+  37 passed (1.8m)

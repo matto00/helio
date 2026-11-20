@@ -1,4 +1,6 @@
-import { Skeleton } from "../../../shared/ui/Skeleton";
+// The placeholder's bar is the shared `ui-skeleton` class on a span of its own: its styles are a direct dependency,
+// not something a sibling Home component happens to import (HEL-1749).
+import "../../../shared/ui/Skeleton.css";
 import {
   buildSummarySentence,
   sentenceText,
@@ -32,11 +34,11 @@ export function HomeOpeningLine({ now, input }: HomeOpeningLineProps) {
       <p className="eyebrow home-opening__eyebrow">{formatEyebrow(now)}</p>
       {input === null ? (
         <div role="status" aria-label="Loading summary" className="home-opening__loading">
-          {/* The default sentence, hidden: the placeholder is exactly as tall as it at every width (HEL-1665). */}
+          {/* The default sentence, hidden: the placeholder is exactly as tall as it at every width (HEL-1665). The
+              span makes it one skeleton bar per rendered line, painted by the browser (HEL-1749). */}
           <p className="home-opening__ghost" aria-hidden="true">
-            {DEFAULT_SENTENCE}
+            <span className="ui-skeleton home-opening__ghost-bar">{DEFAULT_SENTENCE}</span>
           </p>
-          <Skeleton variant="line" className="home-opening__skeleton-line" />
         </div>
       ) : input === "unavailable" ? (
         <p className="home-opening__sentence">Run activity isn&apos;t available right now.</p>

@@ -1,0 +1,152 @@
+== role facts ==
+      rolname      | rolsuper | rolbypassrls 
+-------------------+----------+--------------
+ helio_privileged  | f        | t
+ helio_app_hel1783 | f        | f
+(2 rows)
+
+== [1] helio_app-equivalent role (NOBYPASSRLS), user B (dashboard-only viewer): the content query (user context) ==
+BEGIN
+SET
+              set_config              
+--------------------------------------
+ 00000000-0000-0000-0000-00000000b2b2
+(1 row)
+
+         id          
+---------------------
+ rls1783-dash-shared
+(1 row)
+
+== [2] same role+user: SELECT on outputs for the 12 bound Outputs: expect 0 rows ==
+ outputs_rows_visible_to_b 
+---------------------------
+                         0
+(1 row)
+
+== [3] same role+user: SELECT on output_snapshot_history for the 12 bound Outputs: expect 0 rows ==
+ history_rows_visible_to_b 
+---------------------------
+                         0
+(1 row)
+
+== [4] same role+user: the OLD single-context data query: expect 0 rows (the defect) ==
+ old_data_query_rows 
+---------------------
+                   0
+(1 row)
+
+COMMIT
+== [5] the NEW data query in system context (helio_privileged), ids = [1] result only (the shared dashboard; the private one was not returned) ==
+BEGIN
+SET
+    dashboard_id     |  output_id  |      captured_at       
+---------------------+-------------+------------------------
+ rls1783-dash-shared | rls1783-o1  | 2026-10-01 03:00:00-07
+ rls1783-dash-shared | rls1783-o10 | 2026-10-01 03:00:00-07
+ rls1783-dash-shared | rls1783-o11 | 2026-10-01 03:00:00-07
+ rls1783-dash-shared | rls1783-o12 | 2026-10-01 03:00:00-07
+ rls1783-dash-shared | rls1783-o2  | 2026-10-01 03:00:00-07
+ rls1783-dash-shared | rls1783-o3  | 2026-10-01 03:00:00-07
+ rls1783-dash-shared | rls1783-o4  | 2026-10-01 03:00:00-07
+ rls1783-dash-shared | rls1783-o5  | 2026-10-01 03:00:00-07
+ rls1783-dash-shared | rls1783-o6  | 2026-10-01 03:00:00-07
+ rls1783-dash-shared | rls1783-o7  | 2026-10-01 03:00:00-07
+ rls1783-dash-shared | rls1783-o8  | 2026-10-01 03:00:00-07
+ rls1783-dash-shared | rls1783-o9  | 2026-10-01 03:00:00-07
+(12 rows)
+
+COMMIT
+== [6] the private dashboard (not in [1]) is never passed to the data query; B gets no item for it ==
+BEGIN
+SET
+              set_config              
+--------------------------------------
+ 00000000-0000-0000-0000-00000000b2b2
+(1 row)
+
+ private_dashboard_rows_visible_to_b 
+-------------------------------------
+                                   0
+(1 row)
+
+COMMIT
+== [7] EXPLAIN ANALYZE of the new data query (system context), grantee path, 12 Outputs x 600 points ==
+BEGIN
+SET
+                                                                       QUERY PLAN                                                                       
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop Left Join (actual time=0.031..0.070 rows=12.00 loops=1)
+   Buffers: shared hit=62
+   ->  Unique (actual time=0.025..0.027 rows=12.00 loops=1)
+         Buffers: shared hit=26
+         ->  Incremental Sort (actual time=0.025..0.026 rows=12.00 loops=1)
+               Sort Key: p.dashboard_id, p.output_id
+               Presorted Key: p.dashboard_id
+               Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+               Buffers: shared hit=26
+               ->  Nested Loop (actual time=0.005..0.016 rows=12.00 loops=1)
+                     Buffers: shared hit=26
+                     ->  Index Scan using panels_dashboard_id_idx on panels p (actual time=0.003..0.005 rows=12.00 loops=1)
+                           Index Cond: (dashboard_id = ANY ('{rls1783-dash-shared}'::text[]))
+                           Filter: (kind = 'output'::text)
+                           Index Searches: 1
+                           Buffers: shared hit=2
+                     ->  Index Only Scan using outputs_pkey on outputs ot (actual time=0.001..0.001 rows=1.00 loops=12)
+                           Index Cond: (id = p.output_id)
+                           Heap Fetches: 12
+                           Index Searches: 12
+                           Buffers: shared hit=24
+   ->  Limit (actual time=0.003..0.003 rows=1.00 loops=12)
+         Buffers: shared hit=36
+         ->  Index Only Scan using idx_output_snapshot_history_output_captured on output_snapshot_history (actual time=0.003..0.003 rows=1.00 loops=12)
+               Index Cond: (output_id = p.output_id)
+               Heap Fetches: 12
+               Index Searches: 12
+               Buffers: shared hit=36
+ Planning:
+   Buffers: shared hit=1
+ Planning Time: 0.077 ms
+ Execution Time: 0.079 ms
+(32 rows)
+
+COMMIT
+== [7b] second run ==
+BEGIN
+SET
+                                                                       QUERY PLAN                                                                       
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop Left Join (actual time=0.027..0.064 rows=12.00 loops=1)
+   Buffers: shared hit=62
+   ->  Unique (actual time=0.023..0.025 rows=12.00 loops=1)
+         Buffers: shared hit=26
+         ->  Incremental Sort (actual time=0.023..0.024 rows=12.00 loops=1)
+               Sort Key: p.dashboard_id, p.output_id
+               Presorted Key: p.dashboard_id
+               Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+               Buffers: shared hit=26
+               ->  Nested Loop (actual time=0.005..0.015 rows=12.00 loops=1)
+                     Buffers: shared hit=26
+                     ->  Index Scan using panels_dashboard_id_idx on panels p (actual time=0.003..0.005 rows=12.00 loops=1)
+                           Index Cond: (dashboard_id = ANY ('{rls1783-dash-shared}'::text[]))
+                           Filter: (kind = 'output'::text)
+                           Index Searches: 1
+                           Buffers: shared hit=2
+                     ->  Index Only Scan using outputs_pkey on outputs ot (actual time=0.001..0.001 rows=1.00 loops=12)
+                           Index Cond: (id = p.output_id)
+                           Heap Fetches: 12
+                           Index Searches: 12
+                           Buffers: shared hit=24
+   ->  Limit (actual time=0.003..0.003 rows=1.00 loops=12)
+         Buffers: shared hit=36
+         ->  Index Only Scan using idx_output_snapshot_history_output_captured on output_snapshot_history (actual time=0.003..0.003 rows=1.00 loops=12)
+               Index Cond: (output_id = p.output_id)
+               Heap Fetches: 12
+               Index Searches: 12
+               Buffers: shared hit=36
+ Planning:
+   Buffers: shared hit=1
+ Planning Time: 0.070 ms
+ Execution Time: 0.072 ms
+(32 rows)
+

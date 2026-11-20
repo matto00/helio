@@ -11,8 +11,8 @@ import {
 // this pins the stylesheet shapes that proof depends on, so a revert fails here first (and fast).
 
 const css = fs.readFileSync(path.join(__dirname, "HomePage.css"), "utf-8");
-/** The standalone `.home-opening__ghost { ... }` rule (the first match of the name is the shared typography list). */
-const ghostRule = /\}\n\n\.home-opening__ghost\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
+/** The standalone top-level `.home-opening__ghost { ... }` rule (the first match of the name is the shared typography list). */
+const ghostRule = /\*\/\n\.home-opening__ghost\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
 const touch = findMediaBlock(css, "max-width: 768px), (pointer: coarse");
 
 describe("HomePage.css — load stability (HEL-1665)", () => {
@@ -27,13 +27,40 @@ describe("HomePage.css — load stability (HEL-1665)", () => {
     expect(row).toMatch(/min-height:\s*44px\s*;/);
   });
 
-  it("builds the opening placeholder from the hidden default sentence with the bar laid over it, no per-width heights", () => {
-    expect(findRuleBody(css, ".home-opening__loading")).toMatch(/position:\s*relative\s*;/);
+  it("builds the opening placeholder from the hidden default sentence, no per-width heights", () => {
     expect(ghostRule).toMatch(/visibility:\s*hidden\s*;/);
-    expect(findRuleBody(css, ".home-opening__loading .home-opening__skeleton-line")).toMatch(
-      /position:\s*absolute\s*;/,
-    );
-    expect(css).not.toMatch(/home-opening__skeleton-line\s*\{[^}]*calc\(/);
+    expect(css).not.toMatch(/home-opening__skeleton-line/);
+    expect(ghostRule).not.toMatch(/calc\(|height/);
+  });
+
+  it("paints one rounded skeleton bar per line of the hidden sentence from an inline span (HEL-1749)", () => {
+    const bar = findRuleBody(css, ".home-opening__ghost .home-opening__ghost-bar");
+    // An inline box paints its background once per line fragment; visible inside the hidden paragraph.
+    expect(bar).toMatch(/display:\s*inline\s*;/);
+    expect(bar).toMatch(/visibility:\s*visible\s*;/);
+    expect(bar).toMatch(/color:\s*transparent\s*;/);
+    // Each fragment gets its own rounded ends, gradient and mask.
+    expect(bar).toMatch(/(?:^|[;\s])-webkit-box-decoration-break:\s*clone\s*;/);
+    expect(bar).toMatch(/(?:^|[;\s])box-decoration-break:\s*clone\s*;/);
+    // The per-fragment thickness mask (0.8em band, rounded ends); a mask, not a second shimmer background.
+    expect(bar).toMatch(/(?:^|[;\s])mask-image:/);
+    expect(bar).toMatch(/-webkit-mask-image:/);
+    expect(bar).toMatch(/0\.8em/);
+    expect(bar).not.toMatch(/position:\s*absolute/);
+    expect(bar).not.toMatch(/padding|border|margin/);
+    // The look (background, size, shimmer, reduced motion) is the shared skeleton's, not redefined here.
+    expect(bar).not.toMatch(/\bbackground|animation|@keyframes/);
+  });
+
+  it("defines no shimmer recipe outside Skeleton.css (DESIGN.md section 7), leaving HEL-1584's tl-nudge alone", () => {
+    expect(css).not.toMatch(/ui-skeleton-shimmer/);
+    expect([...css.matchAll(/@keyframes\s+([\w-]+)/g)].map((m) => m[1])).toEqual(["tl-nudge"]);
+    expect(css).not.toMatch(/(?:^|[;{\s])background(?:-image)?\s*:[^;]*linear-gradient/m);
+  });
+
+  it("keeps the shared skeleton stylesheet a direct dependency of the opening line (HEL-1749)", () => {
+    const source = fs.readFileSync(path.join(__dirname, "HomeOpeningLine.tsx"), "utf-8");
+    expect(source).toMatch(/^import "\.\.\/\.\.\/\.\.\/shared\/ui\/Skeleton\.css";$/m);
   });
 
   it("caps the real sentence and the placeholder with one font-independent em measure per type style (HEL-1737)", () => {

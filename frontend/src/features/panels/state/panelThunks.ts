@@ -27,8 +27,9 @@ import {
 import { isAxiosError } from "axios";
 
 import { currentGeneration } from "./outputFreshness";
-import { getOutputMetaCached, scopeOutputToPanel, unscopeOutput } from "./outputMetaCache";
-import { getOutputId } from "./panelNarrowing";
+import { getOutputMetaCached } from "./outputMetaCache";
+import { applyPanelReadScopes } from "./applyPanelReadScopes";
+import { clearRestoreMarkersExcept } from "./restoreMarkers";
 import { fetchPublicPanelRows } from "../../dashboards/services/publicDashboardService";
 import { isKnownNonOwnedDashboard } from "../../dashboards/state/dashboardAccess";
 import { panelReadScopeFor } from "./panelReadScope";
@@ -82,12 +83,9 @@ export const fetchPanels = createAsyncThunk<
       const panels = await fetchPanelsRequest(dashboardId);
       // HEL-1773: decide, before any card mounts, how this dashboard's Outputs are read (see `outputMetaCache`).
       const nonOwned = isKnownNonOwnedDashboard(getState(), dashboardId);
-      for (const panel of panels) {
-        const outputId = getOutputId(panel);
-        if (outputId === null) continue;
-        if (nonOwned) scopeOutputToPanel(outputId, dashboardId, panel.id);
-        else unscopeOutput(outputId);
-      }
+      applyPanelReadScopes(panels, dashboardId, nonOwned);
+      // HEL-1783 D3b: a restore marker never outlives its restore -- fetching another dashboard's panels ends it.
+      clearRestoreMarkersExcept(dashboardId);
       return panels;
     } catch {
       return rejectWithValue("Failed to load panels.");

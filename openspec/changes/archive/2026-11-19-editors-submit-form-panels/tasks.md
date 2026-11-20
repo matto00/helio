@@ -34,7 +34,7 @@
 
 ## 4. RLS proof as the NOBYPASSRLS role (red first)
 
-- [x] 4.1 New spec using the two-role `helio_app_test` harness (`PipelineRunServiceUpsertSourceRlsSpec` pattern). It covers: an editor submit lands one row in the owner's source; the same append in the editor's own context writes nothing; the form-schema read works in owner context and returns nothing in editor context; the debounce row stores the editor; the fired run is the owner's (counted by `countOwnerInFlightRealRunsInternal(owner)`) with `triggered_by_user_id = editor`. Demonstrate red by mutation, e.g. by running the append in the editor's context, and record it.
+- [x] 4.1 New spec using the two-role `helio_app_test` harness (`PipelineRunServiceUpsertSourceRlsSpec` pattern). It covers: an editor submit lands one row in the owner's source; the same append in the editor's own context writes nothing; the form-schema read works in owner context and returns nothing in editor context; the debounce row stores the editor; the fired run is the owner's (proved by the owner's `pipeline_run_rate_window` row being present and the editor's absent, as `FormSubmitEditorRlsSpec` asserts; the cap query `ownerInFlightRealRunsQuery` is owner-keyed by construction) with `triggered_by_user_id = editor`. Demonstrate red by mutation, e.g. by running the append in the editor's context, and record it.
 
 ## 5. Frontend (red first)
 

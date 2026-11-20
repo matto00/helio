@@ -1,0 +1,10 @@
+  -  1 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-dialogs): 375x812, light › every modal in the group ends at its content, natural and with an injected hidden element
+  -  2 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-dialogs): 375x812, dark › every modal in the group ends at its content, natural and with an injected hidden element
+  -  3 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-dialogs): 390x844, light › every modal in the group ends at its content, natural and with an injected hidden element
+  -  4 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-dialogs): 390x844, dark › every modal in the group ends at its content, natural and with an injected hidden element
+[HEL-1774 api] dashboard-dialogs 1280 light 51 /api requests, max 60s window 51 (limit 120, target <= 90), 0 x 429; top: 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/dashboard-folders; 3 GET /api/dashboard-changes; 3 GET /api/dashboards/:id/panels; 3 GET /api/outputs/:id; 3 GET /api/outputs/:id/rows; 3 GET /api/outputs/:id/assertion-status
+  ✓  5 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-dialogs): 1280x800, light › every modal in the group ends at its content, natural and with an injected hidden element (10.0s)
+[HEL-1774 api] dashboard-dialogs 1280 dark 51 /api requests, max 60s window 51 (limit 120, target <= 90), 0 x 429; top: 4 GET /api/auth/me; 4 GET /api/dashboards; 3 GET /api/dashboard-folders; 3 GET /api/dashboard-changes; 3 GET /api/dashboards/:id/panels; 3 GET /api/outputs/:id; 3 GET /api/outputs/:id/rows; 3 GET /api/outputs/:id/assertion-status
+  ✓  6 [dev] › e2e/support/modalScrollExtent.ts:532:13 › HEL-1774 modal scroll extent (dashboard-dialogs): 1280x800, dark › every modal in the group ends at its content, natural and with an injected hidden element (8.0s)
+  4 skipped
+  2 passed (19.3s)

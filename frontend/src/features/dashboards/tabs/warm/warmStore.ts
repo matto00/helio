@@ -4,6 +4,7 @@
 
 import type { Output } from "../../../pipelines/types/output";
 import type { Panel, PanelLastQuery } from "../../../panels/types/panel";
+import type { WarmReadScope } from "./warmScope";
 
 /** The settled-window fields that are stored (an explicit allow-list: nothing else is ever persisted). */
 export interface StoredWindow {
@@ -33,6 +34,8 @@ export interface WarmEntry {
   rows: Record<string, StoredWindow>;
   outputMeta: Record<string, Output>;
   runBaseline: Record<string, string>;
+  /** HEL-1783: which read route the copy was built through; absent (a copy stored before this) reads as `"output"`. */
+  readScope?: WarmReadScope;
 }
 
 /** The only keys an entry may carry (asserted by a unit test; no session, token, link or header). */
@@ -47,6 +50,7 @@ export const WARM_ENTRY_KEYS = [
   "rows",
   "outputMeta",
   "runBaseline",
+  "readScope",
 ] as const;
 
 export const WARM_WINDOW_KEYS = [
@@ -83,6 +87,7 @@ export function sanitizeEntry(entry: WarmEntry): WarmEntry {
     rows,
     outputMeta: entry.outputMeta,
     runBaseline: entry.runBaseline,
+    ...(entry.readScope !== undefined ? { readScope: entry.readScope } : {}),
   };
 }
 

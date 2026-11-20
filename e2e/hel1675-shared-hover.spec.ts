@@ -3,6 +3,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { registerAndLogin } from "./support/auth";
 import { AUTH, THEMES, openPipeline, seedPipeline, sheet } from "./support/hel1582Phone";
 import { realTap } from "./support/hel1668";
+import { settleToHover, settleToRest, trackPointer } from "./support/hel1790Rest";
 
 // HEL-1675: shared controls keep no sticky hover fill after a touch tap, and desktop hover is unchanged.
 //
@@ -357,6 +358,7 @@ test.describe("HEL-1675 desktop: hover unchanged", () => {
   for (const theme of THEMES) {
     test(`a mouse hover paints the recorded values (${theme})`, async ({ page, request }) => {
       test.setTimeout(240_000);
+      await trackPointer(page);
       await registerAndLogin(page, request, { ...AUTH, label: `dhover-${theme}` });
       const pipelineId = await seedPipeline(page, false, false, true);
       const recorded: Record<string, Paint> = {};
@@ -365,11 +367,13 @@ test.describe("HEL-1675 desktop: hover unchanged", () => {
         expect(await page.evaluate(() => matchMedia("(hover: hover)").matches)).toBe(true);
         await inst.open(page);
         const control = inst.control(page);
+        // HEL-1790: "rest" is read only once the pointer is provably off the control and any transition has ended, and
+        // "hover" only once it is provably on it and its transition has ended (both asserted, not slept).
+        // One terse line per instance: the state at the FIRST sample is what the old (unsettled) read would have seen.
+        console.log(`HEL-1790 ${theme} ${inst.name}: ${await settleToRest(control)}`);
         const rest = await paint(control);
         await control.hover();
-        await page.waitForFunction(() =>
-          document.getAnimations().every((a) => a.playState !== "running"),
-        );
+        await settleToHover(control);
         recorded[inst.name] = await paint(control);
         expect(recorded[inst.name], `${inst.name} must differ from rest on hover`).not.toEqual(
           rest,
