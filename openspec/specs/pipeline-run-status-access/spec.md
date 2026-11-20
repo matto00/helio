@@ -6,11 +6,16 @@ Defines who may read a pipeline run's status and result rows through `GET /api/p
 ## Requirements
 
 ### Requirement: Run status is scoped to the path pipeline and the caller's visibility
-`GET /api/pipelines/:id/runs/:runId` SHALL return a run's status, rows and error only when the caller can see the pipeline `:id` (owner or an editor/viewer grantee) AND the run was recorded against that same pipeline.
+`GET /api/pipelines/:id/runs/:runId` SHALL return a run's status, rows and error only when the caller can see the pipeline `:id` (owner or an editor/viewer grantee) AND the run was recorded against that same pipeline. When the run has rows, `rows` SHALL hold at most the first 10
+of them, `rowCount` their total and `rowsTruncated` SHALL be `true` exactly when rows were cut.
 
 #### Scenario: Owner reads a run of their pipeline
 - **WHEN** the owner requests a run recorded against their pipeline
 - **THEN** the response is 200 with the run's status and rows
+
+#### Scenario: A run with more than 10 rows returns a preview
+- **WHEN** a caller who can see the pipeline requests a cached run with 25 rows
+- **THEN** `rows` holds the first 10, `rowCount` is 25 and `rowsTruncated` is `true`
 
 #### Scenario: Grantee reads a run of a shared pipeline
 - **WHEN** a viewer grantee of the pipeline requests one of its runs

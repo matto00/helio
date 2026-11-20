@@ -122,7 +122,8 @@ A response that carries a run result (`POST /api/pipelines/:id/run`, with or wit
 body is never held as one fully rendered text. The heap a manual run holds, measured from before the run until the
 last byte of its response is written, SHALL stay at or under the 192 MB per-run share on the certified shapes,
 including the 200-row long-text shape and a row of exactly the maximum rendered row width. The response body SHALL be
-byte-for-byte the compact JSON the endpoint returned before this change: the same fields, rows, counts and status.
+byte-for-byte the compact rendering of the response object; that object carries at most a 10-row preview of the
+terminal frame (per `pipeline-run-response-preview`).
 
 #### Scenario: Long-text run response stays within the share
 - **WHEN** a real or dry manual run of the 200-row long-text shape succeeds and its response is fully written
@@ -136,5 +137,6 @@ byte-for-byte the compact JSON the endpoint returned before this change: the sam
 #### Scenario: Response content is unchanged
 - **WHEN** any of the listed endpoints succeeds
 - **THEN** the body parses to the same JSON value, and is the same bytes, as the compact rendering of the response
-  object, with `rows` holding every terminal row and `rowCount` its size
+  object, with `rows` holding at most the first 10 terminal rows, `rowCount` the terminal frame's size and
+  `rowsTruncated` set when rows were cut
 - **AND** the body is sent as a chunked stream rather than as one buffered entity
