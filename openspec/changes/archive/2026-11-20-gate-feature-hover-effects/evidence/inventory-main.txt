@@ -1,0 +1,244 @@
+## app/App.css (8)
+  [FILL] [MIXED] .app-command-bar__logo:hover  { background: var(--app-surface-soft); }
+  [FILL] [MIXED] :root[data-theme="dark"] .app-command-bar__logo:hover  { background: var(--app-surface-strong); }
+  [FILL] [MIXED] .app-command-bar .cmd-btn:hover, .app-command-bar .ui-icon-btn:hover:not(:disabled), .app-command-bar .actions-menu__trigger:hover, .app-command-bar .user-menu__trigger:hover  { border-color: transparent; }
+  [FILL] .cmd-btn:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] :root[data-theme="dark"] .cmd-btn:hover  { background: var(--app-surface-strong); }
+  [FILL] .cmd-btn--primary:hover  { background: var(--app-accent-strong); border-color: transparent; color: var(--app-accent-ink); }
+  [FILL] :root[data-theme="dark"] .app-command-bar .ui-icon-btn--secondary:hover:not(:disabled), :root[data-theme="dark"] .app-command-bar .ui-icon-btn--ghost:hover:not(:disabled), :root[data-theme="dark"] .app-command-bar .user-menu__trigger:hover, :root[data-theme="dark"] .app-command-bar .actions-menu__trigger:hover:not(:disabled)  { background: var(--app-surface-strong); }
+  [FILL] :root[data-theme="light"] .app-command-bar .popover__trigger:hover  { background: var(--app-surface-soft); }
+## app/dashboardMeta/DashboardMetaRow.css (3)
+  [FILL] [MIXED] .app-command-bar .dashboard-meta-row__pressed:hover  { background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] [MIXED] :root[data-theme="dark"] .app-command-bar .dashboard-meta-row__pressed:hover  { background: var(--app-surface-strong); }
+  [FILL] .dashboard-refresh-line__button:hover  { background: var(--app-surface-soft); color: var(--app-text); }
+## app/shell/AppRail.css (5)
+  [FILL] .app-rail__logo:hover  { background: var(--app-surface-strong); }
+  [FILL] .app-rail__item:hover  { background: var(--app-surface-strong); color: var(--app-text); }
+  [FILL] .app-rail__item--active:hover  { background: var(--app-accent-mid); color: var(--app-accent-text); }
+  [FILL] [MIXED] .app-rail .user-menu__trigger:hover  { border-color: transparent; }
+  [FILL] .app-rail .user-menu__trigger:hover  { background: var(--app-surface-strong); }
+## app/shell/AssistantContextList.css (1)
+  [FILL] .assistant-context-list__locked-link:hover  { background: var(--app-surface-strong); text-decoration-thickness: 2px; }
+## app/shell/ContextList.css (5)
+  [FILL] [MIXED] .context-list .ui-icon-btn:hover:not(:disabled), .context-list .actions-menu__trigger:hover  { border-color: transparent; }
+  [FILL] .context-list .dashboard-list__button:hover, .context-list .context-list__row:hover, .context-list .ui-icon-btn--secondary:hover:not(:disabled), .context-list .actions-menu__trigger:hover:not(:disabled)  { background: var(--app-surface-strong); }
+  [FILL] [MIXED] .context-list__separator:hover::after  { background: var(--app-border-strong); }
+  [FILL] .context-list .context-list__row[aria-current="page"]:hover  { background: var(--app-accent-mid); }
+  [FILL] .context-list__link:hover  { color: var(--app-text); }
+## features/assistant/ui/MessageComposer.css (1)
+  [FILL] .message-composer__submit:hover:not(:disabled)  { background: var(--app-accent-strong); }
+## features/assistant/ui/ProposalHandoff.css (1)
+  [FILL] .proposal-handoff__action:hover  { background: var(--app-accent-strong); }
+## features/assistant/ui/QuickLauncherOverlay.css (1)
+  [FILL] .quick-launcher-overlay__browse-link:hover  { text-decoration: underline; }
+## features/assistant/ui/ToolCallIndicator.css (1)
+  [FILL] .tool-call-indicator__toggle:hover  { color: var(--app-text); }
+## features/audit/ui/AuditEventTable.css (1)
+  [FILL] .audit-event-table__row:hover  { background: var(--app-surface-raised); }
+## features/auth/ui/UserMenu.css (5)
+  [FILL] .user-menu__trigger:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); }
+  [FILL] .user-menu__item:hover  { background: var(--app-surface-soft); }
+  [FILL] .user-menu__item--settings:hover  { color: var(--app-text); }
+  [FILL] .user-menu__item--getting-started:hover  { color: var(--app-text); }
+  [FILL] .user-menu__item--signout:hover  { background: var(--app-error-surface); color: var(--app-error); }
+## features/auth/ui/auth.css (4)
+  [FILL] .auth-submit:hover:not(:disabled)  { background: var(--app-accent-strong); }
+  [FILL] .auth-google-btn:hover:not(:disabled), .auth-secondary-btn:hover:not(:disabled)  { border-color: var(--app-border-strong); background: var(--app-surface-soft); }
+  [FILL] .auth-footer a:hover  { text-decoration: underline; }
+  [FILL] .auth-link-btn:hover  { color: var(--app-accent-text); }
+## features/commandPalette/ui/CommandPalette.css (1)
+  [FILL] [MIXED] .command-palette__item:hover  { background: var(--app-surface-soft); }
+## features/commandPalette/ui/PaletteSearchBox.css (1)
+  [FILL] .palette-search-box:hover  { border-color: var(--app-border-strong); color: var(--app-text); }
+## features/connectors/ui/ConnectorsPage.css (4)
+  [FILL] .connectors-page__row:hover  { background: var(--app-surface-soft); }
+  [FILL] .connectors-page__scroll--left .connectors-page__row:hover .connectors-page__td--actions, .connectors-page__scroll--right .connectors-page__row:hover .connectors-page__td--actions  { background: var(--app-surface-soft); }
+  [FILL] .connectors-page__btn:hover:not(:disabled)  { border-color: var(--app-border-strong); background: var(--app-surface-soft); }
+  [FILL] .connectors-page__btn--primary:hover:not(:disabled)  { background: var(--app-accent-strong); }
+## features/connectors/ui/InlineConnectorSetup.css (1)
+  [FILL] .inline-connector-setup__btn--primary:hover:not(:disabled)  { background: var(--app-accent-strong); }
+## features/dashboards/tabs/ui/DashboardTabBar.css (6)
+  [FILL] .dashboard-tab:hover  { color: var(--app-text); }
+  [FILL] .dashboard-tab__button:hover, .dashboard-tab__close:hover  { background: var(--app-surface-strong); }
+  [FILL] .dashboard-tab--active .dashboard-tab__button:hover, .dashboard-tab--active .dashboard-tab__close:hover  { background: var(--app-surface-soft); }
+  [FILL] :root[data-theme="dark"] .dashboard-tab--active .dashboard-tab__button:hover, :root[data-theme="dark"] .dashboard-tab--active .dashboard-tab__close:hover  { background: var(--app-surface-strong); }
+  [FILL] .dashboard-tab__close:hover  { color: var(--app-text); }
+  [FILL] .dashboard-tab-bar .dashboard-tab-bar__add:hover:not(:disabled)  { background: var(--app-surface-strong); }
+## features/dashboards/ui/DashboardAppearanceEditor.css (2)
+  [FILL] .dashboard-appearance-editor__save:hover:not([aria-disabled="true"])  { background: var(--app-accent-strong); }
+  [FILL] .appearance-preset:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+## features/dashboards/ui/DashboardList.css (16)
+  [FILL] .dashboard-list__filter-clear:hover  { background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] :root[data-theme="dark"] .context-list .dashboard-list__filter-clear:hover  { background: var(--app-surface-strong); }
+  [FILL] .dashboard-list__create-submit:hover:not(:disabled)  { background: var(--app-accent-strong); }
+  [NON-FILL: position,display,align-items,width,height,margin,overflow,clip] [MIXED] .dashboard-list__item-row:hover .popover.actions-menu  { position: relative; display: inline-flex; align-items: center; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; }
+  [FILL] .dashboard-list__item-row .actions-menu__trigger:hover  { background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] .dashboard-list__row-action-btn:hover  { background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] :root[data-theme="dark"] .context-list .dashboard-list__row-action-btn:hover  { background: var(--app-surface-strong); }
+  [FILL] .dashboard-list__delete-confirm-btn:hover  { background: var(--app-error-surface); border-color: var(--app-error); }
+  [FILL] .dashboard-list__delete-cancel-btn:hover  { border-color: var(--app-border-strong); color: var(--app-text); }
+  [FILL] .dashboard-list__button:hover  { background: var(--app-surface-soft); color: var(--app-text); text-decoration: none; }
+  [FILL] :root[data-theme="dark"] .context-list .dashboard-list__button:hover  { background: var(--app-surface-strong); }
+  [FILL] .dashboard-list__button[aria-pressed="true"]:hover  { background: var(--app-accent-mid); }
+  [FILL] .dashboard-list__import-label:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] :root[data-theme="dark"] .context-list .dashboard-list__import-label:hover  { background: var(--app-surface-strong); }
+  [FILL] .dashboard-list__folder-toggle:hover  { background: var(--app-surface-strong); color: var(--app-text); }
+  [FILL] .dashboard-list__move-option:hover:not(:disabled)  { background: var(--app-surface-strong); }
+## features/dashboards/ui/DashboardShareDialog.css (3)
+  [FILL] .dashboard-share-dialog__copy-btn:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] .dashboard-share-dialog__done-btn:hover  { background: var(--app-accent-strong); }
+  [FILL] .dashboard-share-dialog__revoke-btn:hover  { background: var(--app-error-surface); }
+## features/dashboards/ui/ProposalReview.css (1)
+  [FILL] .proposal-review__remove:hover  { color: var(--app-error); background: var(--app-error-surface); }
+## features/dashboards/ui/RefinementChatDrawer.css (2)
+  [FILL] .refinement-drawer__submit:hover:not(:disabled)  { background: var(--app-accent-strong); }
+  [FILL] .refinement-drawer__review:hover, .refinement-drawer__retry:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+## features/home/ui/HomePage.css (7)
+  [FILL] .home-section__link:hover  { color: var(--app-text); }
+  [FILL] a.home-card:hover  { border-color: var(--app-border-strong); }
+  [FILL] .home-btn--secondary:hover, .home-btn--ghost:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] .home-btn--ghost:hover  { border-color: transparent; }
+  [FILL] :root[data-theme="dark"] .home-btn--secondary:hover, :root[data-theme="dark"] .home-btn--ghost:hover, :root[data-theme="dark"] .tl__mark:hover, :root[data-theme="dark"] .home-upnext__row:hover  { background: var(--app-surface-strong); }
+  [FILL] .home-upnext__row:hover  { background: var(--app-surface-soft); }
+  [FILL] .tl__mark:hover  { background: var(--app-surface-soft); }
+## features/onboarding/ui/FirstRunDropZone.css (3)
+  [FILL] .first-run-drop__button--primary:hover:not(:disabled)  { background: var(--app-accent-strong); }
+  [FILL] .first-run-drop__button--secondary:hover:not(:disabled)  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] .first-run-drop__button--ghost:hover:not(:disabled)  { background: var(--app-surface-soft); color: var(--app-text); }
+## features/onboarding/ui/FirstRunRefineBar.css (1)
+  [FILL] .first-run-refine__button:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+## features/onboarding/ui/FirstRunTemplateChips.css (1)
+  [FILL] .first-run-templates__chip:hover:not(:disabled)  { border-color: var(--app-border-strong); background: var(--app-surface); }
+## features/onboarding/ui/OnboardingChecklist.css (3)
+  [FILL] .onboarding-checklist__action--primary:hover:not(:disabled), .onboarding-checklist__done--primary:hover  { background: var(--app-accent-strong); }
+  [FILL] .onboarding-checklist__action--secondary:hover:not(:disabled), .onboarding-checklist__done--secondary:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] .onboarding-checklist__action--ghost:hover:not(:disabled)  { background: var(--app-surface-soft); color: var(--app-text); }
+## features/panels/provenance/ProvenancePopover.css (1)
+  [FILL] .provenance-popover__close:hover, .provenance-popover__link:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); }
+## features/panels/ui/OutputPicker.css (1)
+  [FILL] [MIXED] .output-picker__card:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); }
+## features/panels/ui/PanelList.css (1)
+  [FILL] .panel-list__zoom-button:hover:not(:disabled), .panel-list__zoom-reset:hover:not(:disabled)  { background: var(--app-surface-soft); color: var(--app-text); }
+## features/panels/ui/detailModal/PanelDetailModal.appearance.css (1)
+  [FILL] .panel-detail-modal__upload-btn:hover:not(:disabled)  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+## features/panels/ui/detailModal/PanelDetailModal.binding.css (6)
+  [FILL] .panel-detail-modal__output-link:hover  { text-decoration: underline; }
+  [FILL] .panel-detail-modal__swap-output-btn:hover:not(:disabled)  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] .panel-detail-modal__type-option:hover  { background: var(--app-accent-surface); }
+  [FILL] .panel-detail-modal__type-clear:hover  { color: var(--app-text); }
+  [FILL] .panel-detail-modal__source-link:hover  { text-decoration: underline; }
+  [FILL] .panel-detail-modal__mode-toggle-btn:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+## features/panels/ui/detailModal/PanelDetailModal.css (4)
+  [FILL] .panel-detail-modal__edit-btn:hover  { background: var(--app-accent-strong); }
+  [FILL] .panel-detail-modal__discard-confirm:hover, .panel-detail-modal__discard-cancel:hover  { border-color: var(--app-border-strong); }
+  [FILL] .panel-detail-modal__btn--cancel:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] .panel-detail-modal__btn--save:hover:not(:disabled)  { background: var(--app-accent-strong); }
+## features/panels/ui/detailModal/PanelDetailModal.sections.css (2)
+  [FILL] .panel-detail-modal__column-move-btn:hover:not(:disabled)  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] .panel-detail-modal__reset-widths-btn:hover:not(:disabled)  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+## features/panels/ui/editors/TableDisplayFields.css (2)
+  [FILL] .table-display-fields__column-row:hover  { background: var(--app-surface-soft); }
+  [FILL] .table-display-fields__reset-widths-btn:hover:not(:disabled)  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+## features/panels/ui/form/FormPanel.css (1)
+  [FILL] .form-panel-view__submit:hover:not([aria-disabled="true"])  { background: var(--app-accent-strong); }
+## features/panels/ui/grid/PanelGrid.css (4)
+  [FILL] .panel-grid-card:hover  { border-color: var(--app-border-strong); box-shadow: var(--app-shadow-soft); }
+  [FILL] .panel-grid-card__handle:hover  { background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] .panel-grid-card__delete-confirm-btn:hover  { background: var(--app-error-surface); border-color: var(--app-error); }
+  [FILL] .ui-input.panel-grid-card__title-input:hover:not(:disabled):not(:focus)  { border-color: transparent; border-bottom-color: var(--app-accent); }
+## features/panels/ui/renderers/TableRenderer.css (2)
+  [FILL] .panel-content__load-more-btn:hover:not(:disabled)  { background: var(--app-surface-soft); border-color: var(--app-border-strong); color: var(--app-text); }
+  [FILL] .panel-content__clear-filters-btn:hover  { background: var(--app-surface-soft); border-color: var(--app-border-strong); color: var(--app-text); }
+## features/pipelines/ui/CreatePipelineModal.css (1)
+  [FILL] .create-pipeline-modal__add-source-btn:hover  { text-decoration: underline; }
+## features/pipelines/ui/PipelineListTable.css (1)
+  [FILL] .pipeline-list-table__delete-btn:hover  { border-color: color-mix(in srgb, var(--app-error) 60%, transparent); background: var(--app-error-surface); color: var(--app-error); }
+## features/pipelines/ui/PipelineShareDialog.css (1)
+  [FILL] .pipeline-share-dialog__revoke-btn:hover  { background: var(--app-error-surface); }
+## features/pipelines/ui/PipelinesPage.css (4)
+  [FILL] .pipeline-list-table__row:hover  { background: var(--app-surface-raised); }
+  [FILL] .pipeline-list-table__link:hover  { color: var(--app-accent-text); text-decoration: underline; }
+  [FILL] .pipelines-page__create-btn:hover  { background: var(--app-accent-strong); }
+  [FILL] .pipeline-list-table__share-btn:hover  { background: var(--app-surface-raised); border-color: var(--app-border-strong); color: var(--app-text); }
+## features/pipelines/ui/RunHistoryModal.css (1)
+  [FILL] .run-history-modal__row-toggle:hover  { background: var(--app-surface-raised); border-color: var(--app-border-strong); color: var(--app-text); }
+## features/pipelines/ui/schedule/PipelineScheduleDialog.css (2)
+  [FILL] .pipeline-schedule-dialog__preset-btn:hover  { border-color: var(--app-border-strong); color: var(--app-text); background: var(--app-surface-soft); }
+  [FILL] .pipeline-schedule-dialog__clear-btn:hover:not(:disabled)  { background: var(--app-error-surface); border-color: var(--app-error); }
+## features/pipelines/ui/shapes/ShapePickerModal.css (1)
+  [FILL] .shape-picker-modal__shape-card:hover  { border-color: var(--app-accent-mid); background: var(--app-accent-surface); }
+## features/pipelines/ui/spine/PipelineSpine.css (6)
+  [NON-FILL: opacity] .spine-row:hover .spine-row__grip  { opacity: 1; }
+  [NON-FILL: opacity] [MIXED] .spine-row:hover .spine-row__menu  { opacity: 1; }
+  [FILL] [@container spine-column (max-width: 226px)] .spine-row:hover .spine-row__select  { background: var(--app-surface-raised); }
+  [FILL] [@container spine-column (max-width: 226px)] .spine-row:hover .spine-row__menu  { background: var(--app-surface-raised); }
+  [FILL] [@container spine-column (max-width: 226px)] .spine-row--selected:hover .spine-row__select  { background: var(--app-accent-mid); }
+  [FILL] [@container spine-column (max-width: 226px)] .spine-row--selected:hover .spine-row__menu  { background: transparent; }
+## features/settings/ui/AgentMemoryList.css (3)
+  [FILL] .agent-memory-list__clear-all-btn:hover  { background: var(--app-error-surface); }
+  [FILL] .agent-memory-list-table__row:hover  { background: var(--app-surface-soft); }
+  [FILL] .agent-memory-list-table__delete-btn:hover  { border-color: color-mix(in srgb, var(--app-error) 60%, transparent); background: var(--app-error-surface); color: var(--app-error); }
+## features/settings/ui/ApiTokensSection.css (5)
+  [FILL] .api-tokens-section__copy-btn:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] .api-tokens-section__done-btn:hover  { background: var(--app-accent-strong); }
+  [FILL] .api-tokens-section__create-btn:hover:not(:disabled)  { background: var(--app-accent-strong); }
+  [FILL] .api-tokens-list-table__row:hover  { background: var(--app-surface-soft); }
+  [FILL] .api-tokens-list-table__revoke-btn:hover  { border-color: color-mix(in srgb, var(--app-error) 60%, transparent); background: var(--app-error-surface); color: var(--app-error); }
+## features/settings/ui/AppearanceSection.css (1)
+  [FILL] .appearance__type-card:hover  { border-color: var(--app-border-strong); }
+## features/settings/ui/BetaAccessSection.css (2)
+  [FILL] .beta-access-section__request-btn:hover:not(:disabled)  { background: var(--app-accent-strong); }
+  [FILL] .beta-access-section__redeem-btn:hover:not(:disabled)  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+## features/settings/ui/MfaBackupCodesList.css (1)
+  [FILL] .mfa-backup-codes__copy-btn:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+## features/settings/ui/MfaEnrollModal.css (4)
+  [FILL] .mfa-enroll-modal__retry-btn:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); }
+  [FILL] .mfa-enroll-modal__copy-btn:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] .mfa-enroll-modal__confirm-btn:hover:not(:disabled)  { background: var(--app-accent-strong); }
+  [FILL] .mfa-enroll-modal__done-btn:hover  { background: var(--app-accent-strong); }
+## features/settings/ui/MfaSecuritySection.css (7)
+  [FILL] .mfa-security-section__enable-btn:hover  { background: var(--app-accent-strong); }
+  [FILL] .mfa-security-section__action-btn:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); }
+  [FILL] .mfa-security-section__action-btn--danger:hover  { background: var(--app-error-surface); }
+  [FILL] .mfa-security-section__confirm-btn:hover:not(:disabled)  { background: var(--app-accent-strong); }
+  [FILL] .mfa-security-section__confirm-btn--danger:hover:not(:disabled)  { background: color-mix(in srgb, var(--app-error) 85%, black); }
+  [FILL] .mfa-security-section__cancel-btn:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); }
+  [FILL] .mfa-security-section__done-btn:hover  { background: var(--app-accent-strong); }
+## features/settings/ui/PreferencesEditor.css (3)
+  [FILL] .preferences-editor__add-btn:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] :root[data-theme="dark"] .preferences-editor__add-btn:hover  { background: var(--app-surface-strong); }
+  [FILL] .preferences-editor__save-btn:hover:not(:disabled)  { background: var(--app-accent-strong); }
+## features/settings/ui/SettingsPage.css (1)
+  [FILL] .settings-page__theme-toggle:hover  { border-color: var(--app-border-strong); background: var(--app-surface-raised); color: var(--app-text); }
+## features/sources/ui/AddSourceModal.css (5)
+  [FILL] .add-source-modal__type-btn:hover  { background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] .add-source-modal__type-btn--active:hover  { background: color-mix(in srgb, var(--app-accent) 20%, transparent); color: var(--app-accent-text); }
+  [FILL] .add-source-modal__btn--secondary:hover:not(:disabled)  { background: var(--app-surface-soft); border-color: var(--app-border-strong); color: var(--app-text); }
+  [FILL] .add-source-modal__btn--primary:hover:not(:disabled)  { background: var(--app-accent-strong); }
+  [FILL] .add-source-modal__action-link:hover:not(:disabled)  { color: var(--app-error); }
+## features/sources/ui/DatasetRowGrid.css (3)
+  [FILL] .dataset-row-grid__toolbar button:hover  { border-color: var(--app-border-strong); background: var(--app-surface-soft); }
+  [FILL] .dataset-row-grid__btn--secondary:hover:not(:disabled)  { border-color: var(--app-border-strong); background: var(--app-surface-soft); color: var(--app-text); }
+  [FILL] .dataset-row-grid__btn--danger:hover:not(:disabled)  { background: var(--app-error-surface); }
+## features/sources/ui/SourceDeleteConflictNotice.css (1)
+  [FILL] .source-delete-conflict__dismiss:hover  { border-color: var(--app-border-strong); }
+## features/sources/ui/SourceDetailPanel.css (3)
+  [FILL] .source-detail-panel__rename-btn:hover  { color: var(--app-text); background: var(--app-surface-soft); }
+  [FILL] .source-detail-panel__preview-btn:hover:not(:disabled)  { background: var(--app-surface-soft); border-color: var(--app-border-strong); }
+  [FILL] .source-detail-panel__delete-btn:hover  { background: var(--app-error-surface); border-color: var(--app-error); }
+## features/sources/ui/SourceListTable.css (3)
+  [FILL] .source-list-table__row:hover  { background: var(--app-surface-raised); }
+  [FILL] .source-list-table__name:hover  { color: var(--app-accent-text); text-decoration: underline; }
+  [FILL] .source-list-table__delete-btn:hover  { border-color: color-mix(in srgb, var(--app-error) 60%, transparent); background: var(--app-error-surface); color: var(--app-error); }
+## features/sources/ui/SourcesPage.css (2)
+  [FILL] .sources-page__add-btn:hover  { background: var(--app-accent-strong); }
+  [FILL] .sources-page__create-btn:hover:not(:disabled)  { background: var(--app-accent-strong); }
+## features/sources/ui/forms/KeyValueListField.css (1)
+  [FILL] .key-value-list-field__add:hover  { background: var(--app-surface-soft); color: var(--app-text); }
+## landing/landing.css (5)
+  [FILL] .nav-links a:hover  { color: var(--app-text); }
+  [FILL] .btn:hover  { border-color: var(--app-text); }
+  [FILL] .btn-primary:hover  { border-color: var(--app-accent); filter: brightness(1.06); }
+  [FILL] .case:hover  { color: var(--app-text); border-color: var(--app-text); }
+  [FILL] [MIXED] .hot:hover  { outline: var(--app-focus-ring); outline-offset: -2px; }
+files=63 rules=180 selectors=205

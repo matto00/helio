@@ -15,9 +15,11 @@
     background-color var(--app-transition);
 }
 
-.user-menu__trigger:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .user-menu__trigger:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+  }
 }
 
 .user-menu__avatar {
@@ -103,8 +105,10 @@
     color var(--app-transition);
 }
 
-.user-menu__item:hover {
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .user-menu__item:hover {
+    background: var(--app-surface-soft);
+  }
 }
 
 .user-menu__item:focus-visible {
@@ -116,25 +120,31 @@
   color: var(--app-text-muted);
 }
 
-.user-menu__item--settings:hover {
-  color: var(--app-text);
+@media (hover: hover) {
+  .user-menu__item--settings:hover {
+    color: var(--app-text);
+  }
 }
 
 .user-menu__item--getting-started {
   color: var(--app-text-muted);
 }
 
-.user-menu__item--getting-started:hover {
-  color: var(--app-text);
+@media (hover: hover) {
+  .user-menu__item--getting-started:hover {
+    color: var(--app-text);
+  }
 }
 
 .user-menu__item--signout {
   color: var(--app-error);
 }
 
-.user-menu__item--signout:hover {
-  background: var(--app-error-surface);
-  color: var(--app-error);
+@media (hover: hover) {
+  .user-menu__item--signout:hover {
+    background: var(--app-error-surface);
+    color: var(--app-error);
+  }
 }
 
 /* F-189: at phone/tablet widths the popover is reachable via touch, so its

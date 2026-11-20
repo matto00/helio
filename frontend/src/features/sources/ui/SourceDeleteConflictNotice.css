@@ -38,6 +38,8 @@
   cursor: pointer;
 }
 
-.source-delete-conflict__dismiss:hover {
-  border-color: var(--app-border-strong);
+@media (hover: hover) {
+  .source-delete-conflict__dismiss:hover {
+    border-color: var(--app-border-strong);
+  }
 }

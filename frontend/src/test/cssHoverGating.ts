@@ -91,3 +91,17 @@ export function mixedGatedRules(files: FileRules[]): string[] {
     }
   return out;
 }
+
+/** The pipeline page's nine stylesheets (HEL-1668), paths relative to `frontend/src/`. Its guard reads these and the
+ *  feature-wide guard (HEL-1735) excludes them, so the three guards partition every stylesheet with no gap. */
+export const PIPELINE_GUARDED_FILES = [
+  "features/pipelines/ui/PipelineDetailPage.css",
+  "features/pipelines/ui/StepCardFocused.css",
+  "features/pipelines/ui/OutputSchemaDisclosure.css",
+  "features/pipelines/ui/mobile/PipelineMobile.css",
+  "features/pipelines/ui/spine/PipelineSpine.css",
+  "features/pipelines/ui/spine/PipelineSpineAccent.css",
+  "features/pipelines/ui/spine/PipelineSpineHeader.css",
+  "features/pipelines/ui/spine/PipelineSpineLayout.css",
+  "features/pipelines/ui/spine/StepPreviewTable.css",
+];

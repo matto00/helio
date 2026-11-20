@@ -53,9 +53,11 @@
     background-color var(--app-transition);
 }
 
-.source-detail-panel__rename-btn:hover {
-  color: var(--app-text);
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .source-detail-panel__rename-btn:hover {
+    color: var(--app-text);
+    background: var(--app-surface-soft);
+  }
 }
 
 .source-detail-panel__rename-input {
@@ -89,9 +91,11 @@
     border-color var(--app-transition);
 }
 
-.source-detail-panel__preview-btn:hover:not(:disabled) {
-  background: var(--app-surface-soft);
-  border-color: var(--app-border-strong);
+@media (hover: hover) {
+  .source-detail-panel__preview-btn:hover:not(:disabled) {
+    background: var(--app-surface-soft);
+    border-color: var(--app-border-strong);
+  }
 }
 
 .source-detail-panel__preview-btn:disabled {
@@ -127,9 +131,11 @@
   color: var(--app-error);
 }
 
-.source-detail-panel__delete-btn:hover {
-  background: var(--app-error-surface);
-  border-color: var(--app-error);
+@media (hover: hover) {
+  .source-detail-panel__delete-btn:hover {
+    background: var(--app-error-surface);
+    border-color: var(--app-error);
+  }
 }
 
 .source-detail-panel__delete-confirm-btn {

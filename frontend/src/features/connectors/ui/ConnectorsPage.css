@@ -96,8 +96,10 @@
   border-bottom: 1px solid var(--app-border-subtle);
 }
 
-.connectors-page__row:hover {
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .connectors-page__row:hover {
+    background: var(--app-surface-soft);
+  }
 }
 
 .connectors-page__td {
@@ -171,9 +173,11 @@
   background: var(--app-bg);
 }
 
-.connectors-page__scroll--left .connectors-page__row:hover .connectors-page__td--actions,
-.connectors-page__scroll--right .connectors-page__row:hover .connectors-page__td--actions {
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .connectors-page__scroll--left .connectors-page__row:hover .connectors-page__td--actions,
+  .connectors-page__scroll--right .connectors-page__row:hover .connectors-page__td--actions {
+    background: var(--app-surface-soft);
+  }
 }
 
 /* HEL-1022 (adversarial review finding 2): the CONTAINER's own `--right`
@@ -256,9 +260,11 @@
     color var(--app-transition);
 }
 
-.connectors-page__btn:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .connectors-page__btn:hover:not(:disabled) {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+  }
 }
 
 .connectors-page__btn:disabled {
@@ -272,8 +278,10 @@
   color: var(--app-accent-ink);
 }
 
-.connectors-page__btn--primary:hover:not(:disabled) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .connectors-page__btn--primary:hover:not(:disabled) {
+    background: var(--app-accent-strong);
+  }
 }
 
 .connectors-page__btn--secondary {

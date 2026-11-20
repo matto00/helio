@@ -49,6 +49,8 @@
   transition: background-color var(--app-transition);
 }
 
-.proposal-handoff__action:hover {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .proposal-handoff__action:hover {
+    background: var(--app-accent-strong);
+  }
 }

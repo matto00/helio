@@ -40,8 +40,10 @@
   transition: background-color var(--app-transition);
 }
 
-.sources-page__add-btn:hover {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .sources-page__add-btn:hover {
+    background: var(--app-accent-strong);
+  }
 }
 
 /* Create action below the list, matching PipelinesPage/MetricsPage/
@@ -67,8 +69,10 @@
   transition: background-color var(--app-transition);
 }
 
-.sources-page__create-btn:hover:not(:disabled) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .sources-page__create-btn:hover:not(:disabled) {
+    background: var(--app-accent-strong);
+  }
 }
 
 .sources-page__create-btn:disabled {

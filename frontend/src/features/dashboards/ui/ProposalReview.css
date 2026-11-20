@@ -80,9 +80,11 @@
   transition: var(--app-transition);
 }
 
-.proposal-review__remove:hover {
-  color: var(--app-error);
-  background: var(--app-error-surface);
+@media (hover: hover) {
+  .proposal-review__remove:hover {
+    color: var(--app-error);
+    background: var(--app-error-surface);
+  }
 }
 
 /* F-176 — matches the established HEL-308/314/319 44px mobile tap-target floor already used on

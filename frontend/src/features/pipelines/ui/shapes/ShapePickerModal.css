@@ -28,9 +28,11 @@
     background-color var(--app-transition);
 }
 
-.shape-picker-modal__shape-card:hover {
-  border-color: var(--app-accent-mid);
-  background: var(--app-accent-surface);
+@media (hover: hover) {
+  .shape-picker-modal__shape-card:hover {
+    border-color: var(--app-accent-mid);
+    background: var(--app-accent-surface);
+  }
 }
 
 .shape-picker-modal__shape-label {

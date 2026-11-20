@@ -1,0 +1,74 @@
+ungate-one app/App.css: exit=1 named=app/App.css: .app-command-bar__logo:hover
+ungate-one app/dashboardMeta/DashboardMetaRow.css: exit=1 named=app/dashboardMeta/DashboardMetaRow.css: .app-command-bar .dashboard-meta-row__pressed:hover
+ungate-one app/shell/AppRail.css: exit=1 named=app/shell/AppRail.css: .app-rail__logo:hover
+ungate-one app/shell/AssistantContextList.css: exit=1 named=app/shell/AssistantContextList.css: .assistant-context-list__locked-link:hover
+ungate-one app/shell/ContextList.css: exit=1 named=app/shell/ContextList.css: .context-list .ui-icon-btn:hover:not(:disabled)
+ungate-one features/assistant/ui/MessageComposer.css: exit=1 named=features/assistant/ui/MessageComposer.css: .message-composer__submit:hover:not(:disabled)
+ungate-one features/assistant/ui/ProposalHandoff.css: exit=1 named=features/assistant/ui/ProposalHandoff.css: .proposal-handoff__action:hover
+ungate-one features/assistant/ui/QuickLauncherOverlay.css: exit=1 named=features/assistant/ui/QuickLauncherOverlay.css: .quick-launcher-overlay__browse-link:hover
+ungate-one features/assistant/ui/ToolCallIndicator.css: exit=1 named=features/assistant/ui/ToolCallIndicator.css: .tool-call-indicator__toggle:hover
+ungate-one features/audit/ui/AuditEventTable.css: exit=1 named=features/audit/ui/AuditEventTable.css: .audit-event-table__row:hover
+ungate-one features/auth/ui/UserMenu.css: exit=1 named=features/auth/ui/UserMenu.css: .user-menu__trigger:hover
+ungate-one features/auth/ui/auth.css: exit=1 named=features/auth/ui/auth.css: .auth-submit:hover:not(:disabled)
+ungate-one features/commandPalette/ui/CommandPalette.css: exit=1 named=features/commandPalette/ui/CommandPalette.css: .command-palette__item:hover
+ungate-one features/commandPalette/ui/PaletteSearchBox.css: exit=1 named=features/commandPalette/ui/PaletteSearchBox.css: .palette-search-box:hover
+ungate-one features/connectors/ui/ConnectorsPage.css: exit=1 named=features/connectors/ui/ConnectorsPage.css: .connectors-page__row:hover
+ungate-one features/connectors/ui/InlineConnectorSetup.css: exit=1 named=features/connectors/ui/InlineConnectorSetup.css: .inline-connector-setup__btn--primary:hover:not(:disabled)
+ungate-one features/dashboards/tabs/ui/DashboardTabBar.css: exit=1 named=features/dashboards/tabs/ui/DashboardTabBar.css: .dashboard-tab:hover
+ungate-one features/dashboards/ui/DashboardAppearanceEditor.css: exit=1 named=features/dashboards/ui/DashboardAppearanceEditor.css: .dashboard-appearance-editor__save:hover:not([aria-disabled=\"true\"])
+ungate-one features/dashboards/ui/DashboardList.css: exit=1 named=features/dashboards/ui/DashboardList.css: .dashboard-list__filter-clear:hover
+ungate-one features/dashboards/ui/DashboardShareDialog.css: exit=1 named=features/dashboards/ui/DashboardShareDialog.css: .dashboard-share-dialog__copy-btn:hover
+ungate-one features/dashboards/ui/ProposalReview.css: exit=1 named=features/dashboards/ui/ProposalReview.css: .proposal-review__remove:hover
+ungate-one features/dashboards/ui/RefinementChatDrawer.css: exit=1 named=features/dashboards/ui/RefinementChatDrawer.css: .refinement-drawer__submit:hover:not(:disabled)
+ungate-one features/home/ui/HomePage.css: exit=1 named=features/home/ui/HomePage.css: .home-section__link:hover
+ungate-one features/onboarding/ui/FirstRunDropZone.css: exit=1 named=features/onboarding/ui/FirstRunDropZone.css: .first-run-drop__button--primary:hover:not(:disabled)
+ungate-one features/onboarding/ui/FirstRunRefineBar.css: exit=1 named=features/onboarding/ui/FirstRunRefineBar.css: .first-run-refine__button:hover
+ungate-one features/onboarding/ui/FirstRunTemplateChips.css: exit=1 named=features/onboarding/ui/FirstRunTemplateChips.css: .first-run-templates__chip:hover:not(:disabled)
+ungate-one features/onboarding/ui/OnboardingChecklist.css: exit=1 named=features/onboarding/ui/OnboardingChecklist.css: .onboarding-checklist__action--primary:hover:not(:disabled)
+ungate-one features/panels/provenance/ProvenancePopover.css: exit=1 named=features/panels/provenance/ProvenancePopover.css: .provenance-popover__close:hover
+ungate-one features/panels/ui/OutputPicker.css: exit=1 named=features/panels/ui/OutputPicker.css: .output-picker__card:hover
+ungate-one features/panels/ui/PanelList.css: exit=1 named=features/panels/ui/PanelList.css: .panel-list__zoom-button:hover:not(:disabled)
+ungate-one features/panels/ui/detailModal/PanelDetailModal.appearance.css: exit=1 named=features/panels/ui/detailModal/PanelDetailModal.appearance.css: .panel-detail-modal__upload-btn:hover:not(:disabled)
+ungate-one features/panels/ui/detailModal/PanelDetailModal.binding.css: exit=1 named=features/panels/ui/detailModal/PanelDetailModal.binding.css: .panel-detail-modal__output-link:hover
+ungate-one features/panels/ui/detailModal/PanelDetailModal.css: exit=1 named=features/panels/ui/detailModal/PanelDetailModal.css: .panel-detail-modal__edit-btn:hover
+ungate-one features/panels/ui/detailModal/PanelDetailModal.sections.css: exit=1 named=features/panels/ui/detailModal/PanelDetailModal.sections.css: .panel-detail-modal__column-move-btn:hover:not(:disabled)
+ungate-one features/panels/ui/editors/TableDisplayFields.css: exit=1 named=features/panels/ui/editors/TableDisplayFields.css: .table-display-fields__column-row:hover
+ungate-one features/panels/ui/form/FormPanel.css: exit=1 named=features/panels/ui/form/FormPanel.css: .form-panel-view__submit:hover:not([aria-disabled=\"true\"])
+ungate-one features/panels/ui/grid/PanelGrid.css: exit=1 named=features/panels/ui/grid/PanelGrid.css: .panel-grid-card:hover
+ungate-one features/panels/ui/renderers/TableRenderer.css: exit=1 named=features/panels/ui/renderers/TableRenderer.css: .panel-content__load-more-btn:hover:not(:disabled)
+ungate-one features/pipelines/ui/CreatePipelineModal.css: exit=1 named=features/pipelines/ui/CreatePipelineModal.css: .create-pipeline-modal__add-source-btn:hover
+ungate-one features/pipelines/ui/PipelineListTable.css: exit=1 named=features/pipelines/ui/PipelineListTable.css: .pipeline-list-table__delete-btn:hover
+ungate-one features/pipelines/ui/PipelineShareDialog.css: exit=1 named=features/pipelines/ui/PipelineShareDialog.css: .pipeline-share-dialog__revoke-btn:hover
+ungate-one features/pipelines/ui/PipelinesPage.css: exit=1 named=features/pipelines/ui/PipelinesPage.css: .pipeline-list-table__row:hover
+ungate-one features/pipelines/ui/RunHistoryModal.css: exit=1 named=features/pipelines/ui/RunHistoryModal.css: .run-history-modal__row-toggle:hover
+ungate-one features/pipelines/ui/schedule/PipelineScheduleDialog.css: exit=1 named=features/pipelines/ui/schedule/PipelineScheduleDialog.css: .pipeline-schedule-dialog__preset-btn:hover
+ungate-one features/pipelines/ui/shapes/ShapePickerModal.css: exit=1 named=features/pipelines/ui/shapes/ShapePickerModal.css: .shape-picker-modal__shape-card:hover
+ungate-one features/settings/ui/AgentMemoryList.css: exit=1 named=features/settings/ui/AgentMemoryList.css: .agent-memory-list__clear-all-btn:hover
+ungate-one features/settings/ui/ApiTokensSection.css: exit=1 named=features/settings/ui/ApiTokensSection.css: .api-tokens-section__copy-btn:hover
+ungate-one features/settings/ui/AppearanceSection.css: exit=1 named=features/settings/ui/AppearanceSection.css: .appearance__type-card:hover
+ungate-one features/settings/ui/BetaAccessSection.css: exit=1 named=features/settings/ui/BetaAccessSection.css: .beta-access-section__request-btn:hover:not(:disabled)
+ungate-one features/settings/ui/MfaBackupCodesList.css: exit=1 named=features/settings/ui/MfaBackupCodesList.css: .mfa-backup-codes__copy-btn:hover
+ungate-one features/settings/ui/MfaEnrollModal.css: exit=1 named=features/settings/ui/MfaEnrollModal.css: .mfa-enroll-modal__retry-btn:hover
+ungate-one features/settings/ui/MfaSecuritySection.css: exit=1 named=features/settings/ui/MfaSecuritySection.css: .mfa-security-section__enable-btn:hover
+ungate-one features/settings/ui/PreferencesEditor.css: exit=1 named=features/settings/ui/PreferencesEditor.css: .preferences-editor__add-btn:hover
+ungate-one features/settings/ui/SettingsPage.css: exit=1 named=features/settings/ui/SettingsPage.css: .settings-page__theme-toggle:hover
+ungate-one features/sources/ui/AddSourceModal.css: exit=1 named=features/sources/ui/AddSourceModal.css: .add-source-modal__type-btn:hover
+ungate-one features/sources/ui/DatasetRowGrid.css: exit=1 named=features/sources/ui/DatasetRowGrid.css: .dataset-row-grid__toolbar button:hover
+ungate-one features/sources/ui/SourceDeleteConflictNotice.css: exit=1 named=features/sources/ui/SourceDeleteConflictNotice.css: .source-delete-conflict__dismiss:hover
+ungate-one features/sources/ui/SourceDetailPanel.css: exit=1 named=features/sources/ui/SourceDetailPanel.css: .source-detail-panel__rename-btn:hover
+ungate-one features/sources/ui/SourceListTable.css: exit=1 named=features/sources/ui/SourceListTable.css: .source-list-table__row:hover
+ungate-one features/sources/ui/SourcesPage.css: exit=1 named=features/sources/ui/SourcesPage.css: .sources-page__add-btn:hover
+ungate-one features/sources/ui/forms/KeyValueListField.css: exit=1 named=features/sources/ui/forms/KeyValueListField.css: .key-value-list-field__add:hover
+ungate-one landing/landing.css: exit=1 named=landing/landing.css: .nav-links a:hover
+un-gate mutations failing as required: 62/62
+mixed-list (App.css gated rule gains a :focus-visible selector): exit=1
+  ● feature stylesheet hover gating (HEL-1735) › no gated rule mixes a :hover selector with a non-hover one
+  +   "app/App.css: .cmd-btn--primary:hover, .cmd-btn--primary:focus-visible",
+  87 |   it("no gated rule mixes a :hover selector with a non-hover one", () => {
+allowlist-rot (reveal selector renamed): exit=1
+  +   "features/dashboards/ui/DashboardList.css: .dashboard-list__item-row:hover .popover.actions-menu-renamed",
+  Expected: "features/dashboards/ui/DashboardList.css .dashboard-list__item-row:hover .popover.actions-menu true"
+  Received: "features/dashboards/ui/DashboardList.css .dashboard-list__item-row:hover .popover.actions-menu false"
+  >  97 |       expect(`${entry.file} ${entry.selector} ${hit}`).toBe(`${entry.file} ${entry.selector} true`);
+new-file (ungated rule in a new features/home/tmp.css): exit=1 named=['features/home/tmp.css: .zz-tmp:hover']
+ALL GUARD MUTATIONS FAILED AS REQUIRED; every mutated file restored

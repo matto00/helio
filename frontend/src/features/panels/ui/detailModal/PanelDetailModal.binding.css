@@ -82,8 +82,10 @@
   font-weight: var(--weight-regular);
 }
 
-.panel-detail-modal__output-link:hover {
-  text-decoration: underline;
+@media (hover: hover) {
+  .panel-detail-modal__output-link:hover {
+    text-decoration: underline;
+  }
 }
 
 .panel-detail-modal__output-link:focus-visible {
@@ -107,10 +109,12 @@
     color var(--app-transition);
 }
 
-.panel-detail-modal__swap-output-btn:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .panel-detail-modal__swap-output-btn:hover:not(:disabled) {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 .panel-detail-modal__swap-output-btn:focus-visible {
@@ -161,8 +165,10 @@
   transition: background-color var(--app-transition);
 }
 
-.panel-detail-modal__type-option:hover {
-  background: var(--app-accent-surface);
+@media (hover: hover) {
+  .panel-detail-modal__type-option:hover {
+    background: var(--app-accent-surface);
+  }
 }
 
 .panel-detail-modal__type-option + .panel-detail-modal__type-option {
@@ -224,8 +230,10 @@
   margin-left: auto;
 }
 
-.panel-detail-modal__type-clear:hover {
-  color: var(--app-text);
+@media (hover: hover) {
+  .panel-detail-modal__type-clear:hover {
+    color: var(--app-text);
+  }
 }
 
 .panel-detail-modal__type-hint {
@@ -240,8 +248,10 @@
   text-decoration: none;
 }
 
-.panel-detail-modal__source-link:hover {
-  text-decoration: underline;
+@media (hover: hover) {
+  .panel-detail-modal__source-link:hover {
+    text-decoration: underline;
+  }
 }
 
 .panel-detail-modal__mapping-row {
@@ -303,10 +313,12 @@
     color var(--app-transition);
 }
 
-.panel-detail-modal__mode-toggle-btn:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .panel-detail-modal__mode-toggle-btn:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 .panel-detail-modal__mode-toggle-btn--active {

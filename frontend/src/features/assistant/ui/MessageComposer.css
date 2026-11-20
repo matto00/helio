@@ -45,8 +45,10 @@
     opacity var(--app-transition);
 }
 
-.message-composer__submit:hover:not(:disabled) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .message-composer__submit:hover:not(:disabled) {
+    background: var(--app-accent-strong);
+  }
 }
 
 .message-composer__submit:disabled {

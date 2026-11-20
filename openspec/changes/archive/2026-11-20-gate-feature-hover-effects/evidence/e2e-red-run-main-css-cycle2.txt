@@ -1,0 +1,20 @@
+HEL-1735 T dark verdicts
+T1 active dashboard tab: RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(38, 35, 32)"]]
+T2 context-list selected dashboard row: RED [["backgroundColor","color(srgb 0.976471 0.45098 0.0862745 / 0.1)","rgb(38, 35, 32)"]]
+T3 rail item (Data Sources): RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(38, 35, 32)"],["borderTopColor","rgb(170, 164, 156)","rgb(242, 239, 233)"],["borderLeftColor","rgb(170, 164, 156)","rgb(242
+T4 sources list row: RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(35, 32, 25)"]]
+T5 rail logo: RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(38, 35, 32)"]]
+    Error: T1 active dashboard tab sticky hover after tap
+    Error: T2 context-list selected dashboard row sticky hover after tap
+    Error: T3 rail item (Data Sources) sticky hover after tap
+    Error: T5 rail logo sticky hover after tap
+HEL-1735 T light verdicts
+T1 active dashboard tab: RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(239, 236, 230)"]]
+T2 context-list selected dashboard row: RED [["backgroundColor","color(srgb 0.976471 0.45098 0.0862745 / 0.08)","color(srgb 0.976471 0.45098 0.0862745 / 0.26)"]]
+T3 rail item (Data Sources): RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(255, 255, 255)"],["borderTopColor","rgb(100, 94, 86)","rgb(33, 29, 25)"],["borderLeftColor","rgb(100, 94, 86)","rgb(33, 29,
+T4 sources list row: RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(255, 255, 255)"]]
+T5 rail logo: RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(255, 255, 255)"]]
+    Error: T1 active dashboard tab sticky hover after tap
+    Error: T2 context-list selected dashboard row sticky hover after tap
+    Error: T3 rail item (Data Sources) sticky hover after tap
+    Error: T5 rail logo sticky hover after tap

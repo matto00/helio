@@ -102,8 +102,10 @@
     border-color var(--app-transition);
 }
 
-.appearance__type-card:hover {
-  border-color: var(--app-border-strong);
+@media (hover: hover) {
+  .appearance__type-card:hover {
+    border-color: var(--app-border-strong);
+  }
 }
 
 .appearance__type-card--selected {

@@ -59,7 +59,9 @@ describe("shell stylesheet contract (HEL-1574, DESIGN.md §4 and §9)", () => {
         .filter((rule) =>
           /var\(--app-accent(-dim|-text)?\)/.test(rule.replace(/\/\*[\s\S]*?\*\//g, "")),
         );
-      const selectors = accentRules.map((rule) => rule.split("{")[0]?.trim());
+      // The rule's own selector is the segment before its declarations, so a rule inside `@media (hover: hover)` (HEL-1735)
+      // reads its selector, not the media prelude.
+      const selectors = accentRules.map((rule) => rule.split("{").slice(-2)[0]?.trim());
       if (file === "AppRail.css") {
         expect(
           selectors.every(

@@ -108,10 +108,12 @@
     color var(--app-transition);
 }
 
-.panel-detail-modal__upload-btn:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .panel-detail-modal__upload-btn:hover:not(:disabled) {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 .panel-detail-modal__upload-btn:disabled {

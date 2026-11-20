@@ -86,8 +86,10 @@
   transition: background-color var(--app-transition);
 }
 
-.panel-detail-modal__edit-btn:hover {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .panel-detail-modal__edit-btn:hover {
+    background: var(--app-accent-strong);
+  }
 }
 
 .panel-detail-modal__edit-btn:focus-visible {
@@ -152,9 +154,11 @@
     background-color var(--app-transition);
 }
 
-.panel-detail-modal__discard-confirm:hover,
-.panel-detail-modal__discard-cancel:hover {
-  border-color: var(--app-border-strong);
+@media (hover: hover) {
+  .panel-detail-modal__discard-confirm:hover,
+  .panel-detail-modal__discard-cancel:hover {
+    border-color: var(--app-border-strong);
+  }
 }
 
 /* Footer buttons — the `<footer>` wrapper itself is now Modal's own
@@ -178,10 +182,12 @@
   color: var(--app-text-muted);
 }
 
-.panel-detail-modal__btn--cancel:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .panel-detail-modal__btn--cancel:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 .panel-detail-modal__btn--save {
@@ -190,8 +196,10 @@
   border-color: transparent;
 }
 
-.panel-detail-modal__btn--save:hover:not(:disabled) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .panel-detail-modal__btn--save:hover:not(:disabled) {
+    background: var(--app-accent-strong);
+  }
 }
 
 .panel-detail-modal__btn--save:disabled {

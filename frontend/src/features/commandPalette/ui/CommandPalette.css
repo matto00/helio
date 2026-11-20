@@ -100,9 +100,14 @@
    active/hover row invisible there — only visible in dark theme, where the two tokens differ.
    `--app-surface-soft` is distinct from `--app-surface-strong` in BOTH themes (no dedicated
    menu/list-hover token exists in theme.css), so it's used here instead. */
-.command-palette__item:hover,
 .command-palette__item[data-active="true"] {
   background: var(--app-surface-soft);
+}
+
+@media (hover: hover) {
+  .command-palette__item:hover {
+    background: var(--app-surface-soft);
+  }
 }
 
 .command-palette__item:focus-visible {

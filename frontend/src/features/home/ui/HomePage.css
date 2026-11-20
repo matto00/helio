@@ -186,8 +186,10 @@
   text-decoration: none;
 }
 
-.home-section__link:hover {
-  color: var(--app-text);
+@media (hover: hover) {
+  .home-section__link:hover {
+    color: var(--app-text);
+  }
 }
 
 /* Holds the "All N" link's line while the list loads, so the shelf heading is one height in every state (HEL-1665). */
@@ -233,8 +235,10 @@
   transition: border-color var(--app-transition);
 }
 
-a.home-card:hover {
-  border-color: var(--app-border-strong);
+@media (hover: hover) {
+  a.home-card:hover {
+    border-color: var(--app-border-strong);
+  }
 }
 
 .home-card--skeleton {
@@ -385,24 +389,28 @@ a.home-card:hover {
   border-color: var(--app-border-subtle);
 }
 
-.home-btn--secondary:hover,
-.home-btn--ghost:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
-}
+@media (hover: hover) {
+  .home-btn--secondary:hover,
+  .home-btn--ghost:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 
-.home-btn--ghost:hover {
-  border-color: transparent;
+  .home-btn--ghost:hover {
+    border-color: transparent;
+  }
 }
 
 /* DESIGN.md §3 state-rung table: these sit on an --app-surface card, so dark needs --app-surface-strong (the soft
  * rung measures 1.03:1 against it). Light keeps --app-surface-soft. */
-:root[data-theme="dark"] .home-btn--secondary:hover,
-:root[data-theme="dark"] .home-btn--ghost:hover,
-:root[data-theme="dark"] .tl__mark:hover,
-:root[data-theme="dark"] .home-upnext__row:hover {
-  background: var(--app-surface-strong);
+@media (hover: hover) {
+  :root[data-theme="dark"] .home-btn--secondary:hover,
+  :root[data-theme="dark"] .home-btn--ghost:hover,
+  :root[data-theme="dark"] .tl__mark:hover,
+  :root[data-theme="dark"] .home-upnext__row:hover {
+    background: var(--app-surface-strong);
+  }
 }
 
 .home-skeleton-rows {
@@ -514,8 +522,10 @@ a.home-card:hover {
   font-size: var(--text-sm);
 }
 
-.home-upnext__row:hover {
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .home-upnext__row:hover {
+    background: var(--app-surface-soft);
+  }
 }
 
 .home-upnext__time {
@@ -703,8 +713,10 @@ a.home-card:hover {
   cursor: pointer;
 }
 
-.tl__mark:hover {
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .tl__mark:hover {
+    background: var(--app-surface-soft);
+  }
 }
 
 .tl-tip {

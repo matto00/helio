@@ -25,8 +25,10 @@
   border-radius: var(--app-radius-sm);
 }
 
-.app-rail__logo:hover {
-  background: var(--app-surface-strong);
+@media (hover: hover) {
+  .app-rail__logo:hover {
+    background: var(--app-surface-strong);
+  }
 }
 
 .app-rail__logo:focus-visible {
@@ -71,9 +73,11 @@
 
 /* The rail's own backdrop is `--app-bg`; `--app-surface-strong` is the one step that clears the 1.10 state-surface
    contrast floor against it in both themes (soft 1.057 dark / 1.054 light and, in dark, the plain surface 1.089 do not; strong is 1.234 dark / 1.119 light, from the token values). */
-.app-rail__item:hover {
-  background: var(--app-surface-strong);
-  color: var(--app-text);
+@media (hover: hover) {
+  .app-rail__item:hover {
+    background: var(--app-surface-strong);
+    color: var(--app-text);
+  }
 }
 
 /* The one accent-washed item: the sliding indicator paints the `--app-accent-dim` wash behind it, the glyph is accent
@@ -89,9 +93,11 @@
 }
 
 /* Hovering the active item must still change something visible (HEL-866 D4a): a stronger step of the same wash. */
-.app-rail__item--active:hover {
-  background: var(--app-accent-mid);
-  color: var(--app-accent-text);
+@media (hover: hover) {
+  .app-rail__item--active:hover {
+    background: var(--app-accent-mid);
+    color: var(--app-accent-text);
+  }
 }
 
 .app-rail__item:focus-visible {
@@ -99,12 +105,19 @@
   outline-offset: -2px;
 }
 
-.app-rail .user-menu__trigger,
-.app-rail .user-menu__trigger:hover {
+.app-rail .user-menu__trigger {
   border-color: transparent;
 }
 
+@media (hover: hover) {
+  .app-rail .user-menu__trigger:hover {
+    border-color: transparent;
+  }
+}
+
 /* The trigger's own base hover is `--app-surface-soft`, which does not clear the contrast floor against `--app-bg`. */
-.app-rail .user-menu__trigger:hover {
-  background: var(--app-surface-strong);
+@media (hover: hover) {
+  .app-rail .user-menu__trigger:hover {
+    background: var(--app-surface-strong);
+  }
 }

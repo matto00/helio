@@ -47,10 +47,12 @@
   color: var(--app-accent-text);
 }
 
-.provenance-popover__close:hover,
-.provenance-popover__link:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .provenance-popover__close:hover,
+  .provenance-popover__link:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+  }
 }
 
 .provenance-popover__content {

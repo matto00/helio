@@ -184,9 +184,9 @@ const SPACING_BASELINE: BaselineEntry[] = [
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 182 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 240 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 396 },
-  { file: "features/pipelines/ui/RunHistoryModal.css", line: 160 },
-  { file: "features/sources/ui/AddSourceModal.css", line: 144 },
-  { file: "features/sources/ui/AddSourceModal.css", line: 254 },
+  { file: "features/pipelines/ui/RunHistoryModal.css", line: 162 },
+  { file: "features/sources/ui/AddSourceModal.css", line: 148 },
+  { file: "features/sources/ui/AddSourceModal.css", line: 262 },
 ];
 
 const COLOR_PATTERN = /#[0-9a-fA-F]{3,8}\b|rgba?\(/;

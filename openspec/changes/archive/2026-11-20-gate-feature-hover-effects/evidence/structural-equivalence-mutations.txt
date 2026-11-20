@@ -1,0 +1,12 @@
+--- control (unmutated after-files): exit=0
+files=62 groups=1438 differing=0
+--- (i) one declaration changed in one gated rule (App.css .cmd-btn--primary:hover): exit=1
+DIFF app/App.css: group 21: before [[],"background:var(--app-accent-strong);border-color:transparent;color:var(--app-accent-ink);",[".cmd-btn--primary:hover"]] / after [[],"background:var(--app-accent-strong);border-color:transparent;color:var(--app-text);",["
+files=62 groups=1438 differing=1
+--- (ii) a gated rule moved past an unrelated neighbouring rule (App.css .cmd-btn--primary:hover above .cmd-btn--primary): exit=1
+DIFF app/App.css: group 20: before [[],"background:var(--app-accent);border-color:transparent;color:var(--app-accent-ink);",[".cmd-btn--primary"]] / after [[],"background:var(--app-accent-strong);border-color:transparent;color:var(--app-accent-ink);",[".cmd-bt
+files=62 groups=1438 differing=1
+--- (iii) an unrelated rule inserted between the two halves of a split mixed list (App.css logo focus-visible / hover): exit=1
+DIFF app/App.css: group count 52 -> 54
+files=62 groups=1438 differing=1
+ALL THREE MUTATIONS FAILED THE CHECK AS REQUIRED; control passed
