@@ -185,6 +185,12 @@
    `.ui-modal__close` prior to this change. */
 
 .ui-modal__body {
+  /* HEL-1774: the scrolling body is the containing block for absolutely positioned descendants (`.sr-only` text,
+     visually hidden inputs such as the Toggle's). Without it they resolve to the fixed dialog, outside this body's
+     clip and scroll, so one sitting low in an overflowing body stretches the dialog's own scroll extent past its
+     content. `position: relative` creates no stacking context and, unlike `contain` or a transform, is not a
+     containing block for `position: fixed` popovers, so portalled popovers are placed exactly as before. */
+  position: relative;
   flex: 1;
   overflow-y: auto;
   padding: var(--space-5);

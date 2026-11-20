@@ -1,0 +1,188 @@
+[HEL-1774 natural] output-editor 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1957,"clientHeight":611,"contentBottom":1957}}
+[HEL-1774 abs] output-editor 375x812 light [{"el":"input.ui-toggle__input","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1381.09375,"left":56,"width":1,"height":1}},{"el":"span.sr-only","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1530.59375,"left":96,"width":1,"height":1}},{"el":"canvas.
+[HEL-1774 injected] output-editor 375x812 light {"dialog":{"scrollHeight":3622,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":3581,"clientHeight":611,"contentBottom":3581}}
+[HEL-1774 natural] create-pipeline 375x812 light {"dialog":{"scrollHeight":319,"clientHeight":319,"contentBottom":320},"body":{"scrollHeight":201,"clientHeight":201,"contentBottom":201}}
+[HEL-1774 abs] create-pipeline 375x812 light []
+[HEL-1774 injected] create-pipeline 375x812 light {"dialog":{"scrollHeight":1866,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1825,"clientHeight":611,"contentBottom":1825}}
+[HEL-1774 natural] add-source 375x812 light {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":892,"clientHeight":611,"contentBottom":892.1875}}
+[HEL-1774 abs] add-source 375x812 light []
+[HEL-1774 injected] add-source 375x812 light {"dialog":{"scrollHeight":2557,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":2516,"clientHeight":611,"contentBottom":2516.1875}}
+[HEL-1774 natural] pipeline-share 375x812 light {"dialog":{"scrollHeight":403,"clientHeight":403,"contentBottom":403.796875},"body":{"scrollHeight":252,"clientHeight":252,"contentBottom":252}}
+[HEL-1774 abs] pipeline-share 375x812 light []
+[HEL-1774 injected] pipeline-share 375x812 light {"dialog":{"scrollHeight":1950,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1876,"clientHeight":578,"contentBottom":1876}}
+[HEL-1774 natural] pipeline-schedule 375x812 light {"dialog":{"scrollHeight":446,"clientHeight":446,"contentBottom":446.796875},"body":{"scrollHeight":295,"clientHeight":295,"contentBottom":295}}
+[HEL-1774 abs] pipeline-schedule 375x812 light []
+[HEL-1774 injected] pipeline-schedule 375x812 light {"dialog":{"scrollHeight":1993,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1919,"clientHeight":578,"contentBottom":1919}}
+[HEL-1774 natural] panel-detail-edit 375x812 light {"dialog":{"scrollHeight":812,"clientHeight":812,"contentBottom":812},"body":{"scrollHeight":694,"clientHeight":694,"contentBottom":714}}
+[HEL-1774 abs] panel-detail-edit 375x812 light [{"el":"div.panel-detail-modal__scroll-fade","position":"absolute","containingBlock":"div.panel-detail-modal__scroll-area","hidden":false,"rect":{"top":61,"left":0,"width":375,"height":694}}]
+[HEL-1774 injected] panel-detail-edit 375x812 light {"dialog":{"scrollHeight":2359,"clientHeight":812,"contentBottom":812},"body":{"scrollHeight":2318,"clientHeight":694,"contentBottom":2318}}
+[HEL-1774 natural] help-overlay 375x812 light {"dialog":{"scrollHeight":393,"clientHeight":393,"contentBottom":394},"body":{"scrollHeight":332,"clientHeight":332,"contentBottom":332}}
+[HEL-1774 abs] help-overlay 375x812 light []
+[HEL-1774 injected] help-overlay 375x812 light {"dialog":{"scrollHeight":1997,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1956,"clientHeight":668,"contentBottom":1956}}
+  ✘  1 [dev] › e2e/hel1774-modal-scroll-extent.spec.ts:333:11 › HEL-1774 modal scroll extent: 375x812, light › every inventoried modal ends at its content, natural and with an injected hidden element (15.8s)
+[HEL-1774 natural] output-editor 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1957,"clientHeight":611,"contentBottom":1957}}
+[HEL-1774 abs] output-editor 375x812 dark [{"el":"input.ui-toggle__input","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1381.09375,"left":56,"width":1,"height":1}},{"el":"span.sr-only","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1530.59375,"left":96,"width":1,"height":1}},{"el":"canvas."
+[HEL-1774 injected] output-editor 375x812 dark {"dialog":{"scrollHeight":3622,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":3581,"clientHeight":611,"contentBottom":3581}}
+[HEL-1774 natural] create-pipeline 375x812 dark {"dialog":{"scrollHeight":319,"clientHeight":319,"contentBottom":320},"body":{"scrollHeight":201,"clientHeight":201,"contentBottom":201}}
+[HEL-1774 abs] create-pipeline 375x812 dark []
+[HEL-1774 injected] create-pipeline 375x812 dark {"dialog":{"scrollHeight":1866,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1825,"clientHeight":611,"contentBottom":1825}}
+[HEL-1774 natural] add-source 375x812 dark {"dialog":{"scrollHeight":729,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":892,"clientHeight":611,"contentBottom":892.1875}}
+[HEL-1774 abs] add-source 375x812 dark []
+[HEL-1774 injected] add-source 375x812 dark {"dialog":{"scrollHeight":2557,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":2516,"clientHeight":611,"contentBottom":2516.1875}}
+[HEL-1774 natural] pipeline-share 375x812 dark {"dialog":{"scrollHeight":403,"clientHeight":403,"contentBottom":403.796875},"body":{"scrollHeight":252,"clientHeight":252,"contentBottom":252}}
+[HEL-1774 abs] pipeline-share 375x812 dark []
+[HEL-1774 injected] pipeline-share 375x812 dark {"dialog":{"scrollHeight":1950,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1876,"clientHeight":578,"contentBottom":1876}}
+[HEL-1774 natural] pipeline-schedule 375x812 dark {"dialog":{"scrollHeight":446,"clientHeight":446,"contentBottom":446.796875},"body":{"scrollHeight":295,"clientHeight":295,"contentBottom":295}}
+[HEL-1774 abs] pipeline-schedule 375x812 dark []
+[HEL-1774 injected] pipeline-schedule 375x812 dark {"dialog":{"scrollHeight":1993,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1919,"clientHeight":578,"contentBottom":1919}}
+[HEL-1774 natural] panel-detail-edit 375x812 dark {"dialog":{"scrollHeight":812,"clientHeight":812,"contentBottom":812},"body":{"scrollHeight":694,"clientHeight":694,"contentBottom":714}}
+[HEL-1774 abs] panel-detail-edit 375x812 dark [{"el":"div.panel-detail-modal__scroll-fade","position":"absolute","containingBlock":"div.panel-detail-modal__scroll-area","hidden":false,"rect":{"top":61,"left":0,"width":375,"height":694}}]
+[HEL-1774 injected] panel-detail-edit 375x812 dark {"dialog":{"scrollHeight":2359,"clientHeight":812,"contentBottom":812},"body":{"scrollHeight":2318,"clientHeight":694,"contentBottom":2318}}
+[HEL-1774 natural] help-overlay 375x812 dark {"dialog":{"scrollHeight":393,"clientHeight":393,"contentBottom":394},"body":{"scrollHeight":332,"clientHeight":332,"contentBottom":332}}
+[HEL-1774 abs] help-overlay 375x812 dark []
+[HEL-1774 injected] help-overlay 375x812 dark {"dialog":{"scrollHeight":1997,"clientHeight":729,"contentBottom":729.796875},"body":{"scrollHeight":1956,"clientHeight":668,"contentBottom":1956}}
+  ✘  2 [dev] › e2e/hel1774-modal-scroll-extent.spec.ts:333:11 › HEL-1774 modal scroll extent: 375x812, dark › every inventoried modal ends at its content, natural and with an injected hidden element (16.0s)
+[HEL-1774 natural] output-editor 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1957,"clientHeight":640,"contentBottom":1957}}
+[HEL-1774 abs] output-editor 390x844 light [{"el":"input.ui-toggle__input","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1382.703125,"left":56,"width":1,"height":1}},{"el":"span.sr-only","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1532.203125,"left":96,"width":1,"height":1}},{"el":"canva
+[HEL-1774 injected] output-editor 390x844 light {"dialog":{"scrollHeight":3686,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":3645,"clientHeight":640,"contentBottom":3645}}
+[HEL-1774 natural] create-pipeline 390x844 light {"dialog":{"scrollHeight":319,"clientHeight":319,"contentBottom":320},"body":{"scrollHeight":201,"clientHeight":201,"contentBottom":201}}
+[HEL-1774 abs] create-pipeline 390x844 light []
+[HEL-1774 injected] create-pipeline 390x844 light {"dialog":{"scrollHeight":1930,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1889,"clientHeight":640,"contentBottom":1889}}
+[HEL-1774 natural] add-source 390x844 light {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":892,"clientHeight":640,"contentBottom":892.1875}}
+[HEL-1774 abs] add-source 390x844 light []
+[HEL-1774 injected] add-source 390x844 light {"dialog":{"scrollHeight":2621,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":2580,"clientHeight":640,"contentBottom":2580.1875}}
+[HEL-1774 natural] pipeline-share 390x844 light {"dialog":{"scrollHeight":403,"clientHeight":403,"contentBottom":403.796875},"body":{"scrollHeight":252,"clientHeight":252,"contentBottom":252}}
+[HEL-1774 abs] pipeline-share 390x844 light []
+[HEL-1774 injected] pipeline-share 390x844 light {"dialog":{"scrollHeight":2014,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1940,"clientHeight":607,"contentBottom":1940}}
+[HEL-1774 natural] pipeline-schedule 390x844 light {"dialog":{"scrollHeight":446,"clientHeight":446,"contentBottom":446.796875},"body":{"scrollHeight":295,"clientHeight":295,"contentBottom":295}}
+[HEL-1774 abs] pipeline-schedule 390x844 light []
+[HEL-1774 injected] pipeline-schedule 390x844 light {"dialog":{"scrollHeight":2057,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1983,"clientHeight":607,"contentBottom":1983}}
+[HEL-1774 natural] panel-detail-edit 390x844 light {"dialog":{"scrollHeight":844,"clientHeight":844,"contentBottom":844},"body":{"scrollHeight":726,"clientHeight":726,"contentBottom":746}}
+[HEL-1774 abs] panel-detail-edit 390x844 light [{"el":"div.panel-detail-modal__scroll-fade","position":"absolute","containingBlock":"div.panel-detail-modal__scroll-area","hidden":false,"rect":{"top":61,"left":0,"width":390,"height":726}}]
+[HEL-1774 injected] panel-detail-edit 390x844 light {"dialog":{"scrollHeight":2455,"clientHeight":844,"contentBottom":844},"body":{"scrollHeight":2414,"clientHeight":726,"contentBottom":2414}}
+[HEL-1774 natural] help-overlay 390x844 light {"dialog":{"scrollHeight":393,"clientHeight":393,"contentBottom":394},"body":{"scrollHeight":332,"clientHeight":332,"contentBottom":332}}
+[HEL-1774 abs] help-overlay 390x844 light []
+[HEL-1774 injected] help-overlay 390x844 light {"dialog":{"scrollHeight":2061,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":2020,"clientHeight":697,"contentBottom":2020}}
+  ✘  3 [dev] › e2e/hel1774-modal-scroll-extent.spec.ts:333:11 › HEL-1774 modal scroll extent: 390x844, light › every inventoried modal ends at its content, natural and with an injected hidden element (16.0s)
+[HEL-1774 natural] output-editor 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1957,"clientHeight":640,"contentBottom":1957}}
+[HEL-1774 abs] output-editor 390x844 dark [{"el":"input.ui-toggle__input","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1382.703125,"left":56,"width":1,"height":1}},{"el":"span.sr-only","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1532.203125,"left":96,"width":1,"height":1}},{"el":"canvas
+[HEL-1774 injected] output-editor 390x844 dark {"dialog":{"scrollHeight":3686,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":3645,"clientHeight":640,"contentBottom":3645}}
+[HEL-1774 natural] create-pipeline 390x844 dark {"dialog":{"scrollHeight":319,"clientHeight":319,"contentBottom":320},"body":{"scrollHeight":201,"clientHeight":201,"contentBottom":201}}
+[HEL-1774 abs] create-pipeline 390x844 dark []
+[HEL-1774 injected] create-pipeline 390x844 dark {"dialog":{"scrollHeight":1930,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1889,"clientHeight":640,"contentBottom":1889}}
+[HEL-1774 natural] add-source 390x844 dark {"dialog":{"scrollHeight":758,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":892,"clientHeight":640,"contentBottom":892.1875}}
+[HEL-1774 abs] add-source 390x844 dark []
+[HEL-1774 injected] add-source 390x844 dark {"dialog":{"scrollHeight":2621,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":2580,"clientHeight":640,"contentBottom":2580.1875}}
+[HEL-1774 natural] pipeline-share 390x844 dark {"dialog":{"scrollHeight":403,"clientHeight":403,"contentBottom":403.796875},"body":{"scrollHeight":252,"clientHeight":252,"contentBottom":252}}
+[HEL-1774 abs] pipeline-share 390x844 dark []
+[HEL-1774 injected] pipeline-share 390x844 dark {"dialog":{"scrollHeight":2014,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1940,"clientHeight":607,"contentBottom":1940}}
+[HEL-1774 natural] pipeline-schedule 390x844 dark {"dialog":{"scrollHeight":446,"clientHeight":446,"contentBottom":446.796875},"body":{"scrollHeight":295,"clientHeight":295,"contentBottom":295}}
+[HEL-1774 abs] pipeline-schedule 390x844 dark []
+[HEL-1774 injected] pipeline-schedule 390x844 dark {"dialog":{"scrollHeight":2057,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":1983,"clientHeight":607,"contentBottom":1983}}
+[HEL-1774 natural] panel-detail-edit 390x844 dark {"dialog":{"scrollHeight":844,"clientHeight":844,"contentBottom":844},"body":{"scrollHeight":726,"clientHeight":726,"contentBottom":746}}
+[HEL-1774 abs] panel-detail-edit 390x844 dark [{"el":"div.panel-detail-modal__scroll-fade","position":"absolute","containingBlock":"div.panel-detail-modal__scroll-area","hidden":false,"rect":{"top":61,"left":0,"width":390,"height":726}}]
+[HEL-1774 injected] panel-detail-edit 390x844 dark {"dialog":{"scrollHeight":2455,"clientHeight":844,"contentBottom":844},"body":{"scrollHeight":2414,"clientHeight":726,"contentBottom":2414}}
+[HEL-1774 natural] help-overlay 390x844 dark {"dialog":{"scrollHeight":393,"clientHeight":393,"contentBottom":394},"body":{"scrollHeight":332,"clientHeight":332,"contentBottom":332}}
+[HEL-1774 abs] help-overlay 390x844 dark []
+[HEL-1774 injected] help-overlay 390x844 dark {"dialog":{"scrollHeight":2061,"clientHeight":758,"contentBottom":758.59375},"body":{"scrollHeight":2020,"clientHeight":697,"contentBottom":2020}}
+  ✘  4 [dev] › e2e/hel1774-modal-scroll-extent.spec.ts:333:11 › HEL-1774 modal scroll extent: 390x844, dark › every inventoried modal ends at its content, natural and with an injected hidden element (15.9s)
+[HEL-1774 natural] output-editor 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1678,"clientHeight":600,"contentBottom":1678}}
+[HEL-1774 abs] output-editor 1280x800 light [{"el":"input.ui-toggle__input","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1176.5,"left":317,"width":1,"height":1}},{"el":"span.sr-only","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1251,"left":614,"width":1,"height":1}},{"el":"canvas.","posi
+[HEL-1774 injected] output-editor 1280x800 light {"dialog":{"scrollHeight":3319,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":3278,"clientHeight":600,"contentBottom":3278}}
+[HEL-1774 natural] create-pipeline 1280x800 light {"dialog":{"scrollHeight":307,"clientHeight":307,"contentBottom":308},"body":{"scrollHeight":189,"clientHeight":189,"contentBottom":189}}
+[HEL-1774 abs] create-pipeline 1280x800 light []
+[HEL-1774 injected] create-pipeline 1280x800 light {"dialog":{"scrollHeight":1830,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1789,"clientHeight":600,"contentBottom":1789}}
+[HEL-1774 natural] add-source 1280x800 light {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":817,"clientHeight":600,"contentBottom":816.59375}}
+[HEL-1774 abs] add-source 1280x800 light []
+[HEL-1774 injected] add-source 1280x800 light {"dialog":{"scrollHeight":2458,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2417,"clientHeight":600,"contentBottom":2416.59375}}
+[HEL-1774 natural] dashboard-share 1280x800 light {"dialog":{"scrollHeight":580,"clientHeight":580,"contentBottom":580.796875},"body":{"scrollHeight":447,"clientHeight":447,"contentBottom":447}}
+[HEL-1774 abs] dashboard-share 1280x800 light []
+[HEL-1774 injected] dashboard-share 1280x800 light {"dialog":{"scrollHeight":2103,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2047,"clientHeight":585,"contentBottom":2047}}
+[HEL-1774 natural] pipeline-share 1280x800 light {"dialog":{"scrollHeight":373,"clientHeight":373,"contentBottom":373.796875},"body":{"scrollHeight":240,"clientHeight":240,"contentBottom":240}}
+[HEL-1774 abs] pipeline-share 1280x800 light []
+[HEL-1774 injected] pipeline-share 1280x800 light {"dialog":{"scrollHeight":1896,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1840,"clientHeight":585,"contentBottom":1840}}
+[HEL-1774 natural] pipeline-schedule 1280x800 light {"dialog":{"scrollHeight":404,"clientHeight":404,"contentBottom":404.796875},"body":{"scrollHeight":271,"clientHeight":271,"contentBottom":271}}
+[HEL-1774 abs] pipeline-schedule 1280x800 light []
+[HEL-1774 injected] pipeline-schedule 1280x800 light {"dialog":{"scrollHeight":1927,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1871,"clientHeight":585,"contentBottom":1871}}
+[HEL-1774 natural] panel-detail-edit 1280x800 light {"dialog":{"scrollHeight":678,"clientHeight":678,"contentBottom":679},"body":{"scrollHeight":560,"clientHeight":560,"contentBottom":580}}
+[HEL-1774 abs] panel-detail-edit 1280x800 light [{"el":"div.panel-detail-modal__scroll-fade","position":"absolute","containingBlock":"div.panel-detail-modal__scroll-area","hidden":false,"rect":{"top":122,"left":371,"width":538,"height":560}}]
+[HEL-1774 injected] panel-detail-edit 1280x800 light {"dialog":{"scrollHeight":2201,"clientHeight":678,"contentBottom":679},"body":{"scrollHeight":2160,"clientHeight":560,"contentBottom":2160}}
+[HEL-1774 natural] help-overlay 1280x800 light {"dialog":{"scrollHeight":347,"clientHeight":347,"contentBottom":348},"body":{"scrollHeight":286,"clientHeight":286,"contentBottom":286}}
+[HEL-1774 abs] help-overlay 1280x800 light []
+[HEL-1774 injected] help-overlay 1280x800 light {"dialog":{"scrollHeight":1927,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1886,"clientHeight":657,"contentBottom":1886}}
+  ✘  5 [dev] › e2e/hel1774-modal-scroll-extent.spec.ts:333:11 › HEL-1774 modal scroll extent: 1280x800, light › every inventoried modal ends at its content, natural and with an injected hidden element (18.6s)
+[HEL-1774 natural] output-editor 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1678,"clientHeight":600,"contentBottom":1678}}
+[HEL-1774 abs] output-editor 1280x800 dark [{"el":"input.ui-toggle__input","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1176.5,"left":317,"width":1,"height":1}},{"el":"span.sr-only","position":"absolute","containingBlock":"div.output-editor-sheet__group","hidden":true,"rect":{"top":1251,"left":614,"width":1,"height":1}},{"el":"canvas.","posit
+[HEL-1774 injected] output-editor 1280x800 dark {"dialog":{"scrollHeight":3319,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":3278,"clientHeight":600,"contentBottom":3278}}
+[HEL-1774 natural] create-pipeline 1280x800 dark {"dialog":{"scrollHeight":307,"clientHeight":307,"contentBottom":308},"body":{"scrollHeight":189,"clientHeight":189,"contentBottom":189}}
+[HEL-1774 abs] create-pipeline 1280x800 dark []
+[HEL-1774 injected] create-pipeline 1280x800 dark {"dialog":{"scrollHeight":1830,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1789,"clientHeight":600,"contentBottom":1789}}
+[HEL-1774 natural] add-source 1280x800 dark {"dialog":{"scrollHeight":718,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":817,"clientHeight":600,"contentBottom":816.59375}}
+[HEL-1774 abs] add-source 1280x800 dark []
+[HEL-1774 injected] add-source 1280x800 dark {"dialog":{"scrollHeight":2458,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2417,"clientHeight":600,"contentBottom":2416.59375}}
+[HEL-1774 natural] dashboard-share 1280x800 dark {"dialog":{"scrollHeight":580,"clientHeight":580,"contentBottom":580.796875},"body":{"scrollHeight":447,"clientHeight":447,"contentBottom":447}}
+[HEL-1774 abs] dashboard-share 1280x800 dark []
+[HEL-1774 injected] dashboard-share 1280x800 dark {"dialog":{"scrollHeight":2103,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":2047,"clientHeight":585,"contentBottom":2047}}
+[HEL-1774 natural] pipeline-share 1280x800 dark {"dialog":{"scrollHeight":373,"clientHeight":373,"contentBottom":373.796875},"body":{"scrollHeight":240,"clientHeight":240,"contentBottom":240}}
+[HEL-1774 abs] pipeline-share 1280x800 dark []
+[HEL-1774 injected] pipeline-share 1280x800 dark {"dialog":{"scrollHeight":1896,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1840,"clientHeight":585,"contentBottom":1840}}
+[HEL-1774 natural] pipeline-schedule 1280x800 dark {"dialog":{"scrollHeight":404,"clientHeight":404,"contentBottom":404.796875},"body":{"scrollHeight":271,"clientHeight":271,"contentBottom":271}}
+[HEL-1774 abs] pipeline-schedule 1280x800 dark []
+[HEL-1774 injected] pipeline-schedule 1280x800 dark {"dialog":{"scrollHeight":1927,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1871,"clientHeight":585,"contentBottom":1871}}
+[HEL-1774 natural] panel-detail-edit 1280x800 dark {"dialog":{"scrollHeight":678,"clientHeight":678,"contentBottom":679},"body":{"scrollHeight":560,"clientHeight":560,"contentBottom":580}}
+[HEL-1774 abs] panel-detail-edit 1280x800 dark [{"el":"div.panel-detail-modal__scroll-fade","position":"absolute","containingBlock":"div.panel-detail-modal__scroll-area","hidden":false,"rect":{"top":122,"left":371,"width":538,"height":560}}]
+[HEL-1774 injected] panel-detail-edit 1280x800 dark {"dialog":{"scrollHeight":2201,"clientHeight":678,"contentBottom":679},"body":{"scrollHeight":2160,"clientHeight":560,"contentBottom":2160}}
+[HEL-1774 natural] help-overlay 1280x800 dark {"dialog":{"scrollHeight":347,"clientHeight":347,"contentBottom":348},"body":{"scrollHeight":286,"clientHeight":286,"contentBottom":286}}
+[HEL-1774 abs] help-overlay 1280x800 dark []
+[HEL-1774 injected] help-overlay 1280x800 dark {"dialog":{"scrollHeight":1927,"clientHeight":718,"contentBottom":719},"body":{"scrollHeight":1886,"clientHeight":657,"contentBottom":1886}}
+  ✘  6 [dev] › e2e/hel1774-modal-scroll-extent.spec.ts:333:11 › HEL-1774 modal scroll extent: 1280x800, dark › every inventoried modal ends at its content, natural and with an injected hidden element (18.5s)
+[HEL-1774 popover] 375 {"trigger":{"x":40,"y":319.890625,"width":295,"height":44},"listbox":{"x":40,"y":367.890625,"width":295,"height":98}}
+  ✓  7 [dev] › e2e/hel1774-modal-scroll-extent.spec.ts:381:9 › HEL-1774 popover inside a modal: 375x812 › the Select listbox opens adjacent to its trigger (4.3s)
+[HEL-1774 popover] 1280 {"trigger":{"x":451,"y":316.890625,"width":378,"height":32},"listbox":{"x":451,"y":352.890625,"width":378,"height":78}}
+  ✓  8 [dev] › e2e/hel1774-modal-scroll-extent.spec.ts:381:9 › HEL-1774 popover inside a modal: 1280x800 › the Select listbox opens adjacent to its trigger (4.3s)
+    Error: output-editor 375x812 light injected: dialog scrollHeight 3622 vs content bottom 729.796875
+    create-pipeline 375x812 light injected: dialog scrollHeight 1866 vs content bottom 729.796875
+    add-source 375x812 light injected: dialog scrollHeight 2557 vs content bottom 729.796875
+    pipeline-share 375x812 light injected: dialog scrollHeight 1950 vs content bottom 729.796875
+    pipeline-schedule 375x812 light injected: dialog scrollHeight 1993 vs content bottom 729.796875
+    panel-detail-edit 375x812 light injected: dialog scrollHeight 2359 vs content bottom 812
+    help-overlay 375x812 light injected: dialog scrollHeight 1997 vs content bottom 729.796875
+    Error: output-editor 375x812 dark injected: dialog scrollHeight 3622 vs content bottom 729.796875
+    create-pipeline 375x812 dark injected: dialog scrollHeight 1866 vs content bottom 729.796875
+    add-source 375x812 dark injected: dialog scrollHeight 2557 vs content bottom 729.796875
+    pipeline-share 375x812 dark injected: dialog scrollHeight 1950 vs content bottom 729.796875
+    pipeline-schedule 375x812 dark injected: dialog scrollHeight 1993 vs content bottom 729.796875
+    panel-detail-edit 375x812 dark injected: dialog scrollHeight 2359 vs content bottom 812
+    help-overlay 375x812 dark injected: dialog scrollHeight 1997 vs content bottom 729.796875
+    Error: output-editor 390x844 light injected: dialog scrollHeight 3686 vs content bottom 758.59375
+    create-pipeline 390x844 light injected: dialog scrollHeight 1930 vs content bottom 758.59375
+    add-source 390x844 light injected: dialog scrollHeight 2621 vs content bottom 758.59375
+    pipeline-share 390x844 light injected: dialog scrollHeight 2014 vs content bottom 758.59375
+    pipeline-schedule 390x844 light injected: dialog scrollHeight 2057 vs content bottom 758.59375
+    panel-detail-edit 390x844 light injected: dialog scrollHeight 2455 vs content bottom 844
+    help-overlay 390x844 light injected: dialog scrollHeight 2061 vs content bottom 758.59375
+    Error: output-editor 390x844 dark injected: dialog scrollHeight 3686 vs content bottom 758.59375
+    create-pipeline 390x844 dark injected: dialog scrollHeight 1930 vs content bottom 758.59375
+    add-source 390x844 dark injected: dialog scrollHeight 2621 vs content bottom 758.59375
+    pipeline-share 390x844 dark injected: dialog scrollHeight 2014 vs content bottom 758.59375
+    pipeline-schedule 390x844 dark injected: dialog scrollHeight 2057 vs content bottom 758.59375
+    panel-detail-edit 390x844 dark injected: dialog scrollHeight 2455 vs content bottom 844
+    help-overlay 390x844 dark injected: dialog scrollHeight 2061 vs content bottom 758.59375
+    Error: output-editor 1280x800 light injected: dialog scrollHeight 3319 vs content bottom 719
+    create-pipeline 1280x800 light injected: dialog scrollHeight 1830 vs content bottom 719
+    add-source 1280x800 light injected: dialog scrollHeight 2458 vs content bottom 719
+    dashboard-share 1280x800 light injected: dialog scrollHeight 2103 vs content bottom 719
+    pipeline-share 1280x800 light injected: dialog scrollHeight 1896 vs content bottom 719
+    pipeline-schedule 1280x800 light injected: dialog scrollHeight 1927 vs content bottom 719
+    panel-detail-edit 1280x800 light injected: dialog scrollHeight 2201 vs content bottom 679
+    help-overlay 1280x800 light injected: dialog scrollHeight 1927 vs content bottom 719
+    Error: output-editor 1280x800 dark injected: dialog scrollHeight 3319 vs content bottom 719
+    create-pipeline 1280x800 dark injected: dialog scrollHeight 1830 vs content bottom 719
+    add-source 1280x800 dark injected: dialog scrollHeight 2458 vs content bottom 719
+    dashboard-share 1280x800 dark injected: dialog scrollHeight 2103 vs content bottom 719
+    pipeline-share 1280x800 dark injected: dialog scrollHeight 1896 vs content bottom 719
+    pipeline-schedule 1280x800 dark injected: dialog scrollHeight 1927 vs content bottom 719
+    panel-detail-edit 1280x800 dark injected: dialog scrollHeight 2201 vs content bottom 679
+    help-overlay 1280x800 dark injected: dialog scrollHeight 1927 vs content bottom 719
+  6 failed
+  2 passed (1.9m)
