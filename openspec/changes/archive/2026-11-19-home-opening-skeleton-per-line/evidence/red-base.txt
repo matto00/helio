@@ -1,0 +1,1351 @@
+
+Running 44 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1749-fr375light-1795146642561-59246@example.com
+[HEL-1300 e2e] throwaway user: hel1749-fr320light-1795146642561-26149@example.com
+  ✘   1 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 375px: one painted bar fragment per line of the hidden sentence (4.6s)
+  ✘   2 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 320px: one painted bar fragment per line of the hidden sentence (4.6s)
+[HEL-1300 e2e] throwaway user: hel1749-fr431light-1795146647595-80543@example.com
+[HEL-1300 e2e] throwaway user: hel1749-fr430light-1795146647595-63976@example.com
+  ✘   3 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 431px: one painted bar fragment per line of the hidden sentence (4.5s)
+  ✘   4 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 430px: one painted bar fragment per line of the hidden sentence (4.6s)
+[HEL-1300 e2e] throwaway user: hel1749-fr540light-1795146652644-49317@example.com
+[HEL-1300 e2e] throwaway user: hel1749-fr480light-1795146652644-96807@example.com
+  ✘   6 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 540px: one painted bar fragment per line of the hidden sentence (4.3s)
+  ✘   5 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 480px: one painted bar fragment per line of the hidden sentence (4.3s)
+[HEL-1300 e2e] throwaway user: hel1749-fr604light-1795146657566-3296@example.com
+[HEL-1300 e2e] throwaway user: hel1749-fr605light-1795146657566-88846@example.com
+  ✘   7 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 604px: one painted bar fragment per line of the hidden sentence (4.8s)
+  ✘   8 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 605px: one painted bar fragment per line of the hidden sentence (5.0s)
+[HEL-1300 e2e] throwaway user: hel1749-fr1024light-1795146662585-65679@example.com
+[HEL-1300 e2e] throwaway user: hel1749-fr1280light-1795146662693-60358@example.com
+  ✘   9 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 1024px: one painted bar fragment per line of the hidden sentence (4.5s)
+  ✘  10 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 1280px: one painted bar fragment per line of the hidden sentence (4.5s)
+[HEL-1300 e2e] throwaway user: hel1749-geo320light-1795146667628-17384@example.com
+[HEL-1300 e2e] throwaway user: hel1749-geo375light-1795146667699-90343@example.com
+  ✘  11 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 320px: bars are 0.8em thick, >= 8px apart, with rounded ends (4.6s)
+  ✘  12 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 375px: bars are 0.8em thick, >= 8px apart, with rounded ends (4.5s)
+[HEL-1300 e2e] throwaway user: hel1749-geo430light-1795146672680-75478@example.com
+[HEL-1300 e2e] throwaway user: hel1749-geo431light-1795146672730-90301@example.com
+  ✘  13 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 430px: bars are 0.8em thick, >= 8px apart, with rounded ends (4.6s)
+  ✘  14 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 431px: bars are 0.8em thick, >= 8px apart, with rounded ends (4.6s)
+[HEL-1300 e2e] throwaway user: hel1749-geo480light-1795146677803-17871@example.com
+[HEL-1300 e2e] throwaway user: hel1749-geo500light-1795146677872-36873@example.com
+  ✘  15 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 480px: bars are 0.8em thick, >= 8px apart, with rounded ends (4.5s)
+  ✘  16 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 500px: bars are 0.8em thick, >= 8px apart, with rounded ends (4.5s)
+[HEL-1300 e2e] throwaway user: hel1749-geo604light-1795146682836-49493@example.com
+[HEL-1300 e2e] throwaway user: hel1749-onelight-1795146682836-20903@example.com
+  ✘  17 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 604px: bars are 0.8em thick, >= 8px apart, with rounded ends (4.5s)
+  ✘  18 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:266:9 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 1280px: one bar spans the one-line sentence (4.5s)
+[HEL-1300 e2e] throwaway user: hel1749-rmoslight-1795146687740-47188@example.com
+[HEL-1300 e2e] throwaway user: hel1749-rmofflight-1795146687816-77098@example.com
+  ✘  19 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:277:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light reduced motion (os): flat fill, still one bar per line (4.2s)
+  ✘  20 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:277:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light reduced motion (off): flat fill, still one bar per line (4.4s)
+[HEL-1300 e2e] throwaway user: hel1749-seriflight-1795146692338-56657@example.com
+[HEL-1300 e2e] throwaway user: hel1749-monolight-1795146692587-694@example.com
+  ✘  21 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:318:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light serif 1280px: one fragment per line (4.6s)
+  ✘  22 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:318:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light mono 1280px: one fragment per line (4.5s)
+[HEL-1300 e2e] throwaway user: hel1749-fr320dark-1795146697540-10330@example.com
+[HEL-1300 e2e] throwaway user: hel1749-fr375dark-1795146697704-26376@example.com
+  ✘  23 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 320px: one painted bar fragment per line of the hidden sentence (4.4s)
+  ✘  24 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 375px: one painted bar fragment per line of the hidden sentence (4.3s)
+[HEL-1300 e2e] throwaway user: hel1749-fr430dark-1795146702495-25457@example.com
+[HEL-1300 e2e] throwaway user: hel1749-fr431dark-1795146702606-74803@example.com
+  ✘  26 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 431px: one painted bar fragment per line of the hidden sentence (4.8s)
+  ✘  25 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 430px: one painted bar fragment per line of the hidden sentence (5.2s)
+[HEL-1300 e2e] throwaway user: hel1749-fr480dark-1795146707758-50076@example.com
+[HEL-1300 e2e] throwaway user: hel1749-fr540dark-1795146708096-41272@example.com
+  ✘  27 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 480px: one painted bar fragment per line of the hidden sentence (4.5s)
+  ✘  28 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 540px: one painted bar fragment per line of the hidden sentence (4.4s)
+[HEL-1300 e2e] throwaway user: hel1749-fr604dark-1795146712785-32656@example.com
+[HEL-1300 e2e] throwaway user: hel1749-fr605dark-1795146713037-38946@example.com
+  ✘  29 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 604px: one painted bar fragment per line of the hidden sentence (4.5s)
+  ✘  30 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 605px: one painted bar fragment per line of the hidden sentence (4.4s)
+[HEL-1300 e2e] throwaway user: hel1749-fr1024dark-1795146717818-39673@example.com
+[HEL-1300 e2e] throwaway user: hel1749-fr1280dark-1795146717961-79657@example.com
+  ✘  31 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 1024px: one painted bar fragment per line of the hidden sentence (4.5s)
+  ✘  32 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 1280px: one painted bar fragment per line of the hidden sentence (4.5s)
+[HEL-1300 e2e] throwaway user: hel1749-geo320dark-1795146722838-18571@example.com
+[HEL-1300 e2e] throwaway user: hel1749-geo375dark-1795146722941-96918@example.com
+  ✘  33 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 320px: bars are 0.8em thick, >= 8px apart, with rounded ends (4.4s)
+  ✘  34 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 375px: bars are 0.8em thick, >= 8px apart, with rounded ends (4.3s)
+[HEL-1300 e2e] throwaway user: hel1749-geo430dark-1795146727777-43803@example.com
+[HEL-1300 e2e] throwaway user: hel1749-geo431dark-1795146727845-75235@example.com
+  ✘  35 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 430px: bars are 0.8em thick, >= 8px apart, with rounded ends (4.7s)
+  ✘  36 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 431px: bars are 0.8em thick, >= 8px apart, with rounded ends (4.6s)
+[HEL-1300 e2e] throwaway user: hel1749-geo480dark-1795146732899-23603@example.com
+[HEL-1300 e2e] throwaway user: hel1749-geo500dark-1795146732899-67932@example.com
+  ✘  37 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 480px: bars are 0.8em thick, >= 8px apart, with rounded ends (4.3s)
+  ✘  38 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 500px: bars are 0.8em thick, >= 8px apart, with rounded ends (4.3s)
+[HEL-1300 e2e] throwaway user: hel1749-geo604dark-1795146737646-61852@example.com
+[HEL-1300 e2e] throwaway user: hel1749-onedark-1795146737695-48607@example.com
+  ✘  39 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 604px: bars are 0.8em thick, >= 8px apart, with rounded ends (4.5s)
+  ✘  40 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:266:9 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 1280px: one bar spans the one-line sentence (4.5s)
+[HEL-1300 e2e] throwaway user: hel1749-rmoffdark-1795146742749-7558@example.com
+[HEL-1300 e2e] throwaway user: hel1749-rmosdark-1795146742751-91812@example.com
+  ✘  42 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:277:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark reduced motion (os): flat fill, still one bar per line (4.3s)
+  ✘  41 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:277:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark reduced motion (off): flat fill, still one bar per line (4.5s)
+[HEL-1300 e2e] throwaway user: hel1749-serifdark-1795146747351-23259@example.com
+[HEL-1300 e2e] throwaway user: hel1749-monodark-1795146747509-60394@example.com
+  ✘  43 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:318:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark serif 1280px: one fragment per line (4.7s)
+  ✘  44 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:318:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark mono 1280px: one fragment per line (4.7s)
+[HEL-1301 e2e] deleted 44 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 320px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-fd793-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-fd793-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-fd793-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 375px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-4d7b7-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-4d7b7-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-4d7b7-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 430px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-c8dac-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-c8dac-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-c8dac-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 431px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-01f33-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-01f33-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-01f33-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 480px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-a9e3d-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-a9e3d-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-a9e3d-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 540px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-d15ba-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-d15ba-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-d15ba-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 604px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-c75a1-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-c75a1-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-c75a1-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  8) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 605px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m1[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-feff1-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-feff1-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-feff1-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  9) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 1024px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m1[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-31e1d-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-31e1d-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-31e1d-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  10) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 1280px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m1[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-85b21-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-85b21-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-85b21-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  11) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 320px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+
+    Error: the placeholder has bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      179 | async function expectBarLook(page: Page, width: number) {
+      180 |   const p = await probe(page);
+    > 181 |   expect(p.frags.length, "the placeholder has bar fragments").toBeGreaterThan(0);
+          |                                                               ^
+      182 |   const bars = await paintedBars(page, p, width);
+      183 |   expect(bars.length).toBe(p.frags.length);
+      184 |   for (const bar of bars) {
+        at expectBarLook (/home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:181:63)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:256:9
+
+    Error Context: test-results/hel1749-home-opening-skele-49800-8px-apart-with-rounded-ends-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-49800-8px-apart-with-rounded-ends-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-49800-8px-apart-with-rounded-ends-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  12) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 375px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+
+    Error: the placeholder has bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      179 | async function expectBarLook(page: Page, width: number) {
+      180 |   const p = await probe(page);
+    > 181 |   expect(p.frags.length, "the placeholder has bar fragments").toBeGreaterThan(0);
+          |                                                               ^
+      182 |   const bars = await paintedBars(page, p, width);
+      183 |   expect(bars.length).toBe(p.frags.length);
+      184 |   for (const bar of bars) {
+        at expectBarLook (/home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:181:63)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:256:9
+
+    Error Context: test-results/hel1749-home-opening-skele-7a0a6-8px-apart-with-rounded-ends-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-7a0a6-8px-apart-with-rounded-ends-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-7a0a6-8px-apart-with-rounded-ends-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  13) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 430px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+
+    Error: the placeholder has bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      179 | async function expectBarLook(page: Page, width: number) {
+      180 |   const p = await probe(page);
+    > 181 |   expect(p.frags.length, "the placeholder has bar fragments").toBeGreaterThan(0);
+          |                                                               ^
+      182 |   const bars = await paintedBars(page, p, width);
+      183 |   expect(bars.length).toBe(p.frags.length);
+      184 |   for (const bar of bars) {
+        at expectBarLook (/home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:181:63)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:256:9
+
+    Error Context: test-results/hel1749-home-opening-skele-220c3-8px-apart-with-rounded-ends-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-220c3-8px-apart-with-rounded-ends-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-220c3-8px-apart-with-rounded-ends-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  14) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 431px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+
+    Error: the placeholder has bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      179 | async function expectBarLook(page: Page, width: number) {
+      180 |   const p = await probe(page);
+    > 181 |   expect(p.frags.length, "the placeholder has bar fragments").toBeGreaterThan(0);
+          |                                                               ^
+      182 |   const bars = await paintedBars(page, p, width);
+      183 |   expect(bars.length).toBe(p.frags.length);
+      184 |   for (const bar of bars) {
+        at expectBarLook (/home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:181:63)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:256:9
+
+    Error Context: test-results/hel1749-home-opening-skele-f4358-8px-apart-with-rounded-ends-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-f4358-8px-apart-with-rounded-ends-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-f4358-8px-apart-with-rounded-ends-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  15) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 480px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+
+    Error: the placeholder has bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      179 | async function expectBarLook(page: Page, width: number) {
+      180 |   const p = await probe(page);
+    > 181 |   expect(p.frags.length, "the placeholder has bar fragments").toBeGreaterThan(0);
+          |                                                               ^
+      182 |   const bars = await paintedBars(page, p, width);
+      183 |   expect(bars.length).toBe(p.frags.length);
+      184 |   for (const bar of bars) {
+        at expectBarLook (/home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:181:63)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:256:9
+
+    Error Context: test-results/hel1749-home-opening-skele-fe870-8px-apart-with-rounded-ends-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-fe870-8px-apart-with-rounded-ends-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-fe870-8px-apart-with-rounded-ends-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  16) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 500px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+
+    Error: the placeholder has bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      179 | async function expectBarLook(page: Page, width: number) {
+      180 |   const p = await probe(page);
+    > 181 |   expect(p.frags.length, "the placeholder has bar fragments").toBeGreaterThan(0);
+          |                                                               ^
+      182 |   const bars = await paintedBars(page, p, width);
+      183 |   expect(bars.length).toBe(p.frags.length);
+      184 |   for (const bar of bars) {
+        at expectBarLook (/home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:181:63)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:256:9
+
+    Error Context: test-results/hel1749-home-opening-skele-f30ad-8px-apart-with-rounded-ends-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-f30ad-8px-apart-with-rounded-ends-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-f30ad-8px-apart-with-rounded-ends-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  17) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 604px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+
+    Error: the placeholder has bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      179 | async function expectBarLook(page: Page, width: number) {
+      180 |   const p = await probe(page);
+    > 181 |   expect(p.frags.length, "the placeholder has bar fragments").toBeGreaterThan(0);
+          |                                                               ^
+      182 |   const bars = await paintedBars(page, p, width);
+      183 |   expect(bars.length).toBe(p.frags.length);
+      184 |   for (const bar of bars) {
+        at expectBarLook (/home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:181:63)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:256:9
+
+    Error Context: test-results/hel1749-home-opening-skele-b2c36-8px-apart-with-rounded-ends-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-b2c36-8px-apart-with-rounded-ends-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-b2c36-8px-apart-with-rounded-ends-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  18) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:266:9 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 1280px: one bar spans the one-line sentence 
+
+    Error: the placeholder has bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      179 | async function expectBarLook(page: Page, width: number) {
+      180 |   const p = await probe(page);
+    > 181 |   expect(p.frags.length, "the placeholder has bar fragments").toBeGreaterThan(0);
+          |                                                               ^
+      182 |   const bars = await paintedBars(page, p, width);
+      183 |   expect(bars.length).toBe(p.frags.length);
+      184 |   for (const bar of bars) {
+        at expectBarLook (/home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:181:63)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:271:21
+
+    Error Context: test-results/hel1749-home-opening-skele-66b34-spans-the-one-line-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-66b34-spans-the-one-line-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-66b34-spans-the-one-line-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  19) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:277:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light reduced motion (os): flat fill, still one bar per line 
+
+    Error: page.evaluate: TypeError: Failed to execute 'getComputedStyle' on 'Window': parameter 1 is not of type 'Element'.
+        at eval (eval at evaluate (:291:30), <anonymous>:3:22)
+        at UtilityScript.evaluate (<anonymous>:293:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at eval (eval at evaluate (:291:30), <anonymous>:3:22)
+        at UtilityScript.evaluate (<anonymous>:293:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:288:34
+
+    Error Context: test-results/hel1749-home-opening-skele-2a795-fill-still-one-bar-per-line-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-2a795-fill-still-one-bar-per-line-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-2a795-fill-still-one-bar-per-line-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  20) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:277:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light reduced motion (off): flat fill, still one bar per line 
+
+    Error: page.evaluate: TypeError: Failed to execute 'getComputedStyle' on 'Window': parameter 1 is not of type 'Element'.
+        at eval (eval at evaluate (:291:30), <anonymous>:3:22)
+        at UtilityScript.evaluate (<anonymous>:293:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at eval (eval at evaluate (:291:30), <anonymous>:3:22)
+        at UtilityScript.evaluate (<anonymous>:293:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:288:34
+
+    Error Context: test-results/hel1749-home-opening-skele-b8f4e-fill-still-one-bar-per-line-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-b8f4e-fill-still-one-bar-per-line-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-b8f4e-fill-still-one-bar-per-line-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  21) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:318:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light serif 1280px: one fragment per line 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m1[39m
+    Received: [31m0[39m
+
+      326 |         await page.waitForTimeout(300);
+      327 |         const p = await probe(page);
+    > 328 |         expect(p.frags.length).toBe(lineCount(p));
+          |                                ^
+      329 |         await expectBarLook(page, 1280);
+      330 |       });
+      331 |     }
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:328:32
+
+    Error Context: test-results/hel1749-home-opening-skele-25471-280px-one-fragment-per-line-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-25471-280px-one-fragment-per-line-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-25471-280px-one-fragment-per-line-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  22) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:318:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light mono 1280px: one fragment per line 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m0[39m
+
+      326 |         await page.waitForTimeout(300);
+      327 |         const p = await probe(page);
+    > 328 |         expect(p.frags.length).toBe(lineCount(p));
+          |                                ^
+      329 |         await expectBarLook(page, 1280);
+      330 |       });
+      331 |     }
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:328:32
+
+    Error Context: test-results/hel1749-home-opening-skele-a5269-280px-one-fragment-per-line-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-a5269-280px-one-fragment-per-line-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-a5269-280px-one-fragment-per-line-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  23) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 320px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-0ae33-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-0ae33-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-0ae33-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  24) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 375px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-c0164-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-c0164-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-c0164-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  25) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 430px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-7fde5-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-7fde5-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-7fde5-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  26) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 431px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-f73ba-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-f73ba-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-f73ba-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  27) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 480px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-5e9d7-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-5e9d7-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-5e9d7-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  28) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 540px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-9a492-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-9a492-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-9a492-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  29) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 604px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-7155f-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-7155f-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-7155f-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  30) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 605px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m1[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-d7e03-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-d7e03-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-d7e03-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  31) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 1024px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m1[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-c6ea1-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-c6ea1-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-c6ea1-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  32) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 1280px: one painted bar fragment per line of the hidden sentence 
+
+    Error: bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m1[39m
+    Received: [31m0[39m
+
+      209 |         await openPlaceholder(page, request, theme, width, `fr${width}${theme}`);
+      210 |         const p = await probe(page);
+    > 211 |         expect(p.frags.length, "bar fragments").toBe(lineCount(p));
+          |                                                 ^
+      212 |         for (const f of p.frags) expect(f.w).toBeGreaterThan(0);
+      213 |         if (width === 431 || width === 604) expect(p.frags.length).toBe(2);
+      214 |         if (width === 605 || width === 1280) expect(p.frags.length).toBe(1);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:211:49
+
+    Error Context: test-results/hel1749-home-opening-skele-cb1f2-line-of-the-hidden-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-cb1f2-line-of-the-hidden-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-cb1f2-line-of-the-hidden-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  33) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 320px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+
+    Error: the placeholder has bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      179 | async function expectBarLook(page: Page, width: number) {
+      180 |   const p = await probe(page);
+    > 181 |   expect(p.frags.length, "the placeholder has bar fragments").toBeGreaterThan(0);
+          |                                                               ^
+      182 |   const bars = await paintedBars(page, p, width);
+      183 |   expect(bars.length).toBe(p.frags.length);
+      184 |   for (const bar of bars) {
+        at expectBarLook (/home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:181:63)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:256:9
+
+    Error Context: test-results/hel1749-home-opening-skele-3b5f2-8px-apart-with-rounded-ends-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-3b5f2-8px-apart-with-rounded-ends-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-3b5f2-8px-apart-with-rounded-ends-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  34) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 375px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+
+    Error: the placeholder has bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      179 | async function expectBarLook(page: Page, width: number) {
+      180 |   const p = await probe(page);
+    > 181 |   expect(p.frags.length, "the placeholder has bar fragments").toBeGreaterThan(0);
+          |                                                               ^
+      182 |   const bars = await paintedBars(page, p, width);
+      183 |   expect(bars.length).toBe(p.frags.length);
+      184 |   for (const bar of bars) {
+        at expectBarLook (/home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:181:63)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:256:9
+
+    Error Context: test-results/hel1749-home-opening-skele-22e73-8px-apart-with-rounded-ends-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-22e73-8px-apart-with-rounded-ends-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-22e73-8px-apart-with-rounded-ends-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  35) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 430px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+
+    Error: the placeholder has bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      179 | async function expectBarLook(page: Page, width: number) {
+      180 |   const p = await probe(page);
+    > 181 |   expect(p.frags.length, "the placeholder has bar fragments").toBeGreaterThan(0);
+          |                                                               ^
+      182 |   const bars = await paintedBars(page, p, width);
+      183 |   expect(bars.length).toBe(p.frags.length);
+      184 |   for (const bar of bars) {
+        at expectBarLook (/home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:181:63)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:256:9
+
+    Error Context: test-results/hel1749-home-opening-skele-7222d-8px-apart-with-rounded-ends-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-7222d-8px-apart-with-rounded-ends-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-7222d-8px-apart-with-rounded-ends-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  36) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 431px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+
+    Error: the placeholder has bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      179 | async function expectBarLook(page: Page, width: number) {
+      180 |   const p = await probe(page);
+    > 181 |   expect(p.frags.length, "the placeholder has bar fragments").toBeGreaterThan(0);
+          |                                                               ^
+      182 |   const bars = await paintedBars(page, p, width);
+      183 |   expect(bars.length).toBe(p.frags.length);
+      184 |   for (const bar of bars) {
+        at expectBarLook (/home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:181:63)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:256:9
+
+    Error Context: test-results/hel1749-home-opening-skele-a7980-8px-apart-with-rounded-ends-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-a7980-8px-apart-with-rounded-ends-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-a7980-8px-apart-with-rounded-ends-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  37) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 480px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+
+    Error: the placeholder has bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      179 | async function expectBarLook(page: Page, width: number) {
+      180 |   const p = await probe(page);
+    > 181 |   expect(p.frags.length, "the placeholder has bar fragments").toBeGreaterThan(0);
+          |                                                               ^
+      182 |   const bars = await paintedBars(page, p, width);
+      183 |   expect(bars.length).toBe(p.frags.length);
+      184 |   for (const bar of bars) {
+        at expectBarLook (/home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:181:63)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:256:9
+
+    Error Context: test-results/hel1749-home-opening-skele-2ea75-8px-apart-with-rounded-ends-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-2ea75-8px-apart-with-rounded-ends-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-2ea75-8px-apart-with-rounded-ends-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  38) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 500px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+
+    Error: the placeholder has bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      179 | async function expectBarLook(page: Page, width: number) {
+      180 |   const p = await probe(page);
+    > 181 |   expect(p.frags.length, "the placeholder has bar fragments").toBeGreaterThan(0);
+          |                                                               ^
+      182 |   const bars = await paintedBars(page, p, width);
+      183 |   expect(bars.length).toBe(p.frags.length);
+      184 |   for (const bar of bars) {
+        at expectBarLook (/home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:181:63)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:256:9
+
+    Error Context: test-results/hel1749-home-opening-skele-81285-8px-apart-with-rounded-ends-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-81285-8px-apart-with-rounded-ends-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-81285-8px-apart-with-rounded-ends-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  39) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 604px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+
+    Error: the placeholder has bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      179 | async function expectBarLook(page: Page, width: number) {
+      180 |   const p = await probe(page);
+    > 181 |   expect(p.frags.length, "the placeholder has bar fragments").toBeGreaterThan(0);
+          |                                                               ^
+      182 |   const bars = await paintedBars(page, p, width);
+      183 |   expect(bars.length).toBe(p.frags.length);
+      184 |   for (const bar of bars) {
+        at expectBarLook (/home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:181:63)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:256:9
+
+    Error Context: test-results/hel1749-home-opening-skele-303c6-8px-apart-with-rounded-ends-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-303c6-8px-apart-with-rounded-ends-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-303c6-8px-apart-with-rounded-ends-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  40) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:266:9 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 1280px: one bar spans the one-line sentence 
+
+    Error: the placeholder has bar fragments
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThan[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: > [32m0[39m
+    Received:   [31m0[39m
+
+      179 | async function expectBarLook(page: Page, width: number) {
+      180 |   const p = await probe(page);
+    > 181 |   expect(p.frags.length, "the placeholder has bar fragments").toBeGreaterThan(0);
+          |                                                               ^
+      182 |   const bars = await paintedBars(page, p, width);
+      183 |   expect(bars.length).toBe(p.frags.length);
+      184 |   for (const bar of bars) {
+        at expectBarLook (/home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:181:63)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:271:21
+
+    Error Context: test-results/hel1749-home-opening-skele-3dd70-spans-the-one-line-sentence-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-3dd70-spans-the-one-line-sentence-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-3dd70-spans-the-one-line-sentence-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  41) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:277:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark reduced motion (os): flat fill, still one bar per line 
+
+    Error: page.evaluate: TypeError: Failed to execute 'getComputedStyle' on 'Window': parameter 1 is not of type 'Element'.
+        at eval (eval at evaluate (:291:30), <anonymous>:3:22)
+        at UtilityScript.evaluate (<anonymous>:293:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at eval (eval at evaluate (:291:30), <anonymous>:3:22)
+        at UtilityScript.evaluate (<anonymous>:293:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:288:34
+
+    Error Context: test-results/hel1749-home-opening-skele-b8c6a-fill-still-one-bar-per-line-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-b8c6a-fill-still-one-bar-per-line-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-b8c6a-fill-still-one-bar-per-line-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  42) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:277:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark reduced motion (off): flat fill, still one bar per line 
+
+    Error: page.evaluate: TypeError: Failed to execute 'getComputedStyle' on 'Window': parameter 1 is not of type 'Element'.
+        at eval (eval at evaluate (:291:30), <anonymous>:3:22)
+        at UtilityScript.evaluate (<anonymous>:293:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at eval (eval at evaluate (:291:30), <anonymous>:3:22)
+        at UtilityScript.evaluate (<anonymous>:293:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:288:34
+
+    Error Context: test-results/hel1749-home-opening-skele-3e61f-fill-still-one-bar-per-line-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-3e61f-fill-still-one-bar-per-line-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-3e61f-fill-still-one-bar-per-line-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  43) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:318:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark serif 1280px: one fragment per line 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m1[39m
+    Received: [31m0[39m
+
+      326 |         await page.waitForTimeout(300);
+      327 |         const p = await probe(page);
+    > 328 |         expect(p.frags.length).toBe(lineCount(p));
+          |                                ^
+      329 |         await expectBarLook(page, 1280);
+      330 |       });
+      331 |     }
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:328:32
+
+    Error Context: test-results/hel1749-home-opening-skele-ff715-280px-one-fragment-per-line-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-ff715-280px-one-fragment-per-line-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-ff715-280px-one-fragment-per-line-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  44) [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:318:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark mono 1280px: one fragment per line 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m2[39m
+    Received: [31m0[39m
+
+      326 |         await page.waitForTimeout(300);
+      327 |         const p = await probe(page);
+    > 328 |         expect(p.frags.length).toBe(lineCount(p));
+          |                                ^
+      329 |         await expectBarLook(page, 1280);
+      330 |       });
+      331 |     }
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-opening-skeleton-per-line/HEL-1749/e2e/hel1749-home-opening-skeleton-lines.spec.ts:328:32
+
+    Error Context: test-results/hel1749-home-opening-skele-a4640-280px-one-fragment-per-line-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1749-home-opening-skele-a4640-280px-one-fragment-per-line-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1749-home-opening-skele-a4640-280px-one-fragment-per-line-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  44 failed
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 320px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 375px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 430px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 431px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 480px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 540px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 604px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 605px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 1024px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 1280px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 320px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 375px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 430px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 431px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 480px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 500px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 604px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:266:9 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 1280px: one bar spans the one-line sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:277:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light reduced motion (os): flat fill, still one bar per line 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:277:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light reduced motion (off): flat fill, still one bar per line 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:318:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light serif 1280px: one fragment per line 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:318:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light mono 1280px: one fragment per line 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 320px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 375px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 430px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 431px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 480px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 540px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 604px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 605px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 1024px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 1280px: one painted bar fragment per line of the hidden sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 320px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 375px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 430px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 431px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 480px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 500px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 604px: bars are 0.8em thick, >= 8px apart, with rounded ends 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:266:9 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 1280px: one bar spans the one-line sentence 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:277:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark reduced motion (os): flat fill, still one bar per line 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:277:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark reduced motion (off): flat fill, still one bar per line 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:318:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark serif 1280px: one fragment per line 
+    [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:318:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark mono 1280px: one fragment per line 

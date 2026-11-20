@@ -1,0 +1,99 @@
+host browser 140.0.7339.186
+host light web Schibsted Grotesk (Fontations)[custom] 320 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+host light web Schibsted Grotesk (Fontations)[custom] 375 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+host light web Schibsted Grotesk (Fontations)[custom] 430 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+host light web Schibsted Grotesk (Fontations)[custom] 431 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+host light web Schibsted Grotesk (Fontations)[custom] 500 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+host light web Schibsted Grotesk (Fontations)[custom] 604 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+host light web Schibsted Grotesk (Fontations)[custom] 605 24 lines 1 frags 1 thick [[19]] gap [] clone
+host light web Schibsted Grotesk (Fontations)[custom] 1280 24 lines 1 frags 1 thick [[19]] gap [] clone
+host light blocked Liberation Sans (Fontations) 320 20 lines 2 frags 2 thick [[16], [16, 2]] gap [9] clone
+host light blocked Liberation Sans (Fontations) 375 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+host light blocked Liberation Sans (Fontations) 430 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+host light blocked Liberation Sans (Fontations) 431 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+host light blocked Liberation Sans (Fontations) 500 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+host light blocked Liberation Sans (Fontations) 604 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+host light blocked Liberation Sans (Fontations) 605 24 lines 1 frags 1 thick [[19]] gap [] clone
+host light blocked Liberation Sans (Fontations) 1280 24 lines 1 frags 1 thick [[19]] gap [] clone
+host dark web Schibsted Grotesk (Fontations)[custom] 320 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+host dark web Schibsted Grotesk (Fontations)[custom] 375 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+host dark web Schibsted Grotesk (Fontations)[custom] 430 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+host dark web Schibsted Grotesk (Fontations)[custom] 431 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+host dark web Schibsted Grotesk (Fontations)[custom] 500 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+host dark web Schibsted Grotesk (Fontations)[custom] 604 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+host dark web Schibsted Grotesk (Fontations)[custom] 605 24 lines 1 frags 1 thick [[19]] gap [] clone
+host dark web Schibsted Grotesk (Fontations)[custom] 1280 24 lines 1 frags 1 thick [[19]] gap [] clone
+host dark blocked Liberation Sans (Fontations) 320 20 lines 2 frags 2 thick [[16], [16, 2]] gap [9] clone
+host dark blocked Liberation Sans (Fontations) 375 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+host dark blocked Liberation Sans (Fontations) 430 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+host dark blocked Liberation Sans (Fontations) 431 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+host dark blocked Liberation Sans (Fontations) 500 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+host dark blocked Liberation Sans (Fontations) 604 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+host dark blocked Liberation Sans (Fontations) 605 24 lines 1 frags 1 thick [[19]] gap [] clone
+host dark blocked Liberation Sans (Fontations) 1280 24 lines 1 frags 1 thick [[19]] gap [] clone
+ci browser 140.0.7339.186
+ci light web Schibsted Grotesk (Fontations)[custom] 320 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+ci light web Schibsted Grotesk (Fontations)[custom] 375 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+ci light web Schibsted Grotesk (Fontations)[custom] 430 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+ci light web Schibsted Grotesk (Fontations)[custom] 431 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+ci light web Schibsted Grotesk (Fontations)[custom] 500 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+ci light web Schibsted Grotesk (Fontations)[custom] 604 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+ci light web Schibsted Grotesk (Fontations)[custom] 605 24 lines 1 frags 1 thick [[19]] gap [] clone
+ci light web Schibsted Grotesk (Fontations)[custom] 1280 24 lines 1 frags 1 thick [[19]] gap [] clone
+ci light blocked Liberation Sans (Fontations) 320 20 lines 2 frags 2 thick [[16], [16, 2]] gap [9] clone
+ci light blocked Liberation Sans (Fontations) 375 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+ci light blocked Liberation Sans (Fontations) 430 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+ci light blocked Liberation Sans (Fontations) 431 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+ci light blocked Liberation Sans (Fontations) 500 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+ci light blocked Liberation Sans (Fontations) 604 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+ci light blocked Liberation Sans (Fontations) 605 24 lines 1 frags 1 thick [[19]] gap [] clone
+ci light blocked Liberation Sans (Fontations) 1280 24 lines 1 frags 1 thick [[19]] gap [] clone
+ci dark web Schibsted Grotesk (Fontations)[custom] 320 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+ci dark web Schibsted Grotesk (Fontations)[custom] 375 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+ci dark web Schibsted Grotesk (Fontations)[custom] 430 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+ci dark web Schibsted Grotesk (Fontations)[custom] 431 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+ci dark web Schibsted Grotesk (Fontations)[custom] 500 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+ci dark web Schibsted Grotesk (Fontations)[custom] 604 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+ci dark web Schibsted Grotesk (Fontations)[custom] 605 24 lines 1 frags 1 thick [[19]] gap [] clone
+ci dark web Schibsted Grotesk (Fontations)[custom] 1280 24 lines 1 frags 1 thick [[19]] gap [] clone
+ci dark blocked Liberation Sans (Fontations) 320 20 lines 2 frags 2 thick [[16], [16, 2]] gap [9] clone
+ci dark blocked Liberation Sans (Fontations) 375 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+ci dark blocked Liberation Sans (Fontations) 430 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+ci dark blocked Liberation Sans (Fontations) 431 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+ci dark blocked Liberation Sans (Fontations) 500 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+ci dark blocked Liberation Sans (Fontations) 604 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+ci dark blocked Liberation Sans (Fontations) 605 24 lines 1 frags 1 thick [[19]] gap [] clone
+ci dark blocked Liberation Sans (Fontations) 1280 24 lines 1 frags 1 thick [[19]] gap [] clone
+dv browser 140.0.7339.186
+dv light web Schibsted Grotesk (Fontations)[custom] 320 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+dv light web Schibsted Grotesk (Fontations)[custom] 375 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+dv light web Schibsted Grotesk (Fontations)[custom] 430 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+dv light web Schibsted Grotesk (Fontations)[custom] 431 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+dv light web Schibsted Grotesk (Fontations)[custom] 500 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+dv light web Schibsted Grotesk (Fontations)[custom] 604 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+dv light web Schibsted Grotesk (Fontations)[custom] 605 24 lines 1 frags 1 thick [[19]] gap [] clone
+dv light web Schibsted Grotesk (Fontations)[custom] 1280 24 lines 1 frags 1 thick [[19]] gap [] clone
+dv light blocked DejaVu Sans (Fontations) 320 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+dv light blocked DejaVu Sans (Fontations) 375 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+dv light blocked DejaVu Sans (Fontations) 430 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+dv light blocked DejaVu Sans (Fontations) 431 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+dv light blocked DejaVu Sans (Fontations) 500 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+dv light blocked DejaVu Sans (Fontations) 604 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+dv light blocked DejaVu Sans (Fontations) 605 24 lines 1 frags 1 thick [[19]] gap [] clone
+dv light blocked DejaVu Sans (Fontations) 1280 24 lines 1 frags 1 thick [[19]] gap [] clone
+dv dark web Schibsted Grotesk (Fontations)[custom] 320 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+dv dark web Schibsted Grotesk (Fontations)[custom] 375 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+dv dark web Schibsted Grotesk (Fontations)[custom] 430 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+dv dark web Schibsted Grotesk (Fontations)[custom] 431 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+dv dark web Schibsted Grotesk (Fontations)[custom] 500 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+dv dark web Schibsted Grotesk (Fontations)[custom] 604 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+dv dark web Schibsted Grotesk (Fontations)[custom] 605 24 lines 1 frags 1 thick [[19]] gap [] clone
+dv dark web Schibsted Grotesk (Fontations)[custom] 1280 24 lines 1 frags 1 thick [[19]] gap [] clone
+dv dark blocked DejaVu Sans (Fontations) 320 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+dv dark blocked DejaVu Sans (Fontations) 375 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+dv dark blocked DejaVu Sans (Fontations) 430 20 lines 2 frags 2 thick [[16], [16]] gap [9] clone
+dv dark blocked DejaVu Sans (Fontations) 431 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+dv dark blocked DejaVu Sans (Fontations) 500 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+dv dark blocked DejaVu Sans (Fontations) 604 24 lines 2 frags 2 thick [[19], [19]] gap [11] clone
+dv dark blocked DejaVu Sans (Fontations) 605 24 lines 1 frags 1 thick [[19]] gap [] clone
+dv dark blocked DejaVu Sans (Fontations) 1280 24 lines 1 frags 1 thick [[19]] gap [] clone

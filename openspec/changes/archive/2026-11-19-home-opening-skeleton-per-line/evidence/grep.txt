@@ -1,0 +1,16 @@
+# grep (task 3.3), after the change
+e2e/hel1749-home-opening-skeleton-lines.spec.ts:15:const BAR = ".home-opening__ghost .home-opening__ghost-bar";
+e2e/hel1749-home-opening-skeleton-lines.spec.ts:53:  await page.waitForSelector(".home-opening__ghost", { state: "attached" });
+e2e/hel1749-home-opening-skeleton-lines.spec.ts:60:    const ghost = document.querySelector(".home-opening__ghost") as HTMLElement;
+frontend/src/features/home/ui/HomePage.css.test.ts:14:/** The standalone top-level `.home-opening__ghost { ... }` rule (the first match of the name is the shared typography list). */
+frontend/src/features/home/ui/HomePage.css.test.ts:15:const ghostRule = /\*\/\n\.home-opening__ghost\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
+frontend/src/features/home/ui/HomePage.css.test.ts:32:    expect(css).not.toMatch(/home-opening__skeleton-line/);
+frontend/src/features/home/ui/HomePage.css.test.ts:37:    const bar = findRuleBody(css, ".home-opening__ghost .home-opening__ghost-bar");
+frontend/src/features/home/ui/HomePage.css.test.ts:73:      /\.home-opening__sentence,\s*\.home-opening__ghost\s*\{[^}]*font-family:\s*var\(--font-heading\)/,
+frontend/src/features/home/ui/HomePage.css.test.ts:103:    const rule = findRuleBody(band, ".home-opening__ghost");
+frontend/src/features/home/ui/HomePage.test.tsx:137:    expect(status.querySelector(".home-opening__skeleton-line")).toBeNull();
+frontend/src/features/home/ui/HomePage.test.tsx:138:    const ghost = status.querySelector(".home-opening__ghost");
+frontend/src/features/home/ui/HomePage.test.tsx:140:    const bar = ghost?.querySelector(".ui-skeleton.home-opening__ghost-bar");
+frontend/src/features/home/ui/HomeOpeningLine.tsx:39:          <p className="home-opening__ghost" aria-hidden="true">
+frontend/src/features/home/ui/HomeOpeningLine.tsx:40:            <span className="ui-skeleton home-opening__ghost-bar">{DEFAULT_SENTENCE}</span>
+No e2e selects the ghost or the removed skeleton-line class except the new HEL-1749 spec; remaining unit/source references are the updated assertions and the markup.

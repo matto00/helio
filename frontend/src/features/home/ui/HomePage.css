@@ -46,11 +46,7 @@
 }
 
 /* The loading placeholder holds the default sentence (hidden), so it is as tall as it at every width and the timeline
- * does not move when it resolves (HEL-1665); the skeleton bar is laid over it. */
-.home-opening__loading {
-  position: relative;
-}
-
+ * does not move when it resolves (HEL-1665); its skeleton bars are the sentence itself (`.home-opening__ghost-bar`). */
 .home-opening__ghost {
   visibility: hidden;
   /* The same measure as the real sentence in every type style (HEL-1737), so the placeholder and the sentence break
@@ -72,13 +68,92 @@
   }
 }
 
-.home-opening__loading .home-opening__skeleton-line {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  width: min(520px, 80%);
-  height: var(--text-xl);
-  transform: translateY(-50%);
+/* One skeleton bar per rendered line of the hidden default sentence (HEL-1749, deferred from HEL-1665/HEL-1737). The
+ * span carries the shared `ui-skeleton` class (Skeleton.css owns the gradient, shimmer, radius and the reduced-motion
+ * and motion-Off flat fills; nothing of that is redefined here). `display: inline` makes the browser paint its
+ * background once per line fragment, `box-decoration-break: clone` gives each fragment its own rounded ends, gradient
+ * and mask, and `visibility: visible` shows it inside the hidden paragraph with the text itself transparent. No padding,
+ * border or margin: an inline box without them adds nothing to a line box, so the placeholder's height and wrap are
+ * unchanged at every width. The unmasked inline box is the face's whole content area (about 1.2em, nearly touching the
+ * next line's), so a per-fragment rounded-rectangle mask leaves a centred 0.8em band (about today's 20px bar) with a
+ * gap of at least `--space-2` between lines: a band of two crossed rectangles plus four corner quarter-circles of
+ * `--app-radius-sm`, positioned with `calc()` so they centre on each fragment's content box. A mask is neither a
+ * shimmer background nor keyframes (DESIGN.md section 7). */
+.home-opening__ghost .home-opening__ghost-bar {
+  --bar-r: var(--app-radius-sm);
+  display: inline;
+  visibility: visible;
+  color: transparent;
+  pointer-events: none;
+  user-select: none;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  -webkit-mask-image:
+    linear-gradient(#000, #000), linear-gradient(#000, #000),
+    radial-gradient(
+      circle at var(--bar-r) var(--bar-r),
+      #000 calc(var(--bar-r) - 0.5px),
+      transparent var(--bar-r)
+    ),
+    radial-gradient(
+      circle at 0 var(--bar-r),
+      #000 calc(var(--bar-r) - 0.5px),
+      transparent var(--bar-r)
+    ),
+    radial-gradient(
+      circle at var(--bar-r) 0,
+      #000 calc(var(--bar-r) - 0.5px),
+      transparent var(--bar-r)
+    ),
+    radial-gradient(circle at 0 0, #000 calc(var(--bar-r) - 0.5px), transparent var(--bar-r));
+  mask-image:
+    linear-gradient(#000, #000), linear-gradient(#000, #000),
+    radial-gradient(
+      circle at var(--bar-r) var(--bar-r),
+      #000 calc(var(--bar-r) - 0.5px),
+      transparent var(--bar-r)
+    ),
+    radial-gradient(
+      circle at 0 var(--bar-r),
+      #000 calc(var(--bar-r) - 0.5px),
+      transparent var(--bar-r)
+    ),
+    radial-gradient(
+      circle at var(--bar-r) 0,
+      #000 calc(var(--bar-r) - 0.5px),
+      transparent var(--bar-r)
+    ),
+    radial-gradient(circle at 0 0, #000 calc(var(--bar-r) - 0.5px), transparent var(--bar-r));
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size:
+    100% calc(0.8em - 2 * var(--bar-r)),
+    calc(100% - 2 * var(--bar-r)) 0.8em,
+    var(--bar-r) var(--bar-r),
+    var(--bar-r) var(--bar-r),
+    var(--bar-r) var(--bar-r),
+    var(--bar-r) var(--bar-r);
+  mask-size:
+    100% calc(0.8em - 2 * var(--bar-r)),
+    calc(100% - 2 * var(--bar-r)) 0.8em,
+    var(--bar-r) var(--bar-r),
+    var(--bar-r) var(--bar-r),
+    var(--bar-r) var(--bar-r),
+    var(--bar-r) var(--bar-r);
+  -webkit-mask-position:
+    0 50%,
+    50% 50%,
+    0 calc(50% - 0.4em + var(--bar-r) / 2),
+    100% calc(50% - 0.4em + var(--bar-r) / 2),
+    0 calc(50% + 0.4em - var(--bar-r) / 2),
+    100% calc(50% + 0.4em - var(--bar-r) / 2);
+  mask-position:
+    0 50%,
+    50% 50%,
+    0 calc(50% - 0.4em + var(--bar-r) / 2),
+    100% calc(50% - 0.4em + var(--bar-r) / 2),
+    0 calc(50% + 0.4em - var(--bar-r) / 2),
+    100% calc(50% + 0.4em - var(--bar-r) / 2);
 }
 
 .home-opening__danger {
