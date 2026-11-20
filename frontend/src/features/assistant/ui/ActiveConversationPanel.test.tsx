@@ -311,7 +311,7 @@ describe("ActiveConversationPanel", () => {
       expect(screen.getByText("I couldn't find anything — can you clarify?")).toBeInTheDocument(),
     );
     expect(screen.getByText("Asking a follow-up")).toBeInTheDocument();
-    expect(screen.queryByText("Couldn't finish in time")).not.toBeInTheDocument();
+    expect(screen.queryByText("Couldn't finish in one go")).not.toBeInTheDocument();
   });
 
   // HEL-667 design.md D5/tasks.md 6.2/7.5 — hopBudgetExhausted=true with a real trailing text
@@ -344,9 +344,9 @@ describe("ActiveConversationPanel", () => {
     await waitFor(() =>
       expect(screen.getByText("Let me check one more thing…")).toBeInTheDocument(),
     );
-    expect(screen.getByText("Couldn't finish in time")).toBeInTheDocument();
+    expect(screen.getByText("Couldn't finish in one go")).toBeInTheDocument();
     // No separate synthetic fallback bubble — exactly one decorated turn, the real one.
-    expect(screen.getAllByText("Couldn't finish in time")).toHaveLength(1);
+    expect(screen.getAllByText("Couldn't finish in one go")).toHaveLength(1);
   });
 
   // HEL-667 design.md D5/tasks.md 6.2/7.5 — hopBudgetExhausted=true with NO trailing text block
@@ -364,6 +364,8 @@ describe("ActiveConversationPanel", () => {
         },
       ],
       hopBudgetExhausted: true,
+      stopReason: "hop_ceiling",
+      stopMessage: "I stopped after 12 steps without finishing. Tell me which part to focus on.",
     };
     converseMock.mockResolvedValueOnce(updatedDetail);
 
@@ -378,12 +380,72 @@ describe("ActiveConversationPanel", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText("I couldn't find enough in 3 lookups — can you narrow this down?"),
+        screen.getByText(
+          "I stopped after 12 steps without finishing. Tell me which part to focus on.",
+        ),
       ).toBeInTheDocument(),
     );
-    expect(screen.getByText("Couldn't finish in time")).toBeInTheDocument();
+    expect(screen.queryByText(/3 lookups/)).not.toBeInTheDocument();
+    expect(screen.getByText("Couldn't finish in one go")).toBeInTheDocument();
     // The dangling tool_use itself also renders its own "cut short" indicator, independently.
     expect(screen.getByText(/cut short/i)).toBeInTheDocument();
+  });
+
+  // HEL-1637 D8 — an older server sends no stopMessage: the generic fallback shows, with no hop count.
+  it("falls back to generic text without a hop count when a ceiling stop carries no stopMessage", async () => {
+    getConversationMock.mockResolvedValueOnce(detailOf(summaryOne, 0));
+    converseMock.mockResolvedValueOnce({
+      ...summaryOne,
+      transcript: [
+        { role: "user", content: [{ blockType: "text", text: "Go" }] },
+        {
+          role: "assistant",
+          content: [{ blockType: "tool_use", id: "tu-9", name: "find", input: { query: "x" } }],
+        },
+      ],
+      hopBudgetExhausted: true,
+    } as AssistantConversationDetail);
+
+    renderWithStore(<ActiveConversationPanel />, {
+      assistantConversations: { items: [summaryOne], selectedConversationId: "conv-1" },
+    });
+
+    await waitFor(() => expect(getConversationMock).toHaveBeenCalledWith("conv-1"));
+    fireEvent.change(await screen.findByLabelText("Message"), { target: { value: "Go" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(
+      await screen.findByText("I couldn't finish this in one go. Can you narrow it down?"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/lookups/)).not.toBeInTheDocument();
+  });
+
+  // HEL-1637 D8 — a failure-budget stop is a persisted assistant text turn carrying the note.
+  it("shows the failure-budget note on the stop message bubble", async () => {
+    getConversationMock.mockResolvedValueOnce(detailOf(summaryOne, 0));
+    converseMock.mockResolvedValueOnce({
+      ...summaryOne,
+      transcript: [
+        { role: "user", content: [{ blockType: "text", text: "Connect it" }] },
+        {
+          role: "assistant",
+          content: [{ blockType: "text", text: "I couldn't connect to the source after 3 tries." }],
+        },
+      ],
+      stopReason: "failure_budget",
+      stopMessage: "I couldn't connect to the source after 3 tries.",
+    } as AssistantConversationDetail);
+
+    renderWithStore(<ActiveConversationPanel />, {
+      assistantConversations: { items: [summaryOne], selectedConversationId: "conv-1" },
+    });
+
+    await waitFor(() => expect(getConversationMock).toHaveBeenCalledWith("conv-1"));
+    fireEvent.change(await screen.findByLabelText("Message"), { target: { value: "Connect it" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(await screen.findByText("Stopped after repeated errors")).toBeInTheDocument();
+    expect(screen.getByText("I couldn't connect to the source after 3 tries.")).toBeInTheDocument();
   });
 
   // HEL-667 design.md D5/tasks.md 7.5 — the unaffected-normal-turn case: both signals absent
@@ -409,7 +471,7 @@ describe("ActiveConversationPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() => expect(screen.getByText("Revenue is $42,000.")).toBeInTheDocument());
-    expect(screen.queryByText("Couldn't finish in time")).not.toBeInTheDocument();
+    expect(screen.queryByText("Couldn't finish in one go")).not.toBeInTheDocument();
     expect(screen.queryByText("Asking a follow-up")).not.toBeInTheDocument();
   });
 

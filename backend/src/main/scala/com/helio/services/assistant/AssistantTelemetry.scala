@@ -48,7 +48,10 @@ object AssistantTelemetry {
       tokens: TokenUsage,
       proposeAttempts: Int,
       proposeDecodeFailures: Int,
-      proposeValidationFailures: Int
+      proposeValidationFailures: Int,
+      hopsUsed: Int = 0,
+      failedToolCalls: Int = 0,
+      stopReason: String = "final"
   )(implicit ec: ExecutionContextExecutor): Unit =
     emit(
       mdcSnapshot,
@@ -65,7 +68,11 @@ object AssistantTelemetry {
         "cacheCreationInputTokens"  -> tokens.cacheCreationInputTokens.toString,
         "proposeAttempts"           -> proposeAttempts.toString,
         "proposeDecodeFailures"     -> proposeDecodeFailures.toString,
-        "proposeValidationFailures" -> proposeValidationFailures.toString
+        "proposeValidationFailures" -> proposeValidationFailures.toString,
+        // HEL-1637 D7: integers and a fixed token only, never tool input or error text.
+        "hopsUsed"                  -> hopsUsed.toString,
+        "failedToolCalls"           -> failedToolCalls.toString,
+        "stopReason"                -> stopReason
       )
     )
 

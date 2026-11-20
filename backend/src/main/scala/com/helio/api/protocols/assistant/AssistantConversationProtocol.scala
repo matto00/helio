@@ -65,7 +65,8 @@ final case class AssistantConversationSummaryResponse(
  *  persisted fact about the conversation (the key of the most recent keyed append), so it's populated
  *  on BOTH `GET /:id` and converse responses — exactly what client-side reconciliation needs. `None`
  *  until the first keyed append ever occurs. HEL-1755: `model` is the stored selection (null = none) and
- *  `effectiveModel` the server-resolved model the next turn will use. */
+ *  `effectiveModel` the server-resolved model the next turn will use. HEL-1637: `stopReason`/`stopMessage` are converse-only
+ *  like `hopBudgetExhausted` (absent on GET): what ended the turn and, for a stop, the plain-language message shown. */
 final case class AssistantConversationResponse(
     id: String,
     title: String,
@@ -76,7 +77,9 @@ final case class AssistantConversationResponse(
     searchedWithNoResults: Option[Boolean] = None,
     lastIdempotencyKey: Option[String] = None,
     model: Option[String] = None,
-    effectiveModel: String = ""
+    effectiveModel: String = "",
+    stopReason: Option[String] = None,
+    stopMessage: Option[String] = None
 )
 
 /** One selectable model in [[AssistantModelsResponse]] (HEL-1755 D8). */
@@ -137,7 +140,7 @@ trait AssistantConversationProtocol extends SprayJsonSupport with DefaultJsonPro
     jsonFormat6(AssistantConversationSummaryResponse.apply)
 
   implicit val assistantConversationResponseFormat: RootJsonFormat[AssistantConversationResponse] =
-    jsonFormat10(AssistantConversationResponse.apply)
+    jsonFormat12(AssistantConversationResponse.apply)
 
   implicit val assistantModelOptionFormat: RootJsonFormat[AssistantModelOption] = jsonFormat3(AssistantModelOption.apply)
   implicit val assistantModelRefFormat: RootJsonFormat[AssistantModelRef]       = jsonFormat2(AssistantModelRef.apply)

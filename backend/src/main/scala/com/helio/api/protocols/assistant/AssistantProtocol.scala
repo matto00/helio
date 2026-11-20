@@ -22,7 +22,7 @@ import com.helio.services.workspace.WorkspaceAssistantTools
  *  captured via `AssistantToolExecutor`'s one-shot side channel (design.md D6), never re-derived
  *  from `text`. `toolCallCount` counts every `tool_use` block actually executed across the whole
  *  turn (every hop); `hopBudgetExhausted` is `true` only for a `ClaudeToolOutcome.HopBudgetExhausted`
- *  outcome — the hard 3-hop cap was reached before a final text-only response. `searchedWithNoResults`
+ *  outcome — the hop ceiling (12, HEL-1637) was reached before a final text-only response. `searchedWithNoResults`
  *  is `true` iff the outcome is `FinalResponse` with no captured `proposal` AND the LAST tool call
  *  executed in this turn's NEW history (this call's own contribution to `fullHistory`, not the
  *  caller-supplied prefix) was `find` returning an empty result array — `false` for a hop-budget-
@@ -53,7 +53,13 @@ final case class AssistantTurnResult(
     proposeDecodeFailures: Int,
     proposeValidationFailures: Int,
     // HEL-1755 D5: the response's own `model` field, stamped onto the persisted assistant turns.
-    responseModel: Option[String] = None
+    responseModel: Option[String] = None,
+    // HEL-1637 D6: what ended the turn (`final | failure_budget | hop_ceiling | input_budget`), the round trips made
+    // and the failed tool calls the loop's own classifier counted; `stopMessage` is the user-facing text of a stop.
+    stopReason: String = "final",
+    hopsUsed: Int = 0,
+    failedToolCalls: Int = 0,
+    stopMessage: Option[String] = None
 )
 
 /** Closed union over what a successful `propose_*` tool call can produce (HEL-662 tasks.md 2.2) —

@@ -93,13 +93,18 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
         hopsUsed: Int,
         usage: TokenUsage,
         webSearchUsed: Int,
-        prevToolsJson: Option[JsValue]
+        prevToolsJson: Option[JsValue],
+        failedCalls: Vector[FailedToolCall] = Vector.empty,
+        lastModel: Option[String] = None
     ): Future[ClaudeToolOutcome] = {
       // HEL-1636 D3a: a strip point rewrites the carried history itself, so a thinking block produced
       // before it is never sent again in this loop (and never returned in `FinalResponse.history`).
       val hop     = prepareHop(request, carried, webSearchUsed, prevToolsJson)
       val history = hop.history
       guardrailRejectTool(request.system, history) match {
+        case Some(_) if request.stopOnInputBudget && hopsUsed >= 1 =>
+          // HEL-1637 D4: keep the work of the round trips already made.
+          Future.successful(ClaudeToolOutcome.InputBudgetExhausted(history, usage)(lastModel, hopsUsed, failedCalls.size))
         case Some(reason) =>
           Future.successful(ClaudeToolOutcome.Failed(ClaudeError.GuardrailExceeded(reason))())
         case None =>
@@ -139,10 +144,10 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
                     Future.successful(ClaudeToolOutcome.Failed(noAnswer(apiResponse))(Some(totalUsage), apiResponse.model))
                   else
                     Future.successful(
-                      ClaudeToolOutcome.FinalResponse(extractText(blocks), history :+ assistantTurn, totalUsage)(apiResponse.model, apiResponse.stopReason)
+                      ClaudeToolOutcome.FinalResponse(extractText(blocks), history :+ assistantTurn, totalUsage)(apiResponse.model, apiResponse.stopReason, hopsUsed, failedCalls.size)
                     )
                 } else if (thisHop > request.maxHops) {
-                  Future.successful(ClaudeToolOutcome.HopBudgetExhausted(history :+ assistantTurn, totalUsage)(apiResponse.model))
+                  Future.successful(ClaudeToolOutcome.HopBudgetExhausted(history :+ assistantTurn, totalUsage)(apiResponse.model, hopsUsed, failedCalls.size))
                 } else {
                   val rejected = rejectedOncePerResponse(toolUses, request.oncePerResponseTools)
                   Future
@@ -154,7 +159,19 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
                     }
                     .flatMap { toolResults =>
                       val userTurn = ClaudeToolMessage(ClaudeRole.User, toolResults)
-                      loop(history :+ assistantTurn :+ userTurn, thisHop, totalUsage, newWebSearchUsed, Some(hop.toolsJson))
+                      val nextHistory = history :+ assistantTurn :+ userTurn
+                      // HEL-1637 D1/D2: only calls actually dispatched are classified (never the once-per-response
+                      // synthetic rejections); failures are totalled across the loop.
+                      val newFailures = request.failureBudget.toVector.flatMap { budget =>
+                        toolUses.zip(toolResults).collect {
+                          case (tu, tr) if !rejected.contains(tu.id) => budget.classify(tu, tr).map(FailedToolCall(tu.name, _))
+                        }.flatten
+                      }
+                      val allFailures = failedCalls ++ newFailures
+                      if (request.failureBudget.exists(b => allFailures.size >= b.maxFailures))
+                        Future.successful(ClaudeToolOutcome.FailureBudgetExhausted(nextHistory, totalUsage, allFailures)(apiResponse.model, thisHop))
+                      else
+                        loop(nextHistory, thisHop, totalUsage, newWebSearchUsed, Some(hop.toolsJson), allFailures, apiResponse.model)
                     }
                 }
             }

@@ -20,6 +20,9 @@ import type {
 } from "../types";
 import { MessagesSquare } from "lucide-react";
 
+/** Shown for a ceiling stop when an older server sends no `stopMessage` (HEL-1637). */
+const CEILING_FALLBACK_TEXT = "I couldn't finish this in one go. Can you narrow it down?";
+
 /** HEL-1636: a text block with something to show (not empty or whitespace only). */
 function isVisibleTextBlock(block: ClaudeContentBlockDto | undefined): boolean {
   return block?.blockType === "text" && block.text.trim() !== "";
@@ -184,7 +187,7 @@ export function ActiveConversationPanel({ initialDraft }: { initialDraft?: strin
     // A hop-cap-exhausted turn's last content block is the dangling tool_use itself (see
     // `ClaudeClient.sendWithTools`'s own doc comment) -- there is no trailing text block to
     // decorate in that case, so a standalone fallback bubble below is what actually carries the
-    // "couldn't finish in time" message to the user (AC: "surface a clear message... not a
+    // "couldn't finish in one go" message to the user (AC: "surface a clear message... not a
     // silent failure").
     const lastTurnHasTrailingText = isVisibleTextBlock(lastTurn?.content[lastBlockIndex]);
     const showHopBudgetFallback =
@@ -224,6 +227,13 @@ export function ActiveConversationPanel({ initialDraft }: { initialDraft?: strin
                     hopBudgetExhausted={
                       isMostRecentTurn && Boolean(lastTurnOutcome?.hopBudgetExhausted)
                     }
+                    stopReason={
+                      isMostRecentTurn &&
+                      (lastTurnOutcome?.stopReason === "failure_budget" ||
+                        lastTurnOutcome?.stopReason === "input_budget")
+                        ? lastTurnOutcome.stopReason
+                        : undefined
+                    }
                     searchedWithNoResults={
                       isMostRecentTurn && Boolean(lastTurnOutcome?.searchedWithNoResults)
                     }
@@ -252,7 +262,7 @@ export function ActiveConversationPanel({ initialDraft }: { initialDraft?: strin
           {showHopBudgetFallback && (
             <MessageTurn
               role="assistant"
-              text="I couldn't find enough in 3 lookups — can you narrow this down?"
+              text={lastTurnOutcome?.stopMessage ?? CEILING_FALLBACK_TEXT}
               hopBudgetExhausted
             />
           )}

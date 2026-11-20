@@ -11,6 +11,9 @@ interface MessageTurnProps {
    *  in time" treatment. Driven by this explicit boolean alone, never inferred from `text` content.
    *  Defaults `false` so every pre-existing/historical turn is unaffected. */
   hopBudgetExhausted?: boolean;
+  /** HEL-1637: why the most recent turn stopped early (`failure_budget` or `input_budget`); renders a note. Only the
+   *  explicit value decides, never the text. */
+  stopReason?: "failure_budget" | "input_budget";
   /** HEL-667 design.md D5 — true only for the most recently completed assistant turn, when the
    *  converse response's `searchedWithNoResults` field is `true`: renders a distinct "asking a
    *  follow-up" treatment. Same explicit-boolean-only discipline as `hopBudgetExhausted`. */
@@ -36,22 +39,31 @@ export function MessageTurn({
   role,
   text,
   hopBudgetExhausted = false,
+  stopReason,
   searchedWithNoResults = false,
   modelLabel,
 }: MessageTurnProps) {
   const roleClass = role === "user" ? "message-turn--user" : "message-turn--assistant";
-  const outcomeClass = hopBudgetExhausted
-    ? " message-turn--hop-budget-exhausted"
-    : searchedWithNoResults
-      ? " message-turn--searched-no-results"
-      : "";
+  const stopNote =
+    stopReason === "failure_budget"
+      ? "Stopped after repeated errors"
+      : stopReason === "input_budget"
+        ? "Stopped: conversation too long"
+        : null;
+  const outcomeClass =
+    hopBudgetExhausted || stopNote !== null
+      ? " message-turn--hop-budget-exhausted"
+      : searchedWithNoResults
+        ? " message-turn--searched-no-results"
+        : "";
 
   return (
     <div className={`message-turn ${roleClass}${outcomeClass}`}>
       <span className="message-turn__role eyebrow">{role === "user" ? "You" : "Assistant"}</span>
       {hopBudgetExhausted && (
-        <span className="message-turn__outcome-note">{"Couldn't finish in time"}</span>
+        <span className="message-turn__outcome-note">{"Couldn't finish in one go"}</span>
       )}
+      {stopNote !== null && <span className="message-turn__outcome-note">{stopNote}</span>}
       {searchedWithNoResults && (
         <span className="message-turn__outcome-note">Asking a follow-up</span>
       )}

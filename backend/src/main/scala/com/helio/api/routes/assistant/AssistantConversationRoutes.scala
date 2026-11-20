@@ -2,7 +2,7 @@ package com.helio.api.routes.assistant
 
 import com.helio.api.routes.{ServiceResponse, TierErrorCompletion}
 import com.helio.api.protocols.assistant.{AppendAssistantConversationTurnRequest, ConverseRequest, UpdateAssistantConversationRequest}
-import com.helio.api.protocols.assistant.{AssistantConversationResponse, AssistantConversationSummaryResponse, CreateAssistantConversationRequest}
+import com.helio.api.protocols.assistant.{AssistantTurnResult, AssistantConversationResponse, AssistantConversationSummaryResponse, CreateAssistantConversationRequest}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives
@@ -107,12 +107,13 @@ final class AssistantConversationRoutes(
   private def detailOfConverse(
       userDefault: Option[String],
       detail: AssistantConversationDetail,
-      hopBudgetExhausted: Boolean,
-      searchedWithNoResults: Boolean
+      result: AssistantTurnResult
   ): AssistantConversationResponse =
     detailOf(userDefault)(detail).copy(
-      hopBudgetExhausted    = Some(hopBudgetExhausted),
-      searchedWithNoResults = Some(searchedWithNoResults)
+      hopBudgetExhausted    = Some(result.hopBudgetExhausted),
+      searchedWithNoResults = Some(result.searchedWithNoResults),
+      stopReason            = Some(result.stopReason),
+      stopMessage           = result.stopMessage
     )
 
   /** `ClaudeError -> ServiceError`, the identical 3-case mapping `DashboardAuthoringService
@@ -181,7 +182,10 @@ final class AssistantConversationRoutes(
           tokens = result.usage,
           proposeAttempts = result.proposeAttempts,
           proposeDecodeFailures = result.proposeDecodeFailures,
-          proposeValidationFailures = result.proposeValidationFailures
+          proposeValidationFailures = result.proposeValidationFailures,
+          hopsUsed = result.hopsUsed,
+          failedToolCalls = result.failedToolCalls,
+          stopReason = result.stopReason
         )
         // HEL-1755 D3: a request-supplied model is persisted in the same append as the turns.
         service.appendTurn(user, id, newTurns, idempotencyKey, requestModel).flatMap {
@@ -189,7 +193,7 @@ final class AssistantConversationRoutes(
           case Right(_) =>
             service
               .get(user, id)
-              .map(_.map(detailOfConverse(userDefault, _, result.hopBudgetExhausted, result.searchedWithNoResults)))
+              .map(_.map(detailOfConverse(userDefault, _, result)))
         }
     }
   }

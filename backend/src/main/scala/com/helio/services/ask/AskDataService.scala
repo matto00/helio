@@ -55,7 +55,9 @@ class AskDataService(
       val first   = request(Seq(ClaudeToolMessage.text(ClaudeRole.User, AskPrompts.question(trimmed))), tools, MaxHops)
       claudeClient.sendWithTools(first, executor).flatMap {
         case ClaudeToolOutcome.Failed(err) => Future.successful(Left(failure(err)))
-        case _: ClaudeToolOutcome.HopBudgetExhausted =>
+        case _: ClaudeToolOutcome.HopBudgetExhausted | _: ClaudeToolOutcome.FailureBudgetExhausted | _: ClaudeToolOutcome.InputBudgetExhausted =>
+          // HEL-1637 D9: the ask loop never sets failureBudget/stopOnInputBudget, so the last two cannot occur here;
+          // listed so the match stays exhaustive and every budget stop behaves like the hop cap.
           Future.successful(Left(AskError.Ungrounded(Vector("the tool-call budget was reached before an answer"))))
         case final1 @ ClaudeToolOutcome.FinalResponse(_, _, _) if final1.stopReason.contains("max_tokens") => truncatedPartial()
         case ClaudeToolOutcome.FinalResponse(text, history, _) =>
@@ -66,7 +68,7 @@ class AskDataService(
               val retry = request(history :+ ClaudeToolMessage.text(ClaudeRole.User, AskPrompts.correction(reasons)), tools, 1)
               claudeClient.sendWithTools(retry, executor).flatMap {
                 case ClaudeToolOutcome.Failed(err) => Future.successful(Left(failure(err)))
-                case _: ClaudeToolOutcome.HopBudgetExhausted =>
+                case _: ClaudeToolOutcome.HopBudgetExhausted | _: ClaudeToolOutcome.FailureBudgetExhausted | _: ClaudeToolOutcome.InputBudgetExhausted =>
                   Future.successful(Left(AskError.Ungrounded(reasons)))
                 case final2 @ ClaudeToolOutcome.FinalResponse(_, _, _) if final2.stopReason.contains("max_tokens") => truncatedPartial()
                 case ClaudeToolOutcome.FinalResponse(second, _, _) =>

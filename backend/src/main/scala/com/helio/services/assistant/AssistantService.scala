@@ -6,7 +6,7 @@ import com.helio.services.pipelines.PipelineProposalService
 import com.helio.services.proposals.{CombinedProposalService, DashboardProposalService}
 import com.helio.services.sources.SourceService
 import com.helio.services.workspace.WorkspaceSearchService
-import com.helio.infrastructure.ai.{ClaudeClient, ClaudeContentBlock, ClaudeError, ClaudeModelSpec, ClaudeRole, ClaudeToolMessage, ClaudeToolOutcome, ClaudeToolRequest}
+import com.helio.infrastructure.ai.{ClaudeClient, ClaudeContentBlock, ClaudeError, ClaudeModelSpec, ClaudeRole, ClaudeToolMessage, ClaudeToolOutcome, ClaudeToolRequest, TokenUsage}
 import com.helio.api.protocols.assistant.{AssistantProposal, AssistantProtocol, AssistantTurnResult}
 import com.helio.domain.model.AuthenticatedUser
 import spray.json._
@@ -17,9 +17,8 @@ import scala.util.{Success, Try}
 /** HEL-662 — the top-level assistant's (HEL-659) one entry point, superseding
  *  `DashboardAuthoringService` for the in-app assistant while reusing its validation/proposal
  *  collaborators rather than discarding them. Builds the static system prompt + the bounded 7-tool
- *  set (HEL-756 adds `test_connection`), runs `ClaudeClient.sendWithTools` with `maxHops = 4`
- *  (design.md D2 — HEL-660's `ClaudeToolRequest.maxHops` finally gets its concrete, caller-supplied
- *  value here; HEL-756 design.md D3 raises it from 3 to 4), and folds the
+ *  set (HEL-756 adds `test_connection`), runs `ClaudeClient.sendWithTools` with a hop ceiling
+ *  of 12 and a budget of 3 failed tool calls (HEL-1637), and folds the
  *  outcome into a structured [[AssistantTurnResult]] carrying the actual `DashboardProposal`/
  *  `PipelineProposal`/`CombinedProposal`/`PatchSet` a successful `propose_*` call produced — never
  *  prose re-derived from Claude's final text (design.md D6).
@@ -47,13 +46,6 @@ final class AssistantService(
     patchSetPreviewService: PatchSetPreviewService,
     sourceService: SourceService
 )(implicit ec: ExecutionContext) {
-
-  /** The bounded tool-use loop's hard hop cap (design.md D2) — HEL-660's own doc comment says this
-   *  ticket's caller would supply `3`; never hardcoded inside `ClaudeClient` itself. Raised to `4`
-   *  by HEL-756 design.md D3: the dominant new flow (`find` -> `test_connection` -> `propose_*`)
-   *  already fills the old 3-hop budget with zero room for a `get_resource` call or a retry after a
-   *  failed test. */
-  private val MaxHops: Int = 4
 
   /** The configured Claude model id (HEL-667 design.md D6 telemetry) — thin passthrough so
    *  `AssistantConversationRoutes.converseFlow` can thread it into `AssistantTelemetry` without
@@ -84,7 +76,10 @@ final class AssistantService(
     val request = ClaudeToolRequest(
       history = seedHistory(history, message),
       tools = AssistantProtocol.assistantTools,
-      maxHops = MaxHops,
+      maxHops = AssistantStopMessages.HopCeiling,
+      // HEL-1637 D2/D4: 3 failed tool calls end a turn; a mid-turn input-limit rejection keeps the work done so far.
+      failureBudget = Some(AssistantStopMessages.failureBudget),
+      stopOnInputBudget = true,
       // HEL-757 design.md D1 — every converse call offers Claude's server-side web_search tool,
       // unconditionally: never gated on message content/intent (the sole caller of sendWithTools
       // is this one call site, so "every assistant turn" resolves cleanly to "always true" here).
@@ -164,28 +159,55 @@ final class AssistantService(
           proposeAttempts = executor.proposeAttempts,
           proposeDecodeFailures = executor.proposeDecodeFailures,
           proposeValidationFailures = executor.proposeValidationFailures,
-          responseModel = r.responseModel
+          responseModel = r.responseModel,
+          hopsUsed = r.hopsUsed,
+          failedToolCalls = r.failedToolCalls
         )
       )
     case h @ ClaudeToolOutcome.HopBudgetExhausted(fullHistory, usage) =>
-      Right(
-        AssistantTurnResult(
-          s"Reached the maximum number of tool calls ($MaxHops) without a final response.",
-          executor.proposal,
-          toolCallCount(fullHistory),
-          hopBudgetExhausted = true,
-          searchedWithNoResults = false,
-          usage,
-          persistable(fullHistory),
-          proposeAttempts = executor.proposeAttempts,
-          proposeDecodeFailures = executor.proposeDecodeFailures,
-          proposeValidationFailures = executor.proposeValidationFailures,
-          responseModel = h.responseModel
-        )
-      )
+      // The history keeps its trailing assistant turn with unexecuted tool_use (see `seedHistory`).
+      Right(stopResult("hop_ceiling", AssistantStopMessages.HopCeilingMessage, fullHistory, usage, executor, h.responseModel, h.hopsUsed, h.failedToolCalls))
+    case f @ ClaudeToolOutcome.FailureBudgetExhausted(fullHistory, usage, failed) =>
+      val message = AssistantStopMessages.failureBudgetMessage(failed, executor.proposal.isDefined)
+      Right(stopResult("failure_budget", message, appendStopText(fullHistory, message), usage, executor, f.responseModel, f.hopsUsed, failed.size))
+    case i @ ClaudeToolOutcome.InputBudgetExhausted(fullHistory, usage) =>
+      val message = AssistantStopMessages.InputBudgetMessage
+      Right(stopResult("input_budget", message, appendStopText(fullHistory, message), usage, executor, i.responseModel, i.hopsUsed, i.failedToolCalls))
     case ClaudeToolOutcome.Failed(error) =>
       Left(error)
   }
+
+  /** HEL-1637 D5: the assistant stop-text turn that keeps a transcript ending in tool results alternating cleanly. */
+  private def appendStopText(fullHistory: Seq[ClaudeToolMessage], message: String): Seq[ClaudeToolMessage] =
+    fullHistory :+ ClaudeToolMessage(ClaudeRole.Assistant, Seq(ClaudeContentBlock.Text(message)))
+
+  private def stopResult(
+      stopReason: String,
+      message: String,
+      fullHistory: Seq[ClaudeToolMessage],
+      usage: TokenUsage,
+      executor: AssistantToolExecutor,
+      responseModel: Option[String],
+      hopsUsed: Int,
+      failedToolCalls: Int
+  ): AssistantTurnResult =
+    AssistantTurnResult(
+      message,
+      executor.proposal,
+      toolCallCount(fullHistory),
+      hopBudgetExhausted = stopReason == "hop_ceiling",
+      searchedWithNoResults = false,
+      usage,
+      persistable(fullHistory),
+      proposeAttempts = executor.proposeAttempts,
+      proposeDecodeFailures = executor.proposeDecodeFailures,
+      proposeValidationFailures = executor.proposeValidationFailures,
+      responseModel = responseModel,
+      stopReason = stopReason,
+      hopsUsed = hopsUsed,
+      failedToolCalls = failedToolCalls,
+      stopMessage = Some(message)
+    )
 
   /** HEL-667 design.md D2: `true` iff this turn captured no `proposal` AND the LAST tool call
    *  executed in this turn's OWN new history (`fullHistory` minus the caller-supplied `history`
