@@ -2,7 +2,8 @@ package com.helio.services.pipelines
 
 import com.helio.domain.history.{OutputCompare, PayloadOptIn}
 import com.helio.domain.model.OutputKind
-import com.helio.domain.outputs.{ConditionalFormats, InsightConfig}
+import com.helio.domain.insights.InsightPreset
+import com.helio.domain.outputs.{ConditionalFormats, InsightConfig, InsightRefresh}
 import com.helio.domain.panels.{ChartReferenceMarks, ChartTypes, OutputBindingSpec}
 import com.helio.infrastructure.ai.ClaudeModelCatalog
 import com.helio.services.ServiceError
@@ -36,10 +37,6 @@ object OutputConfigValidation {
     OutputKind.Insight    -> InsightConfig.Keys
   )
 
-  /** The kinds [[KeysDoc]] documents: every kind except `insight`, which the in-app assistant's proposal tools do not
-   *  accept, so the assistant is never told about config for a kind it cannot propose. (The MCP tools do accept it, HEL-1747.) */
-  val DocumentedKnownKeys: Map[OutputKind, Set[String]] = KnownKeys.filter(_._1 != OutputKind.Insight)
-
   private val Aggs       = Set("count", "sum", "avg", "min", "max")
   private val HistogramBinMin = 2
   private val HistogramBinMax = 100
@@ -47,15 +44,29 @@ object OutputConfigValidation {
   private val Renames = Map("metricLabel" -> "label", "metricUnit" -> "unit", "chartAnnotation" -> "annotation")
   private val DeadStyling = Set("legend", "tooltip", "seriesColors", "axisLabels")
 
+  /** The insight sentence of [[KeysDoc]], built from the parser's own constants so it cannot drift from it (HEL-1779).
+   *  It states no `reads.outputs` id rule: that differs per write path and is told by the tool descriptions. */
+  private val InsightDoc: String =
+    s"insight config (a short narrative over the other Outputs of its node): preset is one of ${InsightPreset.all.map(_.asString).mkString(", ")} (default ${InsightPreset.Auto.asString}); " +
+      s"prompt is optional text of at most ${InsightConfig.MaxPromptChars} characters; " +
+      s"reads = { outputs?, windows? } -- outputs is an array of at most ${InsightConfig.MaxReadOutputs} distinct Output ids (omit it to read the other Outputs on the same node), " +
+      s"windows is an array of at most ${InsightConfig.MaxReadWindows} distinct entries, each 1d, 7d, 30d or custom:<ISO-8601 duration up to 365 days>; " +
+      s"refresh is one of ${InsightRefresh.all.map(_.asString).mkString(", ")} (default ${InsightRefresh.OnRun.asString}); " +
+      s"maxSentences is a whole number from ${InsightConfig.MaxSentencesRange.start} to ${InsightConfig.MaxSentencesRange.end} (default ${InsightConfig.DefaultMaxSentences}); " +
+      s"maxChars is a whole number from ${InsightConfig.MaxCharsRange.start} to ${InsightConfig.MaxCharsRange.end} (default ${InsightConfig.DefaultMaxChars}); " +
+      "model is optional, a selectable model id (omit for the server default). Defaults are never written back; an insight never reads a row itself and creating the Output itself writes no render."
+
   /** One text block, built from [[KnownKeys]], for every prompt/tool surface that tells Claude how to write
    *  Output config -- so those surfaces cannot drift from the validator. */
   val KeysDoc: String = {
-    val perKind = DocumentedKnownKeys.toVector.sortBy(_._1.toString).map { case (k, keys) =>
-      val own = (keys -- Shared).toVector.sorted
+    val perKind = KnownKeys.toVector.sortBy(_._1.toString).map { case (k, keys) =>
+      val own = (keys -- Shared -- Option.when(k == OutputKind.Insight)("fieldMapping")).toVector.sorted
       s"${OutputKind.asString(k)}: ${own.mkString(", ")}"
     }
     "Output config accepts only these top-level keys (anything else is rejected with 400 naming the key). " +
-      s"Every kind: ${Shared.toVector.sorted.mkString(", ")}. Per kind -- ${perKind.mkString("; ")}. " +
+      s"Every kind except insight -- ${Shared.toVector.sorted.mkString(", ")}; an insight takes none of compare/historyPayloads and no fieldMapping (leave it out), only its own keys. " +
+      s"Per kind -- ${perKind.mkString("; ")}. " +
+      InsightDoc + " " +
       "chart aggregation = { groupBy, agg, yField } (all non-empty strings; never on a scatter, heatmap or histogram chart); " +
       "metric aggregation = { agg } (field from fieldMapping.value) or { value, agg }; agg is one of count, sum, avg, min, max; " +
       "aggregation may be null. conditionalFormats (metric, table, collection) = null/[] or an ordered list (max 20, first match wins) of rules " +

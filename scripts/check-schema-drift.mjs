@@ -688,6 +688,27 @@ function scalaSchemaEnumValues(name, field) {
   if (enumKeyIdx !== -1) {
     const arrayMarkerIdx = valueSrc.indexOf("JsArray(", enumKeyIdx);
     const openIdx = arrayMarkerIdx + "JsArray".length;
+    // HEL-1779: the Output kind enum is derived from `OutputKind.all`; read the same canonical set from
+    // `OutputKind.fromString` (the one place each kind's string is written out in the domain model).
+    if (
+      valueSrc.slice(openIdx + 1, findMatchingParen(valueSrc, openIdx)).includes("OutputKind.all")
+    ) {
+      const modelSrc = stripComments(
+        readFileSync(
+          join(repoRoot, "backend/src/main/scala/com/helio/domain/model/model.scala"),
+          "utf8",
+        ),
+      );
+      const objStart = modelSrc.indexOf("object OutputKind {");
+      if (objStart === -1) throw new Error("model.scala: no `object OutputKind {` found");
+      const fromStr = /def fromString\(s: String\)[^=]*=\s*s match \{([\s\S]*?)\n {2}\}/.exec(
+        modelSrc.slice(objStart),
+      );
+      if (!fromStr) throw new Error("model.scala: no OutputKind.fromString match found");
+      const kinds = [...fromStr[1].matchAll(/case "([a-z_]+)"\s*=>\s*Right\(/g)].map((m) => m[1]);
+      if (kinds.length === 0) throw new Error("model.scala: OutputKind.fromString lists no kinds");
+      return new Set(kinds);
+    }
     return new Set(
       extractQuoted(valueSrc.slice(openIdx + 1, findMatchingParen(valueSrc, openIdx))),
     );
@@ -824,15 +845,9 @@ const assistantToolParitySurfaces = [
 // skip — rather than fixed in place. (Those two entries have since been removed; the map was
 // empty before HEL-1740.)
 //
-// HEL-1740: the `insight` Output kind is accepted by the single-call pipeline create (so the schema lists it) but the assistant
-// proposal tool does not offer it until HEL-1747 (L8). Allowed by exact label + exact value. An allowance that matches
-// nothing (the Scala side gained the value, or the schema lost it) is itself an error below, so L8 must delete the entry.
-const KNOWN_PRE_EXISTING_DRIFT = new Map([
-  [
-    "PipelineProposalOutputSchema.kind enum <-> create-pipeline-transactional-output-request.schema.json properties.kind.enum",
-    { missingInScala: new Set(["insight"]) },
-  ],
-]);
+// Known, ticketed drift allowances by exact surface label + exact value (none today: HEL-1779 removed the `insight` entry when the
+// assistant proposal tool began offering it). An allowance that matches nothing is itself an error below, so delete it once fixed.
+const KNOWN_PRE_EXISTING_DRIFT = new Map();
 
 // An allowance must match a live drift: every allowed value must be in the JSON Schema and absent from Scala.
 for (const [allowedLabel, { missingInScala }] of KNOWN_PRE_EXISTING_DRIFT) {

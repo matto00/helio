@@ -385,7 +385,7 @@ class RefinementEditShapeSpec extends AnyWordSpec with Matchers with PatchSetPro
       val text   = RefinementEditShape.CreateExample
       val atEdit = text.substring(text.indexOf("output update (rename"))
       atEdit should include(OutputConfigValidation.KeysDoc)
-      OutputConfigValidation.DocumentedKnownKeys.values.flatten.foreach(k => atEdit should include(k))
+      OutputConfigValidation.KnownKeys.values.flatten.foreach(k => atEdit should include(k))
       atEdit should include("{ groupBy, agg, yField }")
       atEdit should include("{ value, agg }")
       RefinementEditShape.Description should include(OutputConfigValidation.KeysDoc)

@@ -10,6 +10,10 @@ import spray.json.{JsNull, JsObject}
  *  restore paths (rollback, draft undo, patch-set undo): restoring stored state is never refused. */
 object InsightReadsCheck {
 
+  /** The message prefix every `reads.outputs` scoping refusal carries (also used by the patch-set same-set-delete pass). */
+  val NamesOtherOutputsMessage: String =
+    "reads.outputs must name other non-insight Outputs of this pipeline (not another insight, or an unknown Output)"
+
   def check(
       kind:            OutputKind,
       insightId:       Option[OutputId],
@@ -28,8 +32,7 @@ object InsightReadsCheck {
           if (offending.isEmpty) Right(())
           else
             Left(
-              "reads.outputs must name other non-insight Outputs of this pipeline (not another insight, " +
-                s"or an unknown Output): ${offending.map(_.value).mkString(", ")}"
+              s"$NamesOtherOutputsMessage: ${offending.map(_.value).mkString(", ")}"
             )
         }
       }
