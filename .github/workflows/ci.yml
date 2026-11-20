@@ -84,7 +84,7 @@ jobs:
       # own comments already name four times. It proves the rendered guard's measurement
       # core (`e2e/support/stateContrast.mjs`) is failable (the dark-defect/alpha-
       # compositing/absence cases); an ungated proof is not a proof. The rendered guard
-      # itself (`e2e/state-surface-contrast-guard.spec.ts`) is separately gated by the `e2e`
+      # itself (`e2e/state-surface-contrast-guard-*.spec.ts`) is separately gated by the `e2e`
       # job's Playwright discovery (config glob + `testIgnore`, partitioned by scripts/e2e-shard.mjs) below -- this line gates the FAST, browser-free
       # self-test alongside `check:tokens:selftest`, not a duplicate of the `e2e` job.
       - run: npm run check:state-contrast:selftest
@@ -678,6 +678,37 @@ jobs:
       CONNECTOR_MASTER_KEY_ID: ci-test-2026-08
     steps:
       - uses: actions/checkout@v7
+      # HEL-1789: a per-leg runner record, so a slow leg can be attributed (a whole leg sometimes runs 1.2-1.4x slow, every
+      # file together; the job log names the cloud and region but not the CPU, and nothing records steal or load). Started
+      # first after checkout so it covers setup and the whole suite; it stops itself after 1400 s (before the 1500 s job
+      # limit: only "Set up job", the postgres service container and checkout, about 30 s, precede it) and by its recorded
+      # PID after the suite. Every step here is non-failing, the artifact name does not match `playwright-json-shard-*`
+      # (the weights tool needs exactly one report per leg), and the directory never holds a `results.json`.
+      - name: Start runner record sampler
+        continue-on-error: true
+        run: |
+          mkdir -p "$RUNNER_TEMP/e2e-runner"
+          nohup node scripts/ci-load-sampler.cjs "$RUNNER_TEMP/e2e-runner/load.ndjson" 1400 > "$RUNNER_TEMP/e2e-runner/sampler.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/e2e-runner-sampler.pid"
+      - name: Record runner identity
+        continue-on-error: true
+        run: |
+          mkdir -p "$RUNNER_TEMP/e2e-runner"
+          {
+            echo "shard: ${{ matrix.shard }}"
+            echo "started_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "cpu_model: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//')"
+            echo "vcpus: $(nproc)"
+            echo "mem_total_kb: $(awk '/^MemTotal:/ {print $2}' /proc/meminfo)"
+            echo "hypervisor_flag: $(grep -m1 -c ' hypervisor' /proc/cpuinfo)"
+            echo "kernel: $(uname -r)"
+          } > "$RUNNER_TEMP/e2e-runner/identity.txt"
+          {
+            echo "### e2e runner record, leg ${{ matrix.shard }}"
+            echo '```'
+            cat "$RUNNER_TEMP/e2e-runner/identity.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: ./.github/actions/e2e-setup
         with:
           # HEL-1699: exactly one job per run may save the node_modules cache (main push only; see the action).
@@ -691,6 +722,22 @@ jobs:
       # fails loudly (naming files) on any partition or selection defect. Not a hand-picked list.
       - name: Run e2e suite (Playwright discovery via config glob + testIgnore, weighted shard)
         run: node scripts/e2e-shard.mjs run ${{ matrix.shard }} ${{ strategy.job-total }}
+      - name: Stop runner record sampler
+        if: always()
+        continue-on-error: true
+        run: |
+          if [ -f "$RUNNER_TEMP/e2e-runner-sampler.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/e2e-runner-sampler.pid")" || true
+          fi
+      - name: Upload runner record
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-runner-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/e2e-runner
+          if-no-files-found: warn
+          retention-days: 14
       # HEL-910 task 6.3 note: the P1.4 Sleeper MCP rebuild acceptance test
       # (`helio-mcp/e2e/sleeper-rebuild.ts`) is deliberately NOT wired in
       # here. Correcting an assumption from the ticket brief: it does NOT

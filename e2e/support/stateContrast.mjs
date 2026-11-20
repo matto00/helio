@@ -4,7 +4,7 @@
 // so the core can be exercised by a fast Node self-test
 // (stateContrast.selftest.mjs, on the scripts/check-tokens.selftest.mjs
 // pattern) without a browser, and imported unchanged by the rendered
-// Playwright spec (state-surface-contrast-guard.spec.ts) that drives real
+// Playwright spec (state-surface-contrast-guard-*.spec.ts) that drives real
 // pages. See openspec/changes/state-surface-contrast-guard/design.md D3/D4
 // for the derivation of every constant and rule below.
 //
@@ -41,7 +41,7 @@ export const CONTRAST_THRESHOLD = 1.1;
  *     tries to convert -- an interpolating value read mid-transition is not
  *     the state the guard means to measure, and design.md/D4 requires
  *     settling transitions before reading, not reading through them. The
- *     caller (state-surface-contrast-guard.spec.ts) waits out the
+ *     caller (state-surface-contrast-guard-*.spec.ts) waits out the
  *     transition so this case should not normally reach here; if it does,
  *     failing loudly is correct -- silently approximating an
  *     in-flight colour would be exactly the "guessing" task 2.7 forbids.

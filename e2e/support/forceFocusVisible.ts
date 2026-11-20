@@ -1,6 +1,6 @@
 import type { CDPSession, Locator } from "@playwright/test";
 
-// HEL-520 (task 2.6a-i) — extracted from state-surface-contrast-guard.spec.ts
+// HEL-520 (task 2.6a-i) — extracted from state-surface-contrast-guard-*.spec.ts
 // (HEL-866), which previously declared this as a module-local function and
 // exported nothing. `e2e/support/` is where every other cross-spec probe in
 // this repo lives (stateContrast.mjs, stateContrastProbe.ts,

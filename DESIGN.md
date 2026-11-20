@@ -147,7 +147,7 @@ correction: Appendix A.1.)
 selected state composites against whatever it sits on, and that backdrop
 varies by layer, not just by theme. There is no single correct rung: use the
 row for the backdrop the state actually sits on. **[mechanical]** — enforced
-by the rendered guard `e2e/state-surface-contrast-guard.spec.ts`, which is
+by the rendered guard `e2e/state-surface-contrast-guard-*.spec.ts`, which is
 the arbiter, not inspection or a general rule.
 
 | real backdrop                                                                         | correct state rung                                                                                           |
@@ -1602,7 +1602,7 @@ regression.
 Moved from §3 Color. The first block is the v2 text verbatim; the "v3
 re-measure" below it supersedes only the `--app-bg` dark cell.
 
-**HEL-866 — which rung is correct depends on the REAL BACKDROP a state composites against, and that backdrop varies by layer, not just by theme.** `--app-surface-raised` and `--app-surface-strong` are byte-identical in light theme (`#ffffff` = `#ffffff`), so a state layered directly on a Modal/popover/menu's own background (`--app-surface-strong`) rendered with **zero** visible feedback there; dark theme is not safe either (`#232019` on `#262320` measures ~1.04:1, non-identical but not _measurably_ different). But the fix is NOT "always use `--app-surface-soft`" — that was tried first (cycle 1), shipped as a blanket sweep, and **measurably regressed a whole family of call sites it never verified** (evaluation-2.md CR6): table/list rows and page-level buttons mostly composite against `--app-bg` (the outermost canvas), not `--app-surface-strong`, and on `--app-bg` it is `--app-surface-raised` that clears the threshold in both themes (1.161 dark / 1.119 light) — `--app-surface-soft` measures _worse_ there (1.034 dark / 1.054 light). A rendered, CI-gated contrast guard (`e2e/state-surface-contrast-guard.spec.ts`) — the arbiter for every remediation decision here, not inspection or a general rule — found three distinct backdrop families, each needing a different fix:
+**HEL-866 — which rung is correct depends on the REAL BACKDROP a state composites against, and that backdrop varies by layer, not just by theme.** `--app-surface-raised` and `--app-surface-strong` are byte-identical in light theme (`#ffffff` = `#ffffff`), so a state layered directly on a Modal/popover/menu's own background (`--app-surface-strong`) rendered with **zero** visible feedback there; dark theme is not safe either (`#232019` on `#262320` measures ~1.04:1, non-identical but not _measurably_ different). But the fix is NOT "always use `--app-surface-soft`" — that was tried first (cycle 1), shipped as a blanket sweep, and **measurably regressed a whole family of call sites it never verified** (evaluation-2.md CR6): table/list rows and page-level buttons mostly composite against `--app-bg` (the outermost canvas), not `--app-surface-strong`, and on `--app-bg` it is `--app-surface-raised` that clears the threshold in both themes (1.161 dark / 1.119 light) — `--app-surface-soft` measures _worse_ there (1.034 dark / 1.054 light). A rendered, CI-gated contrast guard (`e2e/state-surface-contrast-guard-*.spec.ts`) — the arbiter for every remediation decision here, not inspection or a general rule — found three distinct backdrop families, each needing a different fix:
 
 | real backdrop                                                                         | correct fix                                                                                                  | measured (dark / light) |
 | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------- |
@@ -1625,7 +1625,7 @@ unchanged, so families 1 and 2 (backdrops `--app-surface-strong` and
 `--app-surface`) do not change. Family 3 (`--app-surface-raised` `#232019` on
 `--app-bg`) is recomputed with the guard's luminance-ratio method:
 **1.187 dark** (was 1.161); light is unchanged at 1.119. The rendered
-`e2e/state-surface-contrast-guard.spec.ts` is the arbiter and passed on the new
+`e2e/state-surface-contrast-guard-*.spec.ts` is the arbiter and passed on the new
 canvas (HEL-1571 evidence). The darker canvas raises this family's contrast.
 
 **Card-surface disagreement (HEL-1571).** The approved boards disagree on the

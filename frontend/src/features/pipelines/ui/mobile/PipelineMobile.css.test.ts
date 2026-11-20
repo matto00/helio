@@ -5,7 +5,7 @@ import { expectTapExpander, findRuleBody } from "../../../../shared/ui/tapTarget
 
 // HEL-1582: static guard for the phone pipeline page's 44px touch floor, using the repo's tap-expander utilities
 // (`shared/ui/tapTargetTestUtils`). jsdom has no layout, so the rendered floor is proven live by
-// `e2e/hel1582-mobile-pipeline.spec.ts` (hit-extent bisection); this keeps the CSS pattern from regressing between
+// `e2e/hel1582-mobile-pipeline-*.spec.ts` (hit-extent bisection); this keeps the CSS pattern from regressing between
 // e2e runs: every compact painted control declares `position: relative` plus an explicit 44px `::after` expander
 // (above later siblings, `z-index`), and every full-width list control is painted at least 44px.
 

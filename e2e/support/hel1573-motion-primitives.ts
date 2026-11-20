@@ -1,19 +1,18 @@
 import { writeFileSync } from "node:fs";
+import { type APIRequestContext, expect, type Page, test, type TestInfo } from "@playwright/test";
 
-import { expect, test, type APIRequestContext, type Page, type TestInfo } from "@playwright/test";
-
-import { registerAndLogin } from "./support/auth";
-import { evidencePath } from "./support/evidencePath";
+import { registerAndLogin } from "./auth";
+import { evidencePath } from "./evidencePath";
 import {
   clearLog,
   log,
-  RECORDER,
   type Mode,
   type MotionRecord,
+  RECORDER,
   type Theme,
-} from "./support/motionRecorder";
-import { seedWorld, setMotion, setTheme } from "./support/motionPrimitivesSeed";
-import { waitForPanelGrid } from "./support/panelGridReady";
+} from "./motionRecorder";
+import { seedWorld, setMotion, setTheme } from "./motionPrimitivesSeed";
+import { waitForPanelGrid } from "./panelGridReady";
 
 // HEL-1573 -- the shared motion primitives in a REAL browser (jsdom reads every token as 0 and cannot prove motion
 // timing): staggered entrance (dashboard list), layout slide (dashboard list FLIP), crossfade (panel body), indicator
@@ -23,32 +22,33 @@ import { waitForPanelGrid } from "./support/panelGridReady";
 // CSS transitions, Web Animations) with its resolved duration and whether it moves anything, then asserts per Motion
 // mode: Full animates (the control that can go red), Subtle keeps fades but nothing moves, Off and OS-reduce-with-no-
 // saved-choice run nothing longer than 0.01ms. Both themes are covered, with screenshots and a recording per mode.
+//
+// HEL-1789: the shared half of e2e/hel1573-motion-primitives-*.spec.ts, moved here verbatim (only `export` added and the per-mode loop
+// wrapped in `registerMotionModes`) when the spec was split so CI's file-level sharding can place the parts on different legs.
 
-test.describe.configure({ mode: "parallel" });
-test.use({ video: "on", viewport: { width: 1900, height: 1000 } });
+export const TICKET = "HEL-1573";
+export const AUTH = { prefix: "hel1573", displayName: "HEL-1573" } as const;
+export const INSTANT_MS = 0.01;
 
-const TICKET = "HEL-1573";
-const AUTH = { prefix: "hel1573", displayName: "HEL-1573" } as const;
-const INSTANT_MS = 0.01;
-
-const slow = (r: MotionRecord) => r.duration > INSTANT_MS;
+export const slow = (r: MotionRecord) => r.duration > INSTANT_MS;
 /** The primitives' own elements. Other surfaces (the body colour fade before the saved preference is applied on a
  *  first load, a spinner, the actions-menu popover's translate entrance) are outside this ticket's primitives. */
-const PRIMITIVE_TARGET =
+export const PRIMITIVE_TARGET =
   /dashboard-list__item|motion-indicator|react-grid-item|react-grid-layout|panel-grid|crossfade/;
-const isPrimitive = (r: MotionRecord) => PRIMITIVE_TARGET.test(r.target);
-const byName = (records: MotionRecord[], name: string) => records.filter((r) => r.name === name);
+export const isPrimitive = (r: MotionRecord) => PRIMITIVE_TARGET.test(r.target);
+export const byName = (records: MotionRecord[], name: string) =>
+  records.filter((r) => r.name === name);
 /** The dashboard list rows' stagger (this spec's subject). The panel cards enter on the emphasized token since HEL-1584 (their
  *  own spec, hel1584-motion-surfaces.spec.ts), which is a different `motion-enter` record on a different target. */
-const rowEnters = (records: MotionRecord[]) =>
+export const rowEnters = (records: MotionRecord[]) =>
   byName(records, "motion-enter").filter((r) => r.target.includes("dashboard-list__item"));
 
-function save(page: Page, mode: Mode, theme: Theme, shot: string) {
+export function save(page: Page, mode: Mode, theme: Theme, shot: string) {
   return page.screenshot({ path: evidencePath(TICKET, `${mode}-${theme}-${shot}.png`) });
 }
 
 /** Drives every primitive once and returns what the browser animated, per primitive. */
-async function drivePrimitives(page: Page, mode: Mode, theme: Theme, tag: string) {
+export async function drivePrimitives(page: Page, mode: Mode, theme: Theme, tag: string) {
   const records: Record<string, MotionRecord[]> = {};
   const collect = async (key: string) => {
     records[key] = await log(page);
@@ -135,7 +135,7 @@ async function drivePrimitives(page: Page, mode: Mode, theme: Theme, tag: string
   return records;
 }
 
-function expectInstantOrStill(all: MotionRecord[], what: string) {
+export function expectInstantOrStill(all: MotionRecord[], what: string) {
   const records = all.filter(isPrimitive);
   const moving = records.filter((r) => r.moves && slow(r));
   expect(moving, `${what}: moving animations longer than 0.01ms`).toEqual([]);
@@ -143,7 +143,7 @@ function expectInstantOrStill(all: MotionRecord[], what: string) {
   expect(waapi, `${what}: no Web Animations call at all`).toEqual([]);
 }
 
-async function runMode(
+export async function runMode(
   mode: Mode,
   theme: Theme,
   { page, request }: { page: Page; request: APIRequestContext },
@@ -267,59 +267,17 @@ async function runMode(
   if (video) await video.saveAs(evidencePath(TICKET, `${mode}-${theme}.webm`));
 }
 
-for (const mode of ["full", "subtle", "off", "os-reduce"] as const) {
-  for (const theme of ["light", "dark"] as const) {
-    test(`HEL-1573 primitives under Motion = ${mode}, ${theme} theme`, async ({
-      page,
-      request,
-    }, testInfo) => {
-      await runMode(mode, theme, { page, request }, testInfo);
-    });
-  }
-}
-
-test("HEL-1573 the Motion group's own indicator snaps when Motion changes from Full to Subtle", async ({
-  page,
-  request,
-}) => {
-  test.setTimeout(120_000);
-  await registerAndLogin(page, request, { ...AUTH, label: "motion-group", isolate: true });
-  await setMotion(request, "full");
-  await page.goto("/settings");
-  const group = page.getByRole("radiogroup", { name: "Motion" });
-  await expect(group.getByRole("radio", { name: "Full", checked: true })).toBeVisible();
-  await page.waitForTimeout(800);
-  // Click through the DOM and sample every frame from the same task, so the first frames cannot be missed.
-  const trace = await page.evaluate(async () => {
-    const radiogroup = document.querySelector(
-      '[role="radiogroup"][aria-label="Motion"]',
-    ) as HTMLElement;
-    const indicator = radiogroup.querySelector(".motion-indicator") as HTMLElement;
-    const frame = () => new Promise<number>((resolve) => requestAnimationFrame((t) => resolve(t)));
-    (radiogroup.querySelectorAll('[role="radio"]')[1] as HTMLElement).click();
-    const frames: Array<{ left: number; running: string[] }> = [];
-    for (let i = 0; i < 6; i++) {
-      await frame();
-      frames.push({
-        left: indicator.getBoundingClientRect().left,
-        running: indicator
-          .getAnimations()
-          .filter((a) => a.playState === "running")
-          .map((a) => (a as CSSTransition).transitionProperty),
+/** Registers the per-mode primitives test (every mode in `modes`, both themes); each `hel1573-motion-primitives-*.spec.ts` part calls it
+ *  with its own modes so the test body lives once. */
+export function registerMotionModes(modes: readonly Mode[]) {
+  for (const mode of modes) {
+    for (const theme of ["light", "dark"] as const) {
+      test(`HEL-1573 primitives under Motion = ${mode}, ${theme} theme`, async ({
+        page,
+        request,
+      }, testInfo) => {
+        await runMode(mode, theme, { page, request }, testInfo);
       });
     }
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    const final = (
-      radiogroup.querySelector("[data-indicator-active]") as HTMLElement
-    ).getBoundingClientRect().left;
-    return { frames, final, motion: document.documentElement.getAttribute("data-motion") };
-  });
-  writeFileSync(
-    evidencePath(TICKET, "motion-group-indicator.json"),
-    JSON.stringify(trace, null, 2),
-  );
-  expect(trace.motion).toBe("subtle");
-  // By the second frame the indicator is already where it ends up, with nothing still transitioning.
-  expect(Math.abs(trace.frames[1].left - trace.final)).toBeLessThan(1.5);
-  for (const f of trace.frames.slice(1)) expect(f.running).toEqual([]);
-});
+  }
+}

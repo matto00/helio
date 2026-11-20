@@ -55,7 +55,7 @@ describe("DashboardTabBar.css (HEL-1575)", () => {
   });
 
   it("hover washes follow the HEL-866 rung table: strong on the bar, and on the active tab strong in dark, soft in light", () => {
-    // The state-surface guard (e2e/state-surface-contrast-guard.spec.ts) is the arbiter; this pins the rungs.
+    // The state-surface guard (e2e/state-surface-contrast-guard-*.spec.ts) is the arbiter; this pins the rungs.
     expect(css).toMatch(
       /\.dashboard-tab__button:hover,\s*\.dashboard-tab__close:hover\s*\{[^}]*background:\s*var\(--app-surface-strong\)/,
     );
