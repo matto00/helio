@@ -493,6 +493,19 @@
     color var(--app-transition);
 }
 
+/* HEL-1782: the "Build your own dashboard" footer row of a shared-only user's list: a plain list row with a leading icon. */
+.dashboard-list__footer {
+  margin-top: var(--space-2);
+}
+
+.dashboard-list__build-own {
+  justify-content: flex-start;
+}
+
+.dashboard-list__build-own svg {
+  flex-shrink: 0;
+}
+
 /* A hovered row on the context list: soft on the soft backdrop is 1.000 (no visible band); strong is 1.167 dark and
    1.179 light (see the filter-clear note above). Same `.context-list` scoping as the siblings. */
 .dashboard-list__button:hover {
@@ -556,6 +569,7 @@
    (min-width:0, text-overflow:ellipsis) always truncates to make room for it
    instead. Same pill recipe the old pseudo-element used. */
 .dashboard-list__pinned-badge,
+/* The same badge as the phone chip (`.dashboard-chip__shared`) and Home (`.home-card__shared`): keep equal. */
 .dashboard-list__shared-badge {
   flex-shrink: 0;
   /* HEL-830: 6px -> 8px, chip/badge padding reads compressed at 4px */

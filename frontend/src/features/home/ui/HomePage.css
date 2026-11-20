@@ -193,6 +193,7 @@ a.home-card:hover {
   transform: translateY(-50%);
 }
 
+/* The same badge as the sidebar (`.dashboard-list__shared-badge`) and the phone chip (`.dashboard-chip__shared`): keep equal. */
 .home-card__shared {
   flex-shrink: 0;
   padding: 2px var(--space-2);

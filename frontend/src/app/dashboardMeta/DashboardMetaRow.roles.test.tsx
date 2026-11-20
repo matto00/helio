@@ -137,4 +137,29 @@ describe("DashboardMetaRow by role", () => {
       jest.mocked(useMetaRowTier).mockReturnValue(0);
     }
   });
+
+  // HEL-1782 D1: a viewer's meta row says so; an editor's and the owner's do not.
+  it("shows View only to a viewer, first among the facts, and to no one else", () => {
+    setup("viewer");
+    expect(screen.getByText("View only")).toBeInTheDocument();
+    const facts = document.querySelector(".dashboard-meta-row__facts");
+    expect(facts?.firstElementChild?.textContent).toBe("View only");
+    expect(facts?.getAttribute("title")).toContain("View only");
+  });
+
+  it.each(["owner", "editor"] as const)("shows no View only to the %s", (role) => {
+    setup(role);
+    expect(screen.queryByText("View only")).toBeNull();
+  });
+
+  it("keeps View only at the narrowest tier, where only the count remains", () => {
+    jest.mocked(useMetaRowTier).mockReturnValue(3);
+    try {
+      setup("viewer");
+      expect(screen.getByText("View only")).toBeInTheDocument();
+      expect(screen.getByText("2 panels")).toBeInTheDocument();
+    } finally {
+      jest.mocked(useMetaRowTier).mockReturnValue(0);
+    }
+  });
 });

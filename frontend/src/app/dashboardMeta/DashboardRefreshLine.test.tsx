@@ -427,7 +427,13 @@ describe("DashboardRefreshLine on a shared dashboard (HEL-1773, HEL-1786)", () =
         "/dashboards",
       );
       // The owner hook's (mocked) facts are never shown to a non-owner.
-      expect(container.querySelector(".dashboard-refresh-line")).toBeNull();
+      // HEL-1782: a viewer's line still renders (it carries "View only"), but with no refresh fact in it.
+      const line = container.querySelector(".dashboard-refresh-line");
+      if (role === "viewer") {
+        expect(line?.textContent).toBe("View only");
+      } else {
+        expect(line).toBeNull();
+      }
       expect(metaMock).toHaveBeenLastCalledWith("d1", []);
     },
   );

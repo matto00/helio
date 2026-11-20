@@ -102,6 +102,73 @@ describe("PanelList <-> OnboardingChecklist integration (HEL-554)", () => {
     ).not.toBeInTheDocument();
   });
 
+  // HEL-1782 (evaluation-1 CR3): a shared-only user who chooses "Set up step by step" gets the checklist and neither the
+  // drop zone nor the generic "No dashboard open" state, as an account with no dashboard does.
+  it("shows only the checklist after 'Set up step by step' for a shared-only user", () => {
+    renderWithStore(<PanelList />, {
+      ...emptyAccount,
+      dashboards: {
+        items: [{ id: "dash-1", name: "Theirs", accessRole: "viewer", ownerId: "other" }],
+        selectedDashboardId: null,
+        status: "succeeded",
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Set up step by step" }));
+
+    expect(screen.getByRole("region", { name: "Getting started" })).toBeInTheDocument();
+    // The checklist takes the primary emphasis, as it does for an account with no dashboard.
+    expect(document.querySelector(".onboarding-checklist__action--primary")).not.toBeNull();
+    expect(screen.queryByText("No dashboard open")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Build your first dashboard" }),
+    ).not.toBeInTheDocument();
+  });
+
+  // HEL-1782 (evaluation-2): dismissing the checklist must not leave a shared-only user on a blank pane. With the checklist
+  // gone the first-run drop zone returns (never "No dashboard open"), and it stays when the entry is chosen again.
+  it("returns to the drop zone once a shared-only user dismisses the checklist", () => {
+    renderWithStore(<PanelList />, {
+      ...emptyAccount,
+      dashboards: {
+        items: [{ id: "dash-1", name: "Theirs", accessRole: "viewer", ownerId: "other" }],
+        selectedDashboardId: null,
+        status: "succeeded",
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Set up step by step" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss getting-started checklist" }));
+
+    expect(screen.queryByRole("region", { name: "Getting started" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Build your first dashboard" })).toBeInTheDocument();
+    expect(screen.queryByText("No dashboard open")).not.toBeInTheDocument();
+  });
+
+  // The state space, so no state is blank: an owner with nothing open keeps "No dashboard open" and no drop zone; an
+  // account with no dashboard whose checklist was dismissed keeps its own "No dashboards yet".
+  it("keeps 'No dashboard open' for an owner with nothing open, and never offers the drop zone", () => {
+    renderWithStore(<PanelList />, {
+      ...emptyAccount,
+      dashboards: {
+        items: [{ id: "dash-1", name: "Mine", accessRole: "owner", ownerId: "user-1" }],
+        selectedDashboardId: null,
+        status: "succeeded",
+      },
+    });
+    expect(screen.getByText("No dashboard open")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Build your first dashboard" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("falls back to 'No dashboards yet' for an account with no dashboard once the checklist is dismissed", () => {
+    renderWithStore(<PanelList />, emptyAccount);
+    fireEvent.click(screen.getByRole("button", { name: "Set up step by step" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss getting-started checklist" }));
+    expect(screen.getByText("No dashboards yet")).toBeInTheDocument();
+  });
+
   // Mirror scenario — a returning user with a dashboard is not auto-activated
   // and sees the ordinary chrome unaffected.
   it("does not show the checklist for a returning user who already has a dashboard", () => {

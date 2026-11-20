@@ -5,6 +5,7 @@ import { useSaveState } from "../../context/SaveStateContext";
 import { DashboardAppearanceEditor } from "../../features/dashboards/ui/DashboardAppearanceEditor";
 import {
   selectCanEditDashboard,
+  selectDashboardAccessRole,
   selectIsDashboardOwner,
 } from "../../features/dashboards/state/dashboardAccess";
 import { useShareDialog } from "../../features/dashboards/state/shareDialogContext";
@@ -82,6 +83,10 @@ export function DashboardMetaRow({
   // the edits the server permits but not the owner-only actions (share) nor the owner-only Ask entry (child 3 of the ticket).
   const canEdit = useAppSelector((state) => selectCanEditDashboard(state, selectedDashboardId));
   const isOwner = useAppSelector((state) => selectIsDashboardOwner(state, selectedDashboardId));
+  // HEL-1782: a viewer's facts say so ("View only"); an editor's and the owner's do not.
+  const isViewer = useAppSelector(
+    (state) => selectDashboardAccessRole(state, selectedDashboardId) === "viewer",
+  );
   const gridIsMovable = useAppSelector(selectIsDesktopGridMounted(selectedDashboardId));
   const isEditing = useAppSelector(selectIsEditingLayout(selectedDashboardId)) && gridIsMovable;
 
@@ -164,7 +169,13 @@ export function DashboardMetaRow({
     >
       <div className="app-command-bar__left dashboard-meta-row__left">
         {selectedDashboard && (
-          <DashboardMetaFacts meta={meta} countOnly={tier >= 3} showSaveState onSaveNow={flush} />
+          <DashboardMetaFacts
+            meta={meta}
+            countOnly={tier >= 3}
+            viewOnly={isViewer}
+            showSaveState
+            onSaveNow={flush}
+          />
         )}
       </div>
       <div className="app-command-bar__right dashboard-meta-row__actions">

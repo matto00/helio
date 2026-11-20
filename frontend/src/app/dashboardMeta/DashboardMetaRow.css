@@ -30,6 +30,11 @@
   white-space: nowrap;
 }
 
+/* HEL-1782: "View only" is a plain fact (no pill, no accent): the meta text's own type, an Eye icon before it. */
+.dashboard-meta-row__view-only {
+  gap: var(--space-1);
+}
+
 .dashboard-meta-row__left .save-state-indicator {
   flex-shrink: 0;
 }
@@ -110,6 +115,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* HEL-1782: the phone "View only" fact, the same recipe as the desktop meta row's (an Eye icon, the line's own muted mono). The
+ * icon is 14px inside the 19.2px+ fixed slot, so the line's height is unchanged. */
+.dashboard-refresh-line__view-only {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  vertical-align: middle;
 }
 
 /* The "Refresh dashboard" button: a square the line's height (token-derived like the line), glyph centred, Ghost recipe

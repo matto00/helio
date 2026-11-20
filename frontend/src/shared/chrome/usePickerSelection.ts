@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useCreateConversationAction } from "../../features/assistant/hooks/useCreateConversationAction";
 import { setSelectedConversationId } from "../../features/assistant/state/assistantConversationsSlice";
 import type { CreateActionResult } from "../../features/dashboards/hooks/useCreateDashboardAction";
+import { useBuildOwnDashboardAction } from "../../features/dashboards/hooks/useBuildOwnDashboardAction";
 import { useCreateDashboardAction } from "../../features/dashboards/hooks/useCreateDashboardAction";
 import { setSelectedDashboardId } from "../../features/dashboards/state/dashboardsSlice";
 import { useCreatePipelineAction } from "../../features/pipelines/hooks/useCreatePipelineAction";
@@ -45,6 +46,9 @@ export interface PickerSelection {
    * the SAME hook result as `createAction` (one visible affordance either
    * way, per D6); chat has neither. */
   emptyCreateAction: CreateActionResult | null;
+  /** HEL-1782: a row after the list (the dashboards sheet's "Build your own dashboard" for a user who owns none); `null`
+   *  elsewhere. */
+  footerAction: { label: string; run: () => void } | null;
 }
 
 /**
@@ -88,6 +92,7 @@ export function usePickerSelection(pathname: string): PickerSelection {
   const addSourceAction = useAddSourceAction();
   const createPipelineAction = useCreatePipelineAction();
   const createConversationAction = useCreateConversationAction();
+  const buildOwnDashboardAction = useBuildOwnDashboardAction();
 
   switch (pickerId) {
     case "dashboards": {
@@ -108,6 +113,7 @@ export function usePickerSelection(pathname: string): PickerSelection {
         onSelect: (item) => dispatch(setSelectedDashboardId(item.id)),
         createAction: createDashboardAction,
         emptyCreateAction: createDashboardAction,
+        footerAction: buildOwnDashboardAction,
       };
     }
     case "sources": {
@@ -128,6 +134,7 @@ export function usePickerSelection(pathname: string): PickerSelection {
         onSelect: (item) => navigate(`/sources/${item.id}`),
         createAction: addSourceAction,
         emptyCreateAction: addSourceAction,
+        footerAction: null,
       };
     }
     case "pipelines": {
@@ -144,6 +151,7 @@ export function usePickerSelection(pathname: string): PickerSelection {
         onSelect: (item) => navigate(`/pipelines/${item.id}`),
         createAction: createPipelineAction,
         emptyCreateAction: createPipelineAction,
+        footerAction: null,
       };
     }
     case "chat": {
@@ -167,6 +175,7 @@ export function usePickerSelection(pathname: string): PickerSelection {
         // separate HEL-746 trigger, which remains untouched.
         createAction: createConversationAction,
         emptyCreateAction: createConversationAction,
+        footerAction: null,
       };
     }
     case "other":
@@ -182,6 +191,7 @@ export function usePickerSelection(pathname: string): PickerSelection {
         onSelect: () => undefined,
         createAction: null,
         emptyCreateAction: null,
+        footerAction: null,
       };
   }
 }

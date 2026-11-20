@@ -25,6 +25,7 @@ import {
   setSelectedDashboardId,
 } from "../state/dashboardsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { useBuildOwnDashboardAction } from "../hooks/useBuildOwnDashboardAction";
 import { useInFlightGuard } from "../../../hooks/useInFlightGuard";
 import type { Dashboard, DashboardSnapshot } from "../types/dashboard";
 import {
@@ -85,6 +86,8 @@ export function DashboardList() {
     null,
   );
   const [filterQuery, setFilterQuery] = useState("");
+  // HEL-1782: a footer row while the user owns no dashboard (every listed one is shared with them).
+  const buildOwn = useBuildOwnDashboardAction();
   const currentUserId = useAppSelector((state) => state.auth?.currentUser?.id ?? null);
   // HEL-590 (evaluation-1.md CR4): opens the dialog via shell-level context rather than local
   // state + a locally-rendered `DashboardShareDialog` -- see `shareDialogContext.tsx`'s docstring
@@ -678,6 +681,20 @@ export function DashboardList() {
           </div>
         )
       }
+      {buildOwn !== null && normalizedQuery.length === 0 ? (
+        <ul className="dashboard-list__items dashboard-list__footer">
+          <li className="dashboard-list__item">
+            <button
+              type="button"
+              className="dashboard-list__button dashboard-list__build-own"
+              onClick={buildOwn.run}
+            >
+              <Plus size={ICON_SIZE.sm} aria-hidden="true" />
+              <span className="dashboard-list__name">{buildOwn.label}</span>
+            </button>
+          </li>
+        </ul>
+      ) : null}
     </section>
   );
 }

@@ -56,9 +56,12 @@ const initialState: DashboardsState = {
 // The backend guarantees dashboards are returned sorted by lastUpdated desc,
 // so the first owned item is always the most recently updated one the user owns.
 // HEL-1773: shared dashboards (accessRole editor/viewer) are in `items` so they can be opened, but the default
-// landing dashboard is always one the user owns; an item with no role (a hand-built fixture) counts as owned.
+// landing dashboard is one the user owns; an item with no role (a hand-built fixture) counts as owned.
+// HEL-1782 (owner ruling 1): only when the user owns NONE does the landing fall back to the first listed item, which is
+// the most recently updated shared dashboard.
 function getMostRecentDashboardId(dashboards: Dashboard[]): string | null {
-  return dashboards.find((d) => d.accessRole === undefined || d.accessRole === "owner")?.id ?? null;
+  const owned = dashboards.find((d) => d.accessRole === undefined || d.accessRole === "owner");
+  return (owned ?? dashboards[0])?.id ?? null;
 }
 
 // HEL-1457: a response that is NOT adopted over a newer local layout keeps the local layout BY REFERENCE and

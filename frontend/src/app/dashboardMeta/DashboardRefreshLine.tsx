@@ -1,4 +1,4 @@
-import { RotateCw } from "lucide-react";
+import { Eye, RotateCw } from "lucide-react";
 
 import { useDashboardMeta } from "../../features/panels/hooks/useDashboardMeta";
 import { useSharedDashboardMeta } from "../../features/panels/hooks/usePanelStatus";
@@ -6,11 +6,15 @@ import { feedingOutputIds } from "../../features/panels/state/dashboardMeta";
 import { panelsKnownFor } from "../../features/panels/state/panelsSettled";
 import type { Panel } from "../../features/panels/types/panel";
 import { usePullRefreshControl } from "../../features/panels/ui/grid/pullRefreshRegistry";
-import { selectIsDashboardOwner } from "../../features/dashboards/state/dashboardAccess";
+import {
+  selectDashboardAccessRole,
+  selectIsDashboardOwner,
+} from "../../features/dashboards/state/dashboardAccess";
 import { useAppSelector } from "../../hooks/reduxHooks";
 import { useNow } from "../../hooks/useNow";
 import { ICON_SIZE } from "../../shared/ui/iconSize";
 import { Spinner } from "../../shared/ui/Spinner";
+import { VIEW_ONLY_TEXT } from "./DashboardMetaFacts";
 import { RefreshFact, refreshFactOf } from "./RefreshFact";
 import "./DashboardMetaRow.css";
 
@@ -76,14 +80,34 @@ export function DashboardRefreshLine() {
   // from the dashboard panel-status route, which their dashboard grant admits. The same slot rules apply to both so the cards
   // never shift (HEL-1583/HEL-1646).
   const isOwner = useAppSelector((state) => selectIsDashboardOwner(state, selectedDashboardId));
+  // HEL-1782: read from the CURRENT role (not one latched at first paint). A viewer's line always renders, from the first
+  // paint, because "View only" is constant for the life of the view; so the slot never appears or vanishes late.
+  const isViewer = useAppSelector(
+    (state) => selectDashboardAccessRole(state, selectedDashboardId) === "viewer",
+  );
   const ownerMeta = useDashboardMeta(selectedDashboardId, isOwner ? panels : NO_PANELS);
   const sharedMeta = useSharedDashboardMeta(isOwner ? null : selectedDashboardId, panels);
   const meta = isOwner ? ownerMeta : sharedMeta;
   const now = useNow(RELATIVE_TIME_TICK_MS);
   const fact = refreshFactOf(meta, now);
   if (selectedDashboardId === null) return null;
+  const viewOnly = isViewer ? (
+    <span className="dashboard-refresh-line__view-only">
+      <Eye size={ICON_SIZE.sm} aria-hidden="true" />
+      {VIEW_ONLY_TEXT}
+    </span>
+  ) : null;
   if (fact === null) {
     const pipelineFed = panelsKnown ? feedingOutputIds(panels).length > 0 : listedPipelineFed;
+    if (viewOnly !== null) {
+      // The "View only" text is real, visible and never `aria-hidden`; the reserved fact space after it is empty.
+      return (
+        <p className="dashboard-refresh-line" data-reserved={pipelineFed ? "true" : undefined}>
+          <span className="dashboard-refresh-line__text">{viewOnly}</span>
+          <RefreshButton />
+        </p>
+      );
+    }
     // The empty text span is the `aria-hidden` part (not the whole line), so the button stays exposed.
     return pipelineFed ? (
       <p className="dashboard-refresh-line" data-reserved="true">
@@ -95,6 +119,8 @@ export function DashboardRefreshLine() {
   return (
     <p className="dashboard-refresh-line">
       <span className="dashboard-refresh-line__text">
+        {viewOnly}
+        {viewOnly !== null && " · "}
         <RefreshFact fact={fact} intent={meta.refreshIntent} />
       </span>
       <RefreshButton />
