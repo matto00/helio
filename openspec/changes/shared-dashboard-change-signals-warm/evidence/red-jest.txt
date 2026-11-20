@@ -1,0 +1,40 @@
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a persisted default columnSort
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a persisted default columnSort, under StrictMode
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a persisted default that DIFFERS from the captured window's query makes exactly one per-panel rows request
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a stale window (its Output's generation moved before the mount) is re-read, marker or not
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a URL control filter
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a URL control filter, under StrictMode
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › persisted columnFilters
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › persisted columnFilters, under StrictMode
+  ● capture of a dashboard the caller does not own › a editor dashboard's loaded panels and rows are captured with readScope panel, through BoundedWarmStore.write
+  ● capture of a dashboard the caller does not own › a owner dashboard's loaded panels and rows are captured with readScope output, through BoundedWarmStore.write
+  ● capture of a dashboard the caller does not own › a viewer dashboard's loaded panels and rows are captured with readScope panel, through BoundedWarmStore.write
+  ● capture of a dashboard the caller does not own › sanitizeEntry keeps readScope (an entry stored before it existed reads back without one)
+FAIL src/features/dashboards/tabs/warm/warmNonOwner.test.ts
+FAIL src/features/dashboards/tabs/warm/warmSharedDashboard.test.ts (6.002 s)
+FAIL src/features/panels/hooks/usePanelData.restoreMarker.test.tsx (6.327 s)
+FAIL src/features/panels/state/panelStatusStore.seed.test.ts
+  ● hydrateTabs (the other stored-copy caller) › a viewer's panel-scoped copy is restored, with the panel scope and no Output metadata
+  ● isReusable for a per-panel-scoped Output (D3b) › needs the restore marker: without it a scoped Output (no metadata, no run baseline) is never reusable
+  ● marker lifetime: gone for any later mount (D3b) › after the first mount reused the window and unmounted, a later mount re-reads (data may have advanced unseen)
+  ● marker lifetime: gone for any later mount (D3b) › a restored card whose FIRST mount fetched (different query) and is remounted re-reads too
+  ● restore of a shared dashboard from memory › a list for a dashboard the store does not hold loads cold
+  ● restore of a shared dashboard from memory › a panel-scoped list read by the owner loads cold
+  ● restore of a shared dashboard from memory › a window whose Output received newer data is invalidated, not seeded and not marked
+  ● restore of a shared dashboard from memory › restores with no panel-list request, per-panel Output scope, no Output service call, a marker and a status seed
+  ● restore of a shared dashboard from the browser copy › a copy for a dashboard the store does not hold: showDashboardPanels drops it, seeds nothing and loads cold
+  ● restore of a shared dashboard from the browser copy › an explicit owner-scoped copy read by an editor: showDashboardPanels drops it, seeds nothing and loads cold
+  ● restore of a shared dashboard from the browser copy › an owner-scoped copy (no readScope) read by a viewer: showDashboardPanels drops it, seeds nothing and loads cold
+  ● restore of a shared dashboard from the browser copy › a panel-scoped copy read by the owner: showDashboardPanels drops it, seeds nothing and loads cold
+  ● restore of a shared dashboard from the browser copy › applyWarmEntry itself refuses a scope mismatch or an unknown scope before seeding anything
+  ● restore of a shared dashboard from the browser copy › restores through BoundedWarmStore with no request, and never seeds Output metadata or a run baseline
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (a) a seed applies to a read issued AFTER the seed
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (a) a seed applies to a read issued BEFORE the seed and resolving after it
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (a) a seed is consumed by the first snapshot that resolves: a later snapshot diffs against the previous one
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (a) fires on the first snapshot iff the item's data is strictly later than the seed
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (b) an advance resolving before the panel's listener subscribes is kept pending and delivered on subscribe, once
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (c) the seed lives independent of the ref-counted entry: no consumer at seed time, one later
+Tests:       34 failed, 10 passed, 44 total
+Test Suites: 4 failed, 4 total
+  ● warm cache and a dashboard the caller does not own › a editor dashboard's loaded panels are captured
+  ● warm cache and a dashboard the caller does not own › restores a shared dashboard's warm tab with no request (inverted from HEL-1773)

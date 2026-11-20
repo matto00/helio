@@ -3,6 +3,7 @@ import { useStore } from "react-redux";
 
 import { fetchPanelPage, panelQueryRecorded } from "../state/panelsSlice";
 import { panelReadScopeFor } from "../state/panelReadScope";
+import { consumeRestoreMarker, hasRestoreMarker } from "../state/restoreMarkers";
 import { panelControlColumns } from "../state/panelControlColumns";
 import { splitForPanelScope } from "../state/splitForPanelScope";
 import { CROSS_FILTER_EQ_REJECTED } from "../state/panelThunks";
@@ -188,6 +189,8 @@ export function usePanelSortFilter(
           }
         }
       }
+      // HEL-1783: this mount is fetching, so a restored window's one-shot reuse right is spent.
+      consumeRestoreMarker(panelId);
       void dispatch(
         fetchPanelPage({
           panelId,
@@ -280,13 +283,21 @@ export function usePanelSortFilter(
     // shortly after the initial unsorted/unfiltered mount fetch" case this effect already exists
     // for; `controlFilterOps` is available synchronously (URL-derived), so this is folded into
     // the SAME one-time correction rather than a second, independent mechanism.
-    if (
+    const hasTerms =
       activeSort ||
       isFiltering(activeFilter ?? undefined) ||
       controlFilterOps.length > 0 ||
-      crossFilterEq !== null
-    ) {
-      if (mountOwnership) mountOwnership.current = true;
+      crossFilterEq !== null;
+    // HEL-1783 final-gate CR1 -- a panel holding a warm-restore marker is reused by the parent under its window's FULL last
+    // query (see `usePanelData`), which may carry an interactive sort/filter or a default since removed. This card's own state is
+    // reseeded on every mount, so even with NO terms its query must be compared with the window: a difference is dispatched
+    // (panel read scope turns a client-only difference into a recorded query with no request), so the rows on screen always
+    // correspond to the card's `activeSort`/`activeFilter`.
+    const restoredNoTerms = !hasTerms && hasRestoreMarker(panelId);
+    if (hasTerms || restoredNoTerms) {
+      // Not set for a restored card with no terms until it has found a difference: a reusable window leaves the parent's own
+      // (reusing) decision untouched.
+      if (mountOwnership && hasTerms) mountOwnership.current = true;
       // HEL-1392 -- a remounting card whose window already is this exact query (or whose request
       // is already in flight) has nothing to correct; the live store is read, never the render.
       const entry = store.getState().panels.paginationState[panelId];
@@ -300,7 +311,8 @@ export function usePanelSortFilter(
             crossFilterEq,
           }
         : null;
-      if (query && (isReusable(entry, query) || isPendingFor(entry, query))) return;
+      if (query && (isReusable(entry, query, panelId) || isPendingFor(entry, query))) return;
+      if (mountOwnership) mountOwnership.current = true;
       dispatchFetch(activeSort, activeFilter);
     }
     // controlFilterOps is read once here (mount-time value) — see the eslint-disable below for

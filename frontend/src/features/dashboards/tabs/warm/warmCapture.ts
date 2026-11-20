@@ -11,6 +11,7 @@ import { parseInstant } from "../tabTypes";
 import { getListEntry, getOwnWriteAt, getWarmStore, retainTab, setListEntry } from "./warmCache";
 import type { StoredWindow, WarmEntry } from "./warmStore";
 import { panelOutputIds } from "./warmValidity";
+import type { WarmReadScope } from "./warmScope";
 
 /** True when `panels` holds the loaded, settled panel list of exactly this dashboard. */
 function loadedListOf(state: RootState, dashboardId: string): Panel[] | null {
@@ -45,7 +46,12 @@ export function buildWarmEntry(
   const rows: Record<string, StoredWindow> = {};
   const outputMeta: Record<string, Output> = {};
   const runBaseline: Record<string, string> = {};
-  for (const outputId of panelOutputIds(items)) {
+  // HEL-1783 D2: a dashboard the caller does not own keeps its panel list and row windows only. Its Output metadata is a
+  // per-panel stub and run baselines belong to the owner fan-out; neither may be stored (or later seeded) as owner data.
+  const readScope: WarmReadScope = isKnownNonOwnedDashboard(state, dashboardId)
+    ? "panel"
+    : "output";
+  for (const outputId of readScope === "panel" ? [] : panelOutputIds(items)) {
     const meta = peekOutputMeta(outputId);
     if (!meta) continue;
     outputMeta[outputId] = meta;
@@ -89,6 +95,7 @@ export function buildWarmEntry(
     rows,
     outputMeta,
     runBaseline,
+    readScope,
   };
 }
 
@@ -102,9 +109,6 @@ export function captureTab(
   options: { retain: boolean; immediate?: boolean; viewedAt?: number },
 ): void {
   const state = getState();
-  // HEL-1773: a dashboard the caller does not own is never captured: its panels were read through the per-panel routes, and
-  // the warm copy (rows, Output metadata, run baselines) is built from the Output path.
-  if (isKnownNonOwnedDashboard(state, dashboardId)) return;
   const userId = state.auth.currentUser?.id;
   const items = loadedListOf(state, dashboardId);
   const prior = getListEntry(dashboardId);
@@ -112,7 +116,10 @@ export function captureTab(
   // The user's own edits replace the panels; the capture instant only moves forward with own writes.
   const contentCapturedAt = Math.max(prior.contentCapturedAt, getOwnWriteAt(dashboardId) ?? 0);
   const ownWriteAt = ownWriteCoveredBy(state, dashboardId);
-  setListEntry(dashboardId, { panels: items, contentCapturedAt });
+  const readScope: WarmReadScope = isKnownNonOwnedDashboard(state, dashboardId)
+    ? "panel"
+    : "output";
+  setListEntry(dashboardId, { panels: items, contentCapturedAt, readScope });
   if (options.retain) retainTab(dashboardId, items);
   const build = () => {
     const latest = getState();

@@ -12,6 +12,7 @@ import type { PanelPaginationState } from "../../../panels/types/panel";
 import type { DashboardChange } from "../tabTypes";
 import { getOwnWriteAt, getWarmStore, retainTab, setListEntry, setOwnWriteAt } from "./warmCache";
 import type { WarmEntry } from "./warmStore";
+import { scopeOf, type WarmReadScope } from "./warmScope";
 import { isContentValid, isWindowFresh } from "./warmValidity";
 
 /** Reads a stored entry, waiting at most `timeoutMs` (a slow or unavailable store means cold). */
@@ -36,8 +37,13 @@ export function applyWarmEntry(args: {
   entry: WarmEntry;
   signal: DashboardChange | undefined;
   tabOwnWriteAt: number | null;
+  /** HEL-1783 D3: the caller's CURRENT read scope for this dashboard (`null` = unknown). A copy is used only when its own scope
+   *  (an absent one reads as `output`) equals it; otherwise nothing is seeded, because an owner copy's Output metadata and run
+   *  baselines must never be applied to a dashboard the caller no longer owns (nor a panel copy to one they own). */
+  scope: WarmReadScope | null;
 }): boolean {
-  const { dispatch, entry, signal, tabOwnWriteAt } = args;
+  const { dispatch, entry, signal, tabOwnWriteAt, scope } = args;
+  if (scope === null || scopeOf(entry) !== scope) return false;
   const ownWriteAt = Math.max(entry.ownWriteAt ?? -Infinity, tabOwnWriteAt ?? -Infinity);
   const own = Number.isFinite(ownWriteAt) ? ownWriteAt : null;
   if (!isContentValid(entry.contentCapturedAt, own, signal)) return false;
@@ -46,15 +52,19 @@ export function applyWarmEntry(args: {
   setListEntry(entry.dashboardId, {
     panels: entry.panels,
     contentCapturedAt: entry.contentCapturedAt,
+    readScope: scope,
   });
   if (own !== null && own > (getOwnWriteAt(entry.dashboardId) ?? -Infinity)) {
     setOwnWriteAt(entry.dashboardId, own);
   }
   // 2. output metadata (registers output -> pipeline and stamps the current generation)
-  for (const [outputId, meta] of Object.entries(entry.outputMeta)) seedOutputMeta(outputId, meta);
-  // 3. the run baseline, so the first reconcile after the reload is a real comparison
-  for (const [pipelineId, runId] of Object.entries(entry.runBaseline)) {
-    seedObservedRun(pipelineId, runId);
+  //    A `panel` copy never seeds metadata or a run baseline, even if its fields are non-empty (HEL-1783 D3).
+  if (scope === "output") {
+    for (const [outputId, meta] of Object.entries(entry.outputMeta)) seedOutputMeta(outputId, meta);
+    // 3. the run baseline, so the first reconcile after the reload is a real comparison
+    for (const [pipelineId, runId] of Object.entries(entry.runBaseline)) {
+      seedObservedRun(pipelineId, runId);
+    }
   }
   // 4. row windows whose Output has no newer data, restamped with the generation read now (the
   //    counters restart at zero on a page load), hydrated without clobbering an existing window

@@ -1,0 +1,72 @@
+  ● warm cache and a dashboard the caller does not own › a editor dashboard's loaded panels are captured
+  ● capture of a dashboard the caller does not own › a viewer dashboard's loaded panels and rows are captured with readScope panel, through BoundedWarmStore.write
+  ● capture of a dashboard the caller does not own › a editor dashboard's loaded panels and rows are captured with readScope panel, through BoundedWarmStore.write
+Tests:       3 failed, 19 passed, 22 total
+  ● restore of a shared dashboard from memory › restores with no panel-list request, per-panel Output scope, no Output service call, a marker and a status seed
+  ● restore of a shared dashboard from the browser copy › restores through BoundedWarmStore with no request, and never seeds Output metadata or a run baseline
+Tests:       2 failed, 16 passed, 18 total
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (a) fires on the first snapshot iff the item's data is strictly later than the seed
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (a) a seed applies to a read issued BEFORE the seed and resolving after it
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (a) a seed applies to a read issued AFTER the seed
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (a) a seed is consumed by the first snapshot that resolves: a later snapshot diffs against the previous one
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (b) an advance resolving before the panel's listener subscribes is kept pending and delivered on subscribe, once
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (c) the seed lives independent of the ref-counted entry: no consumer at seed time, one later
+Tests:       6 failed, 3 passed, 9 total
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (a) fires on the first snapshot iff the item's data is strictly later than the seed
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (a) a seed applies to a read issued BEFORE the seed and resolving after it
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (a) a seed applies to a read issued AFTER the seed
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (a) a seed is consumed by the first snapshot that resolves: a later snapshot diffs against the previous one
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (b) an advance resolving before the panel's listener subscribes is kept pending and delivered on subscribe, once
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (c) the seed lives independent of the ref-counted entry: no consumer at seed time, one later
+Tests:       6 failed, 3 passed, 9 total
+  ● seedPanelStatusBaseline (HEL-1783 D4) › (b) an advance resolving before the panel's listener subscribes is kept pending and delivered on subscribe, once
+Tests:       1 failed, 8 passed, 9 total
+  ● restore of a shared dashboard from the browser copy › an owner-scoped copy (no readScope) read by a viewer: showDashboardPanels drops it, seeds nothing and loads cold
+  ● restore of a shared dashboard from the browser copy › an explicit owner-scoped copy read by an editor: showDashboardPanels drops it, seeds nothing and loads cold
+  ● restore of a shared dashboard from the browser copy › a panel-scoped copy read by the owner: showDashboardPanels drops it, seeds nothing and loads cold
+  ● restore of a shared dashboard from the browser copy › applyWarmEntry itself refuses a scope mismatch or an unknown scope before seeding anything
+  ● hydrateTabs (the other stored-copy caller) › an owner-scoped copy read while the caller is a viewer seeds no Output metadata and no run baseline, and is deleted
+Tests:       5 failed, 13 passed, 18 total
+  ● restore of a shared dashboard from memory › an owner-scoped list read by a viewer loads cold
+  ● restore of a shared dashboard from memory › a list with no scope (stored before this change) read by a viewer loads cold
+  ● restore of a shared dashboard from memory › a panel-scoped list read by the owner loads cold
+Tests:       3 failed, 15 passed, 18 total
+  ● capture of a dashboard the caller does not own › a viewer dashboard's loaded panels and rows are captured with readScope panel, through BoundedWarmStore.write
+  ● capture of a dashboard the caller does not own › a editor dashboard's loaded panels and rows are captured with readScope panel, through BoundedWarmStore.write
+  ● capture of a dashboard the caller does not own › a owner dashboard's loaded panels and rows are captured with readScope output, through BoundedWarmStore.write
+  ● capture of a dashboard the caller does not own › sanitizeEntry keeps readScope (an entry stored before it existed reads back without one)
+  ● restore of a shared dashboard from the browser copy › restores through BoundedWarmStore with no request, and never seeds Output metadata or a run baseline
+  ● restore of a shared dashboard from the browser copy › a panel-scoped copy read by the owner: showDashboardPanels drops it, seeds nothing and loads cold
+  ● hydrateTabs (the other stored-copy caller) › a viewer's panel-scoped copy is restored, with no Output metadata and no run baseline
+Tests:       7 failed, 11 passed, 18 total
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a persisted default columnSort
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › persisted columnFilters
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a URL control filter
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a persisted default columnSort, under StrictMode
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › persisted columnFilters, under StrictMode
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a URL control filter, under StrictMode
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a persisted default that DIFFERS from the captured window's query makes exactly one per-panel rows request
+  ● marker lifetime: gone for any later mount (D3b) › after the first mount reused the window and unmounted, a later mount re-reads (data may have advanced unseen)
+  ● isReusable for a per-panel-scoped Output (D3b) › needs the restore marker: without it a scoped Output (no metadata, no run baseline) is never reusable
+Tests:       9 failed, 4 passed, 13 total
+  ● marker lifetime: gone for any later mount (D3b) › after the first mount reused the window and unmounted, a later mount re-reads (data may have advanced unseen)
+  ● marker lifetime: gone for any later mount (D3b) › a restored card whose FIRST mount fetched (its Output's data moved) and is remounted re-reads too
+  ● isReusable for a per-panel-scoped Output (D3b) › needs the restore marker: without it a scoped Output (no metadata, no run baseline) is never reusable
+Tests:       3 failed, 10 passed, 13 total
+  ● marker lifetime: gone for any later mount (D3b) › after the first mount reused the window and unmounted, a later mount re-reads (data may have advanced unseen)
+Tests:       1 failed, 12 passed, 13 total
+  ● marker lifetime: gone for any later mount (D3b) › a restored card whose FIRST mount fetched (its Output's data moved) and is remounted re-reads too
+Tests:       1 failed, 12 passed, 13 total
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a persisted default columnSort
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › persisted columnFilters
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a URL control filter
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a persisted default columnSort, under StrictMode
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › persisted columnFilters, under StrictMode
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a URL control filter, under StrictMode
+Tests:       6 failed, 7 passed, 13 total
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a persisted default columnSort
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › persisted columnFilters
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a persisted default columnSort, under StrictMode
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › persisted columnFilters, under StrictMode
+  ● a shared panel restored from a stored copy: ZERO rows requests across the whole first mount (CR2) › a persisted default that DIFFERS from the captured window's query makes exactly one per-panel rows request
+Tests:       5 failed, 8 passed, 13 total

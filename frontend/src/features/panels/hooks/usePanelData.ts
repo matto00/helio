@@ -6,6 +6,11 @@ import { CROSS_FILTER_EQ_REJECTED } from "../state/panelThunks";
 import { getOutputId } from "../state/panelNarrowing";
 import { getKnownOutputKind } from "../state/outputMetaCache";
 import { isPendingFor, isReusable, type RowsQuery } from "../state/panelRowsReuse";
+import {
+  consumeRestoreMarker,
+  hasRestoreMarker,
+  useConsumeRestoreMarkerOnUnmount,
+} from "../state/restoreMarkers";
 import type {
   CrossFilterEq,
   MappedPanelData,
@@ -196,6 +201,10 @@ export function usePanelData(
     };
   }, []);
 
+  // HEL-1783 D3b -- a warm-restore marker is a ONE-MOUNT right to reuse the restored window; only the hosts that own a mount
+  // request (`mountOwnership`: the card and the phone stack) ever read it.
+  useConsumeRestoreMarkerOnUnmount(panel.id, mountOwnership !== undefined);
+
   // HEL-1392 design.md D2/D8 (N2/N3) -- waits, without dispatching, for a request somebody else
   // owns: holds the refresh guard until the entry settles, and surfaces THAT request's failure (a
   // later, unrelated one -- e.g. a user-driven sort refetch -- is the toast's business, not ours).
@@ -283,9 +292,21 @@ export function usePanelData(
     const fullReplay = replayFullQueryRef.current;
     replayFullQueryRef.current = false;
     const liveEntry = store.getState().panels.paginationState[panel.id];
+    // HEL-1783 D3b / skeptic-design-6 CR1 -- the FIRST mount after a warm restore of a shared dashboard builds its query from
+    // the window's FULL last query (sort, whole filter, cross-filter by the usual still-active rule), not the stripped mount
+    // query: the window was captured under the card's corrected query, and after a reload the scoped Output metadata the
+    // child needs to rebuild that query is not held yet, so the stripped one could never match it. No marker: unchanged.
+    const restoredMount =
+      isFirstMountDecision && mountOwnership !== undefined && hasRestoreMarker(panel.id);
     const replay = explicit
       ? null
-      : replayableQuery(liveEntry?.lastQuery, outputId, panel.id, activeCrossFilter, fullReplay);
+      : replayableQuery(
+          liveEntry?.lastQuery,
+          outputId,
+          panel.id,
+          activeCrossFilter,
+          fullReplay || restoredMount,
+        );
 
     // HEL-1392 -- a refresh (manual, poll, SSE) always fetches. Anything else first asks whether
     // the window already held, or the request already in flight, is exactly what would be sent.
@@ -305,7 +326,7 @@ export function usePanelData(
           : replay?.filter,
         crossFilterEq: explicit ? crossFilterEq : (replay?.crossFilterEq ?? null),
       };
-      if (isReusable(liveEntry, query)) {
+      if (isReusable(liveEntry, query, panel.id)) {
         // No drain (design.md D2): a reusable window means no request is pending, and the only way a
         // queue exists is behind an in-flight request whose own settlement (`.finally`) drains it.
         inFlightRef.current = false;
@@ -321,6 +342,8 @@ export function usePanelData(
     // goes through `refresh()` at all.
     inFlightRef.current = true;
     const keyAtDispatch = currentFetchKey;
+    // HEL-1783: this mount is fetching, so a restored window's one-shot reuse right is spent.
+    if (mountOwnership !== undefined) consumeRestoreMarker(panel.id);
 
     const request = dispatch(
       fetchPanelPage({

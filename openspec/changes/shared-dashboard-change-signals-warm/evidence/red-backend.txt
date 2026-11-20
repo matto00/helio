@@ -1,0 +1,60 @@
+[info] - should report the newest history capture per Output and the max across Outputs for an owned dashboard
+[info] - should report contentUpdatedAt as the later of the dashboard and its newest panel edit
+[info] - should give null data times for a dashboard whose Outputs have no history
+[info] - should give a dashboard-only grantee the data times of the bound Outputs, each an id its own panel list returns (HEL-1783) *** FAILED ***
+[info]   spray.json.DeserializationException: Expected String as JsString, but got null
+[info]   at spray.json.package$.deserializationError(package.scala:23)
+[info]   at spray.json.BasicFormats$StringJsonFormat$.read(BasicFormats.scala:128)
+[info]   at spray.json.BasicFormats$StringJsonFormat$.read(BasicFormats.scala:121)
+[info]   at spray.json.JsValue.convertTo(JsValue.scala:33)
+[info]   at com.helio.api.routes.dashboards.DashboardChangesRoutesSpec.$anonfun$new$8(DashboardChangesRoutesSpec.scala:138)
+[info]   at org.scalatest.OutcomeOf.outcomeOf(OutcomeOf.scala:85)
+[info]   at org.scalatest.OutcomeOf.outcomeOf$(OutcomeOf.scala:83)
+[info]   at org.scalatest.OutcomeOf$.outcomeOf(OutcomeOf.scala:104)
+[info]   at org.scalatest.Transformer.apply(Transformer.scala:22)
+[info]   at org.scalatest.Transformer.apply(Transformer.scala:20)
+[info]   ...
+[info] - should give an editor grantee and a dual-grant user the same data time, and a stranger nothing (HEL-1783) *** FAILED ***
+[info]   spray.json.DeserializationException: Expected String as JsString, but got null
+[info]   at spray.json.package$.deserializationError(package.scala:23)
+[info]   at spray.json.BasicFormats$StringJsonFormat$.read(BasicFormats.scala:128)
+[info]   at spray.json.BasicFormats$StringJsonFormat$.read(BasicFormats.scala:121)
+[info]   at spray.json.JsValue.convertTo(JsValue.scala:33)
+[info]   at com.helio.api.routes.dashboards.DashboardChangesRoutesSpec.$anonfun$new$17(DashboardChangesRoutesSpec.scala:160)
+[info]   at org.scalatest.OutcomeOf.outcomeOf(OutcomeOf.scala:85)
+[info]   at org.scalatest.OutcomeOf.outcomeOf$(OutcomeOf.scala:83)
+[info]   at org.scalatest.OutcomeOf$.outcomeOf(OutcomeOf.scala:104)
+[info]   at org.scalatest.Transformer.apply(Transformer.scala:22)
+[info]   at org.scalatest.Transformer.apply(Transformer.scala:20)
+[info]   ...
+[info] - should omit a dashboard that carries only a public (no-grantee) grant for an authenticated stranger (HEL-1783)
+[info] - should omit another user's private dashboard and an unknown id without an error
+[info] - should answer in the order of the requested ids and collapse a repeated id
+[info] - should reject an empty list, an empty id and 21 ids with 400, and accept exactly 20
+[info] - should return 401 with no session
+[info] Deleting a panel
+[info] - should advance the dashboard's last_updated and its contentUpdatedAt
+[info] - should leave last_updated alone when the panel does not exist
+14:24:22.442 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+14:24:22.443 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+14:24:22.444 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+14:24:22.444 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+14:24:22.444 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+14:24:22.445 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+14:24:22.447 INFO  [postgres:pid(2394051)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-19 14:24:22.446 PST [2394054] LOG:  received fast shutdown request
+14:24:22.447 INFO  [postgres:pid(2394051)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-19 14:24:22.446 PST [2394054] LOG:  aborting any active transactions
+14:24:22.447 INFO  [postgres:pid(2394051)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-19 14:24:22.447 PST [2394054] LOG:  background worker "logical replication launcher" (PID 2394061) exited with exit code 1
+14:24:22.547 INFO  [pg_ctl:pid(2394223)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to shut down.... done
+14:24:22.547 INFO  [pg_ctl:pid(2394223)] i.z.t.d.p.embedded.EmbeddedPostgres - server stopped
+14:24:22.547 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 5997f5f9-0a21-4e40-9889-7976c9d2ec8d shut down postmaster in 00:00:00.102
+14:24:22.590 INFO  [com-helio-api-routes-dashboards-DashboardChangesRoutesSpec-pekko.actor.default-dispatcher-6] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] [hel1468-guard] ScalaTest summary: failed=2 aborted=0 unreadable=0
+[info] Run completed in 4 seconds, 65 milliseconds.
+[info] Total number of tests run: 13
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 11, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.dashboards.DashboardChangesRoutesSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 5 s, cache 93%, 27 disk cache hits, 2 onsite tasks

@@ -1,0 +1,9 @@
+=== m1 (data query back in user context)
+[info] - should give a dashboard-only grantee the data times of the bound Outputs, each an id its own panel list returns (HEL-1783) *** FAILED ***
+[info] - should give an editor grantee and a dual-grant user the same data time, and a stranger nothing (HEL-1783) *** FAILED ***
+[info] Tests: succeeded 11, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+=== m2 (data query over raw request ids, items also built from data rows)
+[info] - should give a dashboard-only grantee the data times of the bound Outputs, each an id its own panel list returns (HEL-1783) *** FAILED ***
+[info] Tests: succeeded 12, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***

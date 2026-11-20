@@ -14,11 +14,15 @@ import { registerClearWarmHook } from "./clearWarmHook";
 import { OWN_WRITE_SLACK_MS } from "./warmConfig";
 import { createDefaultWarmStore, type WarmStore } from "./warmStore";
 import { panelOutputIds } from "./warmValidity";
+import type { WarmReadScope } from "./warmScope";
+import { clearRestoreMarkers } from "../../../panels/state/restoreMarkers";
 
 interface ListEntry {
   panels: Panel[];
   /** Server-time epoch ms at the START of the request that produced the list. */
   contentCapturedAt: number;
+  /** HEL-1783: the read route the list was fetched through; absent reads as `"output"`. */
+  readScope?: WarmReadScope;
 }
 
 const lists = new Map<string, ListEntry>();
@@ -56,10 +60,17 @@ export function recordFetchStart(requestId: string): void {
 }
 
 /** A `fetchPanels` result becomes the dashboard's list entry, dated at the request's START. */
-export function recordFetchResult(dashboardId: string, requestId: string, panels: Panel[]): void {
+export function recordFetchResult(
+  dashboardId: string,
+  requestId: string,
+  panels: Panel[],
+  readScope: WarmReadScope,
+): void {
   const started = fetchStarts.get(requestId);
   fetchStarts.delete(requestId);
-  if (started !== undefined) lists.set(dashboardId, { panels, contentCapturedAt: started });
+  if (started !== undefined) {
+    lists.set(dashboardId, { panels, contentCapturedAt: started, readScope });
+  }
 }
 
 export function discardFetchStart(requestId: string): void {
@@ -131,6 +142,7 @@ export function expireTab(dashboardId: string): void {
   for (const id of retentions.get(dashboardId) ?? []) invalidateOutput(id);
   releaseTab(dashboardId);
   lists.delete(dashboardId);
+  clearRestoreMarkers(dashboardId);
 }
 
 export function retainedTabIds(): string[] {
@@ -183,6 +195,7 @@ export async function clearWarmState(): Promise<void> {
   lists.clear();
   ownWrites.clear();
   fetchStarts.clear();
+  clearRestoreMarkers();
   for (const id of [...retentions.keys()]) releaseTab(id);
   resetServerClock();
   await cleared;
