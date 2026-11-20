@@ -163,4 +163,53 @@ describe("DashboardShelf shared dashboards", () => {
     ).toBeInTheDocument();
     expect(within(screen.getByRole("link", { name: /Mine/ })).queryByText("Shared")).toBeNull();
   });
+
+  const two = ["a", "b"].map((id, i) =>
+    dashboard(id, `Dash ${id}`, new Date(NOW - (i + 1) * 3_600_000).toISOString()),
+  );
+
+  // HEL-1782 owner ruling 2: a user whose only dashboards are shared with them is offered the drop zone below the shelf.
+  it("offers the drop zone below the shared cards when every dashboard is shared", () => {
+    renderHome(
+      <DashboardShelf
+        dashboards={two}
+        status="succeeded"
+        changedIds={new Set()}
+        sharedIds={new Set(["a", "b"])}
+        now={NOW}
+        onStepByStep={jest.fn()}
+      />,
+    );
+    expect(screen.getAllByRole("link", { name: /Dash/ })).toHaveLength(2);
+    expect(screen.getAllByText("Shared")).toHaveLength(2);
+    expect(screen.getByText("Drop zone")).toBeInTheDocument();
+  });
+
+  it("offers no drop zone once the user owns a dashboard", () => {
+    renderHome(
+      <DashboardShelf
+        dashboards={two}
+        status="succeeded"
+        changedIds={new Set()}
+        sharedIds={new Set(["a"])}
+        now={NOW}
+        onStepByStep={jest.fn()}
+      />,
+    );
+    expect(screen.queryByText("Drop zone")).toBeNull();
+  });
+
+  it("offers no drop zone while the list is still loading", () => {
+    renderHome(
+      <DashboardShelf
+        dashboards={two}
+        status="loading"
+        changedIds={new Set()}
+        sharedIds={new Set(["a", "b"])}
+        now={NOW}
+        onStepByStep={jest.fn()}
+      />,
+    );
+    expect(screen.queryByText("Drop zone")).toBeNull();
+  });
 });

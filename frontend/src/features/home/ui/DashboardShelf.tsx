@@ -18,7 +18,8 @@ interface DashboardShelfProps {
 }
 
 /** Up to four dashboard cards: the changed ones first, then the most recently updated. Zero dashboards renders the
- *  existing first-run drop zone (HEL-1209) unchanged, so a new user keeps its one-step build. */
+ *  existing first-run drop zone (HEL-1209) unchanged, so a new user keeps its one-step build. A shared-only user gets the
+ *  shelf and, below it, the same drop zone (HEL-1782). */
 export function DashboardShelf({
   dashboards,
   status,
@@ -30,6 +31,13 @@ export function DashboardShelf({
   const settled = status === "succeeded" || status === "failed";
   const empty = status === "succeeded" && dashboards.length === 0;
   const cards = shelfOrder(dashboards, changedIds);
+  // HEL-1782 (owner ruling 2): a user whose every dashboard is shared with them is offered the first-run drop zone below the
+  // shelf, as a user with none is.
+  const sharedOnly =
+    status === "succeeded" &&
+    dashboards.length > 0 &&
+    sharedIds !== undefined &&
+    dashboards.every((d) => sharedIds.has(d.id));
 
   return (
     <section className="home-section" aria-labelledby="home-shelf-heading">
@@ -101,6 +109,7 @@ export function DashboardShelf({
           })}
         </ul>
       )}
+      {sharedOnly ? <FirstRunDropZone onStepByStep={onStepByStep} /> : null}
     </section>
   );
 }

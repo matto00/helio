@@ -43,13 +43,33 @@ describe("dashboardsSlice accessRole (HEL-1773)", () => {
     expect(state.items.map((d) => d.id)).toEqual(["shared-new", "own-old"]);
   });
 
-  it("selects nothing when every listed dashboard is shared, yet keeps them listed", () => {
+  // HEL-1782 owner ruling 1 (2026-11-19) REVERSES the HEL-1773 behaviour that selected nothing here: a user who owns no
+  // dashboard lands on the most recently updated shared one (the list arrives newest first).
+  it("selects the most recently updated shared dashboard when none is owned (HEL-1782 owner ruling 1)", () => {
     const state = seeded([
       dash("a", { accessRole: "editor" }),
       dash("b", { accessRole: "viewer" }),
     ]);
-    expect(state.selectedDashboardId).toBeNull();
+    expect(state.selectedDashboardId).toBe("a");
     expect(state.items).toHaveLength(2);
+  });
+
+  it("an owned dashboard still beats a newer shared one, so the fallback only applies when none is owned", () => {
+    const state = seeded([
+      dash("new", { accessRole: "viewer" }),
+      dash("mine", { accessRole: "owner" }),
+    ]);
+    expect(state.selectedDashboardId).toBe("mine");
+  });
+
+  it("deleting the last owned dashboard falls back to the newest shared one", () => {
+    let state = seeded([
+      dash("shared", { accessRole: "viewer" }),
+      dash("own", { accessRole: "owner" }),
+    ]);
+    expect(state.selectedDashboardId).toBe("own");
+    state = dashboardsReducer(state, deleteDashboard.fulfilled("own", "r", "own"));
+    expect(state.selectedDashboardId).toBe("shared");
   });
 
   it("deleting the selected dashboard re-lands on an owned one", () => {

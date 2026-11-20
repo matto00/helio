@@ -49,6 +49,7 @@ export function MobileShell({ isMobileNavSheetOpen, onClose }: MobileShellProps)
         // (the desktop sidebar's ActionsMenu already exposes it). Every other section returns
         // `null` (dashboards' `item.id`/`item.name` come directly from the dashboard itself, per
         // `usePickerSelection.ts`).
+        footerAction={pickerSelection.footerAction}
         secondaryAction={
           pickerId === "dashboards"
             ? (item) => {

@@ -363,7 +363,9 @@ test.describe("HEL-1786 dashboard grantees get freshness, run-finish refresh and
       await page.goto(`/dashboards/${dashboardId}`);
       await expect(page.getByText("Dashboard not found")).toHaveCount(0);
       await expect(cell(page, "East").first()).toBeVisible();
-      await expectFact(() => page.locator(".dashboard-refresh-line__text").innerText());
+      await expectFact(() =>
+        page.locator(".dashboard-refresh-line__text .dashboard-meta-row__refresh").innerText(),
+      );
       const before = watch.peek().statusReads.length;
       await page.getByRole("button", { name: "Refresh dashboard" }).click();
       await page.screenshot({ path: evidencePath("HEL-1786", "viewer-phone.png") });

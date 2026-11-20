@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { TriangleAlert } from "lucide-react";
+import { Plus, TriangleAlert } from "lucide-react";
 
 import "./MobileNavSheet.css";
 import type { CreateActionResult } from "../../features/dashboards/hooks/useCreateDashboardAction";
@@ -15,6 +15,7 @@ import { InlineError } from "./InlineError";
 import { useOverlay } from "./OverlayProvider";
 import type { PickerEmptyStateCopy } from "./pickerEmptyState";
 import { EmptyState } from "../ui/EmptyState";
+import { ICON_SIZE } from "../ui/iconSize";
 
 export interface MobileNavSheetItem {
   id: string;
@@ -47,6 +48,9 @@ interface MobileNavSheetProps {
    *  action (every section but dashboards, today) so the button is simply omitted for that row.
    *  Distinct from `onSelect`: clicking it does NOT select the item or close the sheet. */
   secondaryAction?: (item: MobileNavSheetItem) => { label: string; onClick: () => void } | null;
+  /** HEL-1782: an optional row after the list (the dashboards sheet's "Build your own dashboard"). Choosing it runs the
+   *  action and closes the sheet, like choosing an item. */
+  footerAction?: { label: string; run: () => void } | null;
 }
 
 const DRAG_DISMISS_THRESHOLD_PX = 80;
@@ -101,6 +105,7 @@ export function MobileNavSheet({
   createAction,
   emptyCreateAction,
   secondaryAction,
+  footerAction,
 }: MobileNavSheetProps) {
   const overlay = useOverlay();
   const [dragY, setDragY] = useState(0);
@@ -419,6 +424,23 @@ export function MobileNavSheet({
                   </li>
                 );
               })}
+              {footerAction != null && (
+                <li className="mobile-nav-sheet__item-row mobile-nav-sheet__footer-row">
+                  <button
+                    type="button"
+                    className="mobile-nav-sheet__item"
+                    onClick={() => {
+                      footerAction.run();
+                      onClose();
+                    }}
+                  >
+                    <Plus size={ICON_SIZE.sm} aria-hidden="true" />
+                    <span className="mobile-nav-sheet__item-text">
+                      <span className="mobile-nav-sheet__item-name">{footerAction.label}</span>
+                    </span>
+                  </button>
+                </li>
+              )}
             </ul>
           )}
           {/* design.md D4 — the grabber lives at the sheet's BOTTOM free

@@ -45,6 +45,35 @@ describe("DashboardChipRow.css", () => {
     const active = ruleBody(".dashboard-chip--active");
     expect(active).toMatch(/background:\s*var\(--app-text\)\s*;/);
     expect(active).toMatch(/color:\s*var\(--app-surface\)\s*;/);
-    expect(css).not.toMatch(/--app-accent/);
+    // HEL-1782: the "Shared" badge (the one deliberate accent use, matching the sidebar's) is the only rule that names it.
+    expect(css.replace(/\.dashboard-chip__shared \{[^}]*\}/, "")).not.toMatch(/--app-accent/);
+  });
+});
+
+// HEL-1782 D5: one "Shared" badge style across the phone chip, the sidebar list and the Home card.
+describe("the Shared badge declarations (HEL-1782)", () => {
+  const body = (file: string, selector: string): string[] => {
+    const text = fs.readFileSync(path.join(__dirname, file), "utf-8");
+    const at = text.indexOf(`${selector} {`);
+    if (at === -1) throw new Error(`rule ${selector} not found in ${file}`);
+    const inner = text.slice(text.indexOf("{", at) + 1, text.indexOf("}", at));
+    return inner
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .split(";")
+      .map((d) => d.trim().replace(/\s+/g, " "))
+      .filter((d) => d.length > 0 && !d.startsWith("flex-shrink") && !d.startsWith("margin"))
+      .sort();
+  };
+
+  it("gives the chip the same type, padding, radius and colours as the sidebar and Home badges", () => {
+    const chip = body("DashboardChipRow.css", ".dashboard-chip__shared");
+    expect(chip).toEqual(body("DashboardList.css", ".dashboard-list__shared-badge"));
+    expect(chip).toEqual(body("../../home/ui/HomePage.css", ".home-card__shared"));
+  });
+
+  it("inverts the badge on the active chip so it stays legible on the ink background", () => {
+    const active = ruleBody(".dashboard-chip--active .dashboard-chip__shared");
+    expect(active).toMatch(/background:\s*var\(--app-surface\)\s*;/);
+    expect(active).toMatch(/color:\s*var\(--app-text\)\s*;/);
   });
 });
