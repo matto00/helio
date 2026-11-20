@@ -422,6 +422,7 @@ object ExistenceNotLeakedRoutesSpec {
     Row("POST panel updateBatch", HttpMethods.POST, "/api/panels/updateBatch", Panel, Set("PanelService.scala"),
       Json("""{"fields":["title"],"panels":[{"id":"{id}","title":"renamed"}]}""")),
     Row("POST panel submit", HttpMethods.POST, "/api/panels/{id}/submit", Panel, Set("PanelService.scala"), Json("""{"values":{}}"""), ownerControl = false),
+    Row("GET panel form-schema", HttpMethods.GET, "/api/panels/{id}/form-schema", Panel, Set("PanelService.scala")),
     Row("POST patch-set apply: panel update", HttpMethods.POST, "/api/patch-sets/apply", Panel, Set("PatchSetApplyResolvers.scala"),
       Json("""{"edits":[{"target":{"kind":"panel","id":"{id}"},"op":"update","patch":{"title":"renamed"}}]}"""), patchKinds = Set("panel:update")),
     Row("POST patch-set apply: panel delete", HttpMethods.POST, "/api/patch-sets/apply", Panel, Set("PatchSetApplyResolvers.scala"),

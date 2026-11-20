@@ -1,0 +1,5 @@
+- `backend/src/test/scala/com/helio/api/http/ExistenceNotLeakedRoutesSpec.scala` — GET panel form-schema row
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunService.scala` — drop unused `triggeredByUserId` from `recordUnrunnable`
+- `openspec/changes/archive/2026-11-19-editors-submit-form-panels/design.md` — owner-keying proof wording
+- `openspec/changes/archive/2026-11-19-editors-submit-form-panels/tasks.md` — same
+- `openspec/changes/tidy-after-editor-form-submit/red-record.md` — red mutation record

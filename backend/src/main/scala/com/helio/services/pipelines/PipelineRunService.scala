@@ -219,14 +219,13 @@ final class PipelineRunService(
       triggerSource: String = TriggerSource.Manual,
       // HEL-1384 (design.md D3a): a recurring caller (the scheduled gate) trims history the way
       // `submit`'s real-run path does, so a misconfigured cron cannot grow it without bound.
-      pruneOldRuns: Boolean = false,
-      triggeredByUserId: Option[UserId] = None
+      pruneOldRuns: Boolean = false
   ): Future[RunResultResponse] = {
     val runId = PipelineRunId(UUID.randomUUID().toString)
     val now   = Instant.now()
     val insertWork: Future[Unit] =
       if (pipelineRunRepo != null)
-        pipelineRunRepo.insertRun(runId, pipelineId, now, user, triggerSource = triggerSource, triggeredByUserId = Some(triggeredByUserId.getOrElse(user.id).value)).recoverWith { case ex =>
+        pipelineRunRepo.insertRun(runId, pipelineId, now, user, triggerSource = triggerSource, triggeredByUserId = Some(user.id.value)).recoverWith { case ex =>
           log.warn(s"PipelineRunService.recordUnrunnable: insertRun failed for pipeline ${pipelineId.value}; continuing", ex)
           Future.successful(())
         }
