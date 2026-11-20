@@ -40,7 +40,26 @@ private[services] object PatchSetUndoConflictCheck {
       user: AuthenticatedUser,
       ctx: PatchSetUndoContext
   )(implicit ec: ExecutionContext): Future[Vector[String]] =
-    Future.sequence(edits.map(checkOne(_, user, ctx))).map(_.flatten)
+    Future.sequence(edits.map(guarded(_, edits, user, ctx))).map(_.flatten)
+
+  /** HEL-1720: a create arm's own check, plus (never instead of it) the shared bound-panels blocker. */
+  private def guarded(
+      edit: JournaledEdit,
+      edits: Vector[JournaledEdit],
+      user: AuthenticatedUser,
+      ctx: PatchSetUndoContext
+  )(implicit ec: ExecutionContext): Future[Option[String]] = {
+    val own = checkOne(edit, user, ctx)
+    if (!PatchSetUndoBoundPanels.guards(edit)) own
+    else
+      for {
+        o <- own
+        b <- PatchSetUndoBoundPanels.blocker(edit, edits, user, ctx)
+      } yield Vector(o, b).flatten match {
+        case Vector() => None
+        case parts    => Some(parts.mkString("; "))
+      }
+  }
 
   private def checkOne(
       edit: JournaledEdit,
