@@ -234,7 +234,7 @@ ALTER TABLE pipeline_auto_run_debounce
   - The same `appendBuiltRow` in the editor's context writes nothing.
   - The form-schema read in owner context returns declarations; in the editor's context it returns nothing.
   - The debounce row stores the editor, and a fired auto-run's `pipeline_runs` row has `triggered_by_user_id = editor`
-    and is counted by `countOwnerInFlightRealRunsInternal(owner)`.
+    and is counted against the owner: `FormSubmitEditorRlsSpec` ("store the editor on the debounce row and fire the run as the owner...") asserts the owner has a `pipeline_run_rate_window` row and the editor has none (the cap query `ownerInFlightRealRunsQuery` is owner-keyed by construction).
 - **Frontend jest.** Editor sees the form. A non-owner compact counter fed the exact JSON the real form-schema route
   returns (a fixture captured from the route spec, not a hand-built schema) is enabled and `+` submits. Viewer sees the status. A non-owner counter makes no `/api/data-sources/*`
   request. The owner counter still reconciles.
