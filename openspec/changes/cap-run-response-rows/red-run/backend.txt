@@ -1,0 +1,12 @@
+[info] - should embed a 10-row run preview with the full total and rowsTruncated when the run has 25 rows *** FAILED ***
+[info] - should report rowsTruncated false for a run of exactly 10 rows *** FAILED ***
+[info] - should embed a 10-row run preview with the full total and rowsTruncated when the run has 25 rows *** FAILED ***
+[info] - should cap a real POST /run at 10 rows with the total and rowsTruncated, persisting all 25 rows *** FAILED ***
+[info] - should cap a dry run the same way *** FAILED ***
+[info] - should report rowsTruncated false for a run of exactly 10 rows *** FAILED ***
+[info] - should cap the saved-step preview (POST /preview) and report the cut *** FAILED ***
+[info] - should cap the single-step preview (GET /steps/:stepId/preview) and report the cut *** FAILED ***
+[info] - should cap GET /runs/:runId for a cached 25-row run *** FAILED ***
+[info] - should write the same body the shared fixture holds for a real 25-row run *** FAILED ***
+[info] Tests: succeeded 0, failed 10, canceled 0, ignored 0, pending 0
+[info] *** 10 TESTS FAILED ***

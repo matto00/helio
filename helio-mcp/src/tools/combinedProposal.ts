@@ -91,7 +91,7 @@ export function registerCombinedProposalTools(server: McpServer, api: HelioApi):
         "apply_pipeline_proposal's own response (created source (if inline)/pipeline summary/the " +
         "created Outputs (zero, one, or many; exactly one is required if any dashboard panel uses " +
         "the sentinel)/run result); `dashboard` matches apply_proposal's own response (created " +
-        "dashboard + panels).\n" +
+        "dashboard + panels). The run result's `rows` is a preview of at most 10 rows: `rowCount` is the run's total row count and `rowsTruncated` is `true` when `rows` is cut; the run still stored every row, read them with get_output_rows.\n" +
         CONTROLS_COPY +
         "\n" +
         OUTPUT_CONFIG_KEYS_DOC +

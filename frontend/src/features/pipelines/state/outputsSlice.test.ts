@@ -35,6 +35,7 @@ function runResult(rowCount: number): RunResult {
     blocked: false,
     sourceTruncated: false,
     truncatedReads: [],
+    rowsTruncated: false,
   };
 }
 

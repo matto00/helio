@@ -133,6 +133,7 @@ describe("pipelinesSlice", () => {
       updateStatus: "idle" as const,
       updateError: null,
       runResult: null,
+      runRowCount: null,
       runStepRowCounts: {},
       runSourceRowCount: null,
       runPipelineId: null,
@@ -336,6 +337,7 @@ describe("submitPipelineRun reducer", () => {
     expect(nextState.runId).toBeNull();
     expect(nextState.runStatus).toBe("succeeded");
     expect(nextState.runResult).toEqual(rows);
+    expect(nextState.runRowCount).toBe(1);
   });
 
   it("clears runId and sets runError when submitPipelineRun rejects", () => {
@@ -1441,12 +1443,13 @@ describe("draft save run state", () => {
 
   it("a settled run clears the in-session counts and rows so the spine falls back to the persisted ones", () => {
     let state = pipelinesReducer(undefined, draftSaveRunPending({ pipelineId: "A" }));
-    state = { ...state, runStepRowCounts: { s1: 3 }, runResult: [{ a: 1 }] };
+    state = { ...state, runStepRowCounts: { s1: 3 }, runResult: [{ a: 1 }], runRowCount: 1 };
     state = pipelinesReducer(state, draftSaveRunSettled({ pipelineId: "A", outcome: "succeeded" }));
     expect(state).toMatchObject({
       runStatus: "succeeded",
       runError: null,
       runResult: null,
+      runRowCount: null,
       runStepRowCounts: {},
     });
   });

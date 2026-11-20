@@ -358,11 +358,13 @@ private[pipelines] final class PipelineRunExecutor(
         followUp.map {
           case Left(err) => Left(err)
           case Right(blockedSummary) =>
+            // HEL-1696: the writes above received every row; only the response body is cut to a preview.
+            val (previewRows, totalRows, rowsTruncated) = RunResultResponse.preview(jsRows)
             val response = RunResultResponse(
-              jsRows, jsRows.size, stepCounts, sourceCount, runId = Some(runId.value),
+              previewRows, totalRows, stepCounts, sourceCount, runId = Some(runId.value),
               blocked = blockedSummary.isDefined, blockedReason = blockedSummary,
               sourceTruncated = truncated, sourceAvailableRowCount = availableRowCount,
-              truncationNotice = notice, truncatedReads = truncatedReads
+              truncationNotice = notice, truncatedReads = truncatedReads, rowsTruncated = rowsTruncated
             )
             Right(response)
         }

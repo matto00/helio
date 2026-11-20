@@ -366,7 +366,8 @@ final case class CachedRunStatus(
     status:   String,
     rows:     Option[JsValue],
     error:    Option[String],
-    rowCount: Option[Int]
+    rowCount: Option[Int],
+    rowsTruncated: Option[Boolean] = None
 )
 
 /** The `pipeline_runs.trigger_source` literals (HEL-417). Modeled as a

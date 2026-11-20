@@ -179,7 +179,7 @@ describe("phone header", () => {
           runStatus: "failed",
           runError: "disk full while writing the snapshot",
           runIsDry: false,
-          runResult: null,
+          runRowCount: null,
         }}
         lastRunStatus={null}
       />,

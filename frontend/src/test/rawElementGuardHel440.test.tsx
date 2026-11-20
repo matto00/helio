@@ -91,7 +91,7 @@ const pipelineHeaderNoopProps = {
     runStatus: null,
     runError: null,
     runIsDry: null,
-    runResult: null,
+    runRowCount: null,
   },
   lastRunAt: null,
   lastRunRowCount: null,

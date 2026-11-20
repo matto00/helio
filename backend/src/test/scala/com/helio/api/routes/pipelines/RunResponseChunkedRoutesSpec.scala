@@ -16,12 +16,14 @@ import spray.json._
  *  the route back to `StatusCodes.OK -> result` (the default marshaller): the body is then strict and this goes red. */
 class RunResponseChunkedRoutesSpec extends AnyWordSpec with Matchers with HelioRouteTest with RunServiceHarness with JsonProtocols {
 
-  private val Rows = 6000
+  // HEL-1696: a run body carries at most 10 rows, so the body's size now comes from wide cells, not a row count.
+  private val Rows      = 12
+  private val CellChars = 9000
 
   private def routes = new PipelineRunSubmitRoutes(service, owner).routes
 
   private def manyRowPipeline() = {
-    val pid = seedPipeline(seedCsvSource(Rows, 3, (r, c) => s"v$c-$r-ж\"x"))
+    val pid = seedPipeline(seedCsvSource(Rows, 3, (r, c) => s"v$c-$r-ж\"" + "x" * CellChars))
     val c   = addStep(pid, ComputeStep.Kind, ComputeConfig("n", "concat($a, $b)", None))
     addOutput(pid, c, "out")
     pid
@@ -41,7 +43,8 @@ class RunResponseChunkedRoutesSpec extends AnyWordSpec with Matchers with HelioR
           body shouldBe json.compactPrint
           val parsed = json.convertTo[RunResultResponse]
           parsed.rowCount shouldBe Rows
-          parsed.rows should have size Rows.toLong
+          parsed.rows should have size RunResultResponse.PreviewRows.toLong
+          parsed.rowsTruncated shouldBe true
           // Round trip: re-serialising the parsed value gives the same JSON.
           parsed.toJson shouldBe json
           // The 3x: a piece is PieceChars characters and the fixture's text includes 2-byte UTF-8 characters, plus slack for one row.

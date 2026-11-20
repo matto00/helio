@@ -248,6 +248,9 @@ export interface RunResult {
   /** Server-composed, ready-to-render sentence explaining exactly what was read vs. what exists.
    *  Render verbatim — do not re-derive wording client-side. */
   truncationNotice?: string;
+  /** HEL-1696: `rows` is a preview of at most 10 rows; `rowCount` is the true total and this is `true` when they differ.
+   *  Optional so a client tolerates an older server that never sends it. */
+  rowsTruncated?: boolean;
 }
 
 export async function runPipeline(pipelineId: string, dryRun?: boolean): Promise<RunResult> {

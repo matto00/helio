@@ -145,7 +145,8 @@ final case class RunStatusResponse(
     status: String,
     rows: Option[JsValue],
     error: Option[String],
-    rowCount: Option[Int] = None
+    rowCount: Option[Int] = None,
+    rowsTruncated: Option[Boolean] = None
 )
 /** `GET /api/pipelines/:id/runs/latest` response (HEL-1174, design.md Decision 2): the
  *  pipeline's single most recent `pipeline_runs` row, read from the durable table rather than
@@ -288,8 +289,20 @@ final case class RunResultResponse(
     sourceTruncated: Boolean = false,
     sourceAvailableRowCount: Option[Long] = None,
     truncationNotice: Option[String] = None,
-    truncatedReads: Vector[TruncatedReadResponse] = Vector.empty
+    truncatedReads: Vector[TruncatedReadResponse] = Vector.empty,
+    rowsTruncated: Boolean = false
 )
+
+object RunResultResponse {
+
+  /** HEL-1696: a run-result body carries at most this many rows; `rowCount` is the frame's true total. */
+  val PreviewRows = 10
+
+  /** The preview of a frame's rows: `(first PreviewRows rows, total, rowsTruncated)`. The one definition every
+   *  `RunResultResponse` builder uses, so the flag is `true` exactly when `rowCount` exceeds `rows.size`. */
+  def preview(allRows: Vector[JsObject]): (Vector[JsObject], Int, Boolean) =
+    (allRows.take(PreviewRows), allRows.size, allRows.size > PreviewRows)
+}
 
 /** `POST /api/pipelines/:id/preview?outputId=` response (HEL-906 cycle 10) -- ONE entry per
  *  previewed Output, `preview` reusing the pre-existing single-node `RunResultResponse` shape
@@ -381,6 +394,7 @@ trait PipelineProtocol
       r.rows.foreach(v     => fields("rows")     = v)
       r.error.foreach(v    => fields("error")    = JsString(v))
       r.rowCount.foreach(v => fields("rowCount") = JsNumber(v))
+      r.rowsTruncated.foreach(v => fields("rowsTruncated") = JsBoolean(v))
       JsObject(fields.toMap)
     }
     def read(json: JsValue): RunStatusResponse = {
@@ -390,7 +404,8 @@ trait PipelineProtocol
         status   = obj.fields("status").convertTo[String],
         rows     = obj.fields.get("rows"),
         error    = obj.fields.get("error").map(_.convertTo[String]),
-        rowCount = obj.fields.get("rowCount").map(_.convertTo[Int])
+        rowCount = obj.fields.get("rowCount").map(_.convertTo[Int]),
+        rowsTruncated = obj.fields.get("rowsTruncated").map(_.convertTo[Boolean])
       )
     }
   }
@@ -402,7 +417,7 @@ trait PipelineProtocol
   // compiles but yields a null implicit at runtime.
   implicit val truncatedReadResponseFormat: RootJsonFormat[TruncatedReadResponse] =
     jsonFormat3(TruncatedReadResponse.apply)
-  implicit val runResultResponseFormat: RootJsonFormat[RunResultResponse] = jsonFormat11(RunResultResponse.apply)
+  implicit val runResultResponseFormat: RootJsonFormat[RunResultResponse] = jsonFormat12(RunResultResponse.apply)
 
   // HEL-873: MUST be declared here -- AFTER truncatedReadResponseFormat (RunTruncationRecord's
   // own dependency) and therefore also after (not before) pipelineRunRecordFormat's original

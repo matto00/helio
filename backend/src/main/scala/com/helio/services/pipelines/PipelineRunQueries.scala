@@ -1,7 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
-import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionSummary, LatestRunResponse, PipelineRunRecord, RunTruncationRecord, TruncatedReadResponse}
+import com.helio.api.protocols.pipelines.{AssertionFailureDetail, AssertionSummary, LatestRunResponse, PipelineRunRecord, RunResultResponse, RunTruncationRecord, TruncatedReadResponse}
 import com.helio.domain.model.{AuthenticatedUser, Pipeline, PipelineId, PipelineRunId, TruncatedRead}
 import com.helio.domain.engine.{InProcessPipelineEngine, PipelineRowJson}
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository}
@@ -68,12 +68,14 @@ private[pipelines] final class PipelineRunQueries(
         cache.get(runId).filter(_.pipelineId == pipelineId.value) match {
           case None => Left(RunStatusNotFound)
           case Some(entry) =>
+            // HEL-1696: the cached run holds every row; the response carries a preview (render only those rows).
             val rowsJson: Option[JsValue] = entry.rows.map { rows =>
-              JsArray(rows.map { rowMap =>
+              JsArray(rows.take(RunResultResponse.PreviewRows).map { rowMap =>
                 JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
               }.toVector)
             }
-            Right(CachedRunStatus(entry.runId, entry.status, rowsJson, entry.error, entry.rows.map(_.size)))
+            val total = entry.rows.map(_.size)
+            Right(CachedRunStatus(entry.runId, entry.status, rowsJson, entry.error, total, total.map(_ > RunResultResponse.PreviewRows)))
         }
     }
 

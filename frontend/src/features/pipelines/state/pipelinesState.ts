@@ -41,8 +41,11 @@ export interface PipelinesState {
   stepsError: Record<string, string | null>;
   updateStatus: "idle" | "loading" | "succeeded" | "failed";
   updateError: string | null;
-  // Last successful run output rows (used to derive available field names for select ops)
+  // The last run response's preview rows (at most 10, HEL-1696): not the run's output. Nothing counts rows from it; use
+  // `runRowCount` for the count. Persisted rows come from the Output rows route.
   runResult: Record<string, unknown>[] | null;
+  // The last run response's total row count (`rowCount`), null when no run response is in hand (a Save & run).
+  runRowCount: number | null;
   // Per-step output row counts from the last run, keyed by step id.
   // sourceRowCount is the input row count to the first step.
   runStepRowCounts: Record<string, number>;
@@ -100,6 +103,7 @@ export const initialState: PipelinesState = {
   updateStatus: "idle",
   updateError: null,
   runResult: null,
+  runRowCount: null,
   runStepRowCounts: {},
   runSourceRowCount: null,
   runPipelineId: null,

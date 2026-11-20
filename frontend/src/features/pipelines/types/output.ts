@@ -173,6 +173,8 @@ export interface RunResult {
   sourceAvailableRowCount?: number;
   truncationNotice?: string;
   truncatedReads: TruncatedRead[];
+  /** HEL-1696: `rows` is at most the first 10 rows of the frame; `rowCount` is its total and this is `true` when they differ. */
+  rowsTruncated: boolean;
 }
 
 export interface OutputPreviewEntry {

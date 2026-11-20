@@ -575,7 +575,7 @@ describe("PipelineDetailPage desktop spine: header", () => {
 
   it("shows a dry run's preview row count and a failed run's error log", async () => {
     const { unmount } = await renderSpinePageSettled(
-      storeWith({ runStatus: "succeeded", runIsDry: true, runResult: [{ a: 1 }, { a: 2 }] }),
+      storeWith({ runStatus: "succeeded", runIsDry: true, runRowCount: 2 }),
     );
     expect(await screen.findByLabelText("Run status: succeeded")).toHaveTextContent(
       "Preview: 2 rows",

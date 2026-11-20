@@ -59,6 +59,8 @@ export function runResultFromFrame(
     blocked: false,
     sourceTruncated: false,
     truncatedReads: [],
+    // The draft frame is uncut: `rows` is every row, so `rowCount` is exact.
+    rowsTruncated: false,
   };
 }
 

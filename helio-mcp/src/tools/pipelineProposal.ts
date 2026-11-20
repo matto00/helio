@@ -216,6 +216,7 @@ export function registerPipelineProposalTools(server: McpServer, api: HelioApi):
         "instead. propose_pipeline's warnings are advisory only; this tool may be called directly " +
         "without ever calling propose_pipeline first. Returns the created source (if inline)/" +
         "pipeline summary/the created Outputs (zero, one, or many)/run result. " +
+        "The run result's `rows` is a preview of at most 10 rows: `rowCount` is the run's total row count and `rowsTruncated` is `true` when `rows` is cut; the run still stored every row, read them with get_output_rows. " +
         OUTPUT_CONFIG_KEYS_DOC +
         " " +
         INSIGHT_CREATE_READS_DOC,

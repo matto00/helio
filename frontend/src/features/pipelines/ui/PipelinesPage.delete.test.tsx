@@ -120,7 +120,7 @@ describe("Data Pipelines overview: Delete row action (HEL-1574, owner ruling 202
           runStatus: null,
           runError: null,
           runIsDry: null,
-          runResult: null,
+          runRowCount: null,
         }}
         lastRunAt={null}
         lastRunRowCount={null}

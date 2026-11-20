@@ -166,7 +166,7 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
             runStatus: page.runStatus,
             runError: page.runError,
             runIsDry: page.runIsDry,
-            runResult: page.runResult,
+            runRowCount: page.runRowCount,
           }}
           lastRunAt={currentPipeline.lastRunAt}
           lastRunRowCount={currentPipeline.lastRunRowCount}

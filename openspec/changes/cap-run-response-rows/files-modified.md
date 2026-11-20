@@ -1,0 +1,70 @@
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineProtocol.scala` — `rowsTruncated` on RunResultResponse (jsonFormat12) and RunStatusResponse (writer/reader); `RunResultResponse.preview`/`PreviewRows` helper
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunExecutor.scala` — response built from the helper; terminal writes still get every row
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunPreview.scala` — both preview sites use the helper and report the flag
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunQueries.scala` — run status renders only the first 10 cached rows and sets the flag
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunService.scala` — `CachedRunStatus.rowsTruncated`
+- `backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunStatusRoutes.scala` — copies the flag to the wire
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineRunResponseCapSpec.scala` — new: run/dry/preview/step preview/GET runs cap, shared-fixture seam
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineApplyProposalRunCapSpec.scala` — new: apply-proposal run is capped
+- `backend/src/test/scala/com/helio/api/routes/proposals/CombinedApplyProposalRunCapSpec.scala` — new: combined apply run is capped
+- `backend/src/test/scala/com/helio/api/routes/pipelines/RunResponseChunkedRoutesSpec.scala` — C16 change, see below
+- `shared-test-fixtures/pipeline-run/run-capped-response.json` — the real 25-row run body (server, web and MCP tests)
+- `frontend/src/features/pipelines/services/pipelineService.ts` — `rowsTruncated?` on RunResult
+- `frontend/src/features/pipelines/types/output.ts` — `rowsTruncated` on RunResult
+- `frontend/src/features/pipelines/types/pipelineStep.ts` — RunStatusResponse gains optional rowCount/rowsTruncated
+- `frontend/src/features/pipelines/state/pipelinesState.ts` — `runRowCount`; rewritten `runResult` comment
+- `frontend/src/features/pipelines/state/pipelinesSlice.ts` — sets/clears `runRowCount`
+- `frontend/src/features/pipelines/hooks/usePipelineOwnPipeline.ts`, `usePipelineDetailPage.ts` — thread `runRowCount`
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineLayout.tsx`, `ui/mobile/MobilePipelineHeader.tsx` — pass `runRowCount`
+- `frontend/src/features/pipelines/ui/spine/SpineRunStatus.tsx` — count from `runRowCount`
+- `frontend/src/features/pipelines/ui/outputEditor/outputSheetDraft.ts` — `rowsTruncated: false` for an uncut draft frame
+- `frontend/src/features/pipelines/ui/spine/SpineRunStatus.runCap.test.tsx` — new: fixture through the slice and chip
+- `helio-mcp/src/types.ts`, `tools/pipelineProposal.ts`, `tools/combinedProposal.ts` — type doc and both apply tool descriptions
+- `helio-mcp/src/tools/runCapSeam.test.ts` — new: fixture through both apply tools, descriptions
+
+## C16: existing tests changed (assertion moved or setup moved to the new source of truth)
+
+- `backend/.../RunResponseChunkedRoutesSpec.scala` — read 6000 rows from the run body to prove chunked streaming. A run body now holds 10 rows, so the body's size comes from 12 rows of 9000-character cells; it now asserts `rowCount` 12, `rows` 10, `rowsTruncated` true, and every chunking assertion (chunked, compact bytes, round trip, piece-size bound, body larger than 4 pieces) is unchanged.
+- `frontend/.../PipelineDetailPage.spine.test.tsx` (dry-run chip), `PipelineDetailPage.test.tsx` (4 chip tests: non-dry 2 rows, non-dry 3 rows, dry 2 rows, 0 rows) — preloaded `runResult` to drive the chip count; now preload `runRowCount` (same expected text). Their store builder and `PipelinesPreloadedState` gain `runRowCount`.
+- `frontend/.../pipelinesSlice.test.ts` — preloaded state gains `runRowCount`; fulfilled test also asserts `runRowCount`; the settle test asserts it is cleared.
+- Type-only one-liners: `outputsSlice.test.ts` (`rowsTruncated: false`), `usePipelineDetailPage.keys.test.tsx` (new key), `PipelinesPage.delete.test.tsx`, `PipelineMobileLayout.test.tsx`, `rawElementGuardHel440.test.tsx` (`runRowCount: null`), `pipelineSpineTestKit.tsx` (default `runRowCount`).
+
+## Declared paths (full, for squash-branch.sh; PipelineSpineHeader.viewer.test.tsx is the merge-time fix of HEL-1661's new test)
+
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineProtocol.scala`
+- `backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunStatusRoutes.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunExecutor.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunPreview.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunQueries.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunService.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineApplyProposalRunCapSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineRunResponseCapSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/RunResponseChunkedRoutesSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/proposals/CombinedApplyProposalRunCapSpec.scala`
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.keys.test.tsx`
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineOwnPipeline.ts`
+- `frontend/src/features/pipelines/services/pipelineService.ts`
+- `frontend/src/features/pipelines/state/outputsSlice.test.ts`
+- `frontend/src/features/pipelines/state/pipelinesSlice.test.ts`
+- `frontend/src/features/pipelines/state/pipelinesSlice.ts`
+- `frontend/src/features/pipelines/state/pipelinesState.ts`
+- `frontend/src/features/pipelines/types/output.ts`
+- `frontend/src/features/pipelines/types/pipelineStep.ts`
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.spine.test.tsx`
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.test.tsx`
+- `frontend/src/features/pipelines/ui/PipelinesPage.delete.test.tsx`
+- `frontend/src/features/pipelines/ui/mobile/MobilePipelineHeader.tsx`
+- `frontend/src/features/pipelines/ui/mobile/PipelineMobileLayout.test.tsx`
+- `frontend/src/features/pipelines/ui/outputEditor/outputSheetDraft.ts`
+- `frontend/src/features/pipelines/ui/pipelineSpineTestKit.tsx`
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineHeader.viewer.test.tsx`
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineLayout.tsx`
+- `frontend/src/features/pipelines/ui/spine/SpineRunStatus.runCap.test.tsx`
+- `frontend/src/features/pipelines/ui/spine/SpineRunStatus.tsx`
+- `frontend/src/test/rawElementGuardHel440.test.tsx`
+- `helio-mcp/src/tools/combinedProposal.ts`
+- `helio-mcp/src/tools/pipelineProposal.ts`
+- `helio-mcp/src/tools/runCapSeam.test.ts`
+- `helio-mcp/src/types.ts`
+- `shared-test-fixtures/pipeline-run/run-capped-response.json`

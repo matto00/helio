@@ -61,6 +61,7 @@ const pipelinesSlice = createSlice({
       state.runError = null;
       state.runIsDry = null;
       state.runResult = null;
+      state.runRowCount = null;
       // HEL-1483: the two row-count fields were also missed here, and a cleared run state owns no
       // pipeline, so an in-flight run for the pipeline just left is ignored when it resolves.
       state.runStepRowCounts = {};
@@ -106,6 +107,7 @@ const pipelinesSlice = createSlice({
         state.runStatus = outcome === "succeeded" ? "succeeded" : "failed";
         state.runError = outcome === "blocked" ? "Run blocked by an assertion" : null;
         state.runResult = null;
+        state.runRowCount = null;
         state.runStepRowCounts = {};
         state.runSourceRowCount = null;
       } else {
@@ -290,6 +292,7 @@ const pipelinesSlice = createSlice({
         state.runId = null;
         state.runStatus = "succeeded";
         state.runResult = action.payload.rows;
+        state.runRowCount = action.payload.rowCount;
         state.runStepRowCounts = action.payload.stepRowCounts ?? {};
         state.runSourceRowCount = action.payload.sourceRowCount ?? null;
         state.runSourceTruncated = action.payload.sourceTruncated ?? false;
