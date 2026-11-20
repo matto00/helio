@@ -3,7 +3,7 @@ package com.helio.services.patchsets
 import com.helio.services.auth.AccessChecker
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.{OutputControlsValidator, PanelCreateDryRun, PanelService}
-import com.helio.services.pipelines.{OutputService, PipelineRootDryRun, PipelineService}
+import com.helio.services.pipelines.{OutputService, PipelineRootDryRun, PipelineService, PipelineStepWriteChecks}
 import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.services.sources.{DataSourceService, SourceService}
 import scala.concurrent.ExecutionContext
@@ -127,7 +127,10 @@ private[services] final case class PatchSetApplyContext(
     chargeFetches: Boolean,
     // HEL-1638 D3: runs `PanelService.create`/`update`'s own checks at resolve. Its controls validator has no node-snapshot
     // repo, so a `dropdown` control's eq/in cardinality check stays apply-only.
-    panelDryRun: PanelCreateDryRun
+    panelDryRun: PanelCreateDryRun,
+    // HEL-1722 D3: `PipelineService.addStep`/`updateStep`'s own read-only pre-write checks, run at resolve. Built in `build` from the
+    // repositories already here, so preview, apply and the draft save cannot omit it.
+    stepWriteChecks: PipelineStepWriteChecks
 ) {
   require(outputRepo != null, "PatchSetApplyContext requires an OutputRepository")
 }
@@ -156,7 +159,8 @@ private[services] object PatchSetApplyContext {
     PatchSetApplyContext(
       panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo,
       new PipelineRootDryRun(dataSourceRepo, sourceService, sourceFetchBudget), chargeFetches,
-      new PanelCreateDryRun(outputRepo, dataSourceRepo, new OutputControlsValidator(outputRepo, null))
+      new PanelCreateDryRun(outputRepo, dataSourceRepo, new OutputControlsValidator(outputRepo, null)),
+      PipelineStepWriteChecks.fromRepos(pipelineRepo, pipelineStepRepo, dataSourceRepo)
     )
   }
 

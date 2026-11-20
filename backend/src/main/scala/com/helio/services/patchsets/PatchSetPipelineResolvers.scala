@@ -7,6 +7,7 @@ import com.helio.services.pipelines.{PipelineCreateDryRun, PipelineRootDryRun, P
 import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, PipelineId}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import PatchSetApplyServiceJson._
+import PatchSetResolverSupport.prefixedWithEdit
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -86,13 +87,6 @@ private[patchsets] object PatchSetPipelineResolvers {
         }
     }
 
-  private def prefixedWithEdit(index: Int, err: ServiceError): ServiceError = err match {
-    case ServiceError.UnprocessableEntity(msg) => ServiceError.UnprocessableEntity(s"edit $index: $msg")
-    case ServiceError.BadRequest(msg)          => ServiceError.BadRequest(s"edit $index: $msg")
-    case ServiceError.NotFound(msg)            => ServiceError.NotFound(s"edit $index: $msg")
-    case other                                 => other
-  }
-
   private[patchsets] def resolvePipelineCreate(
       edit: Edit,
       index: Int,
@@ -161,7 +155,12 @@ private[patchsets] object PatchSetPipelineResolvers {
               case Right(()) =>
                 dryRun.preflight(request, user).flatMap {
                   case Left(err)   => Future.successful(Left(err))
-                  case Right(None) => Future.successful(Right(()))
+                  // HEL-1722 D5: preflight returns `None` for a create with roots but no steps or Outputs, and the root dry run used to be skipped
+                  // there, so a PREVIEW never ran an inline root's create checks (`validateStatic`, `validateSqlCreate`, `validateRestCreate`).
+                  // It runs now, discarding the schemas. Apply (`chargeFetches = false`) keeps skipping it: `PipelineService.create` re-runs those
+                  // checks authoritatively before it writes, and re-running them here would add a second live rest/sql fetch to every apply. A
+                  // fetch failure alone does not reject (apply records an unrunnable run).
+                  case Right(None) => if (ctx.chargeFetches) rootSchemas().map(_.map(_ => ())) else Future.successful(Right(()))
                   case Right(Some(indices)) =>
                     rootSchemas().flatMap {
                       case Left(err)    => Future.successful(Left(err))

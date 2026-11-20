@@ -551,13 +551,19 @@ object ExistenceNotLeakedRoutesSpec {
     "InsightRenderService.scala"     -> 1,
     "OutputService.scala"            -> 1,
     "PanelService.scala"             -> 4,
-    "PatchSetApplyResolvers.scala"   -> 4,
+    // HEL-1722: 5th occurrence is `PatchSetResolverSupport.prefixedWithEdit`'s `Forbidden` arm, which re-words the service's own refusal
+    // (a viewer grantee of a step create/update) behind `edit N: `; it originates no new 403. The producer itself is the next entry.
+    "PatchSetApplyResolvers.scala"   -> 5,
     // HEL-1492: `PipelineRunExecutor`'s NotAuthorized arm -- reached only after `submit`'s `findByIdShared(.., Some(user))`
     // + owner/editor check, so the caller already knows the pipeline exists (see the change's design.md classification).
     // HEL-1503 adds the dry-run pre-execute re-check (design.md D4), classified the same way: legitimate.
     "PipelineRunExecutor.scala"      -> 2,
     "PipelineRunPreview.scala"       -> 1,
     "PipelineRunService.scala"       -> 1,
-    "PipelineService.scala"          -> 1
+    "PipelineService.scala"          -> 1,
+    // HEL-1722: `PipelineStepWriteChecks.editorAccess`, the editor-grant rule `PipelineService.requireEditorAccess` has always applied (a viewer grantee
+    // of a step create/update), now also built from the repositories alone for the patch-set resolvers. Reached only after
+    // `findByIdShared(.., Some(user))` returned the pipeline, so the caller already knows it exists. Legitimate.
+    "PipelineStepWriteChecks.scala"  -> 1
   )
 }

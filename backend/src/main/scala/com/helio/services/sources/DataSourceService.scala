@@ -595,10 +595,10 @@ final class DataSourceService(
 
 
   def update(sourceId: DataSourceId, req: UpdateDataSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
-    req.name match {
-      case Some(n) if n.trim.isEmpty =>
-        Future.successful(Left(ServiceError.BadRequest("name must not be empty")))
-      case _ =>
+    DataSourceService.validateUpdate(req) match {
+      case Left(err) =>
+        Future.successful(Left(err))
+      case Right(()) =>
         dataSourceRepo.findByIdOwned(sourceId, user).flatMap {
           case None =>
             Future.successful(Left(ServiceError.NotFound("Data source not found")))
@@ -1385,6 +1385,15 @@ object DataSourceService {
    *  token id is carried because this principal never authenticates anything. */
   def ownerContext(sourceOwner: UserId, writer: AuthenticatedUser): AuthenticatedUser =
     AuthenticatedUser(sourceOwner, source = writer.source, tokenId = None)
+
+  /** HEL-1722: the request-only check of [[DataSourceService.update]] (a blank `name` is refused), as a pure function `update` calls
+   *  FIRST, before its ownership lookup, and the patch-set resolver calls the same way, so a blank-name update of a source the caller
+   *  does not own is the same 400 on both sides and nothing about the source is read. */
+  def validateUpdate(req: UpdateDataSourceRequest): Either[ServiceError, Unit] =
+    req.name match {
+      case Some(n) if n.trim.isEmpty => Left(ServiceError.BadRequest("name must not be empty"))
+      case _                         => Right(())
+    }
 
   /** HEL-1638: the outcome of [[validateStatic]] -- everything `createStatic` writes, computed without touching the DB. */
   final case class StaticChecked(tag: Option[String], declaredColumns: Vector[DatasetFieldDeclaration], validatedRows: Vector[Vector[JsValue]], fields: Vector[SchemaField])

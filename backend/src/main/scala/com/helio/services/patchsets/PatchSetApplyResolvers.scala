@@ -43,22 +43,25 @@ private[services] object PatchSetApplyResolvers {
       user: AuthenticatedUser,
       ctx: PatchSetApplyContext
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, Vector[ResolvedEdit]]] = {
-    def loop(remaining: Vector[(Edit, Int)], acc: Vector[ResolvedEdit], refs: PatchSetRefs): Future[Either[ServiceError, Vector[ResolvedEdit]]] =
+    // HEL-1722 D7: pipelines whose step graph an EARLIER edit of this set changes. Every edit here is judged against the STORED graph
+    // (apply runs this pass too, then forwards edits one at a time), so a later step edit on such a pipeline skips its graph-dependent
+    // checks (lane, placement, `rejectIfReparents`) and the service judges them at forward apply against the real intermediate graph.
+    def loop(remaining: Vector[(Edit, Int)], acc: Vector[ResolvedEdit], refs: PatchSetRefs, touched: Set[String]): Future[Either[ServiceError, Vector[ResolvedEdit]]] =
       remaining.headOption match {
         case None => Future.successful(Right(acc))
         case Some((edit, index)) =>
           PatchSetRefs.checkDefinition(edit, index, refs) match {
             case Left(err) => Future.successful(Left(err))
             case Right(_) =>
-              resolveEdit(edit, index, user, ctx, refs).flatMap {
+              resolveEdit(edit, index, user, ctx, refs, touched).flatMap {
                 case Left(err) => Future.successful(Left(err))
                 case Right(resolved) =>
                   val tagged = resolved.copy(ref = edit.target.ref)
-                  loop(remaining.tail, acc :+ tagged, PatchSetRefs.register(refs, tagged))
+                  loop(remaining.tail, acc :+ tagged, PatchSetRefs.register(refs, tagged), touched ++ PatchSetResolverSupport.stepGraphPipeline(tagged))
               }
           }
       }
-    loop(edits.zipWithIndex, Vector.empty, PatchSetRefs.empty).flatMap {
+    loop(edits.zipWithIndex, Vector.empty, PatchSetRefs.empty, Set.empty).flatMap {
       case Left(err)       => Future.successful(Left(err))
       // HEL-1639 D2: preview and apply must judge an Output create against the same saved schema, so a set that also
       // edits that node's steps is refused as a whole.
@@ -71,7 +74,8 @@ private[services] object PatchSetApplyResolvers {
       index: Int,
       user: AuthenticatedUser,
       ctx: PatchSetApplyContext,
-      refs: PatchSetRefs
+      refs: PatchSetRefs,
+      touched: Set[String]
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, ResolvedEdit]] =
     // HEL-914 task 5.1/D3: `target.parentId` is REJECTED, not ignored, on update/delete --
     // checked once, generically, here rather than duplicated into every update/delete resolver.
@@ -98,9 +102,9 @@ private[services] object PatchSetApplyResolvers {
       case ("pipeline", "update")     => resolvePipelineUpdate(edit, index, user, ctx)
       case ("pipeline", "delete")     => resolvePipelineDelete(edit, index, user, ctx)
       case ("pipeline", "create")     => resolvePipelineCreate(edit, index, user, ctx)
-      case ("pipelineStep", "update") => resolvePipelineStepUpdate(edit, index, user, ctx)
+      case ("pipelineStep", "update") => resolvePipelineStepUpdate(edit, index, user, ctx, touched)
       case ("pipelineStep", "delete") => resolvePipelineStepDelete(edit, index, user, ctx)
-      case ("pipelineStep", "create") => resolvePipelineStepCreate(edit, index, user, ctx)
+      case ("pipelineStep", "create") => resolvePipelineStepCreate(edit, index, user, ctx, touched)
       case ("output", "update") => resolveOutputUpdate(edit, index, user, ctx)
       case ("output", "delete") => resolveOutputDelete(edit, index, user, ctx)
       case ("output", "create") => resolveOutputCreate(edit, index, user, ctx)
@@ -238,6 +242,24 @@ private[patchsets] object PatchSetResolverSupport {
       case None    => Future.successful(Left(ServiceError.NotFound(s"edit $index: pipeline step not found")))
       case Some(_) => authorizeEditorOrOwnerOnPipeline(pipelineId, user, ctx)
     }
+
+  /** HEL-1722 D3: a service error reworded for a patch-set edit: same status, `edit N: ` in front of the service's own message. */
+  private[patchsets] def prefixedWithEdit(index: Int, err: ServiceError): ServiceError = err match {
+    case ServiceError.UnprocessableEntity(msg) => ServiceError.UnprocessableEntity(s"edit $index: $msg")
+    case ServiceError.BadRequest(msg)          => ServiceError.BadRequest(s"edit $index: $msg")
+    case ServiceError.NotFound(msg)            => ServiceError.NotFound(s"edit $index: $msg")
+    case ServiceError.Forbidden(msg)           => ServiceError.Forbidden(s"edit $index: $msg")
+    case other                                 => other
+  }
+
+  /** HEL-1722 D7: the pipeline whose STEP GRAPH an edit changes (a `pipelineStep` create, update or delete), taken from the
+    * RESOLVED action so it is the stored id, never request text. */
+  private[patchsets] def stepGraphPipeline(resolved: ResolvedEdit): Option[String] = resolved.action match {
+    case ResolvedAction.PipelineStepCreate(pipelineId, _) => Some(pipelineId.value)
+    case ResolvedAction.PipelineStepUpdate(_, _, prior)    => Some(prior.pipelineId.value)
+    case ResolvedAction.PipelineStepDelete(_, prior)       => Some(prior.pipelineId.value)
+    case _                                                  => None
+  }
 
   private[patchsets] def decodeCreatePatch[T](edit: Edit, index: Int)(implicit reader: JsonReader[T]): Either[ServiceError, T] =
     edit.createPatch match {

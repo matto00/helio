@@ -48,7 +48,7 @@ import scala.concurrent.{Await, Future}
  *  grantee gets 403. Before this spec no test granted a pipeline role and then submitted a pipelineStep
  *  patch-set edit, so weakening either grant branch left every targeted spec green.
  *
- *  Viewer cases assert the EXACT pre-validation `Left(ServiceError.Forbidden())`: forward apply
+ *  Viewer cases assert the EXACT pre-validation Forbidden (HEL-1722: the service's own `Forbidden` behind `edit N: ` for a step create/update; a step delete keeps the bare `Forbidden()`): forward apply
  *  re-checks editor access through `PipelineService`, so a weakened gate alone would end as
  *  `Right(... failure ...)` (HTTP 200) with nothing mutated, which a "nothing mutated" check cannot tell
  *  from the correct 403. Both entry points are covered: apply via [[PatchSetApplyService]] and preview via
@@ -211,7 +211,7 @@ class PatchSetPipelineStepGrantSpec extends AnyWordSpec with Matchers with Helio
 
     "refuse a pipelineStep update with exactly Forbidden, leaving the step unchanged" in {
       val (_, step) = seedGrantedPipeline("viewer")
-      applyAs(updateEdit(step.id)) shouldBe Left(ServiceError.Forbidden())
+      applyAs(updateEdit(step.id)) shouldBe Left(ServiceError.Forbidden("edit 0: Forbidden"))
       stepLimit(step.id) shouldBe 5
     }
 
@@ -223,13 +223,13 @@ class PatchSetPipelineStepGrantSpec extends AnyWordSpec with Matchers with Helio
 
     "refuse a pipelineStep create with exactly Forbidden, creating nothing" in {
       val (pipeline, _) = seedGrantedPipeline("viewer")
-      applyAs(createEdit(pipeline.id)) shouldBe Left(ServiceError.Forbidden())
+      applyAs(createEdit(pipeline.id)) shouldBe Left(ServiceError.Forbidden("edit 0: Forbidden"))
       await(pipelineStepRepo.listByPipelineInternal(PipelineId(pipeline.id))).size shouldBe 1
     }
 
     "refuse a pipelineStep update on preview with exactly Forbidden" in {
       val (_, step) = seedGrantedPipeline("viewer")
-      await(previewService.preview(PatchSet(None, Vector(updateEdit(step.id))), grantee)) shouldBe Left(ServiceError.Forbidden())
+      await(previewService.preview(PatchSet(None, Vector(updateEdit(step.id))), grantee)) shouldBe Left(ServiceError.Forbidden("edit 0: Forbidden"))
     }
   }
 

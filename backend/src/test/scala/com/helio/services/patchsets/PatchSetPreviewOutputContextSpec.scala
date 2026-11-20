@@ -261,7 +261,7 @@ class PatchSetPreviewOutputContextSpec
       def assertParity(label: String, built: PatchSetApplyContext): Unit = {
         val all = built.productElementNames.zip(built.productIterator).toVector
         // HEL-1638: the dry-run collaborator and its charge flag are built by the context, not supplied repos.
-        val derived = Set("rootDryRun", "chargeFetches", "panelDryRun")
+        val derived = Set("rootDryRun", "chargeFetches", "panelDryRun", "stepWriteChecks") // HEL-1722: built from the repos by the context
         all.filter(f => derived(f._1)).foreach(f => (f._2 == null) shouldBe false)
         val fields = all.filterNot(f => derived(f._1))
         fields.map(_._1).toSet shouldBe supplied.keySet // a NEW context field must be wired + added here deliberately
