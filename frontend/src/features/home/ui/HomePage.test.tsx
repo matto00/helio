@@ -131,11 +131,15 @@ describe("HomePage", () => {
       "aria-hidden",
       "true",
     );
-    // The placeholder holds the default sentence, hidden from assistive tech, under the skeleton bar.
+    // The placeholder holds the default sentence, hidden from assistive tech; one skeleton span wraps it so the
+    // browser paints one bar per rendered line (HEL-1749).
     const status = screen.getByRole("status", { name: "Loading summary" });
-    expect(status.querySelector(".home-opening__skeleton-line")).not.toBeNull();
+    expect(status.querySelector(".home-opening__skeleton-line")).toBeNull();
     const ghost = status.querySelector(".home-opening__ghost");
     expect(ghost).toHaveAttribute("aria-hidden", "true");
+    const bar = ghost?.querySelector(".ui-skeleton.home-opening__ghost-bar");
+    expect(bar).toHaveTextContent("All quiet: nothing has changed, failed or been missed.");
+    expect(status.querySelectorAll(".ui-skeleton")).toHaveLength(1);
     // Nothing selecting the real sentence may match the placeholder (HEL-1572's no-flash probe reads it by class).
     expect(container.querySelector(".home-opening__sentence")).toBeNull();
     expect(ghost).toHaveTextContent("All quiet: nothing has changed, failed or been missed.");

@@ -1,0 +1,30 @@
+.home-opening__ghost .home-opening__ghost-bar {
+  --bar-r: var(--app-radius-sm);
+  display: inline;
+  visibility: visible;
+  color: transparent;
+  pointer-events: none;
+  user-select: none;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  -webkit-mask-image: linear-gradient(#000, #000), linear-gradient(#000, #000),
+    radial-gradient(circle at var(--bar-r) var(--bar-r), #000 calc(var(--bar-r) - 0.5px), transparent var(--bar-r)),
+    radial-gradient(circle at 0 var(--bar-r), #000 calc(var(--bar-r) - 0.5px), transparent var(--bar-r)),
+    radial-gradient(circle at var(--bar-r) 0, #000 calc(var(--bar-r) - 0.5px), transparent var(--bar-r)),
+    radial-gradient(circle at 0 0, #000 calc(var(--bar-r) - 0.5px), transparent var(--bar-r));
+  mask-image: linear-gradient(#000, #000), linear-gradient(#000, #000),
+    radial-gradient(circle at var(--bar-r) var(--bar-r), #000 calc(var(--bar-r) - 0.5px), transparent var(--bar-r)),
+    radial-gradient(circle at 0 var(--bar-r), #000 calc(var(--bar-r) - 0.5px), transparent var(--bar-r)),
+    radial-gradient(circle at var(--bar-r) 0, #000 calc(var(--bar-r) - 0.5px), transparent var(--bar-r)),
+    radial-gradient(circle at 0 0, #000 calc(var(--bar-r) - 0.5px), transparent var(--bar-r));
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% calc(0.8em - 2 * var(--bar-r)), calc(100% - 2 * var(--bar-r)) 0.8em,
+    var(--bar-r) var(--bar-r), var(--bar-r) var(--bar-r), var(--bar-r) var(--bar-r), var(--bar-r) var(--bar-r);
+  mask-size: 100% calc(0.8em - 2 * var(--bar-r)), calc(100% - 2 * var(--bar-r)) 0.8em,
+    var(--bar-r) var(--bar-r), var(--bar-r) var(--bar-r), var(--bar-r) var(--bar-r), var(--bar-r) var(--bar-r);
+  -webkit-mask-position: 0 50%, 50% 50%, 0 calc(50% - 0.4em + var(--bar-r) / 2), 100% calc(50% - 0.4em + var(--bar-r) / 2),
+    0 calc(50% + 0.4em - var(--bar-r) / 2), 100% calc(50% + 0.4em - var(--bar-r) / 2);
+  mask-position: 0 50%, 50% 50%, 0 calc(50% - 0.4em + var(--bar-r) / 2), 100% calc(50% - 0.4em + var(--bar-r) / 2),
+    0 calc(50% + 0.4em - var(--bar-r) / 2), 100% calc(50% + 0.4em - var(--bar-r) / 2);
+}

@@ -1,0 +1,136 @@
+
+Running 63 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1572-flash-1795147864327-8054@example.test
+[HEL-1300 e2e] throwaway user: hel1572-type-1795147864327-92976@example.test
+  ✓   1 [dev] › e2e/hel1572-appearance-preferences.spec.ts:173:7 › HEL-1572 type style › no flash: cached reload applies the style before React's first DOM, and the first heading is already serif (5.3s)
+[HEL-1300 e2e] throwaway user: hel1572-flash-new-1795147869063-35377@example.test
+  ✓   2 [dev] › e2e/hel1572-appearance-preferences.spec.ts:126:7 › HEL-1572 type style › re-renders headings with no reload and survives a fresh browser context (another device) (8.0s)
+[HEL-1300 e2e] throwaway user: hel1572-flash-home-1795147871799-11837@example.test
+  ✓   3 [dev] › e2e/hel1572-appearance-preferences.spec.ts:194:7 › HEL-1572 type style › no flash: first heading is serif on a new device (no cache) too (4.6s)
+[HEL-1300 e2e] throwaway user: hel1572-neg-heading-1795147873629-98235@example.test
+  ✓   4 [dev] › e2e/hel1572-appearance-preferences.spec.ts:228:7 › HEL-1572 type style › no flash: Home's opening sentence is serif on a new device (no cache) after sign-in (HEL-1578) (4.7s)
+[HEL-1300 e2e] throwaway user: hel1572-neg-prepaint-1795147876491-38697@example.test
+  ✓   5 [dev] › e2e/hel1572-appearance-preferences.spec.ts:247:7 › HEL-1572 type style › probe sensitivity (negative control): the heading probe FAILS when the server value is withheld (4.2s)
+[HEL-1300 e2e] throwaway user: hel1572-density-1795147877887-72262@example.test
+  ✓   6 [dev] › e2e/hel1572-appearance-preferences.spec.ts:267:7 › HEL-1572 type style › probe sensitivity (negative control): with the pre-paint script stripped, the attribute lands only after React's first DOM (5.7s)
+[HEL-1300 e2e] throwaway user: hel1572-density-rows-1795147882250-2017@example.test
+  ✓   7 [dev] › e2e/hel1572-appearance-preferences.spec.ts:353:7 › HEL-1572 density › Compact changes the grid gutter and row padding; panel tops do not move (9.3s)
+[HEL-1300 e2e] throwaway user: hel1572-motion-1795147887137-92501@example.test
+  ✓   8 [dev] › e2e/hel1572-appearance-preferences.spec.ts:404:7 › HEL-1572 density › Compact tightens overview list rows and the context list by the documented token difference (6.0s)
+[HEL-1300 e2e] throwaway user: hel1572-tap-375-1795147888260-61217@example.test
+  ✓  10 [dev] › e2e/hel1572-appearance-preferences.spec.ts:505:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 375px (4.9s)
+[HEL-1300 e2e] throwaway user: hel1572-tap-768-1795147893189-57286@example.test
+  ✓   9 [dev] › e2e/hel1572-appearance-preferences.spec.ts:460:7 › HEL-1572 motion › Off pins the tokens near zero; Full keeps them; no saved choice follows OS reduce-motion; explicit Full beats it (6.2s)
+[HEL-1300 e2e] throwaway user: hel1572-tap-1280-1795147893284-29364@example.test
+  ✓  12 [dev] › e2e/hel1572-appearance-preferences.spec.ts:505:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 1280px (4.1s)
+[HEL-1300 e2e] throwaway user: hel1572-clip-1795147897438-10644@example.test
+  ✓  11 [dev] › e2e/hel1572-appearance-preferences.spec.ts:505:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 768px (4.8s)
+[HEL-1300 e2e] throwaway user: hel1572-clip-mut-1795147897963-78545@example.test
+  ✓  14 [dev] › e2e/hel1572-appearance-preferences.spec.ts:576:7 › HEL-1572 Appearance tap targets › clipping sweep is failable: an injected fixed-width label is flagged (3.8s)
+[HEL-1300 e2e] throwaway user: hel1572-tabular-1795147901756-54425@example.test
+  ✓  13 [dev] › e2e/hel1572-appearance-preferences.spec.ts:549:7 › HEL-1572 Appearance tap targets › under Mono no Appearance control or bottom-nav/command-bar label is clipped (non-ellipsized overflow) at 375/768/820/1280 (7.8s)
+[HEL-1300 e2e] throwaway user: hel1665h-lf375light-1795147905287-12681@example.com
+  ✓  15 [dev] › e2e/hel1572-appearance-preferences.spec.ts:601:7 › HEL-1572 tabular numerals under every style › equal-digit durations render at equal width under sans / mono / serif, and the check fails without tabular-nums (9.3s)
+[HEL-1300 e2e] throwaway user: hel1665h-lf1280light-1795147911108-23259@example.com
+HEL1678-LARGEFONT {"theme":"light","size":{"width":375,"height":812},"fontSizeDefault16":20,"fontSizeDefault24":30,"runsTopSpread":0,"overflow":{"doc":0,"body":0}}
+  ✓  16 [dev] › e2e/hel1678-home-large-font.spec.ts:38:9 › Home at 375x812 (light) with a 24px default font size: no horizontal scroll, timeline does not move (8.8s)
+[HEL-1300 e2e] throwaway user: hel1665h-lf375dark-1795147914060-92049@example.com
+HEL1678-LARGEFONT {"theme":"light","size":{"width":1280,"height":900},"fontSizeDefault16":24,"fontSizeDefault24":36,"runsTopSpread":0,"overflow":{"doc":0,"body":0}}
+  ✓  17 [dev] › e2e/hel1678-home-large-font.spec.ts:38:9 › Home at 1280x900 (light) with a 24px default font size: no horizontal scroll, timeline does not move (8.5s)
+[HEL-1300 e2e] throwaway user: hel1665h-lf1280dark-1795147919617-38889@example.com
+HEL1678-LARGEFONT {"theme":"dark","size":{"width":375,"height":812},"fontSizeDefault16":20,"fontSizeDefault24":30,"runsTopSpread":0,"overflow":{"doc":0,"body":0}}
+  ✓  18 [dev] › e2e/hel1678-home-large-font.spec.ts:38:9 › Home at 375x812 (dark) with a 24px default font size: no horizontal scroll, timeline does not move (8.6s)
+[HEL-1300 e2e] throwaway user: hel1749-fr320light-1795147922689-21039@example.com
+  ✓  20 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 320px: one painted bar fragment per line of the hidden sentence (4.2s)
+[HEL-1300 e2e] throwaway user: hel1749-fr375light-1795147926838-34032@example.com
+HEL1678-LARGEFONT {"theme":"dark","size":{"width":1280,"height":900},"fontSizeDefault16":24,"fontSizeDefault24":36,"runsTopSpread":0,"overflow":{"doc":0,"body":0}}
+  ✓  19 [dev] › e2e/hel1678-home-large-font.spec.ts:38:9 › Home at 1280x900 (dark) with a 24px default font size: no horizontal scroll, timeline does not move (8.6s)
+[HEL-1300 e2e] throwaway user: hel1749-fr430light-1795147928210-38225@example.com
+  ✓  21 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 375px: one painted bar fragment per line of the hidden sentence (4.2s)
+[HEL-1300 e2e] throwaway user: hel1749-fr431light-1795147931144-22427@example.com
+  ✓  22 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 430px: one painted bar fragment per line of the hidden sentence (4.3s)
+[HEL-1300 e2e] throwaway user: hel1749-fr480light-1795147932539-58088@example.com
+  ✓  23 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 431px: one painted bar fragment per line of the hidden sentence (4.0s)
+[HEL-1300 e2e] throwaway user: hel1749-fr540light-1795147935083-88434@example.com
+  ✓  24 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 480px: one painted bar fragment per line of the hidden sentence (3.8s)
+[HEL-1300 e2e] throwaway user: hel1749-fr604light-1795147936291-8314@example.com
+  ✓  25 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 540px: one painted bar fragment per line of the hidden sentence (3.4s)
+[HEL-1300 e2e] throwaway user: hel1749-fr605light-1795147938526-25527@example.com
+  ✓  26 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 604px: one painted bar fragment per line of the hidden sentence (3.4s)
+[HEL-1300 e2e] throwaway user: hel1749-fr1024light-1795147939721-71621@example.com
+  ✓  27 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 605px: one painted bar fragment per line of the hidden sentence (3.6s)
+[HEL-1300 e2e] throwaway user: hel1749-fr1280light-1795147942175-25248@example.com
+  ✓  28 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 1024px: one painted bar fragment per line of the hidden sentence (3.8s)
+[HEL-1300 e2e] throwaway user: hel1749-geo320light-1795147943509-26612@example.com
+  ✓  29 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 1280px: one painted bar fragment per line of the hidden sentence (3.7s)
+[HEL-1300 e2e] throwaway user: hel1749-geo375light-1795147945939-32256@example.com
+  ✓  30 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 320px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.7s)
+[HEL-1300 e2e] throwaway user: hel1749-geo430light-1795147947242-74347@example.com
+  ✓  31 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 375px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.6s)
+[HEL-1300 e2e] throwaway user: hel1749-geo431light-1795147949608-60507@example.com
+  ✓  32 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 430px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.7s)
+[HEL-1300 e2e] throwaway user: hel1749-geo480light-1795147950998-40769@example.com
+  ✓  33 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 431px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.7s)
+[HEL-1300 e2e] throwaway user: hel1749-geo500light-1795147953320-57577@example.com
+  ✓  34 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 480px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.7s)
+[HEL-1300 e2e] throwaway user: hel1749-geo604light-1795147954705-42099@example.com
+  ✓  35 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 500px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.8s)
+[HEL-1300 e2e] throwaway user: hel1749-onelight-1795147957087-61308@example.com
+  ✓  36 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 604px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.9s)
+[HEL-1300 e2e] throwaway user: hel1749-rmoslight-1795147958630-38393@example.com
+  ✓  37 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:269:9 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light 1280px: one bar spans the one-line sentence (3.8s)
+[HEL-1300 e2e] throwaway user: hel1749-rmofflight-1795147960892-42021@example.com
+  ✓  38 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:281:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light reduced motion (os): flat fill, still one bar per line (4.6s)
+[HEL-1300 e2e] throwaway user: hel1749-seriflight-1795147963242-19761@example.com
+  ✓  39 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:281:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light reduced motion (off): flat fill, still one bar per line (4.7s)
+[HEL-1300 e2e] throwaway user: hel1749-monolight-1795147965588-8847@example.com
+  ✓  40 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:327:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light serif 1280px: one fragment per line (3.8s)
+[HEL-1300 e2e] throwaway user: hel1749-fr320dark-1795147967043-25276@example.com
+  ✓  41 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:327:11 › HEL-1749 home opening skeleton lines (light) › HEL-1749 light mono 1280px: one fragment per line (4.0s)
+[HEL-1300 e2e] throwaway user: hel1749-fr375dark-1795147969581-13191@example.com
+  ✓  42 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 320px: one painted bar fragment per line of the hidden sentence (4.2s)
+[HEL-1300 e2e] throwaway user: hel1749-fr430dark-1795147971239-92732@example.com
+  ✓  43 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 375px: one painted bar fragment per line of the hidden sentence (4.0s)
+[HEL-1300 e2e] throwaway user: hel1749-fr431dark-1795147973565-50088@example.com
+  ✓  44 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 430px: one painted bar fragment per line of the hidden sentence (3.8s)
+[HEL-1300 e2e] throwaway user: hel1749-fr480dark-1795147975075-67975@example.com
+  ✓  45 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 431px: one painted bar fragment per line of the hidden sentence (3.8s)
+[HEL-1300 e2e] throwaway user: hel1749-fr540dark-1795147977402-19724@example.com
+  ✓  46 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 480px: one painted bar fragment per line of the hidden sentence (3.9s)
+[HEL-1300 e2e] throwaway user: hel1749-fr604dark-1795147978962-5904@example.com
+  ✓  47 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 540px: one painted bar fragment per line of the hidden sentence (4.3s)
+[HEL-1300 e2e] throwaway user: hel1749-fr605dark-1795147981683-24190@example.com
+  ✓  48 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 604px: one painted bar fragment per line of the hidden sentence (4.5s)
+[HEL-1300 e2e] throwaway user: hel1749-fr1024dark-1795147983419-70740@example.com
+  ✓  49 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 605px: one painted bar fragment per line of the hidden sentence (4.3s)
+[HEL-1300 e2e] throwaway user: hel1749-fr1280dark-1795147985951-71617@example.com
+  ✓  50 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 1024px: one painted bar fragment per line of the hidden sentence (4.3s)
+[HEL-1300 e2e] throwaway user: hel1749-geo320dark-1795147987742-80434@example.com
+  ✓  51 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:205:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 1280px: one painted bar fragment per line of the hidden sentence (4.2s)
+[HEL-1300 e2e] throwaway user: hel1749-geo375dark-1795147990161-54374@example.com
+  ✓  52 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 320px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.9s)
+[HEL-1300 e2e] throwaway user: hel1749-geo430dark-1795147991668-70264@example.com
+  ✓  53 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 375px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.6s)
+[HEL-1300 e2e] throwaway user: hel1749-geo431dark-1795147993740-5629@example.com
+  ✓  54 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 430px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.5s)
+[HEL-1300 e2e] throwaway user: hel1749-geo480dark-1795147995131-2041@example.com
+  ✓  55 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 431px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.4s)
+[HEL-1300 e2e] throwaway user: hel1749-geo500dark-1795147997116-72431@example.com
+  ✓  56 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 480px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.5s)
+[HEL-1300 e2e] throwaway user: hel1749-geo604dark-1795147998665-82606@example.com
+  ✓  57 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 500px: bars are 0.8em thick, >= 8px apart, with rounded ends (3.9s)
+[HEL-1300 e2e] throwaway user: hel1749-onedark-1795148000999-296@example.com
+  ✓  58 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:251:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 604px: bars are 0.8em thick, >= 8px apart, with rounded ends (4.2s)
+[HEL-1300 e2e] throwaway user: hel1749-rmosdark-1795148002875-71039@example.com
+  ✓  59 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:269:9 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark 1280px: one bar spans the one-line sentence (4.2s)
+[HEL-1300 e2e] throwaway user: hel1749-rmoffdark-1795148005214-26286@example.com
+  ✓  60 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:281:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark reduced motion (os): flat fill, still one bar per line (4.8s)
+[HEL-1300 e2e] throwaway user: hel1749-serifdark-1795148007755-81613@example.com
+  ✓  61 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:281:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark reduced motion (off): flat fill, still one bar per line (5.1s)
+[HEL-1300 e2e] throwaway user: hel1749-monodark-1795148010309-91218@example.com
+  ✓  62 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:327:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark serif 1280px: one fragment per line (4.4s)
+  ✓  63 [dev] › e2e/hel1749-home-opening-skeleton-lines.spec.ts:327:11 › HEL-1749 home opening skeleton lines (dark) › HEL-1749 dark mono 1280px: one fragment per line (3.9s)
+[HEL-1301 e2e] deleted 63 recorded throwaway user(s)
+
+  63 passed (2.5m)

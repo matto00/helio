@@ -1,0 +1,45 @@
+=== mutation a-drop-clone ===
+  40 failed
+  4 passed (1.6m)
+first failing assertions (distinct):
+     20     Received: "slice"
+     20     Expected: "clone"
+     20     Error: top-left corner pixel is the page, not the bar
+     20     Error: expect(received).toBe(expected) // Object.is equality
+=== mutation b-drop-visibility ===
+  44 failed
+first failing assertions (distinct):
+     24     Received: false
+     24     Expected: true
+     24     Error: one painted bar per fragment per column, got [[],[],[],[],[]]
+     20     Received: "hidden"
+     20     Expected: "visible"
+     20     Error: expect(received).toBe(expected) // Object.is equality
+=== mutation c-drop-mask ===
+  44 failed
+first failing assertions (distinct):
+     20     Expected: not "none"
+     20     Error: expect(received).not.toBe(expected) // Object.is equality
+     16     Received:    9.799999999999997
+     16     Expected: <= 1
+     16     Error: thickness 29
+      8     Received: false
+      8     Expected: true
+      2     Error: one painted bar per fragment per column, got [[],[[12,41]],[[12,41]],[[12,41]],[[12,41]]]
+=== mutation d-absolute-bar ===
+  44 failed
+first failing assertions (distinct):
+     24     Received: 0
+     20     Error: bar fragments
+     16     Received:   0
+     16     Expected: 2
+     16     Expected: > 0
+     16     Error: the placeholder has bar fragments
+      8     Expected: 1
+      4     Error: page.evaluate: TypeError: Failed to execute 'getComputedStyle' on 'Window': parameter 1 is not of type 'Element'.
+
+Catching assertions: (a) computed box-decoration-break "slice" != "clone" and the line-2 top-left corner pixel (rounding lost
+under slice); the 4 tests that stay green are the one-line widths (605, 1280) where there is no second fragment, as designed.
+(b) computed visibility + painted-bar scan finds no bar. (c) thickness 29px vs 0.8em, mask-image "none". (d) the bar-fragment
+count/"exactly one ui-skeleton" assertions (the mutation restores the absolute single Skeleton + its CSS, which has no
+.home-opening__ghost-bar element). Each mutation reverted afterwards (diff against the saved implementation is empty).

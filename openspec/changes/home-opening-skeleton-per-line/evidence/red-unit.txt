@@ -1,0 +1,988 @@
+
+> helio-frontend@0.0.0 test
+> jest --config jest.config.cjs --passWithNoTests --testPathPatterns=features/home/ui/HomePage(.css)?.test --maxWorkers=3
+
+FAIL src/features/home/ui/HomePage.css.test.ts
+  ● HomePage.css — load stability (HEL-1665) › builds the opening placeholder from the hidden default sentence, no per-width heights
+
+    expect(received).not.toMatch(expected)
+
+    Expected pattern: not /home-opening__skeleton-line/
+    Received string:      "/* HEL-1578 — the Home page. Tokens only (DESIGN.md §3); opaque cards (§0.2); accent appears nowhere here except
+     * focus (§0.3): no accent on the changed dot, the now line, or the secondary buttons. Status is carried by shape as
+     * well as colour (§8). Layout breakpoints are the canonical 1100 / 768 / 430 (§4); tap-target rules gate on the input
+     * device, not the width (§3). */
+
+    .home-page {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-7);
+      padding: var(--space-6) var(--space-6) var(--space-8);
+      min-width: 0;
+    }
+
+    /* --- opening line --- */
+    .home-opening {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+
+    .home-opening__eyebrow {
+      margin: 0;
+      color: var(--app-text-muted);
+    }
+
+    /* The real sentence's measure, in `em` (`--home-sentence-measure`, theme.css, per type style): the web font's own 40ch
+     * width at this size (Sans 25em = 600px at 24px, Serif 640px, Mono 560px). `ch` is the advance of the RENDERED face's
+     * `0`, so a `40ch` cap was about 560px in the metric-matched fallback faces and 600px in the web font: the sentence
+     * wrapped to two lines before the web font arrived and reflowed to one when it did (about 30px, HEL-1737). `em`
+     * follows the sentence's own font size and the user's default font size but not which face renders, and it equals the
+     * web font's 40ch, so a settled Home is as before. Shared by the placeholder (`.home-opening__ghost`, a separate class
+     * so nothing that selects the sentence, tests or `querySelector`, can land on it: HEL-1665). */
+    .home-opening__sentence {
+      max-width: var(--home-sentence-measure);
+    }
+
+    .home-opening__sentence,
+    .home-opening__ghost {
+      margin: 0;
+      font-family: var(--font-heading);
+      font-size: var(--text-2xl);
+      font-weight: var(--weight-regular);
+      line-height: 1.25;
+      color: var(--app-text);
+      letter-spacing: -0.01em;
+    }
+
+    /* The loading placeholder holds the default sentence (hidden), so it is as tall as it at every width and the timeline
+     * does not move when it resolves (HEL-1665); the skeleton bar is laid over it. */
+    .home-opening__loading {
+      position: relative;
+    }
+
+    .home-opening__ghost {
+      visibility: hidden;
+      /* The same measure as the real sentence in every type style (HEL-1737), so the placeholder and the sentence break
+       * identically in the fallback face and in the web font. */
+      max-width: var(--home-sentence-measure);
+    }
+
+    /* From the web font's wrap point upward the default sentence is one line in the web font (580.05px against a 581px
+     * content box at a 605px viewport), but the fallback faces render it a whole-pixel wider (589px Liberation, 581px
+     * DejaVu: Chromium rounds a size-adjusted size to whole pixels, so no size-adjust can give 580px), which wrapped this
+     * hidden placeholder to two lines in 605-613px and moved the timeline 30px when the font arrived (HEL-1737). Holding
+     * the hidden placeholder to one line is what the web font does at every width from here up. `em` in a media query is
+     * the browser's default font size, so the start (605px at 16px) scales with it. Sans only, through the
+     * `--home-ghost-white-space` token (theme.css: `normal` under Serif and Mono, which keep their own wraps). The real sentence is untouched. */
+    @media (min-width: 37.8125em) {
+      .home-opening__ghost {
+        white-space: var(--home-ghost-white-space);
+        overflow: hidden;
+      }
+    }
+
+    .home-opening__loading .home-opening__skeleton-line {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      width: min(520px, 80%);
+      height: var(--text-xl);
+      transform: translateY(-50%);
+    }
+
+    .home-opening__danger {
+      color: var(--app-error);
+    }
+
+    /* --- sections --- */
+    .home-section {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+
+    .home-section__head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--space-4);
+      flex-wrap: wrap;
+    }
+
+    .home-section__title {
+      margin: 0;
+      color: var(--app-text-muted);
+    }
+
+    .home-section__link {
+      font-size: var(--text-sm);
+      color: var(--app-text-muted);
+      text-decoration: none;
+    }
+
+    .home-section__link:hover {
+      color: var(--app-text);
+    }
+
+    /* Holds the \"All N\" link's line while the list loads, so the shelf heading is one height in every state (HEL-1665). */
+    .home-section__link-slot {
+      font-size: var(--text-sm);
+      visibility: hidden;
+    }
+
+    .home-note {
+      margin: 0;
+      font-size: var(--text-sm);
+      color: var(--app-text-muted);
+      line-height: 1.5;
+    }
+
+    /* --- shelf --- */
+    .home-shelf {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--space-4);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .home-shelf__item {
+      min-width: 0;
+    }
+
+    .home-card {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      padding: var(--space-3);
+      border: 1px solid var(--app-border-subtle);
+      border-radius: var(--app-radius-lg);
+      background: var(--app-surface);
+      box-shadow: var(--app-shadow-card);
+      color: var(--app-text);
+      text-decoration: none;
+      height: 100%;
+      box-sizing: border-box;
+      transition: border-color var(--app-transition);
+    }
+
+    a.home-card:hover {
+      border-color: var(--app-border-strong);
+    }
+
+    .home-card--skeleton {
+      pointer-events: none;
+    }
+
+    /* The thumbnail placeholder takes the real thumbnail's 16/7 ratio so the timeline does not move when the shelf loads. */
+    .home-card--skeleton .home-thumb-skeleton {
+      height: auto;
+      aspect-ratio: 16 / 7;
+    }
+
+    .home-card__foot {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      min-width: 0;
+      padding: 0 var(--space-1);
+    }
+
+    /* The skeleton foot is the loaded foot's own boxes (a hidden text line each) with the bar laid over the name's, so a
+     * skeleton card is exactly as tall as a loaded one (HEL-1665). */
+    .home-card__name--skeleton {
+      position: relative;
+    }
+
+    .home-card__name--skeleton .ui-skeleton {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+    }
+
+    /* The same badge as the sidebar (`.dashboard-list__shared-badge`) and the phone chip (`.dashboard-chip__shared`): keep equal. */
+    .home-card__shared {
+      flex-shrink: 0;
+      padding: 2px var(--space-2);
+      border-radius: var(--app-radius-sm);
+      background: var(--app-accent-dim);
+      color: var(--app-accent-text);
+      font-family: var(--font-mono);
+      font-size: var(--text-micro);
+      font-weight: var(--weight-medium);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .home-card__name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: var(--text-sm);
+      font-weight: var(--weight-medium);
+    }
+
+    .home-card__time {
+      flex: none;
+      font-size: var(--text-xs);
+      color: var(--app-text-muted);
+    }
+
+    /* The \"changed since your last visit\" dot: a warning-intent token, never the accent (§0.3). */
+    .home-card__dot {
+      flex: none;
+      width: var(--space-2);
+      height: var(--space-2);
+      border-radius: 50%;
+      background: var(--app-text);
+    }
+
+    .home-thumb {
+      position: relative;
+      aspect-ratio: 16 / 7;
+      border-radius: var(--app-radius-md);
+      background: var(--app-surface-soft);
+      overflow: hidden;
+    }
+
+    .home-thumb--empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--text-xs);
+      color: var(--app-text-muted);
+    }
+
+    .home-thumb__box {
+      position: absolute;
+      box-sizing: border-box;
+      border: 1px solid var(--app-surface-soft);
+      border-radius: var(--app-radius-sm);
+      background: var(--app-surface-strong);
+    }
+
+    /* --- cards beside the timeline --- */
+    .home-page__grid {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+      gap: var(--space-5);
+      align-items: start;
+    }
+
+    .home-page__side {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-5);
+      min-width: 0;
+    }
+
+    .home-card-panel {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+      padding: var(--space-5);
+      border: 1px solid var(--app-border-subtle);
+      border-radius: var(--app-radius-lg);
+      background: var(--app-surface);
+      box-shadow: var(--app-shadow-card);
+      min-width: 0;
+    }
+
+    .home-attention--hot {
+      border-color: color-mix(in srgb, var(--app-error) 55%, var(--app-border-subtle));
+    }
+
+    /* --- buttons: §5 Secondary and Ghost recipes --- */
+    .home-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: var(--control-sm);
+      padding: 0 var(--space-3);
+      border: 1px solid transparent;
+      border-radius: var(--app-radius-sm);
+      background: transparent;
+      color: var(--app-text-muted);
+      font: inherit;
+      font-size: var(--text-xs);
+      font-weight: var(--weight-medium);
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .home-btn--secondary {
+      border-color: var(--app-border-subtle);
+    }
+
+    .home-btn--secondary:hover,
+    .home-btn--ghost:hover {
+      border-color: var(--app-border-strong);
+      background: var(--app-surface-soft);
+      color: var(--app-text);
+    }
+
+    .home-btn--ghost:hover {
+      border-color: transparent;
+    }
+
+    /* DESIGN.md §3 state-rung table: these sit on an --app-surface card, so dark needs --app-surface-strong (the soft
+     * rung measures 1.03:1 against it). Light keeps --app-surface-soft. */
+    :root[data-theme=\"dark\"] .home-btn--secondary:hover,
+    :root[data-theme=\"dark\"] .home-btn--ghost:hover,
+    :root[data-theme=\"dark\"] .tl__mark:hover,
+    :root[data-theme=\"dark\"] .home-upnext__row:hover {
+      background: var(--app-surface-strong);
+    }
+
+    .home-skeleton-rows {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+
+    .home-btn:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .home-btn:focus-visible,
+    .tl__mark:focus-visible,
+    .tl-disc__head:focus-visible,
+    .home-card:focus-visible,
+    .home-section__link:focus-visible,
+    .home-upnext__row:focus-visible,
+    .tl-disc__open:focus-visible {
+      outline: var(--app-focus-ring);
+      outline-offset: 2px;
+    }
+
+    /* --- needs attention --- */
+    .home-attention__list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .home-attention__item {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .home-attention__item + .home-attention__item {
+      padding-top: var(--space-4);
+      border-top: 1px solid var(--app-border-subtle);
+    }
+
+    .home-attention__name {
+      margin: 0;
+      font-size: var(--text-sm);
+      font-weight: var(--weight-medium);
+      overflow-wrap: anywhere;
+    }
+
+    .home-attention__reason {
+      margin: 0;
+      font-size: var(--text-sm);
+      color: var(--app-text-muted);
+      line-height: 1.45;
+    }
+
+    .home-attention__resolved {
+      color: var(--app-success);
+    }
+
+    .home-attention__actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .home-attention__running {
+      font-size: var(--text-xs);
+      color: var(--app-text-muted);
+    }
+
+    .home-attention__note {
+      margin: 0;
+      font-size: var(--text-xs);
+      color: var(--app-text-muted);
+    }
+
+    .home-attention__note--error {
+      color: var(--app-error);
+    }
+
+    .home-attention__clear {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin: 0;
+      font-size: var(--text-sm);
+      color: var(--app-text-muted);
+    }
+
+    /* --- up next --- */
+    .home-upnext__list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .home-upnext__row {
+      display: flex;
+      gap: var(--space-4);
+      align-items: baseline;
+      padding: var(--space-2) 0;
+      border-top: 1px solid var(--app-border-subtle);
+      color: var(--app-text);
+      text-decoration: none;
+      font-size: var(--text-sm);
+    }
+
+    .home-upnext__row:hover {
+      background: var(--app-surface-soft);
+    }
+
+    .home-upnext__time {
+      flex: none;
+      color: var(--app-text-muted);
+    }
+
+    .home-upnext__name {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    /* --- shapes (status by more than hue, §8) --- */
+    .tl-shape {
+      display: inline-block;
+      flex: none;
+      box-sizing: border-box;
+      width: var(--space-3);
+      height: var(--space-3);
+    }
+
+    .tl-shape--succeeded {
+      border-radius: 50%;
+      background: var(--app-success);
+    }
+
+    .tl-shape--failed {
+      width: calc(var(--space-3) - 2px);
+      height: calc(var(--space-3) - 2px);
+      background: var(--app-error);
+      transform: rotate(45deg);
+    }
+
+    /* HEL-1584: the one-shot nudge of a mark that has just turned failed: a short side to side shake on the standard duration
+       and the ease-out curve. The diamond's own `rotate(45deg)` is repeated in every frame (a transform animation replaces the
+       element's transform), with the translate first so the shake runs along the screen's x axis, not the diamond's rotated
+       one. `--motion-nudge-distance` is 0px under Subtle, Off and OS reduce. */
+    @keyframes tl-nudge {
+      0% {
+        transform: translateX(0) rotate(45deg);
+      }
+      33% {
+        transform: translateX(var(--motion-nudge-distance)) rotate(45deg);
+      }
+      66% {
+        transform: translateX(calc(-1 * var(--motion-nudge-distance))) rotate(45deg);
+      }
+      100% {
+        transform: translateX(0) rotate(45deg);
+      }
+    }
+
+    .tl-shape--failed.tl-shape--nudge {
+      animation: tl-nudge var(--motion-duration-standard) var(--motion-ease-out);
+    }
+
+    .tl-shape--running {
+      position: relative;
+      border: 2px solid var(--app-text);
+      border-radius: 50%;
+      background: transparent;
+    }
+
+    .tl-shape--running::after {
+      content: \"\";
+      position: absolute;
+      inset: 1px;
+      border-radius: 50%;
+      background: var(--app-text);
+    }
+
+    .tl-shape--scheduled {
+      border: 2px solid var(--app-text-muted);
+      border-radius: 50%;
+      background: transparent;
+    }
+
+    .tl-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-4);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      color: var(--app-text-muted);
+    }
+
+    .tl-legend__item {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    /* --- timeline (pointer devices) --- */
+    .tl {
+      --tl-label-width: 200px;
+      min-width: 0;
+    }
+
+    .tl__rows {
+      position: relative;
+    }
+
+    .tl__overlay {
+      position: absolute;
+      top: 0;
+      bottom: var(--space-6);
+      left: var(--tl-label-width);
+      right: 0;
+      pointer-events: none;
+    }
+
+    .tl__gridline {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--app-border-subtle);
+    }
+
+    /* The now line is a neutral strong token, not the accent (§0.3). */
+    .tl__now {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--app-text-muted);
+    }
+
+    .tl__now-label {
+      position: absolute;
+      top: calc(-1 * var(--space-4));
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--font-mono);
+      font-size: var(--text-micro);
+      color: var(--app-text-muted);
+    }
+
+    .tl__row {
+      display: grid;
+      grid-template-columns: var(--tl-label-width) minmax(0, 1fr);
+      align-items: center;
+      height: var(--space-8);
+      border-top: 1px solid var(--app-border-subtle);
+    }
+
+    .tl__name {
+      min-width: 0;
+      padding-right: var(--space-3);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: var(--text-xs);
+      color: var(--app-text);
+    }
+
+    .tl__omitted {
+      color: var(--app-text-muted);
+    }
+
+    .tl__track {
+      position: relative;
+      height: 100%;
+    }
+
+    .tl__mark-wrap {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .tl__mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--space-5);
+      height: var(--space-5);
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .tl__mark:hover {
+      background: var(--app-surface-soft);
+    }
+
+    .tl-tip {
+      position: absolute;
+      z-index: 5;
+      bottom: calc(100% + var(--space-1));
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+      min-width: 180px;
+      max-width: 280px;
+      padding: var(--space-3);
+      border: 1px solid var(--app-border-strong);
+      border-radius: var(--app-radius-md);
+      background: var(--app-surface-strong);
+      box-shadow: var(--app-shadow-card);
+      font-size: var(--text-xs);
+      color: var(--app-text);
+      pointer-events: none;
+    }
+
+    .tl__mark-wrap--start .tl-tip {
+      left: 0;
+      transform: none;
+    }
+
+    .tl__mark-wrap--end .tl-tip {
+      left: auto;
+      right: 0;
+      transform: none;
+    }
+
+    .tl-tip__title {
+      font-family: var(--font-mono);
+      font-weight: var(--weight-medium);
+      overflow-wrap: anywhere;
+    }
+
+    .tl-tip__row {
+      font-family: var(--font-mono);
+      color: var(--app-text-muted);
+    }
+
+    .tl-tip__error {
+      color: var(--app-error);
+      overflow-wrap: anywhere;
+    }
+
+    .tl__axis {
+      display: grid;
+      grid-template-columns: var(--tl-label-width) minmax(0, 1fr);
+      height: var(--space-6);
+      border-top: 1px solid var(--app-border-subtle);
+    }
+
+    .tl__ticks {
+      position: relative;
+    }
+
+    .tl__tick {
+      position: absolute;
+      top: var(--space-2);
+      transform: translateX(-50%);
+      font-size: var(--text-micro);
+      color: var(--app-text-muted);
+    }
+
+    .home-runs__more {
+      align-self: flex-start;
+    }
+
+    .home-runs__skeleton {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+
+    /* --- timeline (coarse pointer and phone): one disclosure control per pipeline --- */
+    .tl-disc {
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .tl-disc__item {
+      border-top: 1px solid var(--app-border-subtle);
+    }
+
+    .tl-disc__head {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--space-2);
+      width: 100%;
+      min-height: 44px;
+      padding: var(--space-3) 0;
+      border: 0;
+      background: transparent;
+      color: var(--app-text);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .tl-disc__label {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      overflow-wrap: anywhere;
+    }
+
+    .tl-disc__strip {
+      position: relative;
+      height: var(--space-4);
+      pointer-events: none;
+    }
+
+    .tl-disc__mark {
+      position: absolute;
+      top: 50%;
+      display: inline-flex;
+      transform: translate(-50%, -50%);
+    }
+
+    .tl-disc__list {
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .tl-disc__row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-3);
+      min-height: 44px;
+      padding: var(--space-2) 0;
+      border-top: 1px dashed var(--app-border-subtle);
+      font-size: var(--text-xs);
+    }
+
+    .tl-disc__time {
+      color: var(--app-text-muted);
+    }
+
+    .tl-disc__error {
+      flex-basis: 100%;
+      color: var(--app-error);
+      overflow-wrap: anywhere;
+    }
+
+    .tl-disc__open {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      margin-left: auto;
+      color: var(--app-text-muted);
+    }
+
+    /* --- layout --- */
+    @media (max-width: 1100px) {
+      .home-shelf {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .home-page__grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .home-page {
+        gap: var(--space-6);
+        padding: var(--space-4) var(--space-3) var(--space-8);
+      }
+    }
+
+    @media (max-width: 430px) {
+      .home-opening__sentence,
+      .home-opening__ghost {
+        font-size: var(--text-xl);
+      }
+    }
+
+    /* Tap targets gate on the input device (§3): a sized ::after expander for every compact painted control. */
+    @media (max-width: 768px), (pointer: coarse) {
+      .home-btn::after {
+        content: \"\";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 44px;
+        height: 44px;
+        transform: translate(-50%, -50%);
+      }
+
+      .home-attention__actions {
+        gap: var(--space-5);
+      }
+
+      /* A section-head text link is a compact painted control, not a full-width row: it takes the sized expander so
+       * the heading does not grow to 44px when it mounts (HEL-1665). */
+      .home-section__link {
+        position: relative;
+      }
+
+      .home-section__link::after {
+        content: \"\";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 44px;
+        height: 44px;
+        transform: translate(-50%, -50%);
+      }
+
+      .home-upnext__row {
+        display: flex;
+        min-height: 44px;
+        align-items: center;
+      }
+    }
+    "
+
+      30 |   it("builds the opening placeholder from the hidden default sentence, no per-width heights", () => {
+      31 |     expect(ghostRule).toMatch(/visibility:\s*hidden\s*;/);
+    > 32 |     expect(css).not.toMatch(/home-opening__skeleton-line/);
+         |                     ^
+      33 |     expect(css).not.toMatch(/home-opening__ghost[^{]*\{[^}]*calc\(/);
+      34 |   });
+      35 |
+
+      at Object.<anonymous> (src/features/home/ui/HomePage.css.test.ts:32:21)
+
+  ● HomePage.css — load stability (HEL-1665) › paints one rounded skeleton bar per line of the hidden sentence from an inline span (HEL-1749)
+
+    Selector containing ".home-opening__ghost .home-opening__ghost-bar" not found
+
+      28 |   const match = new RegExp(`${escaped}\\s*(?:,[^{]*)?\\{`).exec(block);
+      29 |   if (match === null) {
+    > 30 |     throw new Error(`Selector containing "${selector}" not found`);
+         |           ^
+      31 |   }
+      32 |   const openBrace = block.indexOf("{", match.index);
+      33 |   const closeBrace = block.indexOf("}", openBrace);
+
+      at findRuleBody (src/shared/ui/tapTargetTestUtils.ts:30:11)
+      at Object.<anonymous> (src/features/home/ui/HomePage.css.test.ts:37:29)
+
+  ● HomePage.css — load stability (HEL-1665) › keeps the shared skeleton stylesheet a direct dependency of the opening line (HEL-1749)
+
+    expect(received).toMatch(expected)
+
+    Expected pattern: /^import "\.\.\/\.\.\/\.\.\/shared\/ui\/Skeleton\.css";$/m
+    Received string:  "import { Skeleton } from \"../../../shared/ui/Skeleton\";
+    import {
+      buildSummarySentence,
+      sentenceText,
+      type SummarySentenceInput,
+    } from \"../utils/buildSummarySentence\";
+    import { formatClock } from \"../utils/timelineScale\";·
+    const MONTHS = [\"JAN\", \"FEB\", \"MAR\", \"APR\", \"MAY\", \"JUN\", \"JUL\", \"AUG\", \"SEP\", \"OCT\", \"NOV\", \"DEC\"];
+    const DAYS = [\"SUN\", \"MON\", \"TUE\", \"WED\", \"THU\", \"FRI\", \"SAT\"];·
+    /** \"TUE · OCT 13 · 09:12\" in the viewer's local time. */
+    export function formatEyebrow(time: number): string {
+      const date = new Date(time);
+      return `${DAYS[date.getDay()]} · ${MONTHS[date.getMonth()]} ${date.getDate()} · ${formatClock(time)}`;
+    }·
+    const DEFAULT_SENTENCE = sentenceText(
+      buildSummarySentence({ changedDashboards: 0, failedRuns: 0, stuckRuns: 0, missedRuns: 0 }),
+    );·
+    interface HomeOpeningLineProps {
+      now: number;
+      /** `null` while the summary is loading; `\"unavailable\"` when it failed. */
+      input: SummarySentenceInput | null | \"unavailable\";
+    }·
+    /** A mono date/time eyebrow and one plain-language sentence built from templates (never a language model). */
+    export function HomeOpeningLine({ now, input }: HomeOpeningLineProps) {
+      return (
+        <header className=\"home-opening\">
+          <p className=\"eyebrow home-opening__eyebrow\">{formatEyebrow(now)}</p>
+          {input === null ? (
+            <div role=\"status\" aria-label=\"Loading summary\" className=\"home-opening__loading\">
+              {/* The default sentence, hidden: the placeholder is exactly as tall as it at every width (HEL-1665). */}
+              <p className=\"home-opening__ghost\" aria-hidden=\"true\">
+                {DEFAULT_SENTENCE}
+              </p>
+              <Skeleton variant=\"line\" className=\"home-opening__skeleton-line\" />
+            </div>
+          ) : input === \"unavailable\" ? (
+            <p className=\"home-opening__sentence\">Run activity isn&apos;t available right now.</p>
+          ) : (
+            <p className=\"home-opening__sentence\">
+              {buildSummarySentence(input).map((segment, index) =>
+                segment.tone === \"danger\" ? (
+                  <span key={index} className=\"home-opening__danger\">
+                    {segment.text}
+                  </span>
+                ) : (
+                  <span key={index}>{segment.text}</span>
+                ),
+              )}
+            </p>
+          )}
+        </header>
+      );
+    }
+    "
+
+      61 |   it("keeps the shared skeleton stylesheet a direct dependency of the opening line (HEL-1749)", () => {
+      62 |     const source = fs.readFileSync(path.join(__dirname, "HomeOpeningLine.tsx"), "utf-8");
+    > 63 |     expect(source).toMatch(/^import "\.\.\/\.\.\/\.\.\/shared\/ui\/Skeleton\.css";$/m);
+         |                    ^
+      64 |   });
+      65 |
+      66 |   it("caps the real sentence and the placeholder with one font-independent em measure per type style (HEL-1737)", () => {
+
+      at Object.<anonymous> (src/features/home/ui/HomePage.css.test.ts:63:20)
+
+FAIL src/features/home/ui/HomePage.test.tsx (6.032 s)
+  ● HomePage › keeps the runs head and the shelf head the same while loading (HEL-1665)
+
+    expect(received).toBeNull()
+
+    Received: <span aria-hidden="true" class="ui-skeleton ui-skeleton--line home-opening__skeleton-line" />
+
+      135 |     // browser paints one bar per rendered line (HEL-1749).
+      136 |     const status = screen.getByRole("status", { name: "Loading summary" });
+    > 137 |     expect(status.querySelector(".home-opening__skeleton-line")).toBeNull();
+          |                                                                  ^
+      138 |     const ghost = status.querySelector(".home-opening__ghost");
+      139 |     expect(ghost).toHaveAttribute("aria-hidden", "true");
+      140 |     const bar = ghost?.querySelector(".ui-skeleton.home-opening__ghost-bar");
+
+      at Object.<anonymous> (src/features/home/ui/HomePage.test.tsx:137:66)
+
+Test Suites: 2 failed, 2 total
+Tests:       4 failed, 21 passed, 25 total
+Snapshots:   0 total
+Time:        6.579 s
+Ran all test suites matching features/home/ui/HomePage(.css)?.test.
