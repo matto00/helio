@@ -1,0 +1,19 @@
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineStepWriteChecks.scala` — new: shared read-only `checkAdd`/`checkUpdate` (+ `GraphChecks`, factory from repos)
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineStepCreate.scala` — `addStepReporting` = `checkAdd` then `persistNewStep`
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineStepWrites.scala` — `updateStep` = `checkUpdate` then the repo update
+- `backend/src/main/scala/com/helio/services/pipelines/StepReferenceChecks.scala` — `checkLane` switch for the D7 graph skip
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala` — wires `stepChecks`
+- `backend/src/main/scala/com/helio/services/sources/DataSourceService.scala` — `validateUpdate`, called first by `update`
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyTypes.scala` — `stepWriteChecks` context field, built in `build`
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyResolvers.scala` — `touched` tracking (D7), shared `prefixedWithEdit`, `stepGraphPipeline`
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPipelineStepResolvers.scala` — step create/update call `checkAdd`/`checkUpdate`; private copies deleted
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetDataSourceResolvers.scala` — `validateStatic` on create, `validateUpdate` first on update
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPipelineResolvers.scala` — roots-only create runs the root dry run at preview (D5)
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetPreviewWriteParitySpec.scala` — new parity spec (57 entries)
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetPipelineStepGrantSpec.scala` — Forbidden wording
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetApplyServiceSpec.scala` — HEL-1265 refusal is now resolve-time
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetPreviewOutputContextSpec.scala` — derived field `stepWriteChecks`
+- `backend/src/test/scala/com/helio/services/pipelines/StepReferenceCheckDeferralSpec.scala` — create reads steps twice
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetStaleCheckRoutesSpec.scala` — stale+lane-cyclic precedence
+- `backend/src/test/scala/com/helio/api/http/ExistenceNotLeakedRoutesSpec.scala` — pinned Forbidden producer counts
+- `openspec/changes/patchset-preview-step-datasource-checks/` — check-inventory, red-run, mutations, findings, files-modified, tasks

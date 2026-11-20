@@ -53,7 +53,10 @@ private[pipelines] final class StepReferenceChecks(
       user:          AuthenticatedUser,
       laneScopeF:    => Future[LaneScope],
       accessF:       => Future[Either[ServiceError, A]],
-      upsertOwner:   A => UserId
+      upsertOwner:   A => UserId,
+      // HEL-1722 D7: false skips the (graph-dependent) lane check only; a patch-set resolver passes it for a step edit whose pipeline an
+      // earlier edit of the same set already changed. The service writes always run it.
+      checkLane:     Boolean = true
   ): Future[Either[ServiceError, A]] =
     accessF.flatMap {
       case Left(err) => Future.successful(Left(err))
@@ -61,7 +64,7 @@ private[pipelines] final class StepReferenceChecks(
         StepReferenceChecks.secondarySourceOwnershipF(dataSourceRepo, typedConfig, user).flatMap {
           case Left(id) => Future.successful(Left(ServiceError.NotFound(s"Data source not found: $id")))
           case Right(_) =>
-            laneCheckF(typedConfig, laneScopeF).flatMap {
+            (if (checkLane) laneCheckF(typedConfig, laneScopeF) else Future.successful(Right(()))).flatMap {
               case Left(err) => Future.successful(Left(err))
               case Right(_)  => support.upsertOwnershipCheckF(typedConfig, upsertOwner(a), user).map(_.map(_ => a))
             }

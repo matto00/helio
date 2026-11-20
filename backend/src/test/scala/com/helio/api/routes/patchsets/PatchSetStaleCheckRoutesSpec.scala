@@ -303,9 +303,10 @@ class PatchSetStaleCheckRoutesSpec
       await(pipelineStepRepo.findByIdInternal(stepId)) should not be empty
     }
 
-    // HEL-1523: staleness is checked before any edit is resolved or written, so an edit that is BOTH stale and
-    // lane-cyclic reports the HEL-1458 409, not the lane-cycle 400 the write itself would have produced.
-    "answer an edit that is both stale and lane-cyclic with the 409 PATCH_SET_STALE, changing nothing" in {
+    // HEL-1722 (moved expectation; was HEL-1523's 409): staleness is judged on the RESOLVED edits (fingerprints derive from them), and the
+    // lane check now runs inside resolve (it is `updateStep`'s own check), so an edit that is BOTH stale and lane-cyclic reports the
+    // lane-cycle 400 at resolve, before the stale check. Either way it is refused and nothing is changed or journaled.
+    "answer an edit that is both stale and lane-cyclic with the lane-cycle 400 at resolve, changing nothing" in {
       val ds       = await(pipelineDataSource())
       val pipeline = await(pipelineService.create(CreatePipelineRequest("Pipe " + UUID.randomUUID(), Vector(CreatePipelineRootRequest(Some(ds.id.value)))), userA)) match {
         case Right(p) => p
@@ -324,7 +325,9 @@ class PatchSetStaleCheckRoutesSpec
       // The cyclic edit: a's lane reference names b, which is a's own descendant.
       val cyclicConfig = s"""{"secondaryInput":{"kind":"lane","stepId":"${b.id}"},"joinKey":"id","joinType":"inner"}"""
       val body = s"""{"edits":[{"target":{"kind":"pipelineStep","id":"${a.id}"},"op":"update","patch":{"config":$cyclicConfig}}]}"""
-      val sent = withFingerprint(body, fingerprintsOf(body))
+      // HEL-1722: preview now refuses the lane-cyclic edit itself (400), so the target's fingerprint is read from a harmless preview of the same target.
+      val benign = s"""{"edits":[{"target":{"kind":"pipelineStep","id":"${a.id}"},"op":"update","patch":{"config":${joinCfg("source", "dataSourceId", "id")}}}]}"""
+      val sent = withFingerprint(body, fingerprintsOf(benign))
       // Change the target after the preview, making the edit stale.
       await(pipelineService.updateStep(PipelineStepId(a.id), UpdatePipelineStepRequest(None, Some(joinCfg("source", "dataSourceId", "other")), None), userA))
       val before = await(pipelineStepRepo.findByIdInternal(PipelineStepId(a.id))).map(_.configValue)
@@ -332,8 +335,8 @@ class PatchSetStaleCheckRoutesSpec
 
       Post("/patch-sets/apply", json(sent)) ~> routesFor(userA) ~> check {
         withClue(responseAs[String]) {
-          status shouldBe StatusCodes.Conflict
-          responseAs[String].parseJson.asJsObject.fields("code") shouldBe JsString("PATCH_SET_STALE")
+          status shouldBe StatusCodes.BadRequest
+          responseAs[String].parseJson.asJsObject.fields("message").convertTo[String] should (startWith("edit 0: ") and include("descendant"))
         }
       }
       await(pipelineStepRepo.findByIdInternal(PipelineStepId(a.id))).map(_.configValue) shouldBe before

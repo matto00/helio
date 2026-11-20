@@ -15,11 +15,8 @@ private[pipelines] final class PipelineStepCreate(
     pipelineRepo: PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
     support: PipelineServiceSupport,
-    refChecks: StepReferenceChecks,
-    requireEditorAccess: (PipelineId, AuthenticatedUser) => Future[Either[ServiceError, Unit]]
+    checks: PipelineStepWriteChecks
 )(implicit ec: ExecutionContext) {
-
-  private val log = LoggerFactory.getLogger(classOf[PipelineService])
 
   import support.{audit, stepResponseWithRoot}
 
@@ -27,90 +24,14 @@ private[pipelines] final class PipelineStepCreate(
     * attach or a childless anchor). Only the create route consumes the ids; every other caller
     * (patch-set apply/rollback) goes through [[PipelineService.addStep]], which discards them. */
   def addStepReporting(pipelineId: PipelineId, req: CreatePipelineStepRequest, user: AuthenticatedUser): Future[Either[ServiceError, (PipelineStepResponse, Seq[String])]] = {
-    // HEL-860: strict write-path check runs before the tolerant decode below,
-    // so a mistyped `cast`/`rename` config is rejected instead of silently
-    // persisted as a no-op. `None` (unregistered kind, or a kind that hasn't
-    // opted in) falls through to the decode as before.
-    val rawConfigError: Option[String] =
-      PipelineStep.rawConfigProblem(req.`type`, req.config.compactPrint)
-    if (!PipelineStepKind.All.contains(req.`type`))
-      Future.successful(Left(ServiceError.BadRequest(
-        s"Invalid step type '${req.`type`}'. Allowed values: ${PipelineStepKind.All.toSeq.sorted.mkString(", ")}"
-      )))
-    else if (rawConfigError.isDefined)
-      Future.successful(Left(ServiceError.UnprocessableEntity(rawConfigError.get)))
-    else
-      PipelineStepConfigCodec.decode(req.`type`, req.config.compactPrint) match {
-        case Failure(ex) =>
-          // HEL-311: keep the curated "Invalid '<type>' config" prefix, drop
-          // the raw decode-exception tail; log the detail server-side.
-          log.warn(s"addStep: config decode failed for step type '${req.`type`}'", ex)
-          Future.successful(Left(ServiceError.BadRequest(
-            s"Invalid '${req.`type`}' config"
-          )))
-        case Success(typedConfig) =>
-          // HEL-1515/HEL-1523: pipeline access -> ownership -> lane -> upsert target all run in ONE shared chain
-          // (`StepReferenceChecks.referenceChecksF`), the same one update and duplicate use. This call site
-          // supplies only its own inputs: the lane scope, and the pipeline lookup + editor check the upsert
-          // identity depends on.
-          //
-          // HEL-911 (design.md Engine contract items 6a/7, write-time arm): a `lane`-kind
-          // secondaryInput must name an existing step of THIS pipeline that is not this
-          // new step's own prospective ancestor. Computed against the current step list --
-          // `req.parentStepId` takes precedence (mirrors `persistNewStep`'s own anchor
-          // resolution) else falls back to trunk-last, the same default `persistNewStep`
-          // uses for a bare append. `selfId = None`: the new step has no id yet.
-          def laneScopeF: Future[LaneScope] =
-            for {
-              roots                   <- pipelineRepo.listRootDataSourceIdsInternal(pipelineId)
-              (current, rootIdOfStep) <- pipelineStepRepo.listWithRootIdsInternal(pipelineId)
-            } yield {
-              val rootIds = roots.map(_._1)
-              // HEL-1345 (design D3): a `rootId` create (no `parentStepId`) resolves its prospective
-              // parent through the SAME anchor resolver `persistNewStep` places with, scoped to
-              // THAT root. An unknown root, or an out-of-range `position`, uses no ancestors
-              // (`persistNewStep` still returns the 422); `validateLaneReference` runs regardless.
-              // HEL-1523: the prospective parent IS the anchor `persistNewStep` inserts at, for every arm
-              // (parentStepId, rootId, bare position, bare append, attachAsTail). When placement resolution
-              // FAILS, `persistNewStep` returns that rejection afterward; the lane check falls back to the
-              // pre-existing parent guess (`parentStepId`, else trunk-last; the rootId arm: none) so the
-              // error precedence of existing requests does not move.
-              val placement = StepPlacement.resolveCreateAnchor(req, current, rootIdOfStep, rootIds, pipelineStepRepo.trunkOf)
-              val prospectiveParent: Option[PipelineStepId] = placement match {
-                case Right(anchor) => anchor.anchor
-                case Left(_) =>
-                  (req.parentStepId, req.rootId) match {
-                    case (None, Some(rootIdRaw)) =>
-                      rootIds.find(_.value == rootIdRaw).flatMap { rootId =>
-                        PipelineService.resolveRootTrunkAnchor(current, rootIdOfStep, rootId, req.position).toOption.flatten
-                      }
-                    case _ =>
-                      req.parentStepId.map(PipelineStepId(_)).orElse(pipelineStepRepo.trunkOf(current).lastOption.map(_.id))
-                  }
-              }
-              // HEL-1515 (owner ruling, reject-at-write): the steps this insert re-parents under the new step (and
-              // their parent-chain descendants) cannot be lane targets either; a placement that is rejected
-              // re-parents nothing.
-              // HEL-1521: the same seeds feed the lane-linked dependents (anything that would depend on the new step).
-              val reparented = placement.fold(_ => Set.empty[String], anchor => StepPlacement.reparentedIds(anchor, current, rootIdOfStep))
-              LaneScope.of(current, prospectiveParent, reparented, selfId = None)
-            }
-          def pipelineAccessF: Future[Either[ServiceError, Pipeline]] =
-            pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
-              case None =>
-                Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
-              case Some(pipeline) if pipeline.ownerId.value != user.id.value =>
-                // Grantee path -- findByIdShared returned Some, so caller has viewer or editor access.
-                // Distinguish editor from viewer via requireEditorAccess before allowing mutation.
-                requireEditorAccess(pipelineId, user).map(_.map(_ => pipeline))
-              case Some(pipeline) => Future.successful(Right(pipeline))
-            }
-          refChecks.referenceChecksF[Pipeline](typedConfig, user, laneScopeF, pipelineAccessF, _.ownerId).flatMap {
-            case Left(err)       => Future.successful(Left(err))
-            // Editor/owner access confirmed: use the internal insert (no owner-JOIN).
-            case Right(pipeline) => persistNewStep(pipelineId, req, typedConfig, user, pipeline.ownerId)
-          }
-      }
+    // HEL-1722: every read-only pre-write check (type, config, access, ownership, lane, upsert target, placement, `rejectIfReparents`)
+    // lives in `PipelineStepWriteChecks.checkAdd`, which the patch-set resolvers call too; this write then persists.
+    checks.checkAdd(pipelineId, req, user, GraphChecks.Run).flatMap {
+      case Left(err) => Future.successful(Left(err))
+      // Editor/owner access confirmed: use the internal insert (no owner-JOIN). `persistNewStep` re-reads and re-resolves
+      // placement itself: that resolution is the authoritative one, under the pipeline lock.
+      case Right(checked) => persistNewStep(pipelineId, req, checked.typedConfig, user, checked.pipeline.ownerId)
+    }
   }
 
   /** Shared persist branch for `addStep` (HEL-410) — called only after the

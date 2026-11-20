@@ -17,104 +17,36 @@ private[pipelines] final class PipelineStepWrites(
     pipelineStepRepo: PipelineStepRepository,
     support: PipelineServiceSupport,
     refChecks: StepReferenceChecks,
-    requireEditorAccess: (PipelineId, AuthenticatedUser) => Future[Either[ServiceError, Unit]]
+    requireEditorAccess: (PipelineId, AuthenticatedUser) => Future[Either[ServiceError, Unit]],
+    checks: PipelineStepWriteChecks
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(classOf[PipelineService])
 
   import support.{audit, stepResponseWithRoot}
 
-  /** Step update — requires Editor or Owner. Viewer grantees get 403. */
-  def updateStep(stepId: PipelineStepId, req: UpdatePipelineStepRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineStepResponse]] = {
-    // Use internal findById (no owner-JOIN) since we only want to verify the step exists
-    // and the type matches. The ACL check happens at the pipeline level below.
-    pipelineStepRepo.findByIdInternal(stepId).flatMap {
-      case None =>
-        Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
-      case Some(existing) =>
-        // Verify the caller has pipeline access (at least viewer) by finding the parent pipeline.
-        pipelineRepo.findByIdShared(PipelineId(existing.pipelineId.value), Some(user)).flatMap {
-          case None =>
-            // Caller can't see the pipeline — step doesn't exist from their perspective.
-            Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
-          case Some(pipeline) =>
-            // Check for editor/owner — viewers get 403.
-            val editorCheckF: Future[Either[ServiceError, Unit]] =
-              if (pipeline.ownerId.value == user.id.value) Future.successful(Right(()))
-              else requireEditorAccess(pipeline.id, user)
-
-            editorCheckF.flatMap {
-              case Left(err) => Future.successful(Left(err))
-              case Right(_)  =>
-                req.`type` match {
-                  case Some(t) if t != existing.kind =>
-                    Future.successful(Left(ServiceError.BadRequest(
-                      s"Cannot change step type from '${existing.kind}' to '$t'. " +
-                        "Delete the step and create a new one instead."
-                    )))
-                  case _ =>
-                    req.config match {
-                      case None =>
-                        // Safe: editor/owner access confirmed. Use internal update.
-                        pipelineStepRepo.updateInternal(stepId, config = None, position = req.position, enabled = req.enabled)
-                          .flatMap {
-                            case Some(step) =>
-                              audit("pipeline.step.update", "pipeline_step", Some(step.id.value), user)
-                              stepResponseWithRoot(existing.pipelineId, step).map(resp => Right(resp))
-                            case None       => Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
-                          }
-                          .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
-                      case Some(cfgJson) =>
-                        // HEL-860: strict write-path check runs before the tolerant
-                        // decode below, mirroring addStep — see comment there.
-                        val rawConfigError: Option[String] =
-                          PipelineStep.rawConfigProblem(existing.kind, cfgJson.compactPrint)
-                        if (rawConfigError.isDefined)
-                          Future.successful(Left(ServiceError.UnprocessableEntity(rawConfigError.get)))
-                        else
-                        PipelineStepConfigCodec.decode(existing.kind, cfgJson.compactPrint) match {
-                          case Failure(ex) =>
-                            // HEL-311: keep the curated "Invalid '<type>' config" prefix,
-                            // drop the raw decode-exception tail; log the detail server-side.
-                            log.warn(s"updateStep: config decode failed for step type '${existing.kind}'", ex)
-                            Future.successful(Left(ServiceError.BadRequest(
-                              s"Invalid '${existing.kind}' config"
-                            )))
-                          case Success(typedConfig) =>
-                            // HEL-1515: ownership -> lane -> upsert target run in the ONE shared chain
-                            // (`StepReferenceChecks.referenceChecksF`) create and duplicate use. HEL-911: the lane
-                            // check runs against the EXISTING step's actual parent chain and its own id (a step
-                            // cannot reference itself).
-                            def laneScopeF: Future[LaneScope] =
-                              pipelineStepRepo.listByPipelineInternal(PipelineId(existing.pipelineId.value)).map { current =>
-                                // HEL-1515 (owner ruling, reject-at-write): a lane to one of this step's own
-                                // descendants could never be scheduled.
-                                // HEL-1521: and a step that depends on this one through lane links (the reverse closure
-                                // never follows this step's own stored lane edge, so re-saving it cannot false-positive).
-                                LaneScope.of(current, existing.parentStepId, Set(existing.id.value), selfId = Some(existing.id.value))
-                              }
-                            refChecks.referenceChecksF[Pipeline](typedConfig, user, laneScopeF, Future.successful(Right(pipeline)), _.ownerId).flatMap {
-                              case Left(err) => Future.successful(Left(err))
-                              case Right(_)  =>
-                                // Safe: editor/owner access confirmed. Use internal update.
-                                // HEL-1100 (design.md Decision 1): actingUserId is the PIPELINE
-                                // OWNER, not the caller -- see persistNewStep's matching doc.
-                                pipelineStepRepo.updateInternal(stepId, config = Some(typedConfig), position = req.position, enabled = req.enabled, actingUserId = pipeline.ownerId.value)
-                                  .flatMap {
-                                    case Some(step) =>
-                                      audit("pipeline.step.update", "pipeline_step", Some(step.id.value), user)
-                                      stepResponseWithRoot(existing.pipelineId, step).map(resp => Right(resp))
-                                    case None       => Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
-                                  }
-                                  .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
-                            }
-                        }
-                    }
-                }
-            }
+  /** Step update — requires Editor or Owner. Viewer grantees get 403. HEL-1722: every read-only pre-write check lives in
+    * `PipelineStepWriteChecks.checkUpdate` (shared with the patch-set resolvers); this write then persists. */
+  def updateStep(stepId: PipelineStepId, req: UpdatePipelineStepRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineStepResponse]] =
+    checks.checkUpdate(stepId, req, user, GraphChecks.Run).flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right(CheckedUpdate(existing, pipeline, typedConfig)) =>
+        // Safe: editor/owner access confirmed. Use internal update.
+        // HEL-1100 (design.md Decision 1): actingUserId is the PIPELINE OWNER, not the caller (the config-less update
+        // has no write-back to guard, so it passes none).
+        val updated = typedConfig match {
+          case None      => pipelineStepRepo.updateInternal(stepId, config = None, position = req.position, enabled = req.enabled)
+          case Some(cfg) => pipelineStepRepo.updateInternal(stepId, config = Some(cfg), position = req.position, enabled = req.enabled, actingUserId = pipeline.ownerId.value)
         }
+        updated
+          .flatMap {
+            case Some(step) =>
+              audit("pipeline.step.update", "pipeline_step", Some(step.id.value), user)
+              stepResponseWithRoot(existing.pipelineId, step).map(resp => Right(resp))
+            case None => Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
+          }
+          .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
     }
-  }
 
   /** Step delete — requires Editor or Owner. Viewer grantees get 403. */
   def deleteStep(stepId: PipelineStepId, user: AuthenticatedUser): Future[Either[ServiceError, DeletePipelineStepResponse]] =

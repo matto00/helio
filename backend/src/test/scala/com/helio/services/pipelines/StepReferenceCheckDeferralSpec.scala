@@ -109,12 +109,14 @@ class StepReferenceCheckDeferralSpec extends AnyWordSpec with Matchers with Step
       rootIdReads.get shouldBe 0
     }
 
-    "create: read the steps once, in persistNewStep" in {
+    // HEL-1722 (moved expectation): the placement check (`PipelineStepWriteChecks.checkAdd`, shared with the patch-set resolvers) reads the
+    // steps once, then `persistNewStep` re-reads for its own authoritative placement under the pipeline lock: one extra indexed read, accepted (design D1).
+    "create: read the steps for the placement check, then again in persistNewStep" in {
       val owner = newUser(); val pid = emptyPipeline(owner)
       listReads.set(0); rootIdReads.set(0)
       Post(s"/pipelines/${pid.value}/steps", JsObject("type" -> JsString("rename"), "config" -> JsObject("renames" -> JsObject()))) ~>
         routesFor(owner) ~> check { status shouldBe StatusCodes.Created }
-      rootIdReads.get shouldBe 1
+      rootIdReads.get shouldBe 2
       listReads.get shouldBe 0
     }
   }

@@ -616,7 +616,9 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRoute
       }
     }
 
-    "refuse an upsertsource create targeting a non-dataset source and roll back the earlier edit (HEL-1265)" in {
+    // HEL-1722: `addStep`'s upsert-target check now runs at resolve time, so the refusal is a 422 `edit 1: ...` before ANY edit applies (it
+    // used to be a reported failure that rolled the earlier edit back); the rename never happens either way.
+    "refuse an upsertsource create targeting a non-dataset source before applying the earlier edit (HEL-1265, HEL-1722)" in {
       val sourceId = seedDatasetSource(userA)
       val pipeline = seedPipeline(userA, sourceId, "Before upsert refusal")
       val now      = Instant.now()
@@ -633,8 +635,10 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRoute
       )
       val stepCreate = Edit(EditTarget("pipelineStep", None, Some(pipeline.id)), "create", None, None, None, None, None, Some(createPatch))
 
-      val response = await(service.apply(PatchSet(None, Vector(rename, stepCreate)), userA)).getOrElse(fail("expected Right with failure reported"))
-      response.failure.getOrElse(fail("expected a reported failure")) should (include(csv.id.value) and include("csv"))
+      await(service.apply(PatchSet(None, Vector(rename, stepCreate)), userA)) match {
+        case Left(ServiceError.UnprocessableEntity(msg)) => msg should (startWith("edit 1: ") and include(csv.id.value) and include("csv"))
+        case other                                         => fail(s"expected a 422 at resolve time, got $other")
+      }
       await(pipelineRepo.findByIdInternal(PipelineId(pipeline.id))).map(_.name) shouldBe Some("Before upsert refusal")
       await(pipelineStepRepo.listByPipelineInternal(PipelineId(pipeline.id))) shouldBe empty
     }

@@ -88,8 +88,9 @@ final class PipelineService(
   private val createTransaction = new PipelineCreateTransaction(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo, support)
   private val createWrites = new PipelineCreateWrites(pipelineRepo, dataSourceRepo, inlineSourceCleanup, support, rootWrites, createTransaction)
   private val refChecks  = new StepReferenceChecks(dataSourceRepo, support)
-  private val stepCreate = new PipelineStepCreate(pipelineRepo, pipelineStepRepo, support, refChecks, requireEditorAccess)
-  private val stepWrites = new PipelineStepWrites(pipelineRepo, pipelineStepRepo, support, refChecks, requireEditorAccess)
+  private val stepChecks = new PipelineStepWriteChecks(pipelineRepo, pipelineStepRepo, refChecks, requireEditorAccess)
+  private val stepCreate = new PipelineStepCreate(pipelineRepo, pipelineStepRepo, support, stepChecks)
+  private val stepWrites = new PipelineStepWrites(pipelineRepo, pipelineStepRepo, support, refChecks, requireEditorAccess, stepChecks)
 
   import support.{audit, toSummaryResponse}
 
