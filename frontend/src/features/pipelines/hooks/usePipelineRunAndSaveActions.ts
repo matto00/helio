@@ -6,6 +6,7 @@ import type { useAppDispatch } from "../../../hooks/reduxHooks";
 import { previewOutput } from "../state/outputsSlice";
 import { submitPipelineRun, updatePipeline } from "../state/pipelinesSlice";
 import type { Output } from "../types/output";
+import type { PipelineRunRole } from "./usePipelineRunRole";
 import { useRunToUpdate } from "./useRunToUpdate";
 import type { useRunHistory } from "./useRunHistory";
 
@@ -19,6 +20,8 @@ type UsePipelineRunAndSaveActionsArgs = {
   outputName: string;
   isDirty: boolean;
   setIsConfirmingCancel: Dispatch<SetStateAction<boolean>>;
+  /** HEL-1661: a viewer cannot run; the handlers return early for one (their run entries are not rendered either). */
+  runRole: PipelineRunRole;
 };
 
 /**
@@ -35,7 +38,9 @@ export function usePipelineRunAndSaveActions({
   outputName,
   isDirty,
   setIsConfirmingCancel,
+  runRole,
 }: UsePipelineRunAndSaveActionsArgs) {
+  const mayRun = runRole !== "viewer";
   // HEL-908 Cycle 13 -- `submitPipelineRun`'s own HTTP response already
   // carries the finished run's result (it's a synchronous POST, not a
   // fire-and-forget kickoff); the SSE stream (`usePipelineRunEvents`) is a
@@ -63,7 +68,7 @@ export function usePipelineRunAndSaveActions({
   );
 
   const handleRunPipeline = useCallback(async () => {
-    if (!id) return;
+    if (!id || !mayRun) return;
     setSseActive(true);
     try {
       await dispatch(submitPipelineRun({ pipelineId: id })).unwrap();
@@ -73,10 +78,10 @@ export function usePipelineRunAndSaveActions({
       setSseActive(false);
       // runError is displayed via Redux state
     }
-  }, [dispatch, id, setSseActive, refreshVisibleOutputPreviews, refreshRunHistoryAfterRun]);
+  }, [dispatch, id, mayRun, setSseActive, refreshVisibleOutputPreviews, refreshRunHistoryAfterRun]);
 
   const handleDryRun = useCallback(async () => {
-    if (!id) return;
+    if (!id || !mayRun) return;
     setSseActive(true);
     try {
       await dispatch(submitPipelineRun({ pipelineId: id, dryRun: true })).unwrap();
@@ -86,7 +91,7 @@ export function usePipelineRunAndSaveActions({
       setSseActive(false);
       // runError is displayed via Redux state
     }
-  }, [dispatch, id, setSseActive, refreshVisibleOutputPreviews, refreshRunHistoryAfterRun]);
+  }, [dispatch, id, mayRun, setSseActive, refreshVisibleOutputPreviews, refreshRunHistoryAfterRun]);
 
   // HEL-1096 design.md D5/D7 — the denial block's own "Run to update" control, shown when
   // `costVerdict.autoRunnable` is false and `costVerdict.canRun` is true (see the returned
@@ -96,9 +101,9 @@ export function usePipelineRunAndSaveActions({
   // pipeline" button (design.md Non-Goals).
   const runToUpdateAction = useRunToUpdate();
   const handleRunToUpdate = useCallback(() => {
-    if (!id) return;
+    if (!id || !mayRun) return;
     runToUpdateAction(id);
-  }, [id, runToUpdateAction]);
+  }, [id, mayRun, runToUpdateAction]);
 
   const handleSave = useCallback(async () => {
     if (!id) return;

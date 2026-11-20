@@ -120,6 +120,7 @@ const EXPECTED_KEYS: string[] = [
   "runHistoryView",
   "runIsDry",
   "runResult",
+  "runRole",
   "runSourceRowCount",
   "runSourceTruncated",
   "runStatus",

@@ -7,6 +7,7 @@
 import { useMemo } from "react";
 
 import { useLatestCallback } from "../hooks/useLatestCallback";
+import { canRunFromUi } from "../hooks/usePipelineRunRole";
 import type { usePipelineDetailPage } from "../hooks/usePipelineDetailPage";
 import { OutputEditorSheet } from "./outputEditor/OutputEditorSheet";
 import type { OutputSheetDraft } from "./outputEditor/outputSheetDraft";
@@ -53,7 +54,9 @@ export function PipelineDetailDialogs({ page }: { page: PipelinePageState }) {
           createTargetStepId={page.outputSheet.createTargetStepId}
           steps={page.steps}
           onAddAsTailWithAggregate={page.handleAddOutputViaAggregateTail}
-          onRunPipeline={() => void page.handleRunPipeline()}
+          onRunPipeline={
+            canRunFromUi(page.runRole) ? () => void page.handleRunPipeline() : undefined
+          }
           actions={{
             create: page.handleCreateOutput,
             update: page.handleUpdateOutput,
@@ -79,6 +82,7 @@ export function PipelineDetailDialogs({ page }: { page: PipelinePageState }) {
           runs={page.runs}
           view={page.runHistoryView}
           onRetry={page.retryRunHistory}
+          canRun={canRunFromUi(page.runRole)}
           onClose={page.closeRunHistory}
         />
       )}

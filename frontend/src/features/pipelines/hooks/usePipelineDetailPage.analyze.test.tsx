@@ -69,6 +69,8 @@ const pipeline: PipelineSummary = {
   lastRunStatus: null,
   lastRunAt: null,
   lastRunRowCount: null,
+  // HEL-1661: the caller owns the pipeline (so the run handlers act) while analyze still reports a viewer role below.
+  ownerId: "u-1",
 };
 
 function wireStep(id: string, extra: Partial<PipelineStep>): PipelineStep {
@@ -133,6 +135,19 @@ function makeStore(opts: { preloadSteps?: boolean } = {}) {
       toasts: toastsReducer,
     } as never,
     preloadedState: {
+      auth: {
+        currentUser: {
+          id: "u-1",
+          email: "o@test.com",
+          displayName: null,
+          avatarUrl: null,
+          createdAt: "",
+          tier: "free" as const,
+        },
+        status: "authenticated" as const,
+        submitStatus: "idle" as const,
+        mfaChallenge: null,
+      },
       sources: { items: [], status: "succeeded" as const, error: null },
       pipelines: { ...baseState, steps: opts.preloadSteps ? { "pipe-1": persisted() } : {} },
     } as never,

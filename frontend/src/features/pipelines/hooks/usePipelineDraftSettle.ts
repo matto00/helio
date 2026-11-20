@@ -48,7 +48,8 @@ export function usePipelineDraftSettle({
   setSseActive: Dispatch<SetStateAction<boolean>>;
   refreshRunHistoryAfterRun: () => void;
   refreshVisibleOutputPreviews: (pipelineId: string, outputIds?: readonly string[]) => void;
-  onRunNow: () => void;
+  /** HEL-1661: absent for a caller with no run entry (a viewer): the refusal toast then carries no Run now action. */
+  onRunNow?: () => void;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const stepParamRef = useRef<string | null>(null);
@@ -117,7 +118,7 @@ export function usePipelineDraftSettle({
           variant: "warning",
           message: runRefusedMessage(run),
           duration: 0,
-          action: { label: "Run now", onClick: onRunNow },
+          ...(onRunNow ? { action: { label: "Run now", onClick: onRunNow } } : {}),
         });
       }
     },

@@ -67,9 +67,10 @@ private[pipelines] final class PipelineAnalyzeReads(
           // (`PipelineNodeReads.projectedSchemaAtNode`) exactly: `listRootDataSourceIdsInternal`
           // (position-ordered) + `rootIdsOf` (every parentless step's owning root), pipeline access
           // already confirmed by `findByIdShared`.
-          // HEL-1092: `rootDsOpts` also feeds `PipelineCostEstimator`'s per-root classification
-          // (kind/hasSourceUrl) below -- a root `findByIdOwned` can't see (e.g. a shared viewer)
-          // yields `None` here, which the estimator treats as `unclassified-source` (D7).
+          // HEL-1661: `rootDsOpts` (caller view) feeds ONLY `sourceSchemas` and the caller-view step schemas; the cost
+          // verdict resolves roots privately (`findByIdInternal`, below) and a non-owner's step validity comes from the
+          // owner's root schemas, so a grantee's unowned root is neither `unclassified-source` nor a spurious step error.
+          val callerIsOwner = pipeline.ownerId.value == user.id.value
           val rootFetch = for {
             rootDataSourceIds <- pipelineRepo.listRootDataSourceIdsInternal(pipelineId)
             rootIdOfStep      <- pipelineStepRepo.rootIdsOf(pipelineId)
@@ -79,9 +80,15 @@ private[pipelines] final class PipelineAnalyzeReads(
             // HEL-1236: source-kind join secondaries' schemas, so a join's renamed columns project.
             secondarySchemas  <- resolveSecondarySourceSchemas(allSteps.map(s => s.kind -> PipelineStepConfigCodec.encode(s)), dataSourceRepo.findByIdInternal)
             upsertProblems    <- upsertTargetProblems(allSteps, pipeline.ownerId)
-          } yield (rootDataSourceIds, rootIdOfStep, rootDsOpts, secondarySchemas, upsertProblems)
+            // HEL-1661 D2: the roots as the pipeline OWNER sees them, read only to decide a non-owner's step validity.
+            ownerSchemas      <- if (callerIsOwner) Future.successful(None)
+                                 else Future.traverse(rootDataSourceIds) { case (rootId, dsId) =>
+                                   dataSourceRepo.findByIdOwnedByInternal(dsId, pipeline.ownerId)
+                                     .map(dsOpt => rootId.value -> dsOpt.map(_.inferredSchema).getOrElse(Vector.empty[SchemaField]))
+                                 }.map(rs => Some(rs.toMap))
+          } yield (rootDataSourceIds, rootIdOfStep, rootDsOpts, secondarySchemas, upsertProblems, ownerSchemas)
 
-          rootFetch.flatMap { case (rootDataSourceIds, rootIdOfStep, rootDsOpts, secondarySchemas, upsertProblems) =>
+          rootFetch.flatMap { case (rootDataSourceIds, rootIdOfStep, rootDsOpts, secondarySchemas, upsertProblems, ownerSchemas) =>
             val rootSchemas = rootDsOpts.map { case (rid, dsOpt) =>
               (rid, dsOpt.map(_.name).getOrElse(""), dsOpt.map(_.inferredSchema).getOrElse(Vector.empty[SchemaField]))
             }
@@ -128,20 +135,25 @@ private[pipelines] final class PipelineAnalyzeReads(
             // Reassemble in the SAME order `enabledSteps` lists them; a node that never resolved
             // (unknown parentStepId, dangling lane reference) is simply absent, mirroring
             // `analyzeNodes`'s own existing tolerant-degradation contract elsewhere in this file.
-            val analyzed = enabledSteps.flatMap(s => projections.get(s.id.value))
+            val callerViewAnalyzed = enabledSteps.flatMap(s => projections.get(s.id.value))
+            // HEL-1661 D2: a non-owner's step validity (and so `step-config-invalid`, `autoRunnable`, `canRun`) is
+            // judged against the owner's root schemas; the schemas, warnings and everything else stay caller-view.
+            val analyzed = ownerSchemas match {
+              case None => callerViewAnalyzed
+              case Some(byRoot) =>
+                val ownerProjections = UpsertTargetAnalysis.overlay(PipelineAnalyzeService.analyzeNodes(nodeInputs, byRoot, secondarySchemas), upsertProblems)
+                callerViewAnalyzed.map(s => s.copy(validationError = nonOwnerValidationError(s, ownerProjections.get(s.id).flatMap(_.validationError))))
+            }
 
             // HEL-1092/HEL-1093 (design.md Decision 2a): `CostInput` gathering is shared with the
-            // auto-run trigger path via `PipelineCostInputGathering` -- this call site supplies
-            // `resolveRoot = findByIdOwned(_, user)`, byte-for-byte the same ACL-scoped resolution
-            // this method already performed inline before the extraction (unlike the auto-run
-            // path's own privileged `findByIdInternal` resolveRoot -- see that class's doc).
-            // `gather` re-derives its own root list and dataset-row-count lookup rather than
-            // accepting `rootDsOpts` (already resolved above for the schema-drift computation)
-            // pre-computed -- the shared helper's contract is deliberately self-contained for its
-            // one other caller (AutoRunTriggerService), which has no equivalent value in scope.
+            // auto-run trigger path via `PipelineCostInputGathering`. HEL-1661 D1: this call site supplies the
+            // privileged `findByIdInternal` resolveRoot, exactly like the run path and the auto-run trigger, so the
+            // estimator half of the verdict is the pipeline's own (owner's) and identical for every admitted caller
+            // (access was already confirmed by `findByIdShared`; only reason codes leave this method for a non-owner,
+            // see `toCostVerdictResponse`).
             costInputGathering.gather(
               pipelineId, enabledSteps, summary.lastRunRowCount,
-              resolveRoot = dsId => dataSourceRepo.findByIdOwned(dsId, user)
+              resolveRoot = dsId => dataSourceRepo.findByIdInternal(dsId)
             ).flatMap { costInput =>
             val costVerdict = PipelineCostEstimator.estimate(costInput)
 
@@ -171,7 +183,7 @@ private[pipelines] final class PipelineAnalyzeReads(
                                     },
                 steps             = analyzed.map(toAnalyzeStepResponse),
                 sourceSchemaDrift = drift.map(toDriftResponse),
-                costVerdict       = toCostVerdictResponse(costVerdict, callerRole != "viewer", analyzed),
+                costVerdict       = toCostVerdictResponse(costVerdict, callerRole != "viewer", analyzed, !callerIsOwner, summary.lastRunRowCount),
                 warnings          = warnings,
                 callerRole        = callerRole
               ))
@@ -192,19 +204,41 @@ private[pipelines] final class PipelineAnalyzeReads(
    *  to fail, so it adds a `step-config-invalid` reason (after the estimator's, in step order) and
    *  clears both `autoRunnable` and `canRun`. Permission stays inside `canRun` with no reason code. */
   private def toCostVerdictResponse(
-      v:        PipelineCostEstimator.CostVerdict,
-      canRun:   Boolean,
-      analyzed: Vector[PipelineAnalyzeService.AnalyzedStep]
+      v:             PipelineCostEstimator.CostVerdict,
+      canRun:        Boolean,
+      analyzed:      Vector[PipelineAnalyzeService.AnalyzedStep],
+      nonOwner:      Boolean,
+      lastRunRows:   Option[Long]
   ): CostVerdictResponse = {
     val configReasons = analyzed.flatMap(s => s.validationError.map(CostReasonResponse(PipelineAnalyzeService.StepConfigInvalidCode, _, Some(s.id))))
+    // HEL-1661 D3: a non-owner gets each estimator reason's code with a fixed neutral detail (no source kind, URL
+    // wording or count), and never the owner's live dataset row count: `estimateRows` falls back to it on a never-run
+    // pipeline, so a non-owner's `estimatedRows` is the last-run count (already shown in the header) or absent.
+    val estimatorReasons = v.reasons.map { r =>
+      CostReasonResponse(r.code, if (nonOwner) neutralDetail(r.code) else r.detail, r.stepId)
+    }
     CostVerdictResponse(
       autoRunnable  = v.autoRunnable && configReasons.isEmpty,
-      estimatedRows = v.estimatedRows,
+      estimatedRows = if (nonOwner) lastRunRows else v.estimatedRows,
       stepCount     = v.stepCount,
-      reasons       = v.reasons.map(r => CostReasonResponse(r.code, r.detail, r.stepId)) ++ configReasons,
+      reasons       = estimatorReasons ++ configReasons,
       canRun        = canRun && configReasons.isEmpty
     )
   }
+
+  /** HEL-1661 D2: the `validationError` a non-owner receives for a step, given the error the OWNER's view of that step
+   *  reports. Owner-view inference messages can carry column types from the owner's schema, so only text a non-owner
+   *  can already derive is sent: the schema-independent config problem (a function of the step's own configuration),
+   *  or an error identical to the caller-view one; any other owner-view error becomes one neutral sentence. */
+  private def nonOwnerValidationError(step: PipelineAnalyzeService.AnalyzedStep, ownerError: Option[String]): Option[String] =
+    PipelineAnalyzeService.stepConfigProblem(step.op, step.config) match {
+      case some @ Some(_) => some
+      case None =>
+        ownerError.map(e => if (step.validationError.contains(e)) e else PipelineAnalyzeReads.NeutralStepError)
+    }
+
+  private def neutralDetail(code: String): String =
+    PipelineAnalyzeReads.NeutralReasonDetail.getOrElse(code, PipelineAnalyzeReads.GenericReasonDetail)
 
   /** HEL-914 task 6.4 (design.md D5/D6): `GET /pipelines/:id/analyze?concise=true`'s opt-in
    *  per-node `{path, op, validationError}` projection — a wholly separate response from
@@ -283,4 +317,27 @@ private[pipelines] final class PipelineAnalyzeReads(
         TypeChangedColumnResponse(c.name, previousType = c.previousType, currentType = c.currentType)
       )
     )
+}
+
+private[pipelines] object PipelineAnalyzeReads {
+
+  /** HEL-1661 D2: the one sentence a non-owner reads for a step that is invalid only against the owner's schema. */
+  val NeutralStepError: String = "This step's configuration does not match its input."
+
+  /** HEL-1661 D3: one constant sentence per estimator reason code for a non-owner: no source kind, URL wording, count or
+   *  quoted identifier. The client renders its own copy per code, so this text is a fallback for other readers. */
+  val NeutralReasonDetail: Map[String, String] = Map(
+    "ai-step"                  -> "A step in this pipeline uses AI, so it is not updated automatically.",
+    "writeback-step"           -> "A step in this pipeline writes to a data source, so it is not updated automatically.",
+    "content-conversion"       -> "A step in this pipeline converts content, so it is not updated automatically.",
+    "unclassified-op"          -> "A step in this pipeline is not on the automatic-update list.",
+    "no-roots"                 -> "This pipeline has no source.",
+    "remote-fetch"             -> "A source of this pipeline is read from elsewhere, so it is not updated automatically.",
+    "unclassified-source"      -> "A source of this pipeline is of a kind not recognized for automatic updates.",
+    "row-estimate-unavailable" -> "No row estimate is available for this pipeline.",
+    "rows-above-threshold"     -> "This pipeline is too large to update automatically.",
+    "steps-above-bound"        -> "This pipeline has too many steps to update automatically."
+  )
+
+  val GenericReasonDetail: String = "This pipeline is not updated automatically."
 }

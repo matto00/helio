@@ -181,6 +181,7 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
           onEditOnlySource={onlyRootSource ? () => page.handleEditSource(onlyRootSource.id) : null}
           onDryRun={() => void page.handleDryRun()}
           onRun={() => void page.handleRunPipeline()}
+          runRole={page.runRole}
           draft={{
             hasDraft: page.draft.hasDraft,
             saving: page.draftSave.saving,

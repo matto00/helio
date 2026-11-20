@@ -425,6 +425,12 @@
   gap: var(--space-2);
 }
 
+/* HEL-1661: while the caller's role is unknown the row holds its pill height, so `--pipeline-mobile-actions-h` is published
+   at its final value from the first paint and an editor's pills arriving move nothing. */
+.mobile-actions__pills[data-run-slot="pending"] {
+  min-height: var(--control-lg);
+}
+
 .mobile-pill {
   position: relative;
   display: inline-flex;

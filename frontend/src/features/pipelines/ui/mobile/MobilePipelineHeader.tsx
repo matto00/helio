@@ -15,6 +15,7 @@ import { isTempStepId } from "../../state/stepNarrowing";
 import type { PipelinePageState } from "../spine/PipelineSpineLayout";
 import { SpineLastRunMeta, SpineRunStatus } from "../spine/SpineRunStatus";
 import { SpineScheduleChip } from "../spine/SpineScheduleChip";
+import { SpineViewOnly } from "../spine/SpineViewOnly";
 import type { SpineStepActions } from "../spine/useSpineStepActions";
 import "../spine/PipelineSpineHeader.css";
 import "./PipelineMobile.css";
@@ -173,6 +174,7 @@ export function MobilePipelineHeader({
             }}
             lastRunStatus={currentPipeline.lastRunStatus}
           />
+          {page.runRole === "viewer" && <SpineViewOnly />}
           {/* While an in-session status shows, the persisted "N rows written" is stale and redundant; showing both
               wraps the status line to a third line at 375 and pushes the Output card under the action bar. */}
           {inSessionStatus === null && (

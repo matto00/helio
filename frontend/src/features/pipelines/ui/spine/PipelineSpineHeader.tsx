@@ -17,6 +17,8 @@ import type { PipelineSchedule } from "../../types/pipelineSchedule";
 import { SpineLastRunMeta, SpineRunStatus } from "./SpineRunStatus";
 import type { SpineRunState } from "./SpineRunStatus";
 import { SpineScheduleChip } from "./SpineScheduleChip";
+import { SpineViewOnly } from "./SpineViewOnly";
+import { canRunFromUi, type PipelineRunRole } from "../../hooks/usePipelineRunRole";
 import "./PipelineSpineHeader.css";
 
 export interface SpineHeaderProps {
@@ -49,6 +51,8 @@ export interface SpineHeaderProps {
   onEditOnlySource: (() => void) | null;
   onDryRun: () => void;
   onRun: () => void;
+  /** HEL-1661: which run entries to offer. A viewer gets none (and "View only"); `pending` reserves their room. */
+  runRole: PipelineRunRole;
   /** HEL-1631: the client-only draft. While `hasDraft`, Discard replaces Dry run and Save & run replaces Run. */
   draft: { hasDraft: boolean; saving: boolean; onDiscard: () => void; onSaveAndRun: () => void };
 }
@@ -57,6 +61,7 @@ export function PipelineSpineHeader(props: SpineHeaderProps) {
   const { pipelineName, outputName, editingName, updateStatus, isConfirmingCancel, schedule, run } =
     props;
   const runBusy = run.runStatus === "queued" || run.runStatus === "running";
+  const canRun = canRunFromUi(props.runRole);
 
   // Built fresh each render: item gating stays readable beside the JSX it used to live next to.
   const items: ActionsMenuItem[] = [
@@ -183,6 +188,7 @@ export function PipelineSpineHeader(props: SpineHeaderProps) {
         lastRunRowCount={props.lastRunRowCount}
         lastRunTruncated={props.lastRunTruncated}
       />
+      {props.runRole === "viewer" && <SpineViewOnly />}
 
       <div className="spine-header__trailing">
         <SpineScheduleChip schedule={schedule} onOpen={props.onEditSchedule} />
@@ -197,17 +203,19 @@ export function PipelineSpineHeader(props: SpineHeaderProps) {
             >
               Discard
             </button>
-            <button
-              type="button"
-              className="spine-header__btn spine-header__btn--primary"
-              onClick={props.draft.onSaveAndRun}
-              disabled={props.draft.saving || runBusy}
-              aria-label="Save and run"
-            >
-              {props.draft.saving ? "Saving…" : "Save & run"}
-            </button>
+            {canRun && (
+              <button
+                type="button"
+                className="spine-header__btn spine-header__btn--primary"
+                onClick={props.draft.onSaveAndRun}
+                disabled={props.draft.saving || runBusy}
+                aria-label="Save and run"
+              >
+                {props.draft.saving ? "Saving…" : "Save & run"}
+              </button>
+            )}
           </>
-        ) : (
+        ) : canRun ? (
           <>
             <button
               type="button"
@@ -237,6 +245,16 @@ export function PipelineSpineHeader(props: SpineHeaderProps) {
               </span>
             </button>
           </>
+        ) : null}
+        {props.runRole === "pending" && (
+          // The run entries' room, held while the role is unknown so an editor's controls appearing move nothing; sized for the
+          // pair the draft state will show (Save & run beside the Discard that is already there, or Dry run + Run pipeline).
+          <span
+            className="spine-header__run-slot"
+            aria-hidden="true"
+            data-run-slot="pending"
+            data-run-pair={props.draft.hasDraft ? "draft" : "run"}
+          />
         )}
         <ActionsMenu label="Pipeline actions" items={items} />
       </div>

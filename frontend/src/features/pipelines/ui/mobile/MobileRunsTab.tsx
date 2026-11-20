@@ -3,6 +3,7 @@
 
 import { useEffect } from "react";
 
+import { canRunFromUi } from "../../hooks/usePipelineRunRole";
 import { RunHistoryList } from "../RunHistoryModal";
 import type { PipelinePageState } from "../spine/PipelineSpineLayout";
 
@@ -12,6 +13,11 @@ export function MobileRunsTab({ page }: { page: PipelinePageState }) {
     ensureRunHistoryLoaded();
   }, [ensureRunHistoryLoaded]);
   return (
-    <RunHistoryList runs={page.runs} view={page.runHistoryView} onRetry={page.retryRunHistory} />
+    <RunHistoryList
+      runs={page.runs}
+      view={page.runHistoryView}
+      onRetry={page.retryRunHistory}
+      canRun={canRunFromUi(page.runRole)}
+    />
   );
 }

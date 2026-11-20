@@ -17,6 +17,7 @@ import type { PipelineDraft } from "./usePipelineDraft";
 import { usePipelineDraftAdopt } from "./usePipelineDraftAdopt";
 import { usePipelineDraftSettle } from "./usePipelineDraftSettle";
 import { usePipelineDraftUndo } from "./usePipelineDraftUndo";
+import type { PipelineRunRole } from "./usePipelineRunRole";
 
 export type { DraftCascadePrompt, DraftNotice };
 
@@ -36,7 +37,9 @@ type SaveArgs = {
   setSseActive: Dispatch<SetStateAction<boolean>>;
   refreshRunHistoryAfterRun: () => void;
   refreshVisibleOutputPreviews: (pipelineId: string, outputIds?: readonly string[]) => void;
-  onRunNow: () => void;
+  onRunNow?: () => void;
+  /** HEL-1661: a viewer cannot run, so Save & run and its cascade confirmation return early for one. */
+  runRole?: PipelineRunRole;
 };
 
 /**
@@ -62,6 +65,7 @@ export function usePipelineDraftSave({
   refreshRunHistoryAfterRun,
   refreshVisibleOutputPreviews,
   onRunNow,
+  runRole,
 }: SaveArgs) {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<DraftNotice | null>(null);
@@ -198,10 +202,13 @@ export function usePipelineDraftSave({
     ],
   );
 
-  const saveAndRun = useCallback(() => post(undefined), [post]);
+  const saveAndRun = useCallback(
+    () => (runRole === "viewer" ? Promise.resolve() : post(undefined)),
+    [post, runRole],
+  );
 
   const confirmCascade = useCallback(() => {
-    if (!cascade) return Promise.resolve();
+    if (!cascade || runRole === "viewer") return Promise.resolve();
     const { impact } = cascade;
     setCascade(null);
     return post({
@@ -211,7 +218,7 @@ export function usePipelineDraftSave({
       alertRuleIds: impact.alertRuleIds,
       rootIds: impact.rootIds,
     });
-  }, [cascade, post]);
+  }, [cascade, post, runRole]);
 
   const cancelCascade = useCallback(() => setCascade(null), []);
 
