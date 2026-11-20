@@ -4,7 +4,9 @@
 Structured, privacy-safe per-turn telemetry for HEL-659's assistant tool loop (tool-call count,
 hop-cap-hit, no-results), mirroring `authoring-error-telemetry`'s log-line pattern for the newer
 conversational flow.
+
 ## Requirements
+
 ### Requirement: Every completed assistant turn SHALL emit a structured, privacy-safe telemetry record
 The backend SHALL emit one structured JSON log line (HEL-115 format, carrying trace context) per
 successful `POST /:id/converse` call, recording the conversation id, tool-call count for that turn,
@@ -70,3 +72,21 @@ tool input payload or its error text SHALL never be logged — only integer coun
 - **WHEN** any `assistant_tool_loop_outcome` record is emitted for a turn containing a failed `propose_*` call
 - **THEN** the record contains no field carrying the failing tool input payload or its deserialization error text
 
+### Requirement: The tool-loop-outcome record SHALL carry hop, failure and stop counters
+The `assistant_tool_loop_outcome` record SHALL additionally carry `hopsUsed` (tool-executing round trips in the
+turn), `failedToolCalls` (failed tool calls counted toward the failure budget) and `stopReason` (`final`,
+`failure_budget`, `hop_ceiling` or `input_budget`), as integers and a fixed token only, never tool input or error
+text.
+
+#### Scenario: A failure-budget stop is recorded
+- **WHEN** a converse turn stops after 3 failed tool calls
+- **THEN** the emitted record has `failedToolCalls` 3, `stopReason` `failure_budget`, and `hopsUsed` equal to the
+  round trips that ran
+
+#### Scenario: A normal multi-hop turn is recorded
+- **WHEN** a converse turn runs 6 round trips with no failures and then answers
+- **THEN** the emitted record has `hopsUsed` 6, `failedToolCalls` 0 and `stopReason` `final`
+
+#### Scenario: A final answer after two failures is recorded with its failures
+- **WHEN** a converse turn makes 2 failed tool calls and then answers
+- **THEN** the emitted record has `failedToolCalls` 2 and `stopReason` `final`
