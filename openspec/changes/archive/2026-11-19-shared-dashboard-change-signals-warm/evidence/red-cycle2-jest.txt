@@ -1,0 +1,26 @@
+    > 355 |       await waitFor(() => expect(publicRows).toHaveBeenCalledTimes(1));
+      357 |       expect(publicRows).toHaveBeenCalledTimes(1);
+      385 |       expect(publicRows).not.toHaveBeenCalled();
+      387 |       expect(after?.sort).toBeUndefined();
+    > 387 |       expect(after?.sort).toBeUndefined();
+      388 |       expect(isFilterActive(after?.filter)).toBe(false);
+    > 388 |       expect(isFilterActive(after?.filter)).toBe(false);
+    > 401 |       await waitFor(() => expect(publicRows).toHaveBeenCalledTimes(1));
+      403 |       expect(publicRows).toHaveBeenCalledTimes(1);
+  ● a marker reuse never leaves rows that disagree with the card's query (final-gate CR1) › (i) an interactive column filter on a CONTROL column: exactly one per-panel rows request, and the window ends unsorted and unfil
+  ● a marker reuse never leaves rows that disagree with the card's query (final-gate CR1) › (i) an interactive sort on a CONTROL column: exactly one per-panel rows request, and the window ends unsorted and unfiltered
+  ● a marker reuse never leaves rows that disagree with the card's query (final-gate CR1) › (i) a persisted default sort that was REMOVED after the capture: exactly one per-panel rows request, and the window ends unsorte
+  ● a marker reuse never leaves rows that disagree with the card's query (final-gate CR1) › (ii) a column filter on a NON-control column: no rows request (client-only), and the recorded query is the card's
+  ● a marker reuse never leaves rows that disagree with the card's query (final-gate CR1) › (ii) a sort on a NON-control column: no rows request (client-only), and the recorded query is the card's
+  ● a marker reuse never leaves rows that disagree with the card's query (final-gate CR1) › (iii) memory path, metadata held at mount, an interactive column filter on a CONTROL column: exactly one request
+  ● a marker reuse never leaves rows that disagree with the card's query (final-gate CR1) › (iii) memory path, metadata held at mount, an interactive sort on a CONTROL column: exactly one request
+  ● a marker reuse never leaves rows that disagree with the card's query (final-gate CR1) › (iii) memory path, metadata held at mount, a persisted default sort that was REMOVED after the capture: exactly one request
+    Expected: false
+    Expected number of calls: 1
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+    expect(received).toBe(expected) // Object.is equality
+    expect(received).toBeUndefined()
+    Received: {"column": "revenue", "direction": "asc"}
+    Received number of calls: 0
+    Received: true
+Tests:       8 failed, 13 passed, 21 total

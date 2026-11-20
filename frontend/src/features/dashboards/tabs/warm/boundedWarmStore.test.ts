@@ -40,6 +40,7 @@ describe("WarmStore memory adapter and BoundedWarmStore (HEL-1575 D5)", () => {
       ...storedEntry({
         dashboardId: "d1",
         lastViewedAt: NOW,
+        readScope: "output", // HEL-1783: a new allow-listed key (intended change of this key-set assertion)
         rows: {
           p1: {
             currentPage: 0,

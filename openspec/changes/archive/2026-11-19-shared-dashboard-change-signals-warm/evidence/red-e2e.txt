@@ -1,0 +1,44 @@
+
+Running 1 test using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1783-owner-1795127406578-20198@example.test
+[HEL-1300 e2e] throwaway user: hel1783-viewer-1795127407507-10609@example.test
+  ✘  1 [dev] › e2e/hel1783-shared-dashboard-tabs.spec.ts:241:7 › HEL-1783 a grantee's shared dashboard tab is warm and shows data-change dots › warm switch and reload make no panel requests; new data shows the dot and refreshes through the per-panel route (4.3s)
+[HEL-1301 e2e] deleted 2 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/hel1783-shared-dashboard-tabs.spec.ts:241:7 › HEL-1783 a grantee's shared dashboard tab is warm and shows data-change dots › warm switch and reload make no panel requests; new data shows the dot and refreshes through the per-panel route 
+
+    Error: (a) DA panel-list requests
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoEqual[2m([22m[32mexpected[39m[2m) // deep equality[22m
+
+    [32m- Expected  - 1[39m
+    [31m+ Received  + 3[39m
+
+    [32m- Array [][39m
+    [31m+ Array [[39m
+    [31m+   "GET /api/dashboards/fe715fa1-6bd1-4321-8726-8d6c899a5674/panels",[39m
+    [31m+ ][39m
+
+      261 |     await expect(cell(page, "East").first()).toBeVisible();
+      262 |     await page.waitForTimeout(1_000);
+    > 263 |     expect(net.since(from, PANEL_LIST, sharedId), "(a) DA panel-list requests").toEqual([]);
+          |                                                                                 ^
+      264 |     expect(net.since(from, PANEL_ROWS, sharedId), "(a) DA rows requests").toEqual([]);
+      265 |
+      266 |     // (b) on DB, the owner changes the data and runs: the signals show DA's tab with the dot.
+        at /home/matt/Development/helio/.claude/worktrees/bug/shared-dashboard-change-dots-warm/HEL-1783/e2e/hel1783-shared-dashboard-tabs.spec.ts:263:81
+
+    Error Context: test-results/hel1783-shared-dashboard-t-0959d-through-the-per-panel-route-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1783-shared-dashboard-t-0959d-through-the-per-panel-route-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1783-shared-dashboard-t-0959d-through-the-per-panel-route-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [dev] › e2e/hel1783-shared-dashboard-tabs.spec.ts:241:7 › HEL-1783 a grantee's shared dashboard tab is warm and shows data-change dots › warm switch and reload make no panel requests; new data shows the dot and refreshes through the per-panel route 

@@ -1,0 +1,20 @@
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeGreaterThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+    Expected: >= [32m2[39m
+    Received:    [31m1[39m
+      331 |     await expect(tabById(page, ownId)).toHaveAttribute("aria-selected", "true");
+    > 333 |     await expect.poll(() => warmEntryCount(page), { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
+  1 failed
+    Error: (d) DA panel-list requests
+    [32m- Expected  - 1[39m
+    [31m+ Received  + 3[39m
+      341 |     await expect(cell(page, "North").first()).toBeVisible();
+    > 343 |     expect(net.since(from, PANEL_LIST, sharedId), "(d) DA panel-list requests").toEqual([]);
+      344 |     expect(net.since(from, PANEL_ROWS, sharedId), "(d) DA rows requests").toEqual([]);
+  1 failed
+    Error: (d) DA rows requests
+    [32m- Expected  - 1[39m
+    [31m+ Received  + 3[39m
+      343 |     expect(net.since(from, PANEL_LIST, sharedId), "(d) DA panel-list requests").toEqual([]);
+    > 344 |     expect(net.since(from, PANEL_ROWS, sharedId), "(d) DA rows requests").toEqual([]);
+      347 |     expectInvariant(net.stop());
+  1 failed

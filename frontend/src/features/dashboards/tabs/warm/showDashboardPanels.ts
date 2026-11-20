@@ -1,6 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 
-import { isKnownNonOwnedDashboard } from "../../state/dashboardAccess";
 import type { RootState } from "../../../../store/store";
 import { invalidateOutput } from "../../../panels/state/outputFreshness";
 import {
@@ -9,7 +8,9 @@ import {
   restoreFinished,
   restoreStarted,
 } from "../../../panels/state/panelsSlice";
-import { unscopeOutput } from "../../../panels/state/outputMetaCache";
+import { applyPanelReadScopes } from "../../../panels/state/applyPanelReadScopes";
+import { clearRestoreMarkersExcept, markRestored } from "../../../panels/state/restoreMarkers";
+import { seedPanelStatusBaseline } from "../../../panels/state/panelStatusStore";
 import { serverNowMs } from "../serverClock";
 import { parseInstant } from "../tabTypes";
 import {
@@ -22,6 +23,7 @@ import {
 } from "./warmCache";
 import { LAZY_RESTORE_TIMEOUT_MS } from "./warmConfig";
 import { applyWarmEntry, readStoredEntry } from "./warmRestore";
+import { knownReadScope, scopeOf } from "./warmScope";
 import { isContentValid, isTabWarm, isWindowFresh, panelOutputIds } from "./warmValidity";
 
 type Thunk = { state: RootState };
@@ -36,6 +38,13 @@ function restoreFromMemory(
 ): boolean {
   const entry = getListEntry(dashboardId);
   if (entry === undefined) return false;
+  // HEL-1783 D3: the copy is used only while the caller's current role is known and matches the scope it was read under.
+  const scope = knownReadScope(state, dashboardId);
+  if (scope === null || scopeOf(entry) !== scope) {
+    dropListEntry(dashboardId);
+    releaseTab(dashboardId);
+    return false;
+  }
   const tab = state.dashboardTabs.tabs.find((t) => t.id === dashboardId);
   const signal = state.dashboardTabs.changeSignals[dashboardId];
   const own = Math.max(
@@ -60,9 +69,32 @@ function restoreFromMemory(
   // The cards about to mount retain their own Outputs; the tab-level hold is no longer needed (the 30 s
   // remount grace covers the gap between this release and their mount effect).
   releaseTab(dashboardId);
-  // HEL-1773: a restore never reaches `fetchPanels`, which is where an owned dashboard clears the per-panel read scope of its
-  // Outputs (set when a shared dashboard bound to the same Output was viewed): do the same here, before any card mounts.
-  for (const outputId of panelOutputIds(entry.panels)) unscopeOutput(outputId);
+  // HEL-1773/HEL-1783: a restore never reaches `fetchPanels`, which is where each bound Output gets its read scope (an owner
+  // clears the per-panel scope a shared dashboard left on the same Output; a non-owner sets it): the same call, before any card mounts.
+  applyPanelReadScopes(entry.panels, dashboardId, scope === "panel");
+  if (scope === "panel") {
+    // D3b/D4: each window this restore KEPT (not invalidated above) may be reused by its panel's first mount and baselines
+    // that panel's run-finish refresh on its restored capture time.
+    const kept: Record<string, number> = {};
+    for (const panel of entry.panels) {
+      const window = state.panels.paginationState[panel.id];
+      const outputId = window?.lastQuery?.outputId;
+      if (
+        window === undefined ||
+        outputId === undefined ||
+        window.capturedAt === undefined ||
+        window.lastFetchOk !== true ||
+        !isWindowFresh(window.capturedAt, outputId, signal)
+      ) {
+        continue;
+      }
+      kept[panel.id] = window.capturedAt;
+    }
+    markRestored(dashboardId, Object.keys(kept));
+    seedPanelStatusBaseline(dashboardId, kept);
+  } else {
+    clearRestoreMarkersExcept(dashboardId);
+  }
   dispatch(panelsRestored({ dashboardId, items: entry.panels }));
   return true;
 }
@@ -81,11 +113,7 @@ export const showDashboardPanels = createAsyncThunk<void, string, Thunk>(
       return;
     }
     const userId = first.auth.currentUser?.id ?? null;
-    // HEL-1773: a dashboard the caller does not own is never restored from the warm cache (it is never captured).
-    const warm =
-      userId !== null &&
-      !isKnownNonOwnedDashboard(first, dashboardId) &&
-      isTabWarm(first.dashboardTabs.tabs, dashboardId, serverNowMs());
+    const warm = userId !== null && isTabWarm(first.dashboardTabs.tabs, dashboardId, serverNowMs());
     if (warm && userId !== null) {
       const hadMemoryCopy = getListEntry(dashboardId) !== undefined;
       if (restoreFromMemory(first, dashboardId, dispatch)) return;
@@ -107,6 +135,7 @@ export const showDashboardPanels = createAsyncThunk<void, string, Thunk>(
             entry: stored,
             signal: now.dashboardTabs.changeSignals[dashboardId],
             tabOwnWriteAt: parseInstant(tab?.ownWriteAt),
+            scope: knownReadScope(now, dashboardId),
           });
           if (applied && restoreFromMemory(getState(), dashboardId, dispatch)) return;
           if (!applied) void getWarmStore().remove(userId, dashboardId);

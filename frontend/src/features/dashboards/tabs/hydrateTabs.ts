@@ -15,6 +15,7 @@ import { getWarmStore } from "./warm/warmCache";
 import { HYDRATE_RESTORE_TIMEOUT_MS, LAZY_RESTORE_TIMEOUT_MS } from "./warm/warmConfig";
 import { applyWarmEntry, readStoredEntry } from "./warm/warmRestore";
 import { isTabWarm } from "./warm/warmValidity";
+import { knownReadScope } from "./warm/warmScope";
 
 /** `/dashboards/:id` (the authenticated route, HEL-1209) -> `:id`; anything else -> null. The public
  *  viewer is the longer `/dashboards/:id/panels` and is deliberately not matched. */
@@ -113,6 +114,7 @@ async function boundedRestore(
     entry,
     signal: now.dashboardTabs.changeSignals[target],
     tabOwnWriteAt: parseInstant(tab?.ownWriteAt),
+    scope: knownReadScope(now, target),
   });
   if (!applied) {
     void getWarmStore().remove(user.id, target);

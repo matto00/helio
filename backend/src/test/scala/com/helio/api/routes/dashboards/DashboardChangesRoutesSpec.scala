@@ -25,6 +25,9 @@ class DashboardChangesRoutesSpec extends TwoUserRlsApiFixture with OutputHistory
       responseAs[String].parseJson.asJsObject
     }
 
+  private def responseText(user: String, ids: String): String =
+    req(HttpMethods.GET, s"/api/dashboard-changes?ids=$ids", user) ~> routes ~> check { responseAs[String] }
+
   private def items(user: String, ids: String): Vector[JsObject] =
     changes(user, ids).fields("items").asInstanceOf[JsArray].elements.map(_.asJsObject)
 
@@ -52,10 +55,10 @@ class DashboardChangesRoutesSpec extends TwoUserRlsApiFixture with OutputHistory
              VALUES ($outputId, $pipelineId, $pipelineId, ${UUID.randomUUID().toString}, 'manual', ${Timestamp.from(at)}, 1, '{"v":1}'::jsonb)"""
     ))
 
-  private def share(resourceType: String, resourceId: String, grantee: String): Unit =
+  private def share(resourceType: String, resourceId: String, grantee: String, role: String = "viewer"): Unit =
     await(privilegedDb.run(
       sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
-             VALUES ($resourceType, $resourceId, $grantee::uuid, 'viewer', now())"""
+             VALUES ($resourceType, $resourceId, $grantee::uuid, $role, now())"""
     ))
 
   private def reset(): Unit =
@@ -111,22 +114,69 @@ class DashboardChangesRoutesSpec extends TwoUserRlsApiFixture with OutputHistory
       item.fields("outputs").asInstanceOf[JsArray].elements.head.asJsObject.fields("dataUpdatedAt") shouldBe JsNull
     }
 
-    "show a dashboard-only grantee the dashboard but no data time, and a pipeline grantee the data time" in {
+    "give a dashboard-only grantee the data times of the bound Outputs, each an id its own panel list returns (HEL-1783)" in {
       reset()
-      val (p, o) = seedPipelineWithOutput(userA)
+      val (p1, o1) = seedPipelineWithOutput(userA, "table")
+      val (p2, o2) = seedPipelineWithOutput(userA, "table")
+      val (pE, oE) = seedPipelineWithOutput(userA, "table")
+      val d        = seedDashboard(userA, "Shared")
+      val e        = seedDashboard(userA, "Unshared")
+      seedPanel(d, userA, Some(o1))
+      seedPanel(d, userA, Some(o1))
+      seedPanel(d, userA, Some(o2))
+      seedPanel(d, userA, None)
+      seedPanel(e, userA, Some(oE))
+      record(o1, p1, T0)
+      record(o1, p1, T1)
+      record(o2, p2, T2)
+      record(oE, pE, T2)
+      share("dashboard", d, userB)
+
+      val both = items(userB, s"$d,$e")
+      both.map(_.fields("dashboardId").convertTo[String]) shouldBe Vector(d)
+      val item    = both.head
+      Instant.parse(item.fields("dataUpdatedAt").convertTo[String]) shouldBe T2
+      val outputs = item.fields("outputs").asInstanceOf[JsArray].elements.map(_.asJsObject)
+      outputs.map(o => o.fields("outputId").convertTo[String] -> Instant.parse(o.fields("dataUpdatedAt").convertTo[String])).toMap shouldBe
+        Map(o1 -> T1, o2 -> T2)
+      outputs.flatMap(_.fields.keys).toSet shouldBe Set("outputId", "dataUpdatedAt")
+
+      val panelListOutputIds = req(HttpMethods.GET, s"/api/dashboards/$d/panels?limit=500", userB) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[String].parseJson.asJsObject.fields("items").asInstanceOf[JsArray].elements
+          .flatMap(_.asJsObject.fields("config").asJsObject.fields.get("outputId")).map(_.convertTo[String]).toSet
+      }
+      outputs.map(_.fields("outputId").convertTo[String]).toSet.subsetOf(panelListOutputIds) shouldBe true
+      responseText(userB, s"$d,$e") should not include oE
+    }
+
+    "give an editor grantee, a viewer grantee and a dual-grant user the same data time, and a stranger nothing (before being granted) (HEL-1783)" in {
+      reset()
+      val (p, o) = seedPipelineWithOutput(userA, "table")
       val d      = seedDashboard(userA, "Shared")
       seedPanel(d, userA, Some(o))
       record(o, p, T1)
-      share("dashboard", d, userB)
-
-      val dashboardOnly = items(userB, d)
-      dashboardOnly should have size 1
-      dashboardOnly.head.fields("dataUpdatedAt") shouldBe JsNull
-      dashboardOnly.head.fields("outputs") shouldBe JsArray()
-
+      items(userC, d) shouldBe empty // a stranger, until granted below
+      share("dashboard", d, userB, "editor")
+      Instant.parse(items(userB, d).head.fields("dataUpdatedAt").convertTo[String]) shouldBe T1 // editor, no pipeline grant
       share("pipeline", p, userB)
-      val withPipeline = items(userB, d).head
-      Instant.parse(withPipeline.fields("dataUpdatedAt").convertTo[String]) shouldBe T1
+      Instant.parse(items(userB, d).head.fields("dataUpdatedAt").convertTo[String]) shouldBe T1 // editor + pipeline grant
+      share("dashboard", d, userC) // viewer, no pipeline grant
+      Instant.parse(items(userC, d).head.fields("dataUpdatedAt").convertTo[String]) shouldBe T1
+
+    }
+
+    "omit a dashboard that carries only a public (no-grantee) grant for an authenticated stranger (HEL-1783)" in {
+      reset()
+      val (p, o) = seedPipelineWithOutput(userA, "table")
+      val d      = seedDashboard(userA, "Public")
+      seedPanel(d, userA, Some(o))
+      record(o, p, T1)
+      await(privilegedDb.run(
+        sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
+               VALUES ('dashboard', $d, NULL, 'viewer', now())"""
+      ))
+      items(userB, d) shouldBe empty
     }
 
     "omit another user's private dashboard and an unknown id without an error" in {

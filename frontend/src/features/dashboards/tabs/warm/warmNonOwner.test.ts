@@ -1,5 +1,6 @@
-// HEL-1773 D6: a dashboard the caller does not own is never kept in, or restored from, the warm cache: its panels were read
-// through the per-panel routes, and a warm copy is built from the Output path (rows, Output metadata, run baselines).
+// HEL-1773 D6 (inverted by HEL-1783): a dashboard the caller does not own USED to be neither kept in, nor restored from, the
+// warm cache. It is now kept (panel list + row windows only, `readScope: "panel"`) and restored through the per-panel routes;
+// `warmSharedDashboard.test.ts` holds the full matrix.
 import { fetchPanels as fetchPanelsRequest } from "../../../panels/services/panelService";
 import { dash, makeTabsStore, tab } from "../../../../test/tabsTestStore";
 import { outputPanel } from "../../../../test/warmFixtures";
@@ -35,7 +36,11 @@ function scene(accessRole: "owner" | "viewer") {
     changeSignals: { a: signal("a") },
   });
   // "a" was captured 30 min ago as part of leaving it.
-  setListEntry("a", { panels: panelsA, contentCapturedAt: Date.now() - 30 * 60_000 });
+  setListEntry("a", {
+    panels: panelsA,
+    contentCapturedAt: Date.now() - 30 * 60_000,
+    readScope: accessRole === "owner" ? "output" : "panel",
+  });
   return harness;
 }
 
@@ -54,16 +59,13 @@ describe("warm cache and a dashboard the caller does not own", () => {
     expect(fetchPanelsMock).not.toHaveBeenCalled();
   });
 
-  it("never restores a shared dashboard from the warm cache: it fetches through fetchPanels", async () => {
+  it("restores a shared dashboard's warm tab with no request (inverted from HEL-1773)", async () => {
     const { dispatch } = scene("viewer");
     await dispatch(showDashboardPanels("a"));
-    expect(fetchPanelsMock).toHaveBeenCalledWith("a");
+    expect(fetchPanelsMock).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["owner", true],
-    ["editor", false],
-  ] as const)("a %s dashboard's loaded panels are captured: %s", (role, captured) => {
+  it.each(["owner", "editor"] as const)("a %s dashboard's loaded panels are captured", (role) => {
     const { getState } = makeTabsStore({
       dashboards: [{ ...dash("a"), accessRole: role }],
       tabs: [tab("a", ago(1_000))],
@@ -71,9 +73,9 @@ describe("warm cache and a dashboard the caller does not own", () => {
       selected: "a",
       panels: { items: panelsA, loadedDashboardId: "a" },
     });
-    // A prior entry holding no panels: a capture replaces its panels with the loaded ones; a skipped one leaves it.
+    // A prior entry holding no panels: a capture replaces its panels with the loaded ones.
     setListEntry("a", { panels: [], contentCapturedAt: 1 });
     captureTab(getState, "a", { retain: false });
-    expect(getListEntry("a")?.panels).toEqual(captured ? panelsA : []);
+    expect(getListEntry("a")?.panels).toEqual(panelsA);
   });
 });

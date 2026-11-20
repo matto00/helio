@@ -57,6 +57,7 @@ async function restoredAfterReload(harness: ReturnType<typeof makeTabsStore>) {
   const state = harness.getState();
   const ownTab = parseInstant(state.dashboardTabs.tabs.find((t) => t.id === "a")?.ownWriteAt);
   const applied = applyWarmEntry({
+    scope: "output",
     dispatch: harness.dispatch,
     entry: stored,
     // The server committed the panel create 1.5 s ago; the pref flush on pagehide carried `ownWriteAt`.

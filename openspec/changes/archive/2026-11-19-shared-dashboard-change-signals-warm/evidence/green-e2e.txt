@@ -1,0 +1,9 @@
+
+Running 1 test using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1783-owner-1795128155721-9405@example.test
+[HEL-1300 e2e] throwaway user: hel1783-viewer-1795128156302-67048@example.test
+  ✓  1 [dev] › e2e/hel1783-shared-dashboard-tabs.spec.ts:250:7 › HEL-1783 a grantee's shared dashboard tab is warm and shows data-change dots › warm switch and reload make no panel requests; new data shows the dot and refreshes through the per-panel route (1.2m)
+[HEL-1301 e2e] deleted 2 recorded throwaway user(s)
+
+  1 passed (1.3m)

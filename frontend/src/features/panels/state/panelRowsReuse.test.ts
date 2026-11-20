@@ -6,7 +6,12 @@ import { hasRunBaseline } from "../services/pipelineRunFanout";
 import * as metaCache from "./outputMetaCache";
 
 jest.mock("../services/pipelineRunFanout", () => ({ hasRunBaseline: jest.fn() }));
-jest.mock("./outputMetaCache", () => ({ getOutputMetaCached: jest.fn() }));
+// `getOutputPanelScope` is `undefined` here (an owner's Output): the HEL-1783 per-panel branch has its own cases in
+// `usePanelData.restoreMarker.test.tsx`.
+jest.mock("./outputMetaCache", () => ({
+  getOutputMetaCached: jest.fn(),
+  getOutputPanelScope: jest.fn(),
+}));
 
 const q = { outputId: "o1", crossFilterEq: null };
 
