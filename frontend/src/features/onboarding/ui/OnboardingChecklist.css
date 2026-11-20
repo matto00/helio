@@ -168,9 +168,11 @@
   color: var(--app-accent-ink);
 }
 
-.onboarding-checklist__action--primary:hover:not(:disabled),
-.onboarding-checklist__done--primary:hover {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .onboarding-checklist__action--primary:hover:not(:disabled),
+  .onboarding-checklist__done--primary:hover {
+    background: var(--app-accent-strong);
+  }
 }
 
 .onboarding-checklist__action--secondary,
@@ -180,11 +182,13 @@
   color: var(--app-text-muted);
 }
 
-.onboarding-checklist__action--secondary:hover:not(:disabled),
-.onboarding-checklist__done--secondary:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .onboarding-checklist__action--secondary:hover:not(:disabled),
+  .onboarding-checklist__done--secondary:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 .onboarding-checklist__action--ghost {
@@ -192,9 +196,11 @@
   color: var(--app-text-muted);
 }
 
-.onboarding-checklist__action--ghost:hover:not(:disabled) {
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .onboarding-checklist__action--ghost:hover:not(:disabled) {
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 .onboarding-checklist__done {

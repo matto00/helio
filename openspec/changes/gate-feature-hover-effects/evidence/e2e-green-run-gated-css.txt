@@ -1,0 +1,27 @@
+HEL-1735 P dark verdicts
+P1 home card: green
+P2 sources list row: green
+P3 settings add color: green (control not under the pointer)
+P4 command bar logo: green
+HEL-1735 P light verdicts
+P1 home card: green
+P2 sources list row: green
+P3 settings add color: green (control not under the pointer)
+P4 command bar logo: green
+HEL-1735 T dark verdicts
+T1 dashboard tab: green
+T2 context-list selected dashboard row: green
+T3 rail item (Data Sources): green
+T4 sources list row: green
+T5 rail logo: green
+HEL-1735 T light verdicts
+T1 dashboard tab: green
+T2 context-list selected dashboard row: green
+T3 rail item (Data Sources): green
+T4 sources list row: green
+T5 rail logo: green
+HEL-1735 reveal dashboard row: trigger before tap {"x":67,"y":154.9568328857422,"width":3,"height":24}, after row tap {"x":267,"y":151,"width":24,"height":24}, popover clip|width auto|24px, menu opened by tapping the trigger: true
+HEL-1735 reveal assistant conversation row: actions-menu popovers=0, row-action button widths=[24,24]
+HEL-1735 reveal dashboard row: trigger before tap {"x":67,"y":154.9556884765625,"width":3,"height":24}, after row tap {"x":267,"y":151,"width":24,"height":24}, popover clip|width auto|24px, menu opened by tapping the trigger: true
+HEL-1735 reveal assistant conversation row: actions-menu popovers=0, row-action button widths=[24,24]
+  10 passed (1.3m)

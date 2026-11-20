@@ -54,8 +54,10 @@
   cursor: pointer;
 }
 
-.create-pipeline-modal__add-source-btn:hover {
-  text-decoration: underline;
+@media (hover: hover) {
+  .create-pipeline-modal__add-source-btn:hover {
+    text-decoration: underline;
+  }
 }
 
 .create-pipeline-modal__error {

@@ -44,9 +44,11 @@
   text-underline-offset: 2px;
 }
 
-.assistant-context-list__locked-link:hover {
-  background: var(--app-surface-strong);
-  text-decoration-thickness: 2px;
+@media (hover: hover) {
+  .assistant-context-list__locked-link:hover {
+    background: var(--app-surface-strong);
+    text-decoration-thickness: 2px;
+  }
 }
 
 .assistant-context-list__locked-link:focus-visible {

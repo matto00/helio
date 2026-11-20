@@ -21,9 +21,11 @@
     color var(--app-transition);
 }
 
-.palette-search-box:hover {
-  border-color: var(--app-border-strong);
-  color: var(--app-text);
+@media (hover: hover) {
+  .palette-search-box:hover {
+    border-color: var(--app-border-strong);
+    color: var(--app-text);
+  }
 }
 
 .palette-search-box__icon {

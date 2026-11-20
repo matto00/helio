@@ -1,0 +1,65 @@
+  ✓   1 [dev] › e2e/hel1572-appearance-preferences.spec.ts:173:7 › HEL-1572 type style › no flash: cached reload applies the style before React's first DOM, and the first heading is already serif (4.8
+  ✓   2 [dev] › e2e/hel1572-appearance-preferences.spec.ts:126:7 › HEL-1572 type style › re-renders headings with no reload and survives a fresh browser context (another device) (7.1s)
+  ✓   3 [dev] › e2e/hel1572-appearance-preferences.spec.ts:194:7 › HEL-1572 type style › no flash: first heading is serif on a new device (no cache) too (3.8s)
+  ✓   4 [dev] › e2e/hel1572-appearance-preferences.spec.ts:228:7 › HEL-1572 type style › no flash: Home's opening sentence is serif on a new device (no cache) after sign-in (HEL-1578) (3.6s)
+  ✓   5 [dev] › e2e/hel1572-appearance-preferences.spec.ts:247:7 › HEL-1572 type style › probe sensitivity (negative control): the heading probe FAILS when the server value is withheld (3.2s)
+  ✓   6 [dev] › e2e/hel1572-appearance-preferences.spec.ts:267:7 › HEL-1572 type style › probe sensitivity (negative control): with the pre-paint script stripped, the attribute lands only after React'
+  ✓   7 [dev] › e2e/hel1572-appearance-preferences.spec.ts:353:7 › HEL-1572 density › Compact changes the grid gutter and row padding; panel tops do not move (7.0s)
+  ✓   8 [dev] › e2e/hel1572-appearance-preferences.spec.ts:404:7 › HEL-1572 density › Compact tightens overview list rows and the context list by the documented token difference (4.7s)
+  ✓  10 [dev] › e2e/hel1572-appearance-preferences.spec.ts:505:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 375px (3.5s)
+  ✓   9 [dev] › e2e/hel1572-appearance-preferences.spec.ts:460:7 › HEL-1572 motion › Off pins the tokens near zero; Full keeps them; no saved choice follows OS reduce-motion; explicit Full beats it (4
+  ✓  12 [dev] › e2e/hel1572-appearance-preferences.spec.ts:505:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 1280px (3.1s)
+  ✓  11 [dev] › e2e/hel1572-appearance-preferences.spec.ts:505:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 768px (3.6s)
+  ✓  14 [dev] › e2e/hel1572-appearance-preferences.spec.ts:576:7 › HEL-1572 Appearance tap targets › clipping sweep is failable: an injected fixed-width label is flagged (3.2s)
+  ✓  13 [dev] › e2e/hel1572-appearance-preferences.spec.ts:549:7 › HEL-1572 Appearance tap targets › under Mono no Appearance control or bottom-nav/command-bar label is clipped (non-ellipsized overflo
+  ✓  15 [dev] › e2e/hel1572-appearance-preferences.spec.ts:601:7 › HEL-1572 tabular numerals under every style › equal-digit durations render at equal width under sans / mono / serif, and the check fa
+  ✓  16 [dev] › e2e/hel1584-motion-surfaces.spec.ts:343:9 › HEL-1584 grid, modal and palette: full / light (11.5s)
+  ✓  17 [dev] › e2e/hel1584-motion-surfaces.spec.ts:343:9 › HEL-1584 grid, modal and palette: full / dark (11.5s)
+  ✓  18 [dev] › e2e/hel1584-motion-surfaces.spec.ts:343:9 › HEL-1584 grid, modal and palette: subtle / light (10.9s)
+  ✓  19 [dev] › e2e/hel1584-motion-surfaces.spec.ts:343:9 › HEL-1584 grid, modal and palette: subtle / dark (10.9s)
+  ✓  20 [dev] › e2e/hel1584-motion-surfaces.spec.ts:343:9 › HEL-1584 grid, modal and palette: off / light (10.7s)
+  ✓  21 [dev] › e2e/hel1584-motion-surfaces.spec.ts:343:9 › HEL-1584 grid, modal and palette: off / dark (10.8s)
+  ✓  22 [dev] › e2e/hel1584-motion-surfaces.spec.ts:343:9 › HEL-1584 grid, modal and palette: os-reduce / light (10.6s)
+  ✓  23 [dev] › e2e/hel1584-motion-surfaces.spec.ts:343:9 › HEL-1584 grid, modal and palette: os-reduce / dark (10.7s)
+  ✓  25 [dev] › e2e/hel1584-motion-surfaces.spec.ts:445:9 › HEL-1584 the new crossfade layers keep their container's width › grid root, phone stack and a lazily loaded route at 1440px (8.7s)
+  ✓  24 [dev] › e2e/hel1584-motion-surfaces.spec.ts:350:7 › HEL-1584 when the grid enters › a warm tab switch, a Home round trip and an edit refetch play no entrance; an added panel pops (14.6s)
+  ✓  26 [dev] › e2e/hel1584-motion-surfaces.spec.ts:445:9 › HEL-1584 the new crossfade layers keep their container's width › grid root, phone stack and a lazily loaded route at 375px (8.5s)
+  ✓  27 [dev] › e2e/hel1584-motion-surfaces.spec.ts:498:7 › HEL-1584 chart refresh › a same-shape data refresh morphs the series in place under Full (bars never collapse to zero) (8.6s)
+  ✓  28 [dev] › e2e/hel1584-motion-surfaces.spec.ts:605:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (light) (8.0s)
+  ✓  29 [dev] › e2e/hel1584-motion-surfaces.spec.ts:605:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (dark) (8.0s)
+  ✓  31 [dev] › e2e/hel1668-schema-panel-copy.spec.ts:44:9 › HEL-1668 item 4 desktop schema panel at 1280x840 › a panel whose content fits above its trigger opens above although its 24rem cap would no
+  ✓  30 [dev] › e2e/hel1668-phone-sheet.spec.ts:36:9 › HEL-1668 phone sheet polish at 375x812 › item 1: the ?step= deep link opens that step's sheet, closing clears it, an unknown id opens none (375x8
+  ✓  32 [dev] › e2e/hel1668-schema-panel-copy.spec.ts:73:9 › HEL-1668 item 4 desktop schema panel at 1280x840 › content taller than the room above opens on the roomier side, capped, inside the viewpor
+  ✓  33 [dev] › e2e/hel1668-phone-sheet.spec.ts:67:9 › HEL-1668 phone sheet polish at 375x812 › item 1: narrowing a desktop page to the phone width opens no sheet (375x812) (4.1s)
+  ✓  34 [dev] › e2e/hel1668-schema-panel-copy.spec.ts:44:9 › HEL-1668 item 4 desktop schema panel at 1000x800 › a panel whose content fits above its trigger opens above although its 24rem cap would no
+  ✓  35 [dev] › e2e/hel1668-phone-sheet.spec.ts:86:9 › HEL-1668 phone sheet polish at 375x812 › item 2: a failed step move's error toast shows above the sheet, is dismissable and was announced after i
+  ✓  36 [dev] › e2e/hel1668-schema-panel-copy.spec.ts:73:9 › HEL-1668 item 4 desktop schema panel at 1000x800 › content taller than the room above opens on the roomier side, capped, inside the viewpor
+  ✓  37 [dev] › e2e/hel1668-phone-sheet.spec.ts:184:9 › HEL-1668 phone sheet polish at 375x812 › item 3: Escape closes only the schema panel, then only the step menu, then the sheet (375x812) (6.9s)
+  ✓  38 [dev] › e2e/hel1668-schema-panel-copy.spec.ts:112:9 › HEL-1668 item 4 phone schema panel at 375x812 › a panel opened below its trigger on the phone Preview tab ends above the bottom nav (375x8
+  ✓  40 [dev] › e2e/hel1668-schema-panel-copy.spec.ts:112:9 › HEL-1668 item 4 phone schema panel at 768x1024 › a panel opened below its trigger on the phone Preview tab ends above the bottom nav (768x
+  ✓  39 [dev] › e2e/hel1668-phone-sheet.spec.ts:217:9 › HEL-1668 phone sheet polish at 375x812 › item 5: a touch tap leaves no sticky hover fill on the step row (375x812) (7.3s)
+  ✓  41 [dev] › e2e/hel1668-schema-panel-copy.spec.ts:172:7 › HEL-1668 item 5 compact spine on a touch tablet (1024x800) › a tapped compact row keeps its accent select, shows a transparent menu clear 
+  ✓  42 [dev] › e2e/hel1668-phone-sheet.spec.ts:36:9 › HEL-1668 phone sheet polish at 390x844 › item 1: the ?step= deep link opens that step's sheet, closing clears it, an unknown id opens none (390x8
+  ✓  43 [dev] › e2e/hel1668-schema-panel-copy.spec.ts:254:9 › HEL-1668 item 6 copy at 375x812 › the source card names Static once, the Output reads "from", and an 8-digit row count never clips the tim
+  ✓  44 [dev] › e2e/hel1668-phone-sheet.spec.ts:67:9 › HEL-1668 phone sheet polish at 390x844 › item 1: narrowing a desktop page to the phone width opens no sheet (390x844) (4.1s)
+  ✓  45 [dev] › e2e/hel1668-schema-panel-copy.spec.ts:254:9 › HEL-1668 item 6 copy at 390x844 › the source card names Static once, the Output reads "from", and an 8-digit row count never clips the tim
+  ✓  47 [dev] › e2e/hel1668-schema-panel-copy.spec.ts:254:9 › HEL-1668 item 6 copy at 768x1024 › the source card names Static once, the Output reads "from", and an 8-digit row count never clips the ti
+  ✓  46 [dev] › e2e/hel1668-phone-sheet.spec.ts:86:9 › HEL-1668 phone sheet polish at 390x844 › item 2: a failed step move's error toast shows above the sheet, is dismissable and was announced after i
+  ✓  48 [dev] › e2e/hel1668-schema-panel-copy.spec.ts:254:9 › HEL-1668 item 6 copy at 1000x800 › the source card names Static once, the Output reads "from", and an 8-digit row count never clips the ti
+  ✓  49 [dev] › e2e/hel1668-phone-sheet.spec.ts:184:9 › HEL-1668 phone sheet polish at 390x844 › item 3: Escape closes only the schema panel, then only the step menu, then the sheet (390x844) (7.0s)
+  ✓  50 [dev] › e2e/hel1668-schema-panel-copy.spec.ts:254:9 › HEL-1668 item 6 copy at 1280x800 › the source card names Static once, the Output reads "from", and an 8-digit row count never clips the ti
+  ✓  52 [dev] › e2e/hel1773-viewer-grantee-dashboard.spec.ts:348:7 › HEL-1773 dashboard grantees open a shared dashboard › viewer grantee: signing in lands on their own dashboard, not a newer shared o
+  ✓  53 [dev] › e2e/hel1773-viewer-grantee-dashboard.spec.ts:356:7 › HEL-1773 dashboard grantees open a shared dashboard › viewer grantee opens the shared dashboard read-only, through per-panel routes
+  ✓  51 [dev] › e2e/hel1668-phone-sheet.spec.ts:217:9 › HEL-1668 phone sheet polish at 390x844 › item 5: a touch tap leaves no sticky hover fill on the step row (390x844) (7.4s)
+  ✓  54 [dev] › e2e/hel1773-viewer-grantee-dashboard.spec.ts:425:7 › HEL-1773 dashboard grantees open a shared dashboard › viewer grantee: Home lists the shared dashboard with the Shared marker (1.4s)
+  ✓  56 [dev] › e2e/hel1773-viewer-grantee-dashboard.spec.ts:435:7 › HEL-1773 dashboard grantees open a shared dashboard › viewer grantee opens the shared dashboard on a phone (1.7s)
+  ✓  55 [dev] › e2e/hel1668-phone-sheet.spec.ts:36:9 › HEL-1668 phone sheet polish at 768x1024 › item 1: the ?step= deep link opens that step's sheet, closing clears it, an unknown id opens none (768x
+  ✓  57 [dev] › e2e/hel1773-viewer-grantee-dashboard.spec.ts:456:7 › HEL-1773 dashboard grantees open a shared dashboard › editor grantee edits within what the server permits, through per-panel routes
+  ✓  59 [dev] › e2e/hel1773-viewer-grantee-dashboard.spec.ts:541:7 › HEL-1773 dashboard grantees open a shared dashboard › editor: switching from a shared dashboard to an owned one binding the same Ou
+  ✓  58 [dev] › e2e/hel1668-phone-sheet.spec.ts:67:9 › HEL-1668 phone sheet polish at 768x1024 › item 1: narrowing a desktop page to the phone width opens no sheet (768x1024) (4.1s)
+  ✓  60 [dev] › e2e/hel1773-viewer-grantee-dashboard.spec.ts:552:7 › HEL-1773 dashboard grantees open a shared dashboard › owner control: the owner is unchanged (edit controls, no Shared marker) (1.9s
+  ✓  62 [dev] › e2e/hel1773-viewer-grantee-dashboard.spec.ts:574:7 › HEL-1773 dashboard grantees open a shared dashboard › stranger control: a user with no grant gets not-found (1.5s)
+  ✓  61 [dev] › e2e/hel1668-phone-sheet.spec.ts:86:9 › HEL-1668 phone sheet polish at 768x1024 › item 2: a failed step move's error toast shows above the sheet, is dismissable and was announced after 
+  ✓  63 [dev] › e2e/hel1668-phone-sheet.spec.ts:184:9 › HEL-1668 phone sheet polish at 768x1024 › item 3: Escape closes only the schema panel, then only the step menu, then the sheet (768x1024) (6.3s)
+  ✓  64 [dev] › e2e/hel1668-phone-sheet.spec.ts:217:9 › HEL-1668 phone sheet polish at 768x1024 › item 5: a touch tap leaves no sticky hover fill on the step row (768x1024) (7.0s)
+  64 passed (3.6m)

@@ -50,8 +50,10 @@
   color: var(--app-accent-ink);
 }
 
-.beta-access-section__request-btn:hover:not(:disabled) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .beta-access-section__request-btn:hover:not(:disabled) {
+    background: var(--app-accent-strong);
+  }
 }
 
 /* "Redeem code" demoted to the Secondary recipe (DESIGN.md §5) so it no
@@ -63,10 +65,12 @@
   color: var(--app-text-muted);
 }
 
-.beta-access-section__redeem-btn:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .beta-access-section__redeem-btn:hover:not(:disabled) {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 .beta-access-section__request-btn:disabled,

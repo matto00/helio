@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 
 import {
+  PIPELINE_GUARDED_FILES,
   mixedGatedRules,
   parseRules,
   stripComments,
@@ -13,17 +14,10 @@ import {
 // the named reveal allowlist below; and no gated rule mixes a `:hover` selector with a non-hover one (a mixed list
 // would either un-gate the non-hover state or drag it into the gate).
 
-const FILES = [
-  "PipelineDetailPage.css",
-  "StepCardFocused.css",
-  "OutputSchemaDisclosure.css",
-  "mobile/PipelineMobile.css",
-  "spine/PipelineSpine.css",
-  "spine/PipelineSpineAccent.css",
-  "spine/PipelineSpineHeader.css",
-  "spine/PipelineSpineLayout.css",
-  "spine/StepPreviewTable.css",
-];
+const SRC = path.join(__dirname, "..", "..", "..");
+// Shared with the feature-wide guard (`featureHoverGating.css.test.ts`), which excludes exactly these files. Each entry is
+// re-relativized to this directory so `FileRules.file` and the allowlist below keep their short form.
+const FILES = PIPELINE_GUARDED_FILES.map((f) => path.relative(__dirname, path.join(SRC, f)));
 
 const COMPACT_CONTAINER = "@container spine-column (max-width: 226px)";
 

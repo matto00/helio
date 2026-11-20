@@ -76,9 +76,11 @@
     transform var(--motion-duration-move) var(--motion-ease-overshoot);
 }
 
-.panel-grid-card:hover {
-  border-color: var(--app-border-strong);
-  box-shadow: var(--app-shadow-soft);
+@media (hover: hover) {
+  .panel-grid-card:hover {
+    border-color: var(--app-border-strong);
+    box-shadow: var(--app-shadow-soft);
+  }
 }
 
 /* HEL-1584 drag lift and settle. The lift lives on the inner card because the item carries react-grid-layout's inline
@@ -193,9 +195,11 @@
 
 /* F-099: was undiscoverable beyond the `:active` cursor swap below — no
    feedback at all before the drag actually starts. */
-.panel-grid-card__handle:hover {
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .panel-grid-card__handle:hover {
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 .panel-grid-card__handle:active {
@@ -235,9 +239,11 @@
     border-color var(--app-transition);
 }
 
-.panel-grid-card__delete-confirm-btn:hover {
-  background: var(--app-error-surface);
-  border-color: var(--app-error);
+@media (hover: hover) {
+  .panel-grid-card__delete-confirm-btn:hover {
+    background: var(--app-error-surface);
+    border-color: var(--app-error);
+  }
 }
 
 /* Delete-cancel button: HEL-718 (skeptic-final-1.md Change Request 1) --
@@ -324,9 +330,11 @@
   line-height: inherit;
 }
 
-.ui-input.panel-grid-card__title-input:hover:not(:disabled):not(:focus) {
-  border-color: transparent;
-  border-bottom-color: var(--app-accent);
+@media (hover: hover) {
+  .ui-input.panel-grid-card__title-input:hover:not(:disabled):not(:focus) {
+    border-color: transparent;
+    border-bottom-color: var(--app-accent);
+  }
 }
 
 /* HEL-1050 D8: repointed from --app-accent-strong (Yellow measured 2.78:1,

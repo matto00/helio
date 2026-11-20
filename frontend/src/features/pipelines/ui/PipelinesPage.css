@@ -17,12 +17,14 @@
   border-bottom: 1px solid var(--app-border-subtle);
 }
 
-.pipeline-list-table__row:hover {
-  /* HEL-866 evaluation-2.md cycle 3 (CR6) — real backdrop is `--app-bg`
+@media (hover: hover) {
+  .pipeline-list-table__row:hover {
+    /* HEL-866 evaluation-2.md cycle 3 (CR6) — real backdrop is `--app-bg`
      (the page canvas), where `--app-surface-raised` clears 1.10 in both
      themes (1.161 dark / 1.119 light). Reverted from `--app-surface-soft`
      (1.034 dark / 1.054 light on this backdrop). */
-  background: var(--app-surface-raised);
+    background: var(--app-surface-raised);
+  }
 }
 
 .pipeline-list-table__td {
@@ -64,9 +66,11 @@
   font-weight: var(--weight-medium);
 }
 
-.pipeline-list-table__link:hover {
-  color: var(--app-accent-text);
-  text-decoration: underline;
+@media (hover: hover) {
+  .pipeline-list-table__link:hover {
+    color: var(--app-accent-text);
+    text-decoration: underline;
+  }
 }
 
 /* F-137: `.pipeline-status*` is now dead CSS — PipelineListTable.tsx (its
@@ -103,8 +107,10 @@
   transition: background-color var(--app-transition);
 }
 
-.pipelines-page__create-btn:hover {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .pipelines-page__create-btn:hover {
+    background: var(--app-accent-strong);
+  }
 }
 
 .pipelines-page__create-btn:focus-visible {
@@ -162,8 +168,10 @@
    1.10 in BOTH themes (1.161 dark / 1.119 light) — used here rather than
    `--app-surface-soft` (which only measures 1.034/1.054 on this backdrop),
    matching the sibling row/table fixes on the same `--app-bg` family. */
-.pipeline-list-table__share-btn:hover {
-  background: var(--app-surface-raised);
-  border-color: var(--app-border-strong);
-  color: var(--app-text);
+@media (hover: hover) {
+  .pipeline-list-table__share-btn:hover {
+    background: var(--app-surface-raised);
+    border-color: var(--app-border-strong);
+    color: var(--app-text);
+  }
 }

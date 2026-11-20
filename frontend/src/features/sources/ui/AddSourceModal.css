@@ -71,9 +71,11 @@
     color var(--app-transition);
 }
 
-.add-source-modal__type-btn:hover {
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .add-source-modal__type-btn:hover {
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 /* F-170: fixed (theme-independent) mix percentage for the background
@@ -102,9 +104,11 @@
    class on specificity, so a hovered selected button fell back to the
    unselected hover treatment. Match `:hover`'s specificity so source order
    decides — this rule comes later, so it wins. */
-.add-source-modal__type-btn--active:hover {
-  background: color-mix(in srgb, var(--app-accent) 20%, transparent);
-  color: var(--app-accent-text);
+@media (hover: hover) {
+  .add-source-modal__type-btn--active:hover {
+    background: color-mix(in srgb, var(--app-accent) 20%, transparent);
+    color: var(--app-accent-text);
+  }
 }
 
 .add-source-modal__preview-hint {
@@ -228,10 +232,12 @@
   color: var(--app-text-muted);
 }
 
-.add-source-modal__btn--secondary:hover:not(:disabled) {
-  background: var(--app-surface-soft);
-  border-color: var(--app-border-strong);
-  color: var(--app-text);
+@media (hover: hover) {
+  .add-source-modal__btn--secondary:hover:not(:disabled) {
+    background: var(--app-surface-soft);
+    border-color: var(--app-border-strong);
+    color: var(--app-text);
+  }
 }
 
 .add-source-modal__btn--primary {
@@ -240,8 +246,10 @@
   color: var(--app-accent-ink);
 }
 
-.add-source-modal__btn--primary:hover:not(:disabled) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .add-source-modal__btn--primary:hover:not(:disabled) {
+    background: var(--app-accent-strong);
+  }
 }
 
 /* Misc legacy action-link used by SqlTab or StaticSourceForm children */
@@ -256,8 +264,10 @@
   transition: color var(--app-transition);
 }
 
-.add-source-modal__action-link:hover:not(:disabled) {
-  color: var(--app-error);
+@media (hover: hover) {
+  .add-source-modal__action-link:hover:not(:disabled) {
+    color: var(--app-error);
+  }
 }
 
 .add-source-modal__action-link:disabled {

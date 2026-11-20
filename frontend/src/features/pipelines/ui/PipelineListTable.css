@@ -61,10 +61,12 @@
 
 /* Secondary at rest, danger on hover: the same recipe as `.agent-memory-list-table__delete-btn` and
    `.api-tokens-list-table__revoke-btn` (DESIGN.md §5), so Delete matches the buttons around it. */
-.pipeline-list-table__delete-btn:hover {
-  border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
-  background: var(--app-error-surface);
-  color: var(--app-error);
+@media (hover: hover) {
+  .pipeline-list-table__delete-btn:hover {
+    border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
+    background: var(--app-error-surface);
+    color: var(--app-error);
+  }
 }
 
 .pipeline-list-table__delete-btn:focus-visible {

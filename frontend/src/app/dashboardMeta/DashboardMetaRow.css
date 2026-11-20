@@ -81,15 +81,26 @@
    control). The chrome's own wash pair, the one `.cmd-btn:hover` uses on `--app-surface` (soft in light,
    strong in dark: the only pair that clears the chrome contrast threshold in both themes), plus
    full-strength text. */
-.dashboard-meta-row__pressed,
-.app-command-bar .dashboard-meta-row__pressed:hover {
+.dashboard-meta-row__pressed {
   background: var(--app-surface-soft);
   color: var(--app-text);
 }
 
-:root[data-theme="dark"] .dashboard-meta-row__pressed,
-:root[data-theme="dark"] .app-command-bar .dashboard-meta-row__pressed:hover {
+@media (hover: hover) {
+  .app-command-bar .dashboard-meta-row__pressed:hover {
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
+}
+
+:root[data-theme="dark"] .dashboard-meta-row__pressed {
   background: var(--app-surface-strong);
+}
+
+@media (hover: hover) {
+  :root[data-theme="dark"] .app-command-bar .dashboard-meta-row__pressed:hover {
+    background: var(--app-surface-strong);
+  }
 }
 
 /* HEL-1583 D11: the phone "refreshed" caption, the first child of `.panel-list` above the dashboard chip row. In normal
@@ -147,9 +158,11 @@
     color var(--app-transition);
 }
 
-.dashboard-refresh-line__button:hover {
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .dashboard-refresh-line__button:hover {
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 .dashboard-refresh-line__button[aria-disabled="true"] {

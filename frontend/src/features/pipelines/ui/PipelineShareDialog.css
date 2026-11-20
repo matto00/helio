@@ -57,8 +57,10 @@
   border-radius: var(--app-radius-sm);
 }
 
-.pipeline-share-dialog__revoke-btn:hover {
-  background: var(--app-error-surface);
+@media (hover: hover) {
+  .pipeline-share-dialog__revoke-btn:hover {
+    background: var(--app-error-surface);
+  }
 }
 
 .pipeline-share-dialog__empty,

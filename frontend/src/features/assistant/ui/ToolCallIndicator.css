@@ -48,8 +48,10 @@
   transition: color var(--app-transition);
 }
 
-.tool-call-indicator__toggle:hover {
-  color: var(--app-text);
+@media (hover: hover) {
+  .tool-call-indicator__toggle:hover {
+    color: var(--app-text);
+  }
 }
 
 .tool-call-indicator__detail {

@@ -22,9 +22,11 @@
   cursor: pointer;
 }
 
-.dataset-row-grid__toolbar button:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .dataset-row-grid__toolbar button:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+  }
 }
 
 .dataset-row-grid__toolbar button:disabled {
@@ -91,10 +93,12 @@
   color: var(--app-text-muted);
 }
 
-.dataset-row-grid__btn--secondary:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .dataset-row-grid__btn--secondary:hover:not(:disabled) {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 .dataset-row-grid__btn--danger {
@@ -102,8 +106,10 @@
   color: var(--app-error);
 }
 
-.dataset-row-grid__btn--danger:hover:not(:disabled) {
-  background: var(--app-error-surface);
+@media (hover: hover) {
+  .dataset-row-grid__btn--danger:hover:not(:disabled) {
+    background: var(--app-error-surface);
+  }
 }
 
 .dataset-row-grid__btn--secondary:disabled,

@@ -57,8 +57,10 @@
   transition: background-color var(--app-transition);
 }
 
-.mfa-security-section__enable-btn:hover {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .mfa-security-section__enable-btn:hover {
+    background: var(--app-accent-strong);
+  }
 }
 
 .mfa-security-section__actions {
@@ -82,9 +84,11 @@
     color var(--app-transition);
 }
 
-.mfa-security-section__action-btn:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .mfa-security-section__action-btn:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+  }
 }
 
 .mfa-security-section__action-btn--danger {
@@ -92,8 +96,10 @@
   color: var(--app-error);
 }
 
-.mfa-security-section__action-btn--danger:hover {
-  background: var(--app-error-surface);
+@media (hover: hover) {
+  .mfa-security-section__action-btn--danger:hover {
+    background: var(--app-error-surface);
+  }
 }
 
 .mfa-security-section__prompt {
@@ -132,8 +138,10 @@
   transition: background-color var(--app-transition);
 }
 
-.mfa-security-section__confirm-btn:hover:not(:disabled) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .mfa-security-section__confirm-btn:hover:not(:disabled) {
+    background: var(--app-accent-strong);
+  }
 }
 
 .mfa-security-section__confirm-btn:disabled {
@@ -149,8 +157,10 @@
   color: var(--app-bg);
 }
 
-.mfa-security-section__confirm-btn--danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--app-error) 85%, black);
+@media (hover: hover) {
+  .mfa-security-section__confirm-btn--danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--app-error) 85%, black);
+  }
 }
 
 .mfa-security-section__cancel-btn {
@@ -169,9 +179,11 @@
     border-color var(--app-transition);
 }
 
-.mfa-security-section__cancel-btn:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .mfa-security-section__cancel-btn:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+  }
 }
 
 .mfa-security-section__done-btn {
@@ -188,6 +200,8 @@
   transition: background-color var(--app-transition);
 }
 
-.mfa-security-section__done-btn:hover {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .mfa-security-section__done-btn:hover {
+    background: var(--app-accent-strong);
+  }
 }

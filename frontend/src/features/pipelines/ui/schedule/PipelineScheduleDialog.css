@@ -73,10 +73,12 @@
     background-color var(--app-transition);
 }
 
-.pipeline-schedule-dialog__preset-btn:hover {
-  border-color: var(--app-border-strong);
-  color: var(--app-text);
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .pipeline-schedule-dialog__preset-btn:hover {
+    border-color: var(--app-border-strong);
+    color: var(--app-text);
+    background: var(--app-surface-soft);
+  }
 }
 
 .pipeline-schedule-dialog__next-run-preview {
@@ -126,7 +128,9 @@
   color: var(--app-error);
 }
 
-.pipeline-schedule-dialog__clear-btn:hover:not(:disabled) {
-  background: var(--app-error-surface);
-  border-color: var(--app-error);
+@media (hover: hover) {
+  .pipeline-schedule-dialog__clear-btn:hover:not(:disabled) {
+    background: var(--app-error-surface);
+    border-color: var(--app-error);
+  }
 }

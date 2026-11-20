@@ -515,10 +515,15 @@ control that is reachable only through hover) is a named exception: register it
 in the allowlist of the guard for its stylesheets, with its reason. Two guards
 enforce this and fail on an ungated `:hover`:
 `frontend/src/shared/sharedHoverGating.css.test.ts` (every stylesheet under
-`frontend/src/shared/`, discovered by walking the directory, empty allowlist)
-and `frontend/src/features/pipelines/ui/pipelineHoverGating.css.test.ts` (the
-pipeline page's stylesheets). Other feature stylesheets are not yet covered
-(HEL-1735). **[mechanical]**
+`frontend/src/shared/`, discovered by walking the directory, empty allowlist),
+`frontend/src/features/pipelines/ui/pipelineHoverGating.css.test.ts` (the
+pipeline page's nine stylesheets, listed once as `PIPELINE_GUARDED_FILES` in
+`frontend/src/test/cssHoverGating.ts`, with its own reveal allowlist) and
+`frontend/src/featureHoverGating.css.test.ts` (HEL-1735: every other stylesheet
+under `frontend/src/` -- app shell, dashboards, sources, home, panels, settings,
+landing -- discovered by walking the tree, so a new one is covered with no list
+to update; its allowlist holds the one dashboards-list row actions-menu reveal).
+Between them the three guards cover every stylesheet. **[mechanical]**
 
 **Chrome surfaces are borderless.** Inside `.app-command-bar`, the rail
 and the context list, every trigger drops its hairline at every width (`cmd-btn`,

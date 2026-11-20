@@ -62,10 +62,12 @@
     color var(--app-transition);
 }
 
-.dashboard-share-dialog__copy-btn:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .dashboard-share-dialog__copy-btn:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 .dashboard-share-dialog__done-btn {
@@ -83,8 +85,10 @@
   transition: background-color var(--app-transition);
 }
 
-.dashboard-share-dialog__done-btn:hover {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .dashboard-share-dialog__done-btn:hover {
+    background: var(--app-accent-strong);
+  }
 }
 
 /* ── Create form ── */
@@ -182,8 +186,10 @@
   border-radius: var(--app-radius-sm);
 }
 
-.dashboard-share-dialog__revoke-btn:hover {
-  background: var(--app-error-surface);
+@media (hover: hover) {
+  .dashboard-share-dialog__revoke-btn:hover {
+    background: var(--app-error-surface);
+  }
 }
 
 .dashboard-share-dialog__row-error {

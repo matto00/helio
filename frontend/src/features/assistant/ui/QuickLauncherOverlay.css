@@ -7,6 +7,8 @@
   text-decoration: none;
 }
 
-.quick-launcher-overlay__browse-link:hover {
-  text-decoration: underline;
+@media (hover: hover) {
+  .quick-launcher-overlay__browse-link:hover {
+    text-decoration: underline;
+  }
 }

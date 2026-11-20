@@ -40,9 +40,11 @@
     border-color var(--app-transition);
 }
 
-.first-run-templates__chip:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface);
+@media (hover: hover) {
+  .first-run-templates__chip:hover:not(:disabled) {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface);
+  }
 }
 
 .first-run-templates__chip:focus-visible {

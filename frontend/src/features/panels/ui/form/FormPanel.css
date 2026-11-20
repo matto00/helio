@@ -49,8 +49,10 @@
   transition: background-color var(--app-transition);
 }
 
-.form-panel-view__submit:hover:not([aria-disabled="true"]) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .form-panel-view__submit:hover:not([aria-disabled="true"]) {
+    background: var(--app-accent-strong);
+  }
 }
 
 /* HEL-1090: `aria-disabled`, not `:disabled` — see the button's own comment in
