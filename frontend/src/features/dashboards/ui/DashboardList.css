@@ -111,13 +111,15 @@
    `--app-surface-strong` clears it: 1.167 dark (#262320), 1.179 light (#ffffff). The `.context-list` overrides below
    and in `ContextList.css` therefore use strong; the sheet host is unaffected. Ratios computed from the token values
    with the WCAG relative-luminance formula. */
-.dashboard-list__filter-clear:hover {
-  background: var(--app-surface-soft);
-  color: var(--app-text);
-}
+@media (hover: hover) {
+  .dashboard-list__filter-clear:hover {
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 
-:root[data-theme="dark"] .context-list .dashboard-list__filter-clear:hover {
-  background: var(--app-surface-strong);
+  :root[data-theme="dark"] .context-list .dashboard-list__filter-clear:hover {
+    background: var(--app-surface-strong);
+  }
 }
 
 /* HEL-548 D8/7.1 — this button's icon moved from FontAwesome (which
@@ -173,8 +175,10 @@
   transition: background-color var(--app-transition);
 }
 
-.dashboard-list__create-submit:hover:not(:disabled) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .dashboard-list__create-submit:hover:not(:disabled) {
+    background: var(--app-accent-strong);
+  }
 }
 
 .dashboard-list__create-submit:disabled {
@@ -293,9 +297,11 @@
   color: var(--app-text-muted);
 }
 
-.dashboard-list__item-row .actions-menu__trigger:hover {
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .dashboard-list__item-row .actions-menu__trigger:hover {
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 .dashboard-list__item-row .actions-menu__trigger:focus-visible {
@@ -332,13 +338,15 @@
 }
 
 /* Same `.context-list` scoping and strong-on-soft step as `.dashboard-list__filter-clear` above. */
-.dashboard-list__row-action-btn:hover {
-  background: var(--app-surface-soft);
-  color: var(--app-text);
-}
+@media (hover: hover) {
+  .dashboard-list__row-action-btn:hover {
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 
-:root[data-theme="dark"] .context-list .dashboard-list__row-action-btn:hover {
-  background: var(--app-surface-strong);
+  :root[data-theme="dark"] .context-list .dashboard-list__row-action-btn:hover {
+    background: var(--app-surface-strong);
+  }
 }
 
 .dashboard-list__row-action-btn:focus-visible {
@@ -443,9 +451,11 @@
     border-color var(--app-transition);
 }
 
-.dashboard-list__delete-confirm-btn:hover {
-  background: var(--app-error-surface);
-  border-color: var(--app-error);
+@media (hover: hover) {
+  .dashboard-list__delete-confirm-btn:hover {
+    background: var(--app-error-surface);
+    border-color: var(--app-error);
+  }
 }
 
 .dashboard-list__delete-cancel-btn {
@@ -466,9 +476,11 @@
     color var(--app-transition);
 }
 
-.dashboard-list__delete-cancel-btn:hover {
-  border-color: var(--app-border-strong);
-  color: var(--app-text);
+@media (hover: hover) {
+  .dashboard-list__delete-cancel-btn:hover {
+    border-color: var(--app-border-strong);
+    color: var(--app-text);
+  }
 }
 
 .dashboard-list__button {
@@ -508,14 +520,16 @@
 
 /* A hovered row on the context list: soft on the soft backdrop is 1.000 (no visible band); strong is 1.167 dark and
    1.179 light (see the filter-clear note above). Same `.context-list` scoping as the siblings. */
-.dashboard-list__button:hover {
-  background: var(--app-surface-soft);
-  color: var(--app-text);
-  text-decoration: none;
-}
+@media (hover: hover) {
+  .dashboard-list__button:hover {
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+    text-decoration: none;
+  }
 
-:root[data-theme="dark"] .context-list .dashboard-list__button:hover {
-  background: var(--app-surface-strong);
+  :root[data-theme="dark"] .context-list .dashboard-list__button:hover {
+    background: var(--app-surface-strong);
+  }
 }
 
 .dashboard-list__button:focus-visible {
@@ -534,8 +548,10 @@
    background silently won on hover for the CURRENTLY-selected dashboard —
    the same `.active:hover` shape already fixed for the sidebar nav link.
    `--app-accent-mid` supplies a real, measurable step up. */
-.dashboard-list__button[aria-pressed="true"]:hover {
-  background: var(--app-accent-mid);
+@media (hover: hover) {
+  .dashboard-list__button[aria-pressed="true"]:hover {
+    background: var(--app-accent-mid);
+  }
 }
 
 .dashboard-list__status {
@@ -769,14 +785,16 @@
 }
 
 /* Same `.context-list` scoping and strong-on-soft step as the siblings above. */
-.dashboard-list__import-label:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
-}
+@media (hover: hover) {
+  .dashboard-list__import-label:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 
-:root[data-theme="dark"] .context-list .dashboard-list__import-label:hover {
-  background: var(--app-surface-strong);
+  :root[data-theme="dark"] .context-list .dashboard-list__import-label:hover {
+    background: var(--app-surface-strong);
+  }
 }
 
 .dashboard-list__import-input:focus-visible + .dashboard-list__import-label {
@@ -824,9 +842,11 @@
   text-align: left;
 }
 
-.dashboard-list__folder-toggle:hover {
-  background: var(--app-surface-strong);
-  color: var(--app-text);
+@media (hover: hover) {
+  .dashboard-list__folder-toggle:hover {
+    background: var(--app-surface-strong);
+    color: var(--app-text);
+  }
 }
 
 .dashboard-list__folder-toggle:focus-visible {
@@ -891,8 +911,10 @@
   cursor: pointer;
 }
 
-.dashboard-list__move-option:hover:not(:disabled) {
-  background: var(--app-surface-strong);
+@media (hover: hover) {
+  .dashboard-list__move-option:hover:not(:disabled) {
+    background: var(--app-surface-strong);
+  }
 }
 
 .dashboard-list__move-option:disabled {

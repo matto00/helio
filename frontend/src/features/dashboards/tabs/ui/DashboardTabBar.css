@@ -46,8 +46,10 @@
   color: var(--app-text-muted);
 }
 
-.dashboard-tab:hover {
-  color: var(--app-text);
+@media (hover: hover) {
+  .dashboard-tab:hover {
+    color: var(--app-text);
+  }
 }
 
 /* Hover/selected wash (HEL-866 state-surface guard; DESIGN.md section 3 rung table). The rung depends on the
@@ -55,19 +57,21 @@
    --app-surface-strong measures 1.167 dark / 1.179 light; the active tab sits on --app-surface, where the rung is
    --app-surface-strong in dark and --app-surface-soft in light (1.133 / 1.150). The wash is on the tab's name
    button and on the close control (siblings, so a nested interactive is never needed). */
-.dashboard-tab__button:hover,
-.dashboard-tab__close:hover {
-  background: var(--app-surface-strong);
-}
+@media (hover: hover) {
+  .dashboard-tab__button:hover,
+  .dashboard-tab__close:hover {
+    background: var(--app-surface-strong);
+  }
 
-.dashboard-tab--active .dashboard-tab__button:hover,
-.dashboard-tab--active .dashboard-tab__close:hover {
-  background: var(--app-surface-soft);
-}
+  .dashboard-tab--active .dashboard-tab__button:hover,
+  .dashboard-tab--active .dashboard-tab__close:hover {
+    background: var(--app-surface-soft);
+  }
 
-:root[data-theme="dark"] .dashboard-tab--active .dashboard-tab__button:hover,
-:root[data-theme="dark"] .dashboard-tab--active .dashboard-tab__close:hover {
-  background: var(--app-surface-strong);
+  :root[data-theme="dark"] .dashboard-tab--active .dashboard-tab__button:hover,
+  :root[data-theme="dark"] .dashboard-tab--active .dashboard-tab__close:hover {
+    background: var(--app-surface-strong);
+  }
 }
 
 .dashboard-tab--active {
@@ -172,8 +176,10 @@
   cursor: pointer;
 }
 
-.dashboard-tab__close:hover {
-  color: var(--app-text);
+@media (hover: hover) {
+  .dashboard-tab__close:hover {
+    color: var(--app-text);
+  }
 }
 
 .dashboard-tab-bar__add {
@@ -182,8 +188,10 @@
 }
 
 /* The ghost IconButton's hover wash is --app-surface-soft, the bar's own background: nothing would change. */
-.dashboard-tab-bar .dashboard-tab-bar__add:hover:not(:disabled) {
-  background: var(--app-surface-strong);
+@media (hover: hover) {
+  .dashboard-tab-bar .dashboard-tab-bar__add:hover:not(:disabled) {
+    background: var(--app-surface-strong);
+  }
 }
 
 .dashboard-tab-bar__spacer {

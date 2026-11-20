@@ -104,8 +104,10 @@ body.landing {
 .nav-links a {
   text-decoration: none;
 }
-.nav-links a:hover {
-  color: var(--app-text);
+@media (hover: hover) {
+  .nav-links a:hover {
+    color: var(--app-text);
+  }
 }
 @media (max-width: 768px) {
   .nav-links {
@@ -133,8 +135,10 @@ body.landing {
   white-space: nowrap;
   cursor: pointer;
 }
-.btn:hover {
-  border-color: var(--app-text);
+@media (hover: hover) {
+  .btn:hover {
+    border-color: var(--app-text);
+  }
 }
 .btn:disabled {
   opacity: 0.6;
@@ -145,9 +149,11 @@ body.landing {
   border-color: var(--app-accent);
   color: var(--app-accent-ink);
 }
-.btn-primary:hover {
-  border-color: var(--app-accent);
-  filter: brightness(1.06);
+@media (hover: hover) {
+  .btn-primary:hover {
+    border-color: var(--app-accent);
+    filter: brightness(1.06);
+  }
 }
 .btn-sm {
   min-height: var(--control-md);
@@ -241,9 +247,11 @@ body.landing {
   background: transparent;
   color: var(--app-text-muted);
 }
-.case:hover {
-  color: var(--app-text);
-  border-color: var(--app-text);
+@media (hover: hover) {
+  .case:hover {
+    color: var(--app-text);
+    border-color: var(--app-text);
+  }
 }
 .case[aria-current="true"] {
   background: var(--app-text);
@@ -311,10 +319,16 @@ body.landing {
   cursor: pointer;
   border-radius: var(--app-radius-md);
 }
-.hot:hover,
 .hot[aria-expanded="true"] {
   outline: var(--app-focus-ring);
   outline-offset: -2px;
+}
+
+@media (hover: hover) {
+  .hot:hover {
+    outline: var(--app-focus-ring);
+    outline-offset: -2px;
+  }
 }
 .hint {
   position: absolute;

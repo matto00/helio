@@ -64,10 +64,16 @@
    (`--card--focused`, driven by `aria-selected`) is the ONE place this card
    uses the accent, via the standard §8 focus ring, at the standard 2px
    offset so it stays visually distinct from hover. */
-.output-picker__card:hover,
 .output-picker__card--hovered {
   border-color: var(--app-border-strong);
   background: var(--app-surface-soft);
+}
+
+@media (hover: hover) {
+  .output-picker__card:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+  }
 }
 
 .output-picker__card--focused {

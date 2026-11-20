@@ -1,0 +1,44 @@
+HEL-1735 P dark verdicts
+P1 home card: RED [["borderTopColor","rgba(242, 239, 233, 0.09)","rgba(242, 239, 233, 0.18)"],["borderLeftColor","rgba(242, 239, 233, 0.09)","rgba(242, 239, 233, 0.18)"]]
+P2 sources list row: green
+P3 settings add color: green (control not under the pointer)
+P4 command bar logo: RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(38, 35, 32)"]]
+  1) [dev] › e2e/hel1735-feature-hover.spec.ts:163:11 › HEL-1735 touch P: no sticky hover on feature controls › a real tap leaves every control at its rest paint (P, dark) 
+    Error: P1 home card sticky hover after tap
+    Error: P4 command bar logo sticky hover after tap
+HEL-1735 P light verdicts
+P1 home card: RED [["borderTopColor","rgba(33, 29, 25, 0.11)","rgba(33, 29, 25, 0.2)"],["borderLeftColor","rgba(33, 29, 25, 0.11)","rgba(33, 29, 25, 0.2)"]]
+P2 sources list row: green
+P3 settings add color: green (control not under the pointer)
+P4 command bar logo: RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(239, 236, 230)"]]
+  2) [dev] › e2e/hel1735-feature-hover.spec.ts:163:11 › HEL-1735 touch P: no sticky hover on feature controls › a real tap leaves every control at its rest paint (P, light) 
+    Error: P1 home card sticky hover after tap
+    Error: P4 command bar logo sticky hover after tap
+HEL-1735 T dark verdicts
+T1 dashboard tab: RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(38, 35, 32)"]]
+T2 context-list selected dashboard row: RED [["backgroundColor","color(srgb 0.976471 0.45098 0.0862745 / 0.1)","rgb(38, 35, 32)"]]
+T3 rail item (Data Sources): RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(38, 35, 32)"],["borderTopColor","rgb(170, 164, 156)","rgb(242, 239, 233)"],["borderLeftColor","rgb(170, 164, 156)","rgb(242, 239, 233)"],["color","rgb(170, 164, 156)","rgb(242, 239, 2
+T4 sources list row: RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(35, 32, 25)"]]
+T5 rail logo: RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(38, 35, 32)"]]
+  3) [dev] › e2e/hel1735-feature-hover.spec.ts:163:11 › HEL-1735 touch T: no sticky hover on feature controls › a real tap leaves every control at its rest paint (T, dark) 
+    Error: T1 dashboard tab sticky hover after tap
+    Error: T2 context-list selected dashboard row sticky hover after tap
+    Error: T3 rail item (Data Sources) sticky hover after tap
+    Error: T5 rail logo sticky hover after tap
+HEL-1735 T light verdicts
+T1 dashboard tab: RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(239, 236, 230)"]]
+T2 context-list selected dashboard row: RED [["backgroundColor","color(srgb 0.976471 0.45098 0.0862745 / 0.08)","color(srgb 0.976471 0.45098 0.0862745 / 0.26)"]]
+T3 rail item (Data Sources): RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(255, 255, 255)"],["borderTopColor","rgb(100, 94, 86)","rgb(33, 29, 25)"],["borderLeftColor","rgb(100, 94, 86)","rgb(33, 29, 25)"],["color","rgb(100, 94, 86)","rgb(33, 29, 25)"],["outl
+T4 sources list row: RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(255, 255, 255)"]]
+T5 rail logo: RED [["backgroundColor","rgba(0, 0, 0, 0)","rgb(255, 255, 255)"]]
+  4) [dev] › e2e/hel1735-feature-hover.spec.ts:163:11 › HEL-1735 touch T: no sticky hover on feature controls › a real tap leaves every control at its rest paint (T, light) 
+    Error: T1 dashboard tab sticky hover after tap
+    Error: T2 context-list selected dashboard row sticky hover after tap
+    Error: T3 rail item (Data Sources) sticky hover after tap
+    Error: T5 rail logo sticky hover after tap
+HEL-1735 reveal dashboard row: trigger before tap {"x":67,"y":154.9524383544922,"width":3,"height":24}, after row tap {"x":267,"y":151,"width":24,"height":24}, popover clip|width auto|24px, menu opened by tapping the trigger: true
+HEL-1735 reveal assistant conversation row: actions-menu popovers=0, row-action button widths=[24,24]
+HEL-1735 reveal dashboard row: trigger before tap {"x":67,"y":154.96043395996094,"width":3,"height":23.999984741210938}, after row tap {"x":267,"y":151,"width":24,"height":24}, popover clip|width auto|24px, menu opened by tapping the trigger: true
+HEL-1735 reveal assistant conversation row: actions-menu popovers=0, row-action button widths=[24,24]
+  4 failed
+  6 passed (1.4m)

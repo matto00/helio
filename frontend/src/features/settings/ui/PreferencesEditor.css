@@ -152,10 +152,12 @@
     color var(--app-transition);
 }
 
-.preferences-editor__add-btn:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .preferences-editor__add-btn:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 /* HEL-866 evaluation-1.md cycle 2 — measured live (state-surface-contrast-
@@ -163,8 +165,10 @@
    (the settings page body), not `--app-surface-strong`, so soft-on-surface
    clears 1.10 in light (1.150) but not dark (1.030) — the same "on-surface
    chrome backdrop" shape already scoped in App.css for `.cmd-btn`/etc. */
-:root[data-theme="dark"] .preferences-editor__add-btn:hover {
-  background: var(--app-surface-strong);
+@media (hover: hover) {
+  :root[data-theme="dark"] .preferences-editor__add-btn:hover {
+    background: var(--app-surface-strong);
+  }
 }
 
 .preferences-editor__actions {
@@ -195,8 +199,10 @@
   transition: background-color var(--app-transition);
 }
 
-.preferences-editor__save-btn:hover:not(:disabled) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .preferences-editor__save-btn:hover:not(:disabled) {
+    background: var(--app-accent-strong);
+  }
 }
 
 .preferences-editor__save-btn:disabled {

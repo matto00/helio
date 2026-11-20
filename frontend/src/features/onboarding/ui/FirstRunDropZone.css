@@ -147,8 +147,10 @@
   color: var(--app-accent-ink);
 }
 
-.first-run-drop__button--primary:hover:not(:disabled) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .first-run-drop__button--primary:hover:not(:disabled) {
+    background: var(--app-accent-strong);
+  }
 }
 
 .first-run-drop__button--secondary {
@@ -157,10 +159,12 @@
   color: var(--app-text-muted);
 }
 
-.first-run-drop__button--secondary:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .first-run-drop__button--secondary:hover:not(:disabled) {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 .first-run-drop__button--ghost {
@@ -168,9 +172,11 @@
   color: var(--app-text-muted);
 }
 
-.first-run-drop__button--ghost:hover:not(:disabled) {
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .first-run-drop__button--ghost:hover:not(:disabled) {
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 /* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */

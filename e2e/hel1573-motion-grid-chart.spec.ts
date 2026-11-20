@@ -9,7 +9,7 @@ import { post, seedWorld, setMotion } from "./support/motionPrimitivesSeed";
 import { waitForPanelGrid } from "./support/panelGridReady";
 
 // HEL-1573 -- the panel-grid vendor overrides (C2, HEL-1032), a real drag and resize, and the chart entrance (C1,
-// HEL-1034), all in a real browser. Split from hel1573-motion-primitives.spec.ts, which holds the per-mode matrix.
+// HEL-1034), all in a real browser. Split from the hel1573-motion-primitives-*.spec.ts parts, which hold the per-mode matrix.
 
 test.describe.configure({ mode: "parallel" });
 test.use({ video: "on", viewport: { width: 1900, height: 1000 } });

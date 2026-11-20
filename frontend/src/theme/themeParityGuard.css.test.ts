@@ -19,7 +19,7 @@ import path from "path";
 //      the dark block still resolves there, so a dark-only token passes
 //      check-tokens cleanly -- that guard has no notion of "declared in
 //      both theme blocks", which is the only thing this guard checks.
-//   2. `state-surface-contrast-guard.spec.ts` (HEL-866, `e2e/`) walks the
+//   2. `state-surface-contrast-guard-*.spec.ts` (HEL-866, `e2e/`) walks the
 //      RUNNING app and asserts rendered contrast ratios. It is a dynamic,
 //      browser-driven measurement with no static parse of `theme.css` at
 //      all, so it is structurally blind to a token defined in one theme

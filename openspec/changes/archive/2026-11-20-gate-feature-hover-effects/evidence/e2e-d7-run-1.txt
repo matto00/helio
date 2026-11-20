@@ -1,0 +1,23 @@
+  ✓   2 [dev] › e2e/hel1003-actions-menu-keyboard-reach.spec.ts:29:7 › HEL-1003 dashboard-row ActionsMenu keyboard reachability (desktop) › negative control: probe reports not-found against a name wit
+  ✓   1 [dev] › e2e/hel1007-multi-root-reorder.spec.ts:51:7 › HEL-1007 reorder every root's lane › keyboard reorder in root 1's lane persists across reload; root 0 untouched; names and focus (4.9s)
+  ✓   3 [dev] › e2e/hel1003-actions-menu-keyboard-reach.spec.ts:42:7 › HEL-1003 dashboard-row ActionsMenu keyboard reachability (desktop) › resting trigger is a real focus target: .focus() lands on th
+  ✓   4 [dev] › e2e/hel1608-spine-count-overlap.spec.ts:96:5 › compact spine rows: a 6-character row count never overlaps the summary (5.1s)
+  ✓   5 [dev] › e2e/hel1003-actions-menu-keyboard-reach.spec.ts:79:7 › HEL-1003 dashboard-row ActionsMenu keyboard reachability (desktop) › resting geometry unchanged and reveal paints correctly (posi
+  ✓   7 [dev] › e2e/hel1003-actions-menu-keyboard-reach.spec.ts:134:7 › HEL-1003 dashboard-row ActionsMenu keyboard reachability (desktop) › keyboard: Tab reaches trigger, Enter opens menu, Escape res
+  ✓   6 [dev] › e2e/hel1608-spine-count-overlap.spec.ts:155:5 › compact mode is on at 769-1009px and off at 1100px (list default); elsewhere it follows the column (11.4s)
+  ✓   8 [dev] › e2e/hel1675-shared-hover.spec.ts:305:9 › HEL-1675 touch: no sticky hover on shared controls › a real tap leaves every shared control at its rest paint (dark) (14.0s)
+  ✓  10 [dev] › e2e/hel1675-shared-hover.spec.ts:305:9 › HEL-1675 touch: no sticky hover on shared controls › a real tap leaves every shared control at its rest paint (light) (13.9s)
+  ✓   9 [dev] › e2e/hel1608-spine-count-overlap.spec.ts:244:5 › spine row menu: one rule (cards and the selected row always show it, unselected rows on hover/focus); empty markers take no space (32.2s
+  ✓  11 [dev] › e2e/hel1675-shared-hover.spec.ts:359:9 › HEL-1675 desktop: hover unchanged › a mouse hover paints the recorded values (dark) (13.7s)
+  ✓  12 [dev] › e2e/hel1608-spine-count-overlap.spec.ts:357:5 › an empty markers slot leaves the flow on every desktop row (8.0s)
+  ✓  14 [dev] › e2e/hel1608-spine-count-overlap.spec.ts:389:7 › no-hover input › a tap on a hidden menu selects the row; a second tap on the revealed menu opens it (7.0s)
+  ✓  13 [dev] › e2e/hel1675-shared-hover.spec.ts:359:9 › HEL-1675 desktop: hover unchanged › a mouse hover paints the recorded values (light) (13.9s)
+  ✓  16 [dev] › e2e/hel1790-hover-probe.spec.ts:27:7 › HEL-1790 guard: the select trigger's rest read is not hovered (dark) (4.0s)
+  ✓  15 [dev] › e2e/hel1750-actions-menu-viewport-fit.spec.ts:102:7 › rail: no phantom page scroll and no row shift on hover (1280x400, dark) (6.1s)
+  ✓  17 [dev] › e2e/hel1790-hover-probe.spec.ts:27:7 › HEL-1790 guard: the select trigger's rest read is not hovered (light) (4.0s)
+  ✓  18 [dev] › e2e/hel1750-actions-menu-viewport-fit.spec.ts:146:7 › rail: hovering the last row, scrolled to its end, does not shift it (1280x400, dark) (5.9s)
+  ✓  19 [dev] › e2e/hel1750-actions-menu-viewport-fit.spec.ts:102:7 › rail: no phantom page scroll and no row shift on hover (1280x400, light) (5.6s)
+  ✓  20 [dev] › e2e/hel1750-actions-menu-viewport-fit.spec.ts:146:7 › rail: hovering the last row, scrolled to its end, does not shift it (1280x400, light) (5.7s)
+  ✓  21 [dev] › e2e/hel1750-actions-menu-viewport-fit.spec.ts:192:7 › HEL-1750 actions menu fits the viewport › desktop: last dashboard-list row's menu is fully reachable in a short viewport (5.7s)
+  ✓  22 [dev] › e2e/hel1750-actions-menu-viewport-fit.spec.ts:226:9 › HEL-1750 actions menu fits the viewport › phone › phone (short, touch-sized): the step sheet's Step actions menu is fully reachabl
+  22 passed (1.7m)

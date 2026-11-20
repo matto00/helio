@@ -63,10 +63,12 @@
     color var(--app-transition);
 }
 
-.api-tokens-section__copy-btn:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .api-tokens-section__copy-btn:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 .api-tokens-section__done-btn {
@@ -83,8 +85,10 @@
   transition: background-color var(--app-transition);
 }
 
-.api-tokens-section__done-btn:hover {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .api-tokens-section__done-btn:hover {
+    background: var(--app-accent-strong);
+  }
 }
 
 .api-tokens-section__create-row {
@@ -111,8 +115,10 @@
   transition: background-color var(--app-transition);
 }
 
-.api-tokens-section__create-btn:hover:not(:disabled) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .api-tokens-section__create-btn:hover:not(:disabled) {
+    background: var(--app-accent-strong);
+  }
 }
 
 .api-tokens-section__create-btn:disabled {
@@ -135,8 +141,10 @@
   border-bottom: 1px solid var(--app-border-subtle);
 }
 
-.api-tokens-list-table__row:hover {
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .api-tokens-list-table__row:hover {
+    background: var(--app-surface-soft);
+  }
 }
 
 .api-tokens-list-table__td {
@@ -175,8 +183,10 @@
     color var(--app-transition);
 }
 
-.api-tokens-list-table__revoke-btn:hover {
-  border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
-  background: var(--app-error-surface);
-  color: var(--app-error);
+@media (hover: hover) {
+  .api-tokens-list-table__revoke-btn:hover {
+    border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
+    background: var(--app-error-surface);
+    color: var(--app-error);
+  }
 }

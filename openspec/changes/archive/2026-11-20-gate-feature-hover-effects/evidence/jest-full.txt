@@ -1,0 +1,10 @@
+npm test exit=0 (3 workers, nice 19)
+
+
+Test Suites: 874 passed, 874 total
+Tests:       10320 passed, 10320 total
+Snapshots:   20 passed, 20 total
+Time:        67.452 s
+Ran all test suites.
+
+lint, format:check, typecheck: all exit 0 (run before this commit)

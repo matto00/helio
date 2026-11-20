@@ -41,10 +41,12 @@
     color var(--app-transition);
 }
 
-.first-run-refine__button:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .first-run-refine__button:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 /* Touch gate, not a width gate — see `shared/ui/tapTarget.css`. */

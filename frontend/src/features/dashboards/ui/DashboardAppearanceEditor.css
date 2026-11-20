@@ -71,8 +71,10 @@
   transition: background-color var(--app-transition);
 }
 
-.dashboard-appearance-editor__save:hover:not([aria-disabled="true"]) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .dashboard-appearance-editor__save:hover:not([aria-disabled="true"]) {
+    background: var(--app-accent-strong);
+  }
 }
 
 .dashboard-appearance-editor__save[aria-disabled="true"] {
@@ -105,10 +107,12 @@
     color var(--app-transition);
 }
 
-.appearance-preset:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .appearance-preset:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 .appearance-preset:focus-visible {

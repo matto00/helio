@@ -1,5 +1,5 @@
 // HEL-866 — the mechanical population selector shared by
-// state-surface-contrast-guard.spec.ts (design.md D4.1). No file list, no
+// state-surface-contrast-guard-*.spec.ts (design.md D4.1). No file list, no
 // component list — just interactive-role conventions. Kept in its own
 // module (rather than inlined in the spec) so it is the single, obviously
 // reusable definition rather than a constant buried in a large spec file.

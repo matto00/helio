@@ -158,8 +158,10 @@
   color: var(--app-accent-ink);
 }
 
-.refinement-drawer__submit:hover:not(:disabled) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .refinement-drawer__submit:hover:not(:disabled) {
+    background: var(--app-accent-strong);
+  }
 }
 
 .refinement-drawer__submit:disabled {
@@ -174,11 +176,13 @@
   color: var(--app-text-muted);
 }
 
-.refinement-drawer__review:hover,
-.refinement-drawer__retry:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .refinement-drawer__review:hover,
+  .refinement-drawer__retry:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 .refinement-drawer__progress {

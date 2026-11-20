@@ -66,8 +66,10 @@
   color: var(--app-accent-ink);
 }
 
-.inline-connector-setup__btn--primary:hover:not(:disabled) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .inline-connector-setup__btn--primary:hover:not(:disabled) {
+    background: var(--app-accent-strong);
+  }
 }
 
 .inline-connector-setup__btn:disabled {

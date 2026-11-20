@@ -42,9 +42,11 @@
     color var(--app-transition);
 }
 
-.key-value-list-field__add:hover {
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .key-value-list-field__add:hover {
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 @media (max-width: 430px) {

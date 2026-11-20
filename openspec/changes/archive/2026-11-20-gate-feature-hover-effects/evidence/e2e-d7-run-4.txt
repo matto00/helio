@@ -1,0 +1,21 @@
+  ✓   1 [dev] › e2e/state-surface-contrast-guard.spec.ts:779:9 › HEL-866 state-surface contrast guard › overlays: command palette, modal and actions menu state backgrounds differ measurably from their
+  ✓   2 [dev] › e2e/state-surface-contrast-guard.spec.ts:779:9 › HEL-866 state-surface contrast guard › overlays: command palette, modal and actions menu state backgrounds differ measurably from their
+  ✓   3 [dev] › e2e/state-surface-contrast-guard.spec.ts:872:11 › HEL-866 state-surface contrast guard › /settings: every interactive state background differs measurably from its resolved backdrop (da
+  ✓   4 [dev] › e2e/state-surface-contrast-guard.spec.ts:872:11 › HEL-866 state-surface contrast guard › /settings: every interactive state background differs measurably from its resolved backdrop (li
+  ✓   5 [dev] › e2e/state-surface-contrast-guard.spec.ts:872:11 › HEL-866 state-surface contrast guard › pipeline-detail: every interactive state background differs measurably from its resolved backdr
+  ✓   6 [dev] › e2e/state-surface-contrast-guard.spec.ts:872:11 › HEL-866 state-surface contrast guard › pipeline-detail: every interactive state background differs measurably from its resolved backdr
+  ✓   7 [dev] › e2e/state-surface-contrast-guard.spec.ts:872:11 › HEL-866 state-surface contrast guard › /sources: every interactive state background differs measurably from its resolved backdrop (dar
+  ✓   8 [dev] › e2e/state-surface-contrast-guard.spec.ts:872:11 › HEL-866 state-surface contrast guard › /sources: every interactive state background differs measurably from its resolved backdrop (lig
+  ✓   9 [dev] › e2e/state-surface-contrast-guard.spec.ts:872:11 › HEL-866 state-surface contrast guard › /pipelines: every interactive state background differs measurably from its resolved backdrop (d
+  ✓  10 [dev] › e2e/state-surface-contrast-guard.spec.ts:872:11 › HEL-866 state-surface contrast guard › /pipelines: every interactive state background differs measurably from its resolved backdrop (l
+  ✓  12 [dev] › e2e/state-surface-contrast-guard.spec.ts:872:11 › HEL-866 state-surface contrast guard › /home: every interactive state background differs measurably from its resolved backdrop (light)
+  ✓  11 [dev] › e2e/state-surface-contrast-guard.spec.ts:872:11 › HEL-866 state-surface contrast guard › /home: every interactive state background differs measurably from its resolved backdrop (dark) 
+  ✓  14 [dev] › e2e/state-surface-contrast-guard.spec.ts:872:11 › HEL-866 state-surface contrast guard › /dashboards: every interactive state background differs measurably from its resolved backdrop (
+  ✓  13 [dev] › e2e/state-surface-contrast-guard.spec.ts:872:11 › HEL-866 state-surface contrast guard › /dashboards: every interactive state background differs measurably from its resolved backdrop (
+  ✓  15 [dev] › e2e/state-surface-contrast-guard.spec.ts:872:11 › HEL-866 state-surface contrast guard › /chat: every interactive state background differs measurably from its resolved backdrop (dark) 
+  ✓  16 [dev] › e2e/state-surface-contrast-guard.spec.ts:872:11 › HEL-866 state-surface contrast guard › /chat: every interactive state background differs measurably from its resolved backdrop (light)
+  ✓  17 [dev] › e2e/state-surface-contrast-guard.spec.ts:872:11 › HEL-866 state-surface contrast guard › /connectors: every interactive state background differs measurably from its resolved backdrop (
+  ✓  18 [dev] › e2e/state-surface-contrast-guard.spec.ts:872:11 › HEL-866 state-surface contrast guard › /connectors: every interactive state background differs measurably from its resolved backdrop (
+  ✓  19 [dev] › e2e/state-surface-contrast-guard.spec.ts:969:9 › HEL-866 state-surface contrast guard › chrome: every interactive state background differs measurably from its resolved backdrop (dark) 
+  ✓  20 [dev] › e2e/state-surface-contrast-guard.spec.ts:969:9 › HEL-866 state-surface contrast guard › chrome: every interactive state background differs measurably from its resolved backdrop (light)
+  20 passed (1.7m)

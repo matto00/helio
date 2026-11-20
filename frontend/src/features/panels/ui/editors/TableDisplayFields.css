@@ -59,8 +59,10 @@
   min-width: 0;
 }
 
-.table-display-fields__column-row:hover {
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .table-display-fields__column-row:hover {
+    background: var(--app-surface-soft);
+  }
 }
 
 .table-display-fields__column-visibility {
@@ -113,10 +115,12 @@
     color var(--app-transition);
 }
 
-.table-display-fields__reset-widths-btn:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .table-display-fields__reset-widths-btn:hover:not(:disabled) {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 .table-display-fields__reset-widths-btn:disabled {

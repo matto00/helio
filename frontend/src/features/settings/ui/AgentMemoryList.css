@@ -30,8 +30,10 @@
   transition: background-color var(--app-transition);
 }
 
-.agent-memory-list__clear-all-btn:hover {
-  background: var(--app-error-surface);
+@media (hover: hover) {
+  .agent-memory-list__clear-all-btn:hover {
+    background: var(--app-error-surface);
+  }
 }
 
 /* The "Clear all" and per-row delete confirm/cancel affordances both moved
@@ -57,8 +59,10 @@
   border-bottom: 1px solid var(--app-border-subtle);
 }
 
-.agent-memory-list-table__row:hover {
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .agent-memory-list-table__row:hover {
+    background: var(--app-surface-soft);
+  }
 }
 
 .agent-memory-list-table__td {
@@ -117,8 +121,10 @@
     color var(--app-transition);
 }
 
-.agent-memory-list-table__delete-btn:hover {
-  border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
-  background: var(--app-error-surface);
-  color: var(--app-error);
+@media (hover: hover) {
+  .agent-memory-list-table__delete-btn:hover {
+    border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
+    background: var(--app-error-surface);
+    color: var(--app-error);
+  }
 }

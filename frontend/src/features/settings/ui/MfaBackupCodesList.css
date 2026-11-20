@@ -54,8 +54,10 @@
     color var(--app-transition);
 }
 
-.mfa-backup-codes__copy-btn:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .mfa-backup-codes__copy-btn:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }

@@ -42,19 +42,26 @@
 
 /* Chrome controls drop their hairline here, as in the command bar. */
 .context-list .ui-icon-btn,
-.context-list .ui-icon-btn:hover:not(:disabled),
-.context-list .actions-menu__trigger,
-.context-list .actions-menu__trigger:hover {
+.context-list .actions-menu__trigger {
   border-color: transparent;
+}
+
+@media (hover: hover) {
+  .context-list .ui-icon-btn:hover:not(:disabled),
+  .context-list .actions-menu__trigger:hover {
+    border-color: transparent;
+  }
 }
 
 /* Row hover on the list's own backdrop: `--app-surface-strong` is the one step that clears it in both themes (a soft
    wash on a soft backdrop would be invisible). */
-.context-list .dashboard-list__button:hover,
-.context-list .context-list__row:hover,
-.context-list .ui-icon-btn--secondary:hover:not(:disabled),
-.context-list .actions-menu__trigger:hover:not(:disabled) {
-  background: var(--app-surface-strong);
+@media (hover: hover) {
+  .context-list .dashboard-list__button:hover,
+  .context-list .context-list__row:hover,
+  .context-list .ui-icon-btn--secondary:hover:not(:disabled),
+  .context-list .actions-menu__trigger:hover:not(:disabled) {
+    background: var(--app-surface-strong);
+  }
 }
 
 /* Resize handle: an 8px-wide hit area straddling the list's trailing edge, drawing a 1px hairline that takes the
@@ -81,9 +88,14 @@
   transition: background-color var(--motion-duration-quick) var(--motion-ease-standard);
 }
 
-.context-list__separator:hover::after,
 .context-list__separator[data-dragging="true"]::after {
   background: var(--app-border-strong);
+}
+
+@media (hover: hover) {
+  .context-list__separator:hover::after {
+    background: var(--app-border-strong);
+  }
 }
 
 .context-list__separator:focus-visible {
@@ -140,8 +152,10 @@
   background: var(--app-accent-dim);
 }
 
-.context-list .context-list__row[aria-current="page"]:hover {
-  background: var(--app-accent-mid);
+@media (hover: hover) {
+  .context-list .context-list__row[aria-current="page"]:hover {
+    background: var(--app-accent-mid);
+  }
 }
 
 .context-list__row:focus-visible {
@@ -186,8 +200,10 @@
   text-underline-offset: 2px;
 }
 
-.context-list__link:hover {
-  color: var(--app-text);
+@media (hover: hover) {
+  .context-list__link:hover {
+    color: var(--app-text);
+  }
 }
 
 .context-list__link:focus-visible {
