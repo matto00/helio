@@ -270,7 +270,7 @@ class AssistantProposalToolSchemasSpec
   }
 
   private def assertListsEveryKindAndShape(doc: String): Unit = {
-    OutputConfigValidation.DocumentedKnownKeys.values.flatten.foreach(k => doc should include(k))
+    OutputConfigValidation.KnownKeys.values.flatten.foreach(k => doc should include(k))
     doc should include("{ groupBy, agg, yField }")
     doc should include("{ agg }")
     doc should include("{ value, agg }")
@@ -285,6 +285,26 @@ class AssistantProposalToolSchemasSpec
         doc should include(OutputConfigValidation.KeysDoc)
         assertListsEveryKindAndShape(doc)
       }
+    }
+
+    // HEL-1779 (RED on main): the proposal tools offer exactly the canonical kinds, insight included.
+    Seq("propose_pipeline", "propose_combined").foreach { tool =>
+      s"offer exactly OutputKind.all (insight included) as $tool's Output kind enum, and state the new-pipeline reads rule" in {
+        val schema = AssistantProtocol.assistantTools.find(_.name == tool).get.inputSchema
+        val outputs = findFirst(schema, "outputs").getOrElse(fail("no outputs property"))
+        val kinds = outputs.asJsObject.fields("items").asJsObject.fields("properties").asJsObject.fields("kind").asJsObject.fields("enum").convertTo[Vector[String]]
+        kinds.toSet shouldBe OutputKind.all.map(OutputKind.asString).toSet
+        val doc = descriptionAt(outputs, "items", "properties", "config")
+        doc should include("a non-empty reads.outputs is rejected")
+        doc should include("refresh: \"manual\"")
+      }
+    }
+
+    "state the existing-pipeline reads.outputs rule on propose_patch_set's edit patch description (HEL-1779, RED on main)" in {
+      val schema = AssistantProtocol.assistantTools.find(_.name == "propose_patch_set").get.inputSchema
+      val doc = descriptionAt(schema, "properties", "edits", "items", "properties", "patch")
+      doc should include("reads.outputs names stored ids")
+      doc should include("insight:")
     }
 
     "document them on propose_patch_set's edit patch description" in {

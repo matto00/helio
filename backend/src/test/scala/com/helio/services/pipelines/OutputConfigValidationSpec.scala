@@ -176,9 +176,10 @@ class OutputConfigValidationSpec extends AnyWordSpec with Matchers {
 
   "KeysDoc" should {
     "mention every kind's keys and both aggregation shapes" in {
-      OutputConfigValidation.DocumentedKnownKeys.values.flatten.foreach(k => OutputConfigValidation.KeysDoc should include(k))
-      // HEL-1740: insight is documented nowhere until the proposal surface accepts it (HEL-1747).
-      OutputConfigValidation.KeysDoc should not include "insight"
+      OutputConfigValidation.KnownKeys.values.flatten.foreach(k => OutputConfigValidation.KeysDoc should include(k))
+      // HEL-1779: insight is documented too (the assistant's proposal tools take it), and the shared-keys sentence excludes it.
+      OutputConfigValidation.KeysDoc should include("insight:")
+      OutputConfigValidation.KeysDoc should include("Every kind except insight -- compare, fieldMapping, historyPayloads")
       OutputConfigValidation.KeysDoc should include("{ groupBy, agg, yField }")
       OutputConfigValidation.KeysDoc should include("{ agg }")
       OutputConfigValidation.KeysDoc should include("{ value, agg }")

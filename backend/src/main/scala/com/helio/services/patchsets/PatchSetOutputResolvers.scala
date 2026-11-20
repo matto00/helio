@@ -3,8 +3,9 @@ package com.helio.services.patchsets
 import com.helio.services.ServiceError
 import com.helio.api.protocols.patchsets.Edit
 import com.helio.api.protocols.pipelines.CreateOutputRequest
+import com.helio.domain.outputs.{InsightConfig, InsightReadsCheck}
 import com.helio.domain.model.{AuthenticatedUser, Output, OutputId, OutputKind, PipelineId, PipelineStepId}
-import com.helio.services.pipelines.{OutputFieldMappingCheck, OutputService, PipelineNodeSchemas}
+import com.helio.services.pipelines.{OutputConfigValidation, OutputFieldMappingCheck, OutputService, PipelineNodeSchemas}
 import PatchSetApplyServiceJson._
 import PatchSetResolverSupport.{authorizeEditorOrOwnerOnPipeline, decodeCreatePatch}
 import spray.json.JsObject
@@ -50,7 +51,18 @@ private[patchsets] object PatchSetOutputResolvers {
               case Some(existingConfig) =>
                 edit.outputPatch match {
                   case None => Left(ServiceError.BadRequest(s"edit $index: patch is required for an output update"))
-                  case Some(request) =>
+                  case Some(request) => Right((request, existingConfig))
+                }
+            }.flatMap {
+              case Left(err) => Future.successful(Left(err))
+              case Right((request, existingConfig)) =>
+                // HEL-1779 D4: apply (`OutputService.update`) refuses an insight whose `reads.outputs` names anything but another
+                // non-insight Output of its pipeline; preview must say so too. `validateConfig` is already run by the projection.
+                request.config.fold(Future.successful(Right(()): Either[String, Unit])) { patch =>
+                  insightReadsProblem(existing.kind, Some(outputId), existing.node.pipelineId, patch, existingConfig, ctx)
+                }.map {
+                  case Left(msg) => Left(ServiceError.BadRequest(s"edit $index: $msg"))
+                  case Right(()) =>
                     Right(ResolvedEdit(
                       index, "output", "update",
                       Some(outputResponseFormat.write(outputResponseFrom(existing, existingConfig))),
@@ -60,6 +72,18 @@ private[patchsets] object PatchSetOutputResolvers {
             }
         }
     }
+
+  /** The stored-id half of an insight's `reads.outputs` against the pipeline's Outputs as they are NOW (the set-level pass
+   *  [[rejectReadsOfDeletedOutputs]] removes the ones the same set deletes). Left carries the bare message. */
+  private def insightReadsProblem(
+      kind: OutputKind, insightId: Option[OutputId], pipelineId: PipelineId, written: JsObject, stored: JsObject, ctx: PatchSetApplyContext
+  )(implicit ec: ExecutionContext): Future[Either[String, Unit]] =
+    if (kind != OutputKind.Insight || !written.fields.contains("reads")) Future.successful(Right(()))
+    else
+      // ACL: `listByPipelineInternal` bypasses RLS; the caller already proved owner (update) or owner/editor (create) on this pipeline.
+      ctx.outputRepo.listByPipelineInternal(pipelineId).map { outputs =>
+        InsightReadsCheck.check(kind, insightId, written, stored, outputs.map(o => o.id -> o.kind).toMap, OutputConfigValidation.isSelectableModel)
+      }
 
   private[patchsets] def resolveOutputDelete(
       edit: Edit,
@@ -116,13 +140,21 @@ private[patchsets] object PatchSetOutputResolvers {
                       case None => Future.successful(Left(ServiceError.NotFound(s"edit $index: pipeline not found")))
                       case Some(pipeline) =>
                         val nodeStepId = PipelineStepId(request.nodeStepId.getOrElse(""))
-                        PipelineNodeSchemas.schemaAtNode(pipelineId, pipeline.ownerId, nodeStepId, ctx.pipelineRepo, ctx.pipelineStepRepo, ctx.dataSourceRepo).map {
-                          case Left(msg) => Left(ServiceError.BadRequest(s"edit $index: $msg"))
+                        PipelineNodeSchemas.schemaAtNode(pipelineId, pipeline.ownerId, nodeStepId, ctx.pipelineRepo, ctx.pipelineStepRepo, ctx.dataSourceRepo).flatMap {
+                          case Left(msg) => Future.successful(Left(ServiceError.BadRequest(s"edit $index: $msg")))
                           case Right(schema) =>
                             val kind = OutputKind.fromString(request.kind).getOrElse(OutputKind.Table)
-                            OutputFieldMappingCheck.validate(kind, request.config.getOrElse(JsObject.empty), schema) match {
-                              case Left(err) => Left(ServiceError.BadRequest(s"edit $index: ${err.message} (node '${nodeStepId.value}')"))
-                              case Right(_)  => Right(ResolvedEdit(index, "output", "create", None, ResolvedAction.OutputCreate(pipelineId, request)))
+                            val config = request.config.getOrElse(JsObject.empty)
+                            // HEL-1779 D4: `OutputFieldMappingCheck` carries the NEW-pipeline rule (any `reads.outputs` is refused, there
+                            // being no stored Output yet). Here the pipeline exists, so `reads` is judged by the stored-id check below.
+                            val forMapping = if (kind == OutputKind.Insight) JsObject(config.fields - "reads") else config
+                            OutputFieldMappingCheck.validate(kind, forMapping, schema) match {
+                              case Left(err) => Future.successful(Left(ServiceError.BadRequest(s"edit $index: ${err.message} (node '${nodeStepId.value}')")))
+                              case Right(_)  =>
+                                insightReadsProblem(kind, None, pipelineId, config, JsObject.empty, ctx).map {
+                                  case Left(msg) => Left(ServiceError.BadRequest(s"edit $index: $msg"))
+                                  case Right(()) => Right(ResolvedEdit(index, "output", "create", None, ResolvedAction.OutputCreate(pipelineId, request)))
+                                }
                             }
                         }
                     }
@@ -179,5 +211,27 @@ private[patchsets] object PatchSetOutputResolvers {
           )) else None
         }
       }.map(_.flatten.headOption)
+  }
+
+  /** HEL-1779 D4: an insight (created, or whose `reads` this set updates) may not read an Output the same set deletes: apply
+   *  would delete it first or last depending on edit order, and the stored-id check at apply sees only the rows then stored.
+   *  Judged on the set, like [[rejectEditedOutputNodes]]; the per-edit checks already judged ids against stored state. */
+  private[patchsets] def rejectReadsOfDeletedOutputs(resolved: Vector[ResolvedEdit]): Option[ServiceError] = {
+    val deleted = resolved.collect { case ResolvedEdit(_, _, _, _, ResolvedAction.OutputDelete(id, _), _, _) => id.value }.toSet
+    def readIds(config: JsObject): Vector[String] =
+      InsightConfig.parse(config, OutputConfigValidation.isSelectableModel).toOption.flatMap(_.reads.outputs).getOrElse(Vector.empty).map(_.value)
+    if (deleted.isEmpty) None
+    else
+      resolved.view.flatMap { e =>
+        val named = e.action match {
+          case ResolvedAction.OutputCreate(_, request) if OutputKind.fromString(request.kind).contains(OutputKind.Insight) => readIds(request.config.getOrElse(JsObject.empty))
+          case ResolvedAction.OutputUpdate(_, request, prior, priorConfig) if prior.kind == OutputKind.Insight && request.config.exists(_.fields.contains("reads")) =>
+            readIds(JsObject(priorConfig.fields ++ request.config.get.fields))
+          case _ => Vector.empty
+        }
+        named.filter(deleted).headOption.map(id => ServiceError.BadRequest(
+          s"edit ${e.index}: ${InsightReadsCheck.NamesOtherOutputsMessage}: $id (deleted by another edit in this patch set)"
+        ): ServiceError)
+      }.headOption
   }
 }

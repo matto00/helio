@@ -1,6 +1,8 @@
 package com.helio.domain.model
 
-import com.helio.domain.outputs.InsightConfig
+import com.helio.api.protocols.assistant.AssistantProtocol
+import com.helio.domain.insights.InsightPreset
+import com.helio.domain.outputs.{InsightConfig, InsightRefresh}
 import com.helio.domain.panels.OutputBindingSpec
 import com.helio.services.panels.OutputPanelDefaultSize
 import com.helio.services.pipelines.OutputConfigValidation
@@ -18,14 +20,12 @@ import java.nio.file.{Files, Paths}
 /** GUARD (HEL-1740, labelled as such): green on a correct tree, red only by mutation (drop `insight` from one site; every
  *  mutation is recorded in openspec/changes/register-insight-output-kind/drift-mutations.md).
  *
- *  Canonical = `OutputKind.all`. Every hand-written Output-kind enumeration site must equal it, except the in-app assistant's
- *  surfaces, which are kept out of `insight` deliberately (HEL-1747 non-goal; no owning leaf is scheduled) and pinned as
- *  EXCLUSIONS: they must equal canonical minus `insight`, so the check also fails when an excluded site gains `insight`
- *  without this spec being updated on purpose. Text extraction is anchored and fails when it finds nothing. */
+ *  Canonical = `OutputKind.all`. Every hand-written Output-kind enumeration site must equal it, the in-app assistant's
+ *  proposal tools and config docs included (HEL-1779 replaced the HEL-1747 exclusion block with positive checks).
+ *  Text extraction is anchored and fails when it finds nothing. */
 class OutputKindDriftSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 
   private val canonical: Set[String]        = OutputKind.all.map(OutputKind.asString).toSet
-  private val withoutInsight: Set[String]   = canonical - "insight"
 
   private def repoFile(rel: String): String = {
     val p = Paths.get("..").resolve(rel)
@@ -117,22 +117,34 @@ class OutputKindDriftSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
     }
   }
 
-  // Exclusions: the in-app assistant's surfaces, kept without `insight` on purpose (HEL-1747 non-goal, no owning leaf scheduled).
-  "pinned exclusions (the in-app assistant, deliberately without insight)" should {
-    "the assistant proposal tool schema keeps the six pre-insight kinds (the in-app assistant keeps its own list)" in {
-      quotedListEq("backend/src/main/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemas.scala", "JsArray(Vector(\"table\"", ')')
+  // HEL-1779: the in-app assistant is checked POSITIVELY (it replaced the HEL-1747 exclusion block).
+  "the in-app assistant surfaces" should {
+    def proposalKindEnum(tool: String): Set[String] = {
+      val schema = AssistantProtocol.assistantTools.find(_.name == tool).getOrElse(fail(s"no $tool")).inputSchema
+      def find(v: JsValue): Option[JsObject] = v match {
+        case o: JsObject => o.fields.get("outputs").collect { case x: JsObject if x.fields.contains("items") => x }.orElse(o.fields.values.view.flatMap(find).headOption)
+        case a: JsArray  => a.elements.view.flatMap(find).headOption
+        case _           => None
+      }
+      val outputs = find(schema).getOrElse(fail("no outputs"))
+      nonEmpty(s"$tool kind enum", outputs.fields("items").asJsObject.fields("properties").asJsObject.fields("kind").asJsObject.fields("enum").convertTo[Vector[String]].toSet)
     }
-    "OutputConfigValidation.KeysDoc does not document insight keys (the in-app assistant does not take the kind)" in {
+    Seq("propose_pipeline", "propose_combined").foreach { tool =>
+      s"$tool's Output kind enum equals the canonical kinds" in { proposalKindEnum(tool) shouldBe canonical }
+    }
+    "keep no hand-written kind list in AssistantProposalToolSchemas.scala" in {
+      repoFile("backend/src/main/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemas.scala") should not include "\"timeline\", \"markdown\""
+    }
+    "KeysDoc documents every insight key and value inside its insight: segment" in {
       val doc = OutputConfigValidation.KeysDoc
-      doc should not include "insight:"
-      doc should not include "maxSentences"
-      // `reads` is left out of the key scan: it is an ordinary word in KeysDoc's duration prose.
-      (InsightConfig.OwnKeys - "reads").foreach(k => withClue(k)(doc should not include k))
+      val start = doc.indexOf("insight:")
+      withClue("insight: segment")(start should be >= 0)
+      val segment = doc.substring(start, math.min(doc.length, start + 1500))
+      InsightConfig.OwnKeys.foreach(k => withClue(k)(segment should include(k)))
+      InsightPreset.all.map(_.asString).foreach(v => withClue(v)(segment should include(v)))
+      InsightRefresh.all.map(_.asString).foreach(v => withClue(v)(segment should include(v)))
     }
   }
-
-  private def quotedListEq(file: String, anchor: String, close: Char = ']'): Unit =
-    withClue(file)(quotedList(repoFile(file), anchor, close) shouldBe withoutInsight)
 
   private def collectKinds(v: JsValue): Set[String] = v match {
     case JsObject(fields) => fields.get("capabilities").map(_.asJsObject.fields.keySet).getOrElse(Set.empty[String]) ++ fields.values.flatMap(collectKinds)

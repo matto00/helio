@@ -36,7 +36,7 @@ private[services] object PatchSetApplyResolvers {
   import PatchSetDataSourceResolvers.{resolveDataSourceUpdate, resolveDataSourceDelete, resolveDataSourceCreate}
   import PatchSetPipelineResolvers.{resolvePipelineUpdate, resolvePipelineDelete, resolvePipelineCreate}
   import PatchSetPipelineStepResolvers.{resolvePipelineStepUpdate, resolvePipelineStepDelete, resolvePipelineStepCreate}
-  import PatchSetOutputResolvers.{resolveOutputUpdate, resolveOutputDelete, resolveOutputCreate, rejectEditedOutputNodes}
+  import PatchSetOutputResolvers.{resolveOutputUpdate, resolveOutputDelete, resolveOutputCreate, rejectEditedOutputNodes, rejectReadsOfDeletedOutputs}
 
   def resolveAll(
       edits: Vector[Edit],
@@ -62,7 +62,7 @@ private[services] object PatchSetApplyResolvers {
       case Left(err)       => Future.successful(Left(err))
       // HEL-1639 D2: preview and apply must judge an Output create against the same saved schema, so a set that also
       // edits that node's steps is refused as a whole.
-      case Right(resolved) => rejectEditedOutputNodes(resolved, ctx).map(_.toLeft(resolved))
+      case Right(resolved) => rejectEditedOutputNodes(resolved, ctx).map(_.orElse(rejectReadsOfDeletedOutputs(resolved)).toLeft(resolved))
     }
   }
 
