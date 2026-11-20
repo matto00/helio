@@ -53,6 +53,18 @@ export function renameKeyOrder(
   return order.map((e) => e.name);
 }
 
+/**
+ * HEL-1777: what `renameKeyOrder` does, but each surviving column also names the column of `names` its values come from
+ * (`originName === name` for a column no rename touched). Built on the same fold, so it cannot disagree with the evaluator.
+ */
+export function renameOrigins(
+  names: readonly string[],
+  renames: ReadonlyArray<[string, string]>,
+): Array<{ name: string; originName: string }> {
+  const entries = names.map((name, origin) => ({ name, origin }));
+  return foldRenames(entries, renames).map((e) => ({ name: e.name, originName: names[e.origin] }));
+}
+
 /** Shared by `renameKeyOrder` and `renameRow`: the entries after the folds, each still carrying where its value comes from. */
 function foldRenames<E extends { name: string; origin: number }>(
   entries: E[],
