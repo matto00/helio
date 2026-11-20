@@ -438,7 +438,7 @@ describe("PipelineDetailPage", () => {
 
   it("renders when route is /pipelines/:id", async () => {
     renderDetailPage();
-    expect(screen.getByText("Run pipeline")).toBeInTheDocument();
+    expect(await screen.findByText("Run pipeline")).toBeInTheDocument();
   });
 
   // Evaluation-1 cycle-2 CR6 -- the Steps/Outputs tab strip's ARIA tabs
@@ -2101,7 +2101,7 @@ describe("PipelineDetailPage", () => {
   it("clicking Run pipeline dispatches submitPipelineRun", async () => {
     renderDetailPage("pipe-1");
 
-    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Run pipeline" }));
 
     await waitFor(() => {
       expect(runPipelineMock).toHaveBeenCalledWith("pipe-1", undefined);
@@ -2453,10 +2453,10 @@ describe("PipelineDetailPage — Share menu item (HEL-719)", () => {
 // ── Task 8.2/8.3 — footer's pinned vs. overflow action split (design.md D7) ─
 
 describe("PipelineDetailPage — pinned footer actions + header actions menu", () => {
-  it("Dry run and Run pipeline are plain, always-visible buttons — not inside any menu", () => {
+  it("Dry run and Run pipeline are plain, always-visible buttons — not inside any menu", async () => {
     renderDetailPage();
-    expect(screen.getByRole("button", { name: "Dry run" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Run pipeline" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Dry run" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Run pipeline" })).toBeInTheDocument();
   });
 
   it("Run history is reachable only through the Runs tab — not a button, and not an actions menu item", () => {
@@ -3048,15 +3048,15 @@ describe("PipelineDetailPage Run button (HEL-196)", () => {
   });
 
   // 2.3 — Run button disabled/enabled based on runStatus
-  it("Run button is disabled when runStatus is queued", () => {
+  it("Run button is disabled when runStatus is queued", async () => {
     const store = makeStore([], { runStatus: "queued", runId: "run-1" });
     renderDetailPage("pipe-1", store);
-    expect(screen.getByRole("button", { name: "Run pipeline" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Run pipeline" })).toBeDisabled();
   });
 
-  it("Run button is enabled when runStatus is null", () => {
+  it("Run button is enabled when runStatus is null", async () => {
     renderDetailPage("pipe-1");
-    expect(screen.getByRole("button", { name: "Run pipeline" })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: "Run pipeline" })).toBeEnabled();
   });
 
   // 2.4 — Clicking Run dispatches submitPipelineRun then fetchPipelineRunHistory
@@ -3067,7 +3067,7 @@ describe("PipelineDetailPage Run button (HEL-196)", () => {
     await waitFor(() => expect(getPipelineByIdMock).toHaveBeenCalledWith("pipe-1"));
     expect(fetchRunHistoryMock).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Run pipeline" }));
 
     await waitFor(() => {
       expect(runPipelineMock).toHaveBeenCalledWith("pipe-1", undefined);
@@ -3241,36 +3241,36 @@ describe("PipelineDetailPage dry-run (HEL-197)", () => {
     jest.clearAllMocks();
   });
 
-  it("renders a 'Dry run' button in the footer", () => {
+  it("renders a 'Dry run' button in the footer", async () => {
     renderDetailPage("pipe-1");
-    expect(screen.getByRole("button", { name: "Dry run" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Dry run" })).toBeInTheDocument();
   });
 
   it("clicking Dry run dispatches submitPipelineRun with ?dry=true", async () => {
     renderDetailPage("pipe-1");
 
-    fireEvent.click(screen.getByRole("button", { name: "Dry run" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Dry run" }));
 
     await waitFor(() => {
       expect(runPipelineMock).toHaveBeenCalledWith("pipe-1", true);
     });
   });
 
-  it("Dry run button is disabled when runStatus is queued", () => {
+  it("Dry run button is disabled when runStatus is queued", async () => {
     const store = makeStore([], { runStatus: "queued", runId: "run-1" });
     renderDetailPage("pipe-1", store);
-    expect(screen.getByRole("button", { name: "Dry run" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Dry run" })).toBeDisabled();
   });
 
-  it("Dry run button is disabled when runStatus is running", () => {
+  it("Dry run button is disabled when runStatus is running", async () => {
     const store = makeStore([], { runStatus: "running", runId: "run-1" });
     renderDetailPage("pipe-1", store);
-    expect(screen.getByRole("button", { name: "Dry run" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Dry run" })).toBeDisabled();
   });
 
-  it("Dry run button is enabled when runStatus is null", () => {
+  it("Dry run button is enabled when runStatus is null", async () => {
     renderDetailPage("pipe-1");
-    expect(screen.getByRole("button", { name: "Dry run" })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: "Dry run" })).toBeEnabled();
   });
 
   it("run history shows 'Dry run' badge for status=dry_run", async () => {
@@ -3361,7 +3361,7 @@ describe("PipelineDetailPage run success message (HEL-198)", () => {
 
   it("clicking Run dispatches submitPipelineRun without dryRun flag", async () => {
     renderDetailPage("pipe-1");
-    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Run pipeline" }));
     await waitFor(() => {
       expect(runPipelineMock).toHaveBeenCalledWith("pipe-1", undefined);
     });
@@ -3369,7 +3369,7 @@ describe("PipelineDetailPage run success message (HEL-198)", () => {
 
   it("clicking Dry run dispatches submitPipelineRun with dryRun=true", async () => {
     renderDetailPage("pipe-1");
-    fireEvent.click(screen.getByRole("button", { name: "Dry run" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Dry run" }));
     await waitFor(() => {
       expect(runPipelineMock).toHaveBeenCalledWith("pipe-1", true);
     });

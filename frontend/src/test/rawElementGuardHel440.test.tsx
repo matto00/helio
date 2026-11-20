@@ -107,6 +107,7 @@ const pipelineHeaderNoopProps = {
   onDryRun: jest.fn(),
   draft: { hasDraft: false, saving: false, onDiscard: jest.fn(), onSaveAndRun: jest.fn() },
   onRun: jest.fn(),
+  runRole: "owner" as const,
 };
 
 describe("HEL-440 raw-element guard — migrated rename controls", () => {

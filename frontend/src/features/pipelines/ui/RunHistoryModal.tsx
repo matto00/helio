@@ -160,11 +160,13 @@ interface RunHistoryListProps {
    *  (`loading`) or has failed (`failed`) — neither may claim "No runs recorded yet". */
   view: RunHistoryView;
   onRetry: () => void;
+  /** HEL-1661: false for a viewer, who cannot run: the empty state then does not invite them to. Default true. */
+  canRun?: boolean;
 }
 
 /** The run rows with their loading / failed / empty states. Shared by the desktop Run history modal and the
  *  phone's inline Runs tab (HEL-1582), so both show the same list. */
-export function RunHistoryList({ runs, view, onRetry }: RunHistoryListProps) {
+export function RunHistoryList({ runs, view, onRetry, canRun = true }: RunHistoryListProps) {
   return (
     <div className="run-history-modal__list">
       {view === "loading" ? (
@@ -181,7 +183,9 @@ export function RunHistoryList({ runs, view, onRetry }: RunHistoryListProps) {
           variant="sidebar"
           icon={<RotateCcwClock />}
           title="No runs recorded yet"
-          description="Run or dry-run this pipeline to see its history here."
+          description={
+            canRun ? "Run or dry-run this pipeline to see its history here." : "No runs yet."
+          }
         />
       ) : (
         runs.map((run) => <RunRow key={run.id} run={run} />)
@@ -194,7 +198,7 @@ interface RunHistoryModalProps extends RunHistoryListProps {
   onClose: () => void;
 }
 
-export function RunHistoryModal({ runs, view, onRetry, onClose }: RunHistoryModalProps) {
+export function RunHistoryModal({ runs, view, onRetry, onClose, canRun }: RunHistoryModalProps) {
   return (
     <Modal
       open
@@ -203,7 +207,7 @@ export function RunHistoryModal({ runs, view, onRetry, onClose }: RunHistoryModa
       ariaLabel="Run history"
       onClose={onClose}
     >
-      <RunHistoryList runs={runs} view={view} onRetry={onRetry} />
+      <RunHistoryList runs={runs} view={view} onRetry={onRetry} canRun={canRun} />
     </Modal>
   );
 }

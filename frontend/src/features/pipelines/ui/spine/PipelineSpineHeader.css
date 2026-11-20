@@ -431,3 +431,29 @@
     clip: rect(0 0 0 0);
   }
 }
+
+/* HEL-1661: "View only" for a viewer grantee, the dashboard's recipe (HEL-1782 `.dashboard-meta-row__view-only`): a plain
+   meta fact in the meta text's own type, an Eye icon before it, no pill and no accent. It never shrinks away. */
+.spine-header__view-only {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+/* HEL-1661: the run entries' room while the caller's role is unknown, so an editor's controls appearing move nothing.
+   Dry run + Run pipeline (measured 171px at 1280, light and dark), or (with a draft) the Save & run that sits beside the
+   already-visible Discard. */
+.spine-header__run-slot {
+  flex: none;
+  display: inline-block;
+  min-width: 10.7rem;
+}
+
+.spine-header__run-slot[data-run-pair="draft"] {
+  min-width: 5.4rem;
+}

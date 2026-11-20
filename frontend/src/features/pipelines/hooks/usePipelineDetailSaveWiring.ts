@@ -7,6 +7,7 @@ import type { PipelineDraft } from "./usePipelineDraft";
 import type { PipelineEditorState } from "./usePipelineEditorState";
 import { usePipelineDraftSave } from "./usePipelineDraftSave";
 import { usePipelineRunAndSaveActions } from "./usePipelineRunAndSaveActions";
+import { canRunFromUi, type PipelineRunRole } from "./usePipelineRunRole";
 
 /**
  * Run, save, cancel and Save & run wiring (HEL-1704 split of `usePipelineDetailPage`). `navigate` is passed in, not read
@@ -26,6 +27,7 @@ export function usePipelineDetailSaveWiring({
   outputName,
   isDirty,
   setIsConfirmingCancel,
+  runRole,
 }: {
   id: string | undefined;
   dispatch: ReturnType<typeof useAppDispatch>;
@@ -40,6 +42,7 @@ export function usePipelineDetailSaveWiring({
   outputName: string;
   isDirty: boolean;
   setIsConfirmingCancel: Dispatch<SetStateAction<boolean>>;
+  runRole: PipelineRunRole;
 }) {
   const { stepsRef, setSteps, allOutputsRef, setSseActive } = editor;
   const {
@@ -61,6 +64,7 @@ export function usePipelineDetailSaveWiring({
     outputName,
     isDirty,
     setIsConfirmingCancel,
+    runRole,
   });
 
   // One source of truth for "loaded" (D15): this page's own fetch, the same status the draft judges Output ops by.
@@ -80,7 +84,8 @@ export function usePipelineDetailSaveWiring({
     setSseActive,
     refreshRunHistoryAfterRun,
     refreshVisibleOutputPreviews,
-    onRunNow: () => void handleRunPipeline(),
+    runRole,
+    onRunNow: canRunFromUi(runRole) ? () => void handleRunPipeline() : undefined,
   });
 
   return {

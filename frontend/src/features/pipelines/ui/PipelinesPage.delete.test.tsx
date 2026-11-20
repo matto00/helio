@@ -136,6 +136,7 @@ describe("Data Pipelines overview: Delete row action (HEL-1574, owner ruling 202
         onDryRun={jest.fn()}
         draft={{ hasDraft: false, saving: false, onDiscard: jest.fn(), onSaveAndRun: jest.fn() }}
         onRun={jest.fn()}
+        runRole="owner"
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Pipeline actions" }));

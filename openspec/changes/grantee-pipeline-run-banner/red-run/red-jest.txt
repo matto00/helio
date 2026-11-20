@@ -1,0 +1,482 @@
+FAIL src/features/pipelines/ui/spine/PipelineSpineHeader.viewer.test.tsx
+  ● Test suite failed to run
+
+    src/features/pipelines/ui/spine/PipelineSpineHeader.viewer.test.tsx:68:26 - error TS2353: Object literal may only specify known properties, and 'runRole' does not exist in type 'Partial<SpineHeaderProps>'.
+
+    68     renderHeader(props({ runRole: "editor" }));
+                                ~~~~~~~
+    src/features/pipelines/ui/spine/PipelineSpineHeader.viewer.test.tsx:74:48 - error TS2353: Object literal may only specify known properties, and 'runRole' does not exist in type 'Partial<SpineHeaderProps>'.
+
+    74     const { container } = renderHeader(props({ runRole: "pending" }));
+                                                      ~~~~~~~
+    src/features/pipelines/ui/spine/PipelineSpineHeader.viewer.test.tsx:80:40 - error TS2353: Object literal may only specify known properties, and 'runRole' does not exist in type 'Partial<SpineHeaderProps>'.
+
+    80     const again = renderHeader(props({ runRole: "pending", draft: { ...props({}).draft, hasDraft: false } }));
+                                              ~~~~~~~
+
+FAIL src/features/pipelines/ui/mobile/MobilePipelineActions.viewer.test.tsx
+  ● Test suite failed to run
+
+    src/features/pipelines/ui/mobile/MobilePipelineActions.viewer.test.tsx:14:9 - error TS2322: Type '{ busy: false; onDryRun: Mock<any, any, any>; onRun: Mock<any, any, any>; runRole: "viewer" | "editor" | "pending"; draft: { hasDraft: boolean; saving: false; onDiscard: Mock<any, any, any>; onSaveAndRun: Mock<...>; }; }' is not assignable to type 'IntrinsicAttributes & { busy: boolean; onDryRun: () => void; onRun: () => void; draft: { hasDraft: boolean; saving: boolean; onDiscard: () => void; onSaveAndRun: () => void; }; }'.
+      Property 'runRole' does not exist on type 'IntrinsicAttributes & { busy: boolean; onDryRun: () => void; onRun: () => void; draft: { hasDraft: boolean; saving: boolean; onDiscard: () => void; onSaveAndRun: () => void; }; }'.
+
+    14         runRole={runRole}
+               ~~~~~~~
+
+FAIL src/features/pipelines/hooks/usePipelineRunRole.test.ts
+  ● Test suite failed to run
+
+    src/features/pipelines/hooks/usePipelineRunRole.test.ts:1:41 - error TS2307: Cannot find module './usePipelineRunRole' or its corresponding type declarations.
+
+    1 import { canRunFromUi, runRoleOf } from "./usePipelineRunRole";
+                                              ~~~~~~~~~~~~~~~~~~~~~~
+
+FAIL src/features/pipelines/ui/mobile/PipelineMobileLayout.viewerRunControls.test.tsx
+  ● phone run pills by caller role › a viewer has no Dry run or Run pipeline pill, no action bar, and the header says View only
+
+    Unable to find an element with the text: View only. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+    Ignored nodes: comments, script, style
+    <body>
+      <div>
+        <div
+          class="pipeline-detail-page pipeline-detail-page--mobile"
+          style="--pipeline-mobile-actions-h: 0px;"
+        >
+          <header
+            class="mobile-header"
+          >
+            <div
+              class="mobile-header__row"
+            >
+              <a
+                aria-label="Back to pipelines"
+                class="mobile-header__back"
+                data-discover="true"
+                href="/pipelines"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="lucide lucide-chevron-left"
+                  fill="none"
+                  height="16"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="16"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="m15 18-6-6 6-6"
+                  />
+                </svg>
+              </a>
+              <span
+                class="mobile-header__name"
+                title="Revenue rollup"
+              >
+                Revenue rollup
+              </span>
+              <div
+                class="popover actions-menu"
+              >
+                <button
+                  aria-expanded="false"
+                  aria-haspopup="menu"
+                  aria-label="Pipeline actions"
+                  class="popover__trigger actions-menu__trigger"
+                  title="Pipeline actions"
+                  type="button"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="actions-menu__dots"
+                  >
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                </button>
+              </div>
+            </div>
+            <div
+              class="mobile-header__status"
+            >
+              <div
+                class="mobile-header__runline"
+              />
+              <button
+                aria-label="Add schedule"
+                class="spine-header__chip"
+                title="Add schedule"
+                type="button"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="lucide lucide-calendar-clock spine-header__chip-icon"
+                  fill="none"
+                  height="14"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="14"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M16 14v2.2l1.6 1"
+                  />
+                  <path
+                    d="M16 2v3"
+                  />
+                  <path
+                    d="M21 7.338V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h2.338"
+                  />
+                  <path
+                    d="M3 9h5.859"
+                  />
+                  <path
+                    d="M8 2v3"
+                  />
+                  <circle
+                    cx="16"
+                    cy="16"
+                    r="6"
+                  />
+                </svg>
+                <span
+                  class="spine-header__chip-text"
+                >
+                  Add schedule
+                </span>
+              </button>
+            </div>
+          </header>
+          <div
+            aria-label="Pipeline sections"
+            class="mobile-tabs"
+            data-indicator="ready"
+            role="tablist"
+            style="--indicator-x: 0px; --indicator-y: 0px; --indicator-w: 1280px; --indicator-h: 0px;"
+          >
+            <span
+              aria-hidden="true"
+              class="motion-indicator mobile-tabs__indicator"
+            />
+            <button
+              aria-controls="pipeline-mobile-tabpanel-steps"
+              aria-selected="true"
+              class="mobile-tabs__tab mobile-tabs__tab--active"
+              data-indicator-active=""
+              id="pipeline-mobile-tab-steps"
+              role="tab"
+              tabindex="0"
+              type="button"
+            >
+              Steps
+            </button>
+            <button
+              aria-controls="pipeline-mobile-tabpanel-preview"
+              aria-selected="false"
+              class="mobile-tabs__tab"
+              id="pipeline-mobile-tab-preview"
+              role="tab"
+              tabindex="-1"
+              type="button"
+            >
+              Preview
+            </button>
+            <button
+              aria-controls="pipeline-mobile-tabpanel-runs"
+              aria-selected="false"
+              class="mobile-tabs__tab"
+              id="pipeline-mobile-tab-runs"
+              role="tab"
+              tabindex="-1"
+              type="button"
+            >
+              Runs
+            </button>
+          </div>
+          <div
+            aria-labelledby="pipe...
+
+      88 |     analyzeAs("viewer");
+      89 |     await renderSpinePageSettled();
+    > 90 |     expect(await screen.findByText("View only")).toBeVisible();
+         |                         ^
+      91 |     expect(screen.queryByRole("button", { name: "Dry run" })).toBeNull();
+      92 |     expect(screen.queryByRole("button", { name: "Run pipeline" })).toBeNull();
+      93 |     expect(document.querySelector(".mobile-actions")).toBeNull();
+
+      at waitForWrapper (node_modules/@testing-library/dom/dist/wait-for.js:163:27)
+      at node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+      at Object.<anonymous> (src/features/pipelines/ui/mobile/PipelineMobileLayout.viewerRunControls.test.tsx:90:25)
+
+FAIL src/features/pipelines/hooks/usePipelineRunAndSaveActions.viewer.test.tsx
+  ● Test suite failed to run
+
+    src/features/pipelines/hooks/usePipelineRunAndSaveActions.viewer.test.tsx:6:38 - error TS2307: Cannot find module './usePipelineRunRole' or its corresponding type declarations.
+
+    6 import type { PipelineRunRole } from "./usePipelineRunRole";
+                                           ~~~~~~~~~~~~~~~~~~~~~~
+    src/features/pipelines/hooks/usePipelineRunAndSaveActions.viewer.test.tsx:22:7 - error TS2353: Object literal may only specify known properties, and 'runRole' does not exist in type 'UsePipelineRunAndSaveActionsArgs'.
+
+    22       runRole,
+             ~~~~~~~
+
+FAIL src/features/pipelines/ui/RunHistoryModal.viewer.test.tsx
+  ● Test suite failed to run
+
+    src/features/pipelines/ui/RunHistoryModal.viewer.test.tsx:13:71 - error TS2322: Type '{ runs: never[]; view: "fresh"; onRetry: Mock<any, any, any>; canRun: boolean; }' is not assignable to type 'IntrinsicAttributes & RunHistoryListProps'.
+      Property 'canRun' does not exist on type 'IntrinsicAttributes & RunHistoryListProps'.
+
+    13     render(<RunHistoryList runs={[]} view="fresh" onRetry={jest.fn()} canRun={false} />);
+                                                                             ~~~~~~
+
+FAIL src/features/pipelines/ui/spine/PipelineSpineLayout.viewerRunControls.test.tsx
+  ● desktop run controls by caller role › a viewer sees no Run pipeline or Dry run, and the header says View only
+
+    Unable to find an element with the text: View only. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+    Ignored nodes: comments, script, style
+    <body>
+      <div>
+        <div
+          class="pipeline-detail-page pipeline-detail-page--spine"
+        >
+          <header
+            class="spine-header"
+          >
+            <nav
+              aria-label="Pipeline path"
+              class="spine-header__crumbs"
+            >
+              <a
+                class="spine-header__crumb-link"
+                data-discover="true"
+                href="/pipelines"
+              >
+                Pipelines
+              </a>
+              <span
+                aria-hidden="true"
+                class="spine-header__crumb-sep"
+              >
+                /
+              </span>
+              <button
+                aria-label="Edit pipeline name"
+                class="spine-header__name"
+                title="Revenue rollup"
+                type="button"
+              >
+                Revenue rollup
+              </button>
+            </nav>
+            <div
+              class="spine-header__trailing"
+            >
+              <button
+                aria-label="Add schedule"
+                class="spine-header__chip"
+                title="Add schedule"
+                type="button"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="lucide lucide-calendar-clock spine-header__chip-icon"
+                  fill="none"
+                  height="14"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="14"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M16 14v2.2l1.6 1"
+                  />
+                  <path
+                    d="M16 2v3"
+                  />
+                  <path
+                    d="M21 7.338V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h2.338"
+                  />
+                  <path
+                    d="M3 9h5.859"
+                  />
+                  <path
+                    d="M8 2v3"
+                  />
+                  <circle
+                    cx="16"
+                    cy="16"
+                    r="6"
+                  />
+                </svg>
+                <span
+                  class="spine-header__chip-text"
+                >
+                  Add schedule
+                </span>
+              </button>
+              <button
+                aria-label="Dry run"
+                class="spine-header__btn"
+                title="Dry run"
+                type="button"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="lucide lucide-flask-conical spine-header__dry-icon"
+                  fill="none"
+                  height="14"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="14"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2"
+                  />
+                  <path
+                    d="M6.453 15h11.094"
+                  />
+                  <path
+                    d="M8.5 2h7"
+                  />
+                </svg>
+                <span
+                  class="spine-header__dry-label"
+                >
+                  Dry run
+                </span>
+              </button>
+              <button
+                aria-label="Run pipeline"
+                class="spine-header__btn spine-header__btn--primary"
+                type="button"
+              >
+                <span
+                  class="spine-header__run-long"
+                >
+                  Run pipeline
+                </span>
+                <span
+                  aria-hidden="true"
+                  class="spine-header__run-short"
+                >
+                  Run
+                </span>
+              </button>
+              <div
+                class="popover actions-menu"
+              >
+                <button
+                  aria-expanded="false"
+                  aria-haspopup="menu"
+                  aria-label="Pipeline actions"
+                  class="popover__trigger actions-menu__trigger"
+                  title="Pipeline actions"
+                  type="button"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="actions-menu__dots"
+                  >
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                </button>
+              </div>
+            </div>
+          </header>
+          <div
+            class="spine-notice-slot"
+          />
+          <div
+            class="spine-strip-slot"
+          />
+          <div
+            class="spine-body"
+            data-live-layout="column"
+          >
+            <aside
+              aria-label="Steps and outputs"
+              class="spine-body__spine"[...
+
+      105 |     analyzeAs("viewer");
+      106 |     await renderSpinePageSettled();
+    > 107 |     expect(await screen.findByText("View only")).toBeVisible();
+          |                         ^
+      108 |     expect(runButton()).toBeNull();
+      109 |     expect(dryButton()).toBeNull();
+      110 |     expect(screen.getByRole("button", { name: "Pipeline actions" })).toBeVisible();
+
+      at waitForWrapper (node_modules/@testing-library/dom/dist/wait-for.js:163:27)
+      at node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+      at Object.<anonymous> (src/features/pipelines/ui/spine/PipelineSpineLayout.viewerRunControls.test.tsx:107:25)
+
+  ● desktop run controls by caller role › while the role is unknown (analyze pending, not the owner) no run entry shows and nothing says View only
+
+    expect(received).toBeNull()
+
+    Received: <button aria-label="Run pipeline" class="spine-header__btn spine-header__btn--primary" type="button"><span class="spine-header__run-long">Run pipeline</span><span aria-hidden="true" class="spine-header__run-short">Run</span></button>
+
+      131 |     jest.mocked(analyzePipeline).mockReturnValue(new Promise(() => {}));
+      132 |     await renderSpinePageSettled();
+    > 133 |     expect(runButton()).toBeNull();
+          |                         ^
+      134 |     expect(dryButton()).toBeNull();
+      135 |     expect(screen.queryByText("View only")).toBeNull();
+      136 |     expect(document.querySelector('[data-run-slot="pending"]')).not.toBeNull();
+
+      at Object.<anonymous> (src/features/pipelines/ui/spine/PipelineSpineLayout.viewerRunControls.test.tsx:133:25)
+
+  ● desktop run controls by caller role › a viewer opening a never-run Output sheet is offered no Run pipeline there; an editor is
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 0
+    Received length: 1
+    Received array:  [<button class="ui-modal-btn ui-modal-btn--secondary" type="button">Run pipeline</button>]
+
+      155 |       const dialog = await screen.findByRole("dialog");
+      156 |       expect(await within(dialog).findByText(/hasn.t been included in a saved run yet/)).toBeVisible();
+    > 157 |       expect(within(dialog).queryAllByRole("button", { name: "Run pipeline" })).toHaveLength(expected);
+          |                                                                                 ^
+      158 |       cleanup();
+      159 |     }
+      160 |     expect(runPipeline).not.toHaveBeenCalled();
+
+      at Object.<anonymous> (src/features/pipelines/ui/spine/PipelineSpineLayout.viewerRunControls.test.tsx:157:81)
+
+FAIL src/features/pipelines/hooks/usePipelineDraftSettle.runNow.test.tsx
+  ● Test suite failed to run
+
+    src/features/pipelines/hooks/usePipelineDraftSettle.runNow.test.tsx:41:9 - error TS2322: Type '(() => void) | undefined' is not assignable to type '() => void'.
+      Type 'undefined' is not assignable to type '() => void'.
+
+    41         onRunNow,
+               ~~~~~~~~
+
+      src/features/pipelines/hooks/usePipelineDraftSettle.ts:51:3
+        51   onRunNow: () => void;
+             ~~~~~~~~
+        The expected type comes from property 'onRunNow' which is declared here on type '{ draft: { overlay: DraftOverlay; overlayRef: RefObject<DraftOverlay>; draftSteps: Step[]; draftOutputs: Output[]; outputsStatus: OutputsStatus; ... 19 more ...; staleRestoredRef: RefObject<...>; }; ... 13 more ...; onRunNow: () => void; }'
+
+Test Suites: 8 failed, 8 total
+Tests:       4 failed, 4 passed, 8 total
+Snapshots:   0 total
+Time:        5.505 s, estimated 14 s
+Ran all test suites matching src/features/pipelines/hooks/usePipelineRunRole.test.ts|src/features/pipelines/hooks/usePipelineDraftSettle.runNow.test.tsx|src/features/pipelines/hooks/usePipelineRunAndSaveActions.viewer.test.tsx|src/features/pipelines/ui/RunHistoryModal.viewer.test.tsx|src/features/pipelines/ui/spine/PipelineSpineLayout.viewerRunControls.test.tsx|src/features/pipelines/ui/mobile/PipelineMobileLayout.viewerRunControls.test.tsx|src/features/pipelines/ui/mobile/MobilePipelineActions.viewer.test.tsx|src/features/pipelines/ui/spine/PipelineSpineHeader.viewer.test.tsx.

@@ -10,6 +10,7 @@ import { useLayoutEffect, useRef } from "react";
 
 import { ICON_SIZE } from "../../../../shared/ui/iconSize";
 import { StatusChip } from "../../../../shared/ui/StatusChip";
+import { canRunFromUi, type PipelineRunRole } from "../../hooks/usePipelineRunRole";
 import "./PipelineMobile.css";
 
 /** The page-element custom property holding the action bar's measured height. */
@@ -19,31 +20,39 @@ export function MobilePipelineActions({
   busy,
   onDryRun,
   onRun,
+  runRole,
   draft,
 }: {
   /** A run is queued or running: both pills are disabled. */
   busy: boolean;
   onDryRun: () => void;
   onRun: () => void;
+  /** HEL-1661: a viewer gets no run pill (Discard and the draft status stay while a draft exists); `pending` renders the empty row. */
+  runRole: PipelineRunRole;
   /** HEL-1631: the client-only draft. While `hasDraft` the pills are Discard and Save & run. */
   draft: { hasDraft: boolean; saving: boolean; onDiscard: () => void; onSaveAndRun: () => void };
 }) {
   const barRef = useRef<HTMLDivElement>(null);
+  const canRun = canRunFromUi(runRole);
+  // A viewer without a draft has nothing to show: no bar, so no bottom clearance is reserved for it.
+  const empty = runRole === "viewer" && !draft.hasDraft;
 
   useLayoutEffect(() => {
+    if (empty) return undefined;
     const bar = barRef.current;
     const page = bar?.parentElement;
     if (!bar || !page) return undefined;
     const publish = () => page.style.setProperty(ACTIONS_HEIGHT_PROPERTY, `${bar.offsetHeight}px`);
     publish();
-    if (typeof ResizeObserver === "undefined") return undefined;
-    const observer = new ResizeObserver(publish);
-    observer.observe(bar);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(publish);
+    observer?.observe(bar);
     return () => {
-      observer.disconnect();
+      observer?.disconnect();
       page.style.removeProperty(ACTIONS_HEIGHT_PROPERTY);
     };
-  }, []);
+  }, [empty]);
+
+  if (empty) return null;
 
   return (
     <div className="mobile-actions" ref={barRef}>
@@ -54,7 +63,10 @@ export function MobilePipelineActions({
           </StatusChip>
         )}
       </div>
-      <div className="mobile-actions__pills">
+      <div
+        className="mobile-actions__pills"
+        data-run-slot={runRole === "pending" ? "pending" : undefined}
+      >
         {draft.hasDraft ? (
           <>
             <button
@@ -67,18 +79,20 @@ export function MobilePipelineActions({
               <Trash2 aria-hidden="true" size={ICON_SIZE.sm} />
               Discard
             </button>
-            <button
-              type="button"
-              className="mobile-pill mobile-pill--primary"
-              onClick={draft.onSaveAndRun}
-              disabled={draft.saving || busy}
-              aria-label="Save and run"
-            >
-              <Play aria-hidden="true" size={ICON_SIZE.sm} />
-              {draft.saving ? "Saving…" : "Save & run"}
-            </button>
+            {canRun && (
+              <button
+                type="button"
+                className="mobile-pill mobile-pill--primary"
+                onClick={draft.onSaveAndRun}
+                disabled={draft.saving || busy}
+                aria-label="Save and run"
+              >
+                <Play aria-hidden="true" size={ICON_SIZE.sm} />
+                {draft.saving ? "Saving…" : "Save & run"}
+              </button>
+            )}
           </>
-        ) : (
+        ) : canRun ? (
           <>
             <button
               type="button"
@@ -101,7 +115,7 @@ export function MobilePipelineActions({
               Run pipeline
             </button>
           </>
-        )}
+        ) : null}
       </div>
     </div>
   );

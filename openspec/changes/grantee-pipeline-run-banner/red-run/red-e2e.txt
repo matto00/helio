@@ -1,0 +1,143 @@
+
+Running 3 tests using 2 workers
+
+[1/3] [dev] › e2e/hel1661-grantee-source-banner.spec.ts:20:7 › HEL-1661 grantee verdict banner (live) › editor and viewer see neither banner on a valid shared pipeline; the editor's Run pipeline is enabled
+[2/3] [dev] › e2e/hel1661-viewer-run-controls.spec.ts:18:7 › HEL-1661 viewer run controls (live) › viewer: no Run pipeline / Dry run, desktop and phone, both themes, 'View only' shown; editor keeps both
+[dev] › e2e/hel1661-grantee-source-banner.spec.ts:20:7 › HEL-1661 grantee verdict banner (live) › editor and viewer see neither banner on a valid shared pipeline; the editor's Run pipeline is enabled
+[HEL-1300 e2e] throwaway user: hel1661-ownerb-1795199894523-63081@example.test
+
+[dev] › e2e/hel1661-viewer-run-controls.spec.ts:18:7 › HEL-1661 viewer run controls (live) › viewer: no Run pipeline / Dry run, desktop and phone, both themes, 'View only' shown; editor keeps both
+[HEL-1300 e2e] throwaway user: hel1661-owner-1795199894523-21457@example.test
+
+[HEL-1300 e2e] throwaway user: hel1661-editor-1795199896961-37830@example.test
+
+[dev] › e2e/hel1661-grantee-source-banner.spec.ts:20:7 › HEL-1661 grantee verdict banner (live) › editor and viewer see neither banner on a valid shared pipeline; the editor's Run pipeline is enabled
+[HEL-1300 e2e] throwaway user: hel1661-editorb-1795199896963-43730@example.test
+
+[dev] › e2e/hel1661-viewer-run-controls.spec.ts:18:7 › HEL-1661 viewer run controls (live) › viewer: no Run pipeline / Dry run, desktop and phone, both themes, 'View only' shown; editor keeps both
+[HEL-1300 e2e] throwaway user: hel1661-viewer-1795199897776-59695@example.test
+
+[dev] › e2e/hel1661-grantee-source-banner.spec.ts:20:7 › HEL-1661 grantee verdict banner (live) › editor and viewer see neither banner on a valid shared pipeline; the editor's Run pipeline is enabled
+[HEL-1300 e2e] throwaway user: hel1661-viewerb-1795199897777-6137@example.test
+
+  1) [dev] › e2e/hel1661-viewer-run-controls.spec.ts:18:7 › HEL-1661 viewer run controls (live) › viewer: no Run pipeline / Dry run, desktop and phone, both themes, 'View only' shown; editor keeps both 
+
+    Error: desktop/light
+
+    expect(locator).toBeVisible() failed
+
+    Locator:  getByText('View only').first()
+    Expected: visible
+    Received: <element(s) not found>
+    Timeout:  5000ms
+
+    Call log:
+      - desktop/light with timeout 5000ms
+      - waiting for getByText('View only').first()
+
+
+      38 |       for (const theme of ["light", "dark"] as const) {
+      39 |         await openPipeline(viewer.page, pipelineId, theme, viewport);
+    > 40 |         await expect(viewer.page.getByText("View only").first(), `${name}/${theme}`).toBeVisible();
+         |                                                                                      ^
+      41 |         await expect(viewer.page.getByRole("button", { name: "Run pipeline" })).toHaveCount(0);
+      42 |         await expect(viewer.page.getByRole("button", { name: "Dry run" })).toHaveCount(0);
+      43 |         await viewer.page.screenshot({ path: evidencePath("HEL-1661", `viewer-${name}-${theme}.png`) });
+        at /home/matt/Development/helio/.claude/worktrees/bug/pipeline-grantee-run-banner/HEL-1661/e2e/hel1661-viewer-run-controls.spec.ts:40:86
+
+    Error Context: test-results/hel1661-viewer-run-control-83acd-nly-shown-editor-keeps-both-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1661-viewer-run-control-83acd-nly-shown-editor-keeps-both-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1661-viewer-run-control-83acd-nly-shown-editor-keeps-both-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  2) [dev] › e2e/hel1661-grantee-source-banner.spec.ts:20:7 › HEL-1661 grantee verdict banner (live) › editor and viewer see neither banner on a valid shared pipeline; the editor's Run pipeline is enabled 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByText(/source type we don.t yet recognize/)
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 5000ms
+      - waiting for getByText(/source type we don.t yet recognize/)
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      41 |       for (const who of [editor, viewer] as const) {
+      42 |         await openPipeline(who.page, pipelineId, "light", viewport);
+    > 43 |         await expect(who.page.getByText(UNRECOGNIZED)).toHaveCount(0);
+         |                                                        ^
+      44 |         await expect(who.page.getByText(STEP_PROBLEM)).toHaveCount(0);
+      45 |       }
+      46 |       await expect(editor.page.getByRole("button", { name: "Run pipeline" })).toBeEnabled();
+        at /home/matt/Development/helio/.claude/worktrees/bug/pipeline-grantee-run-banner/HEL-1661/e2e/hel1661-grantee-source-banner.spec.ts:43:56
+
+    Error Context: test-results/hel1661-grantee-source-ban-0eae7-r-s-Run-pipeline-is-enabled-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1661-grantee-source-ban-0eae7-r-s-Run-pipeline-is-enabled-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1661-grantee-source-ban-0eae7-r-s-Run-pipeline-is-enabled-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[3/3] [dev] › e2e/hel1661-viewer-run-controls.spec.ts:56:7 › HEL-1661 viewer run controls (live) › viewer opening an Output sheet is offered no Run pipeline; the editor is
+[dev] › e2e/hel1661-viewer-run-controls.spec.ts:56:7 › HEL-1661 viewer run controls (live) › viewer opening an Output sheet is offered no Run pipeline; the editor is
+[HEL-1300 e2e] throwaway user: hel1661-owner2-1795199907380-42141@example.test
+
+[HEL-1300 e2e] throwaway user: hel1661-editor2-1795199909051-96816@example.test
+
+[HEL-1300 e2e] throwaway user: hel1661-viewer2-1795199909318-44210@example.test
+
+  3) [dev] › e2e/hel1661-viewer-run-controls.spec.ts:56:7 › HEL-1661 viewer run controls (live) › viewer opening an Output sheet is offered no Run pipeline; the editor is 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('dialog').getByRole('button', { name: 'Run pipeline' })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 5000ms
+      - waiting for getByRole('dialog').getByRole('button', { name: 'Run pipeline' })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      78 |       const dialog = who.page.getByRole("dialog");
+      79 |       await expect(dialog.getByText("hasn’t been included in a saved run yet")).toBeVisible();
+    > 80 |       await expect(dialog.getByRole("button", { name: "Run pipeline" })).toHaveCount(expected);
+         |                                                                          ^
+      81 |     }
+      82 |     await editor.context.close();
+      83 |     await viewer.context.close();
+        at /home/matt/Development/helio/.claude/worktrees/bug/pipeline-grantee-run-banner/HEL-1661/e2e/hel1661-viewer-run-controls.spec.ts:80:74
+
+    Error Context: test-results/hel1661-viewer-run-control-6eb19--Run-pipeline-the-editor-is-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1661-viewer-run-control-6eb19--Run-pipeline-the-editor-is-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1661-viewer-run-control-6eb19--Run-pipeline-the-editor-is-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[HEL-1301 e2e] deleted 9 recorded throwaway user(s)
+  3 failed
+    [dev] › e2e/hel1661-grantee-source-banner.spec.ts:20:7 › HEL-1661 grantee verdict banner (live) › editor and viewer see neither banner on a valid shared pipeline; the editor's Run pipeline is enabled 
+    [dev] › e2e/hel1661-viewer-run-controls.spec.ts:18:7 › HEL-1661 viewer run controls (live) › viewer: no Run pipeline / Dry run, desktop and phone, both themes, 'View only' shown; editor keeps both 
+    [dev] › e2e/hel1661-viewer-run-controls.spec.ts:56:7 › HEL-1661 viewer run controls (live) › viewer opening an Output sheet is offered no Run pipeline; the editor is 

@@ -261,6 +261,7 @@ export function PipelineMobileLayout({
           busy={runBusy}
           onDryRun={() => void page.handleDryRun()}
           onRun={() => void page.handleRunPipeline()}
+          runRole={page.runRole}
           draft={{
             hasDraft: page.draft.hasDraft,
             saving: page.draftSave.saving,

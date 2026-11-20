@@ -14,6 +14,7 @@ import { usePipelineDetailSaveWiring } from "./usePipelineDetailSaveWiring";
 import { usePipelineDetailStepActions } from "./usePipelineDetailStepActions";
 import { usePipelineDetailUiState } from "./usePipelineDetailUiState";
 import { usePipelineDirtyAndOwner } from "./usePipelineDirtyAndOwner";
+import { usePipelineRunRole } from "./usePipelineRunRole";
 import { usePipelineEditorState } from "./usePipelineEditorState";
 import { usePipelineOutputSheets } from "./usePipelineOutputSheets";
 import { usePipelineOwnPipeline } from "./usePipelineOwnPipeline";
@@ -121,6 +122,9 @@ export function usePipelineDetailPage() {
     sources: own.sources,
   });
 
+  // HEL-1661: which run entries this caller is offered (owner/editor/viewer/pending), from the pipeline row and the analyze result.
+  const runRole = usePipelineRunRole(id, isOwner);
+
   const outputSheets = usePipelineOutputSheets({ id, allOutputsRef: editor.allOutputsRef });
 
   const { handleEditSource, handleToggleScheduleEnabled } = usePipelineSourceScheduleActions({
@@ -156,6 +160,7 @@ export function usePipelineDetailPage() {
     outputName: ui.outputName,
     isDirty,
     setIsConfirmingCancel: ui.setIsConfirmingCancel,
+    runRole,
   });
 
   const { analyzeResult } = analyzeState;
@@ -229,6 +234,7 @@ export function usePipelineDetailPage() {
     pipelineName,
     sourceByRootId,
     isOwner,
+    runRole,
     // HEL-1109 (design.md D5) — the pipeline's own estimated row count, when
     // known, threaded through to the AI step cards' cost disclosure. Never
     // presented as a per-step call count -- see `AiStepCostDisclosure`'s doc.
