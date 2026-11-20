@@ -14,7 +14,10 @@ import { reopenOnboarding } from "../../onboarding/state/onboardingSlice";
 import { FirstRunDropZone } from "../../onboarding/ui/FirstRunDropZone";
 import { OnboardingChecklist } from "../../onboarding/ui/OnboardingChecklist";
 import { DashboardAccessProvider } from "../../dashboards/state/dashboardAccessContext";
-import { selectDashboardAccessRole } from "../../dashboards/state/dashboardAccess";
+import {
+  selectDashboardAccessRole,
+  selectOwnedDashboards,
+} from "../../dashboards/state/dashboardAccess";
 import { DashboardChipRow } from "../../dashboards/ui/DashboardChipRow";
 import { DashboardRefreshLine } from "../../../app/dashboardMeta/DashboardRefreshLine";
 import { useIsPhoneShell } from "../../../app/shell/useIsPhoneShell";
@@ -56,6 +59,8 @@ export function PanelList() {
   const accessRole = useAppSelector((state) =>
     selectDashboardAccessRole(state, selectedDashboardId),
   );
+  // HEL-1782: a user who owns no dashboard (every listed one is shared with them) is offered the first-run drop zone.
+  const ownsNoDashboard = useAppSelector((state) => selectOwnedDashboards(state).length === 0);
   // HEL-1646: keeps the dashboard list's pipeline-fed flag current for the phone skeleton's reserved slot.
   usePipelineFedFlagSync();
   // HEL-548 D5/D6 — the create-action seam. `createDashboardAction` owns the
@@ -186,10 +191,27 @@ export function PanelList() {
     (status === "succeeded" || staleDashboardId === selectedDashboardId);
   // HEL-1209 — a settled-empty workspace lands on the drop zone, which supersedes both the
   // checklist and the plain "No dashboards yet" empty state.
+  // HEL-1782 (owner ruling 2): the same drop zone for a user who owns nothing, has shared dashboards listed and no dashboard
+  // open, in place of "No dashboard open"; an owner keeps that state.
+  const wouldShowSharedOnlyEmptyState =
+    contentGateOpen &&
+    status !== "loading" &&
+    status !== "failed" &&
+    selectedDashboardId === null &&
+    dashboards.length > 0 &&
+    ownsNoDashboard;
+  // A shared-only user's drop zone yields only to a checklist that is actually visible: once "Set up step by step" has
+  // been chosen and the checklist is then dismissed, the drop zone returns instead of leaving the pane blank. (A user with
+  // no dashboard at all keeps `!stepByStep`: after a dismissal they fall back to "No dashboards yet".)
   const showFirstRunDropZone =
-    wouldShowZeroDashboardEmptyState && dashboardsStatus === "succeeded" && !stepByStep;
+    dashboardsStatus === "succeeded" &&
+    ((wouldShowZeroDashboardEmptyState && !stepByStep) ||
+      (wouldShowSharedOnlyEmptyState && !(stepByStep && onboardingVisible)));
   const onboardingSupersedesEmptyState =
-    onboardingVisible && (wouldShowZeroDashboardEmptyState || wouldShowZeroPanelEmptyState);
+    onboardingVisible &&
+    (wouldShowZeroDashboardEmptyState ||
+      wouldShowZeroPanelEmptyState ||
+      wouldShowSharedOnlyEmptyState);
 
   // HEL-1583 D2 — zoom is desktop chrome: the phone shell renders no widget, ignores a saved level (effective 1.0,
   // the saved value is neither written nor cleared) and ignores the ctrl/meta-wheel gesture.
@@ -518,7 +540,8 @@ export function PanelList() {
               {status !== "loading" &&
               status !== "failed" &&
               selectedDashboardId === null &&
-              dashboards.length > 0 ? (
+              dashboards.length > 0 &&
+              !wouldShowSharedOnlyEmptyState ? (
                 <EmptyState
                   icon={<LayoutDashboard />}
                   title="No dashboard open"

@@ -1,10 +1,16 @@
+import { Eye } from "lucide-react";
+
 import { SaveStateIndicator } from "../../shared/chrome/SaveStateIndicator";
 import { useNow } from "../../hooks/useNow";
+import { ICON_SIZE } from "../../shared/ui/iconSize";
 import { RefreshFact, refreshFactOf } from "./RefreshFact";
 import type { DashboardMeta } from "../../features/panels/state/dashboardMeta";
 
 /** Relative-time copy is re-rendered at most once a minute (design D2). */
 const RELATIVE_TIME_TICK_MS = 60_000;
+
+/** The viewer indicator's copy, shared with the phone meta line. */
+export const VIEW_ONLY_TEXT = "View only";
 
 export function panelCountText(count: number): string {
   return count === 1 ? "1 panel" : `${count} panels`;
@@ -21,6 +27,8 @@ interface DashboardMetaFactsProps {
   meta: DashboardMeta;
   /** Panel count only (the narrowest tier). */
   countOnly: boolean;
+  /** HEL-1782: the caller is a viewer of this dashboard; "View only" leads the facts (first, so it survives every tier). */
+  viewOnly?: boolean;
   showSaveState: boolean;
   onSaveNow: () => void;
 }
@@ -30,6 +38,7 @@ interface DashboardMetaFactsProps {
 export function DashboardMetaFacts({
   meta,
   countOnly,
+  viewOnly = false,
   showSaveState,
   onSaveNow,
 }: DashboardMetaFactsProps) {
@@ -39,11 +48,19 @@ export function DashboardMetaFacts({
 
   const refresh = countOnly ? null : refreshFactOf(meta, now);
 
-  const fullText = [countText, refresh?.text, sources].filter(Boolean).join(" · ");
+  const fullText = [viewOnly ? VIEW_ONLY_TEXT : null, countText, refresh?.text, sources]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <>
       <p className="dashboard-meta-row__facts" title={fullText}>
+        {viewOnly && (
+          <span className="dashboard-meta-row__fact dashboard-meta-row__view-only">
+            <Eye size={ICON_SIZE.sm} aria-hidden="true" />
+            {VIEW_ONLY_TEXT}
+          </span>
+        )}
         <span className="dashboard-meta-row__fact">{countText}</span>
         {refresh !== null && <RefreshFact fact={refresh} intent={meta.refreshIntent} />}
         {sources !== null && <span className="dashboard-meta-row__fact">{sources}</span>}

@@ -314,6 +314,56 @@ describe("PanelList", () => {
     expect(screen.getByText("Choose a dashboard from the list, or press ⌘K.")).toBeInTheDocument();
   });
 
+  // HEL-1782 owner ruling 2: a user who owns nothing but has dashboards shared with them gets the first-run drop zone
+  // (not "No dashboard open") when no dashboard is open; an owner keeps "No dashboard open" (the test above).
+  it("renders the first-run drop zone, not 'No dashboard open', for a shared-only user with nothing open", () => {
+    renderWithStore(<PanelList />, {
+      auth: { status: "authenticated", currentUser: { id: "me" } as never },
+      dashboards: {
+        items: [
+          {
+            id: "dashboard-1",
+            name: "Theirs",
+            accessRole: "viewer",
+            ownerId: "other",
+            meta: defaultMeta,
+            appearance: defaultDashboardAppearance,
+            layout: defaultDashboardLayout,
+          },
+        ],
+        selectedDashboardId: null,
+        status: "succeeded",
+      },
+      panels: { items: [], status: "idle" },
+    });
+    expect(screen.getByRole("region", { name: "Build your first dashboard" })).toBeInTheDocument();
+    expect(screen.queryByText("No dashboard open")).toBeNull();
+  });
+
+  it("keeps 'No dashboard open' for an owner once the dashboards have loaded (HEL-1782 owner control)", () => {
+    renderWithStore(<PanelList />, {
+      auth: { status: "authenticated", currentUser: { id: "me" } as never },
+      dashboards: {
+        items: [
+          {
+            id: "dashboard-1",
+            name: "Mine",
+            accessRole: "owner",
+            ownerId: "me",
+            meta: defaultMeta,
+            appearance: defaultDashboardAppearance,
+            layout: defaultDashboardLayout,
+          },
+        ],
+        selectedDashboardId: null,
+        status: "succeeded",
+      },
+      panels: { items: [], status: "idle" },
+    });
+    expect(screen.getByText("No dashboard open")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Build your first dashboard" })).toBeNull();
+  });
+
   it("renders an error fallback when panel loading fails", () => {
     renderWithStore(<PanelList />, {
       dashboards: {

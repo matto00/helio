@@ -390,3 +390,8 @@
     transform: translateY(-50%);
   }
 }
+
+/* HEL-1782: the footer row's leading icon sits before its label, as in the sidebar's "Build your own dashboard" row. */
+.mobile-nav-sheet__footer-row .mobile-nav-sheet__item {
+  justify-content: flex-start;
+}
