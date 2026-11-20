@@ -216,6 +216,9 @@ test.describe("HEL-1784 editors submit form panels", () => {
     await editor.page.goto(`/dashboards/${dashboardId}`);
     const control = editor.page.getByRole("spinbutton", { name: "Widgets" });
     await expect(control).toBeVisible();
+    // HEL-1788: the tally is labelled as this person's own, and the label is its accessible description.
+    await expect(editor.page.getByText("Your net change this session")).toBeVisible();
+    await expect(control).toHaveAccessibleDescription("Your net change this session");
     const plus = editor.page.getByRole("button", { name: /increase widgets/i });
     await expect(plus).toBeEnabled();
     await plus.click();
@@ -224,6 +227,14 @@ test.describe("HEL-1784 editors submit form panels", () => {
     await expect.poll(() => rowTotal(owner.context.request, counterSourceId)).toBe(before + 1);
     const seen = watch.stop();
     expect(seen.dataSourceRequests, "editor's page requests to /api/data-sources").toEqual([]);
+  });
+
+  test("the owner's compact counter carries no tally caption", async () => {
+    await owner.page.goto(`/dashboards/${dashboardId}`);
+    const control = owner.page.getByRole("spinbutton", { name: "Widgets" });
+    await expect(control).toBeVisible();
+    await expect(owner.page.getByText("Your net change this session")).toHaveCount(0);
+    await expect(control).not.toHaveAccessibleDescription("Your net change this session");
   });
 
   test("a direct submit: the owner's response carries seq, the editor's does not", async () => {

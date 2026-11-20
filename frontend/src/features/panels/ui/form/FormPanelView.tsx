@@ -28,6 +28,7 @@ import {
   mapServerFieldErrors,
   validateForSubmit,
 } from "../../state/formSubmission";
+import { COUNTER_TALLY_CAPTION } from "./counterTallyCaption";
 import { FormFieldControl } from "./FormFieldControl";
 import { useFormPanelValues } from "./useFormPanelValues";
 import type { DatasetFieldResponse } from "../../../sources/types/dataSource";
@@ -136,7 +137,14 @@ export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanel
   const issuesByField = new Map(issues.map((i) => [i.field, i.message]));
   const declaredByField = new Map((schema ?? []).map((f) => [f.name, f]));
 
-  const values = useFormPanelValues(config.fields, schema ?? []);
+  // design.md Decision 1/2: the compact layout applies ONLY when the config has exactly one field
+  // and it is a counter — zero fields, one non-counter field, and 2+ fields (including one
+  // counter) all keep the standard stacked-field layout below, with any counter field rendered
+  // `immediate={false}` (local-value-only, participates in the shared Submit button).
+  const isCompactCounter = config.fields.length === 1 && config.fields[0].control === "counter";
+
+  // HEL-1788 D3a: a non-owner's compact counter is a tally of their own clicks, so it starts at 0.
+  const values = useFormPanelValues(config.fields, schema ?? [], isCompactCounter && !isFormOwner);
 
   // HEL-1087 design.md D8: perform the deferred focus move once the errors set above has had a
   // chance to paint `aria-invalid="true"` onto the right control.
@@ -361,12 +369,6 @@ export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanel
     );
   }
 
-  // design.md Decision 1/2: the compact layout applies ONLY when the config has exactly one field
-  // and it is a counter — zero fields, one non-counter field, and 2+ fields (including one
-  // counter) all keep the standard stacked-field layout below, with any counter field rendered
-  // `immediate={false}` (local-value-only, participates in the shared Submit button).
-  const isCompactCounter = config.fields.length === 1 && config.fields[0].control === "counter";
-
   if (isCompactCounter) {
     const field = config.fields[0];
     return (
@@ -390,6 +392,7 @@ export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanel
             immediate
             onImmediateStep={(direction) => void handleImmediateStep(direction)}
             busy={pendingCount > 0}
+            tallyCaption={isFormOwner ? undefined : COUNTER_TALLY_CAPTION}
           />
           <p role="alert" className="form-panel-view__alert">
             {alertText}
