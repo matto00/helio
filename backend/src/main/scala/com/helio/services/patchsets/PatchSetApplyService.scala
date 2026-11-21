@@ -9,14 +9,14 @@ import com.helio.services.pipelines.{OutputService, PipelineService}
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.patchsets.{EditOutcome, PatchSet, PatchSetApplyResponse}
 import com.helio.domain.panels.PanelConfigCodec
-import com.helio.domain.model.{AuthenticatedUser, OutputId, PatchSetApplicationId}
+import com.helio.domain.model.{AuthenticatedUser, OutputId, PatchSetApplicationId, PipelineId}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.services.sources.SourceService
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
-import PatchSetApplicationRepository.{JournaledEdit, JournaledInlineSource, PatchSetApplicationRecord}
+import PatchSetApplicationRepository.{JournaledCreatedChildren, JournaledEdit, JournaledInlineSource, PatchSetApplicationRecord}
 import org.slf4j.LoggerFactory
 import spray.json.JsValue
 
@@ -24,6 +24,7 @@ import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
+import scala.util.control.NonFatal
 
 /** Applies a reviewed `PatchSet` (HEL-403's schema/protocol) atomically — N
  *  targeted edits (update/delete/create) across EXISTING resources either
@@ -133,10 +134,11 @@ final class PatchSetApplyService(
         remaining: Vector[ResolvedEdit],
         applied: Vector[(ResolvedEdit, EditOutcome)],
         rawConfigs: Map[Int, JsValue],
-        createdByRef: Map[String, String]
-    ): Future[Either[(ServiceError, Vector[(ResolvedEdit, EditOutcome)]), (Vector[(ResolvedEdit, EditOutcome)], Map[Int, JsValue])]] =
+        createdByRef: Map[String, String],
+        children: Map[Int, JournaledCreatedChildren]
+    ): Future[Either[(ServiceError, Vector[(ResolvedEdit, EditOutcome)]), (Vector[(ResolvedEdit, EditOutcome)], Map[Int, JsValue], Map[Int, JournaledCreatedChildren])]] =
       remaining.headOption match {
-        case None => Future.successful(Right((applied, rawConfigs)))
+        case None => Future.successful(Right((applied, rawConfigs, children)))
         case Some(declared) =>
           // HEL-1639 D2: a panel create bound by `$ref` gets the real id of the Output an earlier edit just created.
           PatchSetRefs.substitute(declared, createdByRef) match {
@@ -145,20 +147,25 @@ final class PatchSetApplyService(
               PatchSetApplyForward.applyOne(edit, user, services).flatMap {
                 case Left(err) => Future.successful(Left((err, applied)))
                 case Right(outcome) =>
-                  captureRawPanelConfig(edit).flatMap { rawConfigOpt =>
-                    val nextRawConfigs = rawConfigOpt.fold(rawConfigs)(json => rawConfigs + (edit.index -> json))
-                    val nextCreated = (edit.ref, edit.action, outcome.newId) match {
-                      case (Some(ref), _: ResolvedAction.OutputCreate, Some(id)) => createdByRef + (ref -> id)
-                      case _                                                      => createdByRef
+                  for {
+                    rawConfigOpt <- captureRawPanelConfig(edit)
+                    childrenOpt  <- captureCreatedChildren(edit, outcome)
+                    next <- {
+                      val nextChildren   = childrenOpt.fold(children)(c => children + (edit.index -> c))
+                      val nextRawConfigs = rawConfigOpt.fold(rawConfigs)(json => rawConfigs + (edit.index -> json))
+                      val nextCreated = (edit.ref, edit.action, outcome.newId) match {
+                        case (Some(ref), _: ResolvedAction.OutputCreate, Some(id)) => createdByRef + (ref -> id)
+                        case _                                                      => createdByRef
+                      }
+                      loop(remaining.tail, applied :+ (edit -> outcome), nextRawConfigs, nextCreated, nextChildren)
                     }
-                    loop(remaining.tail, applied :+ (edit -> outcome), nextRawConfigs, nextCreated)
-                  }
+                  } yield next
               }
           }
       }
 
-    loop(resolved, Vector.empty, Map.empty, Map.empty).flatMap {
-      case Right((appliedAll, rawConfigs)) =>
+    loop(resolved, Vector.empty, Map.empty, Map.empty, Map.empty).flatMap {
+      case Right((appliedAll, rawConfigs, children)) =>
         // HEL-1639 D2: created Outputs are backfilled only now that the whole set has applied, so a rolled-back set
         // never triggers one.
         if (services.outputService != null)
@@ -166,7 +173,7 @@ final class PatchSetApplyService(
             appliedAll.collect { case (e, o) if e.action.isInstanceOf[ResolvedAction.OutputCreate] => o.newId }.flatten.map(OutputId(_)),
             user
           )
-        journalSuccess(appliedAll, rawConfigs, user).map { applicationId =>
+        journalSuccess(appliedAll, rawConfigs, children, user).map { applicationId =>
           Right(PatchSetApplyResponse(appliedAll.map(_._2), failure = None, applicationId = Some(applicationId)))
         }
       case Left((err, appliedSoFar)) =>
@@ -187,6 +194,25 @@ final class PatchSetApplyService(
     edit.action match {
       case ResolvedAction.PanelUpdate(id, _, _) =>
         panelRepo.findByIdInternal(id).map(_.map(PanelConfigCodec.encodeConfig))
+      case _ => Future.successful(None)
+    }
+
+  /** HEL-1795: for a `pipeline` `create` edit, the ids of the steps and Outputs that create itself made, read through
+   *  internal reads right after it returned (the pipeline is milliseconds old and its id is known only to this call, so
+   *  the listing is exactly what the create made). `None` for every other edit; also `None`, with a warning, when the
+   *  read fails, so undo falls back to its legacy rule rather than the apply failing. */
+  private def captureCreatedChildren(edit: ResolvedEdit, outcome: EditOutcome): Future[Option[JournaledCreatedChildren]] =
+    (edit.action, outcome.newId) match {
+      case (_: ResolvedAction.PipelineCreate, Some(id)) =>
+        val pid = PipelineId(id)
+        val read = for {
+          steps   <- pipelineStepRepo.listByPipelineInternal(pid)
+          outputs <- outputRepo.listByPipelineInternal(pid)
+        } yield Option(JournaledCreatedChildren(steps.map(_.id.value), outputs.map(_.id.value)))
+        read.recover { case NonFatal(ex) =>
+          log.warn(s"edit ${edit.index}: could not record the steps and Outputs the pipeline create made: ${ex.getClass.getSimpleName}")
+          None
+        }
       case _ => Future.successful(None)
     }
 
@@ -219,6 +245,7 @@ final class PatchSetApplyService(
   private def journalSuccess(
       appliedAll: Vector[(ResolvedEdit, EditOutcome)],
       rawConfigs: Map[Int, JsValue],
+      children: Map[Int, JournaledCreatedChildren],
       user: AuthenticatedUser
   ): Future[String] = {
     val journaledEdits = appliedAll.map { case (edit, outcome) =>
@@ -230,7 +257,8 @@ final class PatchSetApplyService(
         resultingState     = outcome.resultingState,
         newId              = outcome.newId,
         rawResultingConfig = rawConfigs.get(edit.index),
-        inlineSources      = journaledInlineSources(edit, outcome)
+        inlineSources      = journaledInlineSources(edit, outcome),
+        createdChildren    = children.get(edit.index)
       )
     }
     val now = Instant.now()

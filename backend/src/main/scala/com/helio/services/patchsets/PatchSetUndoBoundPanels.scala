@@ -1,6 +1,6 @@
 package com.helio.services.patchsets
 
-import com.helio.domain.model.{AuthenticatedUser, DashboardId, PanelId, PipelineId, PipelineStepId}
+import com.helio.domain.model.{AuthenticatedUser, DashboardId, Output, PanelId, PipelineId, PipelineStep, PipelineStepId}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository.JournaledEdit
@@ -35,6 +35,38 @@ private[services] object PatchSetUndoBoundPanels {
       (doomedPanels.toSet -- created).toVector.sorted
     }
 
+  /** HEL-1795: the Outputs and pipeline steps a `pipeline` / `pipelineStep` create edit's undo deletes (read through
+   *  internal reads), computed once and shared by the panel check and the later-Outputs/steps check so the two never
+   *  drift. `steps` excludes the created step itself on the `pipelineStep` arm. Empty for every other arm. */
+  final case class DoomedRows(outputs: Vector[Output], steps: Vector[PipelineStep])
+
+  private val NoRows = DoomedRows(Vector.empty, Vector.empty)
+
+  def doomedRows(edit: JournaledEdit, ctx: PatchSetUndoContext)(implicit ec: ExecutionContext): Future[DoomedRows] =
+    (edit.targetKind, edit.newId) match {
+      case ("pipeline", Some(id)) =>
+        for {
+          outputs <- ctx.outputRepo.listByPipelineInternal(PipelineId(id))
+          steps   <- ctx.pipelineStepRepo.listByPipelineInternal(PipelineId(id))
+        } yield DoomedRows(outputs, steps)
+      case ("pipelineStep", Some(id)) =>
+        // the step delete's REAL removal set (the step and every non-promoted child subtree), not just the step
+        ctx.pipelineStepRepo.removedByDeleteInternal(PipelineStepId(id)).flatMap { removed =>
+          ctx.pipelineStepRepo.findByIdInternal(PipelineStepId(id)).flatMap {
+            case None => Future.successful(NoRows)
+            case Some(step) =>
+              for {
+                os    <- ctx.outputRepo.listByPipelineInternal(step.pipelineId)
+                steps <- ctx.pipelineStepRepo.listByPipelineInternal(step.pipelineId)
+              } yield DoomedRows(
+                os.filter(_.node.stepId.exists(sid => removed.contains(sid.value))),
+                steps.filter(st => st.id.value != id && removed.contains(st.id.value))
+              )
+          }
+        }
+      case _ => Future.successful(NoRows)
+    }
+
   /** Ids of every panel `edit`'s undo would delete (including panels the set created). */
   private def doomed(edit: JournaledEdit, ctx: PatchSetUndoContext)(implicit ec: ExecutionContext): Future[Vector[String]] = {
     def byOutputs(outputIds: Set[String]): Future[Vector[String]] =
@@ -44,18 +76,8 @@ private[services] object PatchSetUndoBoundPanels {
       case Some(id) =>
         edit.targetKind match {
           case "output"   => byOutputs(Set(id))
-          case "pipeline" => ctx.outputRepo.listByPipelineInternal(PipelineId(id)).flatMap(os => byOutputs(os.map(_.id.value).toSet))
           case "dashboard" => ctx.dashboardRepo.panelIdsInternal(DashboardId(id)).map(_.map(_.value).toVector)
-          case "pipelineStep" =>
-            // the step delete's REAL removal set (the step and every non-promoted child subtree), not just the step
-            ctx.pipelineStepRepo.removedByDeleteInternal(PipelineStepId(id)).flatMap { removed =>
-              ctx.pipelineStepRepo.findByIdInternal(PipelineStepId(id)).flatMap {
-                case None => Future.successful(Vector.empty[String])
-                case Some(step) =>
-                  ctx.outputRepo.listByPipelineInternal(step.pipelineId)
-                    .flatMap(os => byOutputs(os.filter(_.node.stepId.exists(s => removed.contains(s.value))).map(_.id.value).toSet))
-              }
-            }
+          case "pipeline" | "pipelineStep" => doomedRows(edit, ctx).flatMap(rows => byOutputs(rows.outputs.map(_.id.value).toSet))
           case _ => Future.successful(Vector.empty)
         }
     }
@@ -81,15 +103,23 @@ private[services] object PatchSetUndoBoundPanels {
    *  used by the draft-save undo's refusal. */
   def describeBlocking(ids: Vector[String], user: AuthenticatedUser, panelRepo: PanelRepository, dashboardRepo: DashboardRepository)(implicit
       ec: ExecutionContext
+  ): Future[String] =
+    nameList(ids, describe(_, user, panelRepo, dashboardRepo), s"panel(s) on dashboards you cannot see")
+
+  /** The shared naming structure (HEL-1792, reused by HEL-1795): describes up to [[NameCap]] of `ids` with `describeOne`
+   *  (`None` = the user cannot read it), then counts the overflow and the unreadable ones with `unreadableNoun`, never
+   *  naming them. */
+  def nameList(ids: Vector[String], describeOne: String => Future[Option[String]], unreadableNoun: String)(implicit
+      ec: ExecutionContext
   ): Future[String] = {
     val (looked, rest) = ids.splitAt(NameCap)
-    Future.traverse(looked)(describe(_, user, panelRepo, dashboardRepo)).map { described =>
+    Future.traverse(looked)(describeOne).map { described =>
       val named      = described.flatten
       val unreadable = looked.size - named.size
       Vector(
         Some(named.mkString(", ")).filter(_.nonEmpty),
         Some(s"and ${rest.size} more").filter(_ => rest.nonEmpty),
-        Some(s"and $unreadable panel(s) on dashboards you cannot see").filter(_ => unreadable > 0)
+        Some(s"and $unreadable $unreadableNoun").filter(_ => unreadable > 0)
       ).flatten.mkString(", ")
     }
   }

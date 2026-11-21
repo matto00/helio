@@ -118,8 +118,18 @@ class PatchSetUndoLaneSpec extends PatchSetUndoServiceFixture {
       await(outputRepo.findByIdInternal(output.id)).isDefined shouldBe true
       await(panelRepo.findByIdInternal(panel.id)).isDefined shouldBe true
 
-      // once the user removes the panel themselves, the undo removes the step and its Output
+      // HEL-1795 (deliberate reversal of HEL-914 5.6's second half): the Output was added after the apply too, so with the
+      // panel gone the undo is STILL refused, naming the Output, instead of deleting it silently.
       await(panelService.delete(panel.id, userA)).isRight shouldBe true
+      await(undoService.undo(PatchSetApplicationId(applicationId), userA)) match {
+        case Left(ServiceError.Conflict(msg)) => msg should include("Output \"Lane output\"")
+        case other                            => fail(s"expected a Conflict, got $other")
+      }
+      await(pipelineStepRepo.findByIdInternal(PipelineStepId(createdStepId))).isDefined shouldBe true
+      await(outputRepo.findByIdInternal(output.id)).isDefined shouldBe true
+
+      // once the user removes the Output themselves too, the undo removes the step
+      await(outputRepo.deleteIfUnboundInternal(output.id)).isRight shouldBe true
       val undoResponse = await(undoService.undo(PatchSetApplicationId(applicationId), userA)) match {
         case Right(r)  => r
         case Left(err) => fail(s"expected success, got $err")

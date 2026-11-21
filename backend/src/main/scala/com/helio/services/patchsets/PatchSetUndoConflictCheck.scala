@@ -11,6 +11,8 @@ import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationReposit
 import PatchSetApplicationRepository.JournaledEdit
 import PatchSetApplyServiceJson._
 import org.slf4j.LoggerFactory
+
+import java.time.Instant
 import spray.json.{JsObject, JsValue, JsonParser}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -38,16 +40,18 @@ private[services] object PatchSetUndoConflictCheck {
   def checkAll(
       edits: Vector[JournaledEdit],
       user: AuthenticatedUser,
-      ctx: PatchSetUndoContext
+      ctx: PatchSetUndoContext,
+      appliedAt: Instant
   )(implicit ec: ExecutionContext): Future[Vector[String]] =
-    Future.sequence(edits.map(guarded(_, edits, user, ctx))).map(_.flatten)
+    Future.sequence(edits.map(guarded(_, edits, user, ctx, appliedAt))).map(_.flatten)
 
   /** HEL-1720: a create arm's own check, plus (never instead of it) the shared bound-panels blocker. */
   private def guarded(
       edit: JournaledEdit,
       edits: Vector[JournaledEdit],
       user: AuthenticatedUser,
-      ctx: PatchSetUndoContext
+      ctx: PatchSetUndoContext,
+      appliedAt: Instant
   )(implicit ec: ExecutionContext): Future[Option[String]] = {
     val own = checkOne(edit, user, ctx)
     if (!PatchSetUndoBoundPanels.guards(edit)) own
@@ -55,7 +59,8 @@ private[services] object PatchSetUndoConflictCheck {
       for {
         o <- own
         b <- PatchSetUndoBoundPanels.blocker(edit, edits, user, ctx)
-      } yield Vector(o, b).flatten match {
+        l <- if (PatchSetUndoLaterChildren.guards(edit)) PatchSetUndoLaterChildren.blockers(edit, edits, appliedAt, user, ctx) else Future.successful(Vector.empty[String])
+      } yield (Vector(o, b) ++ l.map(Option(_))).flatten match {
         case Vector() => None
         case parts    => Some(parts.mkString("; "))
       }

@@ -115,7 +115,8 @@ object PatchSetApplicationRepository extends DefaultJsonProtocol {
    *  reused verbatim; `rawResultingConfig` is design.md D2a's panel-update-only raw config
    *  snapshot — `None` for every other kind/op. `inlineSources` (HEL-1493) is set only for a `pipeline`
    *  `create` edit: the inline root sources that apply created (empty when it created none), or `None` when they
-   *  could not be recorded and for every row journaled before it existed (an absent field reads as `None`). */
+   *  could not be recorded and for every row journaled before it existed (an absent field reads as `None`).
+   *  `createdChildren` (HEL-1795) is likewise set only for a `pipeline` `create` edit. */
   final case class JournaledEdit(
       index: Int,
       targetKind: String,
@@ -124,8 +125,17 @@ object PatchSetApplicationRepository extends DefaultJsonProtocol {
       resultingState: Option[JsValue],
       newId: Option[String],
       rawResultingConfig: Option[JsValue],
-      inlineSources: Option[Vector[JournaledInlineSource]] = None
+      inlineSources: Option[Vector[JournaledInlineSource]] = None,
+      createdChildren: Option[JournaledCreatedChildren] = None
   )
+
+  /** HEL-1795: the ids of the pipeline steps and Outputs a `pipeline` `create` edit itself made (inline `steps` /
+   *  `outputs`), read right after the create returns. Undo excuses exactly these ids when it checks that deleting the
+   *  pipeline removes nothing the patch set did not create. `None` on a journal row written before it existed. */
+  final case class JournaledCreatedChildren(stepIds: Vector[String], outputIds: Vector[String])
+
+  // Declared before `journaledEditFormat`, which uses it: a later declaration reads as null at runtime.
+  implicit val journaledCreatedChildrenFormat: RootJsonFormat[JournaledCreatedChildren] = jsonFormat2(JournaledCreatedChildren.apply)
 
   /** An inline root source a `pipeline` `create` edit created (HEL-1493): its id, and whether creating it also made an
    *  implicit "Auto:" Connector (a bare-`url` REST root). */
@@ -134,7 +144,7 @@ object PatchSetApplicationRepository extends DefaultJsonProtocol {
   // Declared before `journaledEditFormat`, which uses it: a later declaration reads as null at runtime.
   implicit val journaledInlineSourceFormat: RootJsonFormat[JournaledInlineSource] = jsonFormat2(JournaledInlineSource.apply)
 
-  implicit val journaledEditFormat: RootJsonFormat[JournaledEdit] = jsonFormat8(JournaledEdit.apply)
+  implicit val journaledEditFormat: RootJsonFormat[JournaledEdit] = jsonFormat9(JournaledEdit.apply)
 
   implicit val journaledEditsColumnType: BaseColumnType[Vector[JournaledEdit]] =
     MappedColumnType.base[Vector[JournaledEdit], String](
