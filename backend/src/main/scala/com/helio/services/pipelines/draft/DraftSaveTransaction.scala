@@ -160,11 +160,15 @@ private[draft] final class DraftSaveTransaction(
     else if (mode.restoring)
       abortIf(
         impact.panelIds.nonEmpty || impact.alertRuleIds.nonEmpty,
-        ServiceError.Conflict(
-          "Undo refused: restoring would delete " +
-            (impact.panelIds.map(id => s"panel $id") ++ impact.alertRuleIds.map(id => s"alert rule $id")).mkString(", ") +
-            ", which were bound after the save; nothing was changed."
-        )
+        ServiceError.Conflict {
+          // count-only (HEL-1792): this runs under the definition locks on the privileged pool, where naming reads as the
+          // undoing user are unavailable, so no id, title or name is ever put in the message
+          val parts = Vector(
+            Some(s"${impact.panelIds.size} panel(s)").filter(_ => impact.panelIds.nonEmpty),
+            Some(s"${impact.alertRuleIds.size} alert rule(s)").filter(_ => impact.alertRuleIds.nonEmpty)
+          ).flatten
+          s"Undo refused: ${parts.mkString(" and ")} are bound to Outputs this undo would delete; nothing was changed."
+        }
       )
     else {
       val c = req.confirmCascade

@@ -1,6 +1,8 @@
 package com.helio.services.patchsets
 
 import com.helio.domain.model.{AuthenticatedUser, DashboardId, PanelId, PipelineId, PipelineStepId}
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository.JournaledEdit
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -66,15 +68,7 @@ private[services] object PatchSetUndoBoundPanels {
     blockingPanelIds(edit, edits, ctx).flatMap {
       case ids if ids.isEmpty => Future.successful(None)
       case ids =>
-        val (looked, rest) = ids.splitAt(NameCap)
-        Future.traverse(looked)(describe(_, user, ctx)).map { described =>
-          val named      = described.flatten
-          val unreadable = looked.size - named.size
-          val parts = Vector(
-            Some(named.mkString(", ")).filter(_.nonEmpty),
-            Some(s"and ${rest.size} more").filter(_ => rest.nonEmpty),
-            Some(s"and $unreadable panel(s) on dashboards you cannot see").filter(_ => unreadable > 0)
-          ).flatten.mkString(", ")
+        describeBlocking(ids, user, ctx.panelRepo, ctx.dashboardRepo).map { parts =>
           Some(
             s"edit ${edit.index} (${edit.targetKind} create): ${ids.size} panel(s) were added after the patch set was applied " +
               s"and would be deleted: $parts; remove or rebind them before undoing"
@@ -82,12 +76,32 @@ private[services] object PatchSetUndoBoundPanels {
         }
     }
 
+  /** HEL-1792: the shared naming half of a refusal. Names (up to [[NameCap]]) the panels `user` can read as
+   *  `"<title>" on dashboard "<name>"`, counts the overflow, and counts the ones `user` cannot read, never naming them. Also
+   *  used by the draft-save undo's refusal. */
+  def describeBlocking(ids: Vector[String], user: AuthenticatedUser, panelRepo: PanelRepository, dashboardRepo: DashboardRepository)(implicit
+      ec: ExecutionContext
+  ): Future[String] = {
+    val (looked, rest) = ids.splitAt(NameCap)
+    Future.traverse(looked)(describe(_, user, panelRepo, dashboardRepo)).map { described =>
+      val named      = described.flatten
+      val unreadable = looked.size - named.size
+      Vector(
+        Some(named.mkString(", ")).filter(_.nonEmpty),
+        Some(s"and ${rest.size} more").filter(_ => rest.nonEmpty),
+        Some(s"and $unreadable panel(s) on dashboards you cannot see").filter(_ => unreadable > 0)
+      ).flatten.mkString(", ")
+    }
+  }
+
   /** `"<title>" on dashboard "<name>"` when the undoing user can read both, else `None` (counted, never named). */
-  private def describe(panelId: String, user: AuthenticatedUser, ctx: PatchSetUndoContext)(implicit ec: ExecutionContext): Future[Option[String]] =
-    ctx.panelRepo.findById(PanelId(panelId), Some(user)).flatMap {
+  private def describe(panelId: String, user: AuthenticatedUser, panelRepo: PanelRepository, dashboardRepo: DashboardRepository)(implicit
+      ec: ExecutionContext
+  ): Future[Option[String]] =
+    panelRepo.findById(PanelId(panelId), Some(user)).flatMap {
       case None => Future.successful(None)
       case Some(panel) =>
-        ctx.dashboardRepo.findById(panel.dashboardId, Some(user)).map(_.map(d => s""""${panel.title}" on dashboard "${d.name}""""))
+        dashboardRepo.findById(panel.dashboardId, Some(user)).map(_.map(d => s""""${panel.title}" on dashboard "${d.name}""""))
     }
 
   /** The fixed Phase-2 failure phrase: a count only, never a title, dashboard name or id (it is logged at ERROR). */

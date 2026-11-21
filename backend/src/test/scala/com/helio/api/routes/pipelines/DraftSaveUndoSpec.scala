@@ -68,7 +68,7 @@ class DraftSaveUndoSpec extends DraftSaveApiFixture {
       storedState(seed) shouldBe before
     }
 
-    "be refused with a 409 naming the panel when one was bound to the created Output after the save" in {
+    "be refused with a 409 naming the panel by title when one was bound to the created Output after the save" in {
       val seed = seedPipeline()
       val (fp, definition) = read(seed)
       val draft0 = draftOf(fp, definition)
@@ -80,7 +80,8 @@ class DraftSaveUndoSpec extends DraftSaveApiFixture {
       val stateAfterSave = storedState(seed)
       val (code, body) = undo(appId)
       code shouldBe StatusCodes.Conflict
-      body.compactPrint should include("late-panel")
+      body.compactPrint should include("\\\"late\\\" on dashboard") // named by title and dashboard (HEL-1792), never by id
+      body.compactPrint should not include "late-panel"
       storedState(seed) shouldBe stateAfterSave
     }
   }
@@ -100,7 +101,7 @@ class DraftSaveUndoSpec extends DraftSaveApiFixture {
   }
 
   "undo of a save whose cascade removed bound panels and alert rules" should {
-    "answer 409 naming each panel and alert rule, restoring nothing" in {
+    "answer 409 counting the panels and alert rules, restoring nothing" in {
       val seed = seedPipeline()
       val (fp, definition) = read(seed)
       val draft0 = draftOf(fp, definition)
@@ -112,7 +113,8 @@ class DraftSaveUndoSpec extends DraftSaveApiFixture {
       val (code, body) = undo(appId)
       code shouldBe StatusCodes.Conflict
       val text = body.compactPrint
-      Seq(seed.pa, seed.pb, seed.ra, seed.rb).foreach(id => text should include(id))
+      text should include("the save removed 2 panel(s) and 2 alert rule(s) with its Outputs") // HEL-1792: counts only, no ids
+      Seq(seed.pa, seed.pb, seed.ra, seed.rb).foreach(id => text should not include id)
       storedState(seed) shouldBe state
     }
   }
