@@ -20,6 +20,10 @@ export interface AssistantConversationSummary {
   effectiveModel?: string;
 }
 
+/** HEL-1637: why a converse turn ended: a final answer, 3 failed tool calls, the round-trip ceiling, or the
+ *  input-token limit. */
+export type AssistantStopReason = "final" | "failure_budget" | "hop_ceiling" | "input_budget";
+
 /** `GET /api/assistant-conversations/:id` shape — summary fields plus the
  * full transcript. `hopBudgetExhausted`/`searchedWithNoResults` (HEL-667
  * design.md D1) are ephemeral signals describing the turn that just
@@ -31,6 +35,10 @@ export interface AssistantConversationSummary {
 export interface AssistantConversationDetail extends AssistantConversationSummary {
   transcript: ClaudeToolMessageDto[];
   hopBudgetExhausted?: boolean;
+  /** HEL-1637: what ended the just-completed converse turn (converse-only, absent on `GET`). */
+  stopReason?: AssistantStopReason;
+  /** HEL-1637: the server-composed plain-language message of a non-final stop (converse-only). */
+  stopMessage?: string;
   searchedWithNoResults?: boolean;
   lastIdempotencyKey?: string;
 }

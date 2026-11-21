@@ -151,7 +151,8 @@ object AssistantSystemPrompt {
       "existing pipeline (output create) and panels to an existing dashboard (panel create).\n\n" +
       ModelSection + "\n\n" + SharedDashboardsSection + "\n\n" + ProcedureSection + "\n\n" +
       "Hard rules:\n" +
-      "- You have at most 4 hops (tool-call round trips) to reach an answer. Use them efficiently " +
+      s"- You have up to ${AssistantStopMessages.HopCeiling} hops (tool-call round trips) per turn, and the turn stops after " +
+      s"${AssistantStopMessages.FailureBudget} failed tool calls. Use them efficiently " +
       "— search before proposing, and don't repeat a call you've already made.\n" +
       "- Call at most one propose_* tool per turn. Never call two propose_* tools in the same " +
       "response -- only the first is evaluated. Put the WHOLE change in that one proposal (for several charts: " +

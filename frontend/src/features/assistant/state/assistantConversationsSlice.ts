@@ -7,7 +7,11 @@ import {
   listConversations as listConversationsRequest,
   updateConversation as updateConversationRequest,
 } from "../services/assistantConversationsService";
-import type { AssistantConversationDetail, AssistantConversationSummary } from "../types";
+import type {
+  AssistantConversationDetail,
+  AssistantConversationSummary,
+  AssistantStopReason,
+} from "../types";
 
 function toSummary(detail: AssistantConversationDetail): AssistantConversationSummary {
   const { id, title, pinned, updatedAt, model, effectiveModel } = detail;
@@ -94,6 +98,9 @@ interface AssistantConversationsState {
   lastTurnOutcome: {
     hopBudgetExhausted: boolean;
     searchedWithNoResults: boolean;
+    /** HEL-1637: what ended the turn and, for a stop, the server's plain-language message. */
+    stopReason?: AssistantStopReason;
+    stopMessage?: string;
   } | null;
   /** HEL-1755 D10 — the model picked in the composer BEFORE any conversation exists. Held here (not component
    *  state) so `startConversationWithMessage` can send it as `model` on the first converse; cleared once that
@@ -356,6 +363,8 @@ const assistantConversationsSlice = createSlice({
         state.lastTurnOutcome = {
           hopBudgetExhausted: action.payload.hopBudgetExhausted ?? false,
           searchedWithNoResults: action.payload.searchedWithNoResults ?? false,
+          stopReason: action.payload.stopReason,
+          stopMessage: action.payload.stopMessage,
         };
       });
   },

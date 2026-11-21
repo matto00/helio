@@ -38,7 +38,9 @@ final class ClaudeInsightClient(client: ClaudeClient, catalog: ClaudeModelCatalo
         val answered = r.responseModel.getOrElse(requested)
         if (!answered.startsWith(requested)) log.warn(s"insight render requested model '$requested' but the API answered with '$answered'")
         Right(InsightModelResponse(text, InsightUsage(usage.inputTokens, usage.outputTokens, usage.cacheCreationInputTokens, usage.cacheReadInputTokens), answered))
-      case ClaudeToolOutcome.HopBudgetExhausted(_, _) => Left(InsightModelFailure.NoAnswer("the model asked for a tool"))
+      // HEL-1637 D9: the other two budget stops cannot occur (this caller never sets failureBudget/stopOnInputBudget).
+      case _: ClaudeToolOutcome.HopBudgetExhausted | _: ClaudeToolOutcome.FailureBudgetExhausted | _: ClaudeToolOutcome.InputBudgetExhausted =>
+        Left(InsightModelFailure.NoAnswer("the model asked for a tool"))
       case ClaudeToolOutcome.Failed(ClaudeError.GuardrailExceeded(reason)) => Left(InsightModelFailure.Guardrail(reason))
       case ClaudeToolOutcome.Failed(ClaudeError.ApiError(status, body))    => Left(InsightModelFailure.Api(status, body))
       case ClaudeToolOutcome.Failed(ClaudeError.TransportFailure(message)) => Left(InsightModelFailure.Transport(message))

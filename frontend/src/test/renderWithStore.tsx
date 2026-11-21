@@ -156,6 +156,8 @@ interface TestState {
     lastTurnOutcome?: {
       hopBudgetExhausted: boolean;
       searchedWithNoResults: boolean;
+      stopReason?: "final" | "failure_budget" | "hop_ceiling" | "input_budget";
+      stopMessage?: string;
     } | null;
     /** HEL-1755: the model picked before a conversation exists / the last model-change failure. */
     pendingModel?: string | null;

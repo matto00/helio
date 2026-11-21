@@ -39,6 +39,7 @@ import spray.json._
 
 import java.nio.file.Files
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 
@@ -149,6 +150,13 @@ class AssistantTelemetrySpec
     override def sendTool(request: ClaudeApiToolRequest): Future[ClaudeApiResponse]    = response
   }
 
+  private class SeqTransport(responses: Vector[Future[ClaudeApiResponse]]) extends ClaudeTransport {
+    private val next = new AtomicInteger(0)
+    override def send(request: ClaudeApiRequest): Future[ClaudeApiResponse]            = Future.failed(new UnsupportedOperationException("not exercised"))
+    override def stream(request: ClaudeApiRequest): Source[ClaudeStreamEvent, NotUsed] = throw new UnsupportedOperationException("not exercised")
+    override def sendTool(request: ClaudeApiToolRequest): Future[ClaudeApiResponse]    = responses(next.getAndIncrement())
+  }
+
   // No propose_*/find/get_resource/test_connection tool_use is ever scripted below, so
   // AssistantToolExecutor's other 6 collaborators are never touched -- null is safe (mirrors
   // AssistantConversationRoutesSpec's own established "null-unused" pattern).
@@ -216,30 +224,62 @@ class AssistantTelemetrySpec
       }
     }
 
-    "a hop-cap-exhausted turn's telemetry line reflects hopBudgetExhausted=true and every requested tool_use" in {
+    "a failure-budget-stopped turn's telemetry line carries failedToolCalls, hopsUsed and stopReason (HEL-1637)" in {
       val user    = newUser()
       val detail  = await(conversationService.create(user, None, title = None))
       val modelId = s"model-${UUID.randomUUID()}"
       // "unknown_tool" is never in AssistantProtocol.assistantTools -- AssistantToolExecutor's
       // fallback (`Left(s"Unknown tool: $other")`) never touches a real collaborator, so the fixed,
-      // repeated tool_use response can safely drive all the way to the 4-hop cap (HEL-756).
+      // repeated tool_use response drives the loop to the 3-failure budget.
       val service = assistantServiceWith(new FakeTransport(toolUseResponse("t", "unknown_tool")), modelId)
 
       JsonLogCapture.withCapture("com.helio.services.assistant.AssistantTelemetry$") { read =>
         tracedPost(s"/assistant-conversations/${detail.record.id.value}/converse", """{"message":"Hello"}""") ~>
           tracedRoutesFor(user, Some(service)) ~> check {
             status shouldBe StatusCodes.OK
+            val body = responseAs[JsObject]
+            body.fields("stopReason") shouldBe JsString("failure_budget")
+            body.fields("stopMessage").convertTo[String] should include("3 tool calls failed")
           }
 
         eventually {
           val lines = linesFor(read, modelId)
           lines should have size 1
-          lines.head.fields("hopBudgetExhausted") shouldBe JsString("true")
+          lines.head.fields("hopBudgetExhausted") shouldBe JsString("false")
           lines.head.fields("searchedWithNoResults") shouldBe JsString("false")
-          // HEL-756: 5 tool_use blocks are requested across the loop's 5 transport round trips (the
-          // 5th one is never executed by AssistantToolExecutor, but it IS present in fullHistory --
-          // see AssistantConversationRoutes.countToolUses's own doc comment).
-          lines.head.fields("toolCallCount") shouldBe JsString("5")
+          lines.head.fields("toolCallCount") shouldBe JsString("3")
+          lines.head.fields("failedToolCalls") shouldBe JsString("3")
+          lines.head.fields("hopsUsed") shouldBe JsString("3")
+          lines.head.fields("stopReason") shouldBe JsString("failure_budget")
+        }
+        // Integers and a fixed token only: never the error text of the failed calls.
+        read() should not include "Unknown tool"
+      }
+    }
+
+    "a turn with 2 failed calls then a final answer records failedToolCalls 2 and stopReason final (HEL-1637)" in {
+      val user    = newUser()
+      val detail  = await(conversationService.create(user, None, title = None))
+      val modelId = s"model-${UUID.randomUUID()}"
+      val service = assistantServiceWith(
+        new SeqTransport(Vector(toolUseResponse("t1", "unknown_tool"), toolUseResponse("t2", "unknown_tool"), finalTextResponse("All done."))),
+        modelId
+      )
+
+      JsonLogCapture.withCapture("com.helio.services.assistant.AssistantTelemetry$") { read =>
+        tracedPost(s"/assistant-conversations/${detail.record.id.value}/converse", """{"message":"Hello"}""") ~>
+          tracedRoutesFor(user, Some(service)) ~> check {
+            status shouldBe StatusCodes.OK
+            responseAs[JsObject].fields("stopReason") shouldBe JsString("final")
+            responseAs[JsObject].fields.get("stopMessage") shouldBe None
+          }
+
+        eventually {
+          val lines = linesFor(read, modelId)
+          lines should have size 1
+          lines.head.fields("failedToolCalls") shouldBe JsString("2")
+          lines.head.fields("hopsUsed") shouldBe JsString("2")
+          lines.head.fields("stopReason") shouldBe JsString("final")
         }
       }
     }
@@ -263,8 +303,8 @@ class AssistantTelemetrySpec
         eventually {
           val lines = linesFor(read, modelId)
           lines should have size 1
-          // Same 5-round-trip hop-cap-exhausted shape as the sibling test above -- 5 hops x 50.
-          lines.head.fields("cacheReadInputTokens") shouldBe JsString("250")
+          // The 3-failure stop of the sibling test above -- 3 hops x 50.
+          lines.head.fields("cacheReadInputTokens") shouldBe JsString("150")
           lines.head.fields("cacheCreationInputTokens") shouldBe JsString("0")
         }
       }
@@ -292,9 +332,9 @@ class AssistantTelemetrySpec
         eventually {
           val lines = linesFor(read, modelId)
           lines should have size 1
-          lines.head.fields("hopBudgetExhausted") shouldBe JsString("true")
-          lines.head.fields("proposeAttempts") shouldBe JsString("4")
-          lines.head.fields("proposeDecodeFailures") shouldBe JsString("4")
+          lines.head.fields("stopReason") shouldBe JsString("failure_budget")
+          lines.head.fields("proposeAttempts") shouldBe JsString("3")
+          lines.head.fields("proposeDecodeFailures") shouldBe JsString("3")
           lines.head.fields("proposeValidationFailures") shouldBe JsString("0")
         }
 

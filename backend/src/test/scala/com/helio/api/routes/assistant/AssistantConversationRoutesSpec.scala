@@ -500,7 +500,7 @@ class AssistantConversationRoutesSpec
   // turn-outcome signals surface on a converse response and stay absent on GET.
   "POST /assistant-conversations/:id/converse turn-outcome signals" should {
 
-    "surfaces hopBudgetExhausted = true when the turn hits the hop cap" in {
+    "surfaces stopReason failure_budget with a stopMessage when the turn spends 3 failed tool calls (HEL-1637)" in {
       cleanDb()
       val detail = await(conversationService.create(userA, None, title = None))
       // "unknown_tool" is never a member of AssistantProtocol.assistantTools -- AssistantToolExecutor
@@ -511,8 +511,10 @@ class AssistantConversationRoutesSpec
       Post(s"/assistant-conversations/${detail.record.id.value}/converse", jsonEntity("""{"message":"Hello"}""")) ~> routesFor(userA, Some(assistantService)) ~> check {
         status shouldBe StatusCodes.OK
         val obj = responseAs[String].parseJson.asJsObject
-        obj.fields("hopBudgetExhausted") shouldBe JsBoolean(true)
+        obj.fields("hopBudgetExhausted") shouldBe JsBoolean(false)
         obj.fields("searchedWithNoResults") shouldBe JsBoolean(false)
+        obj.fields("stopReason") shouldBe JsString("failure_budget")
+        obj.fields("stopMessage").convertTo[String] should include("3 tool calls failed")
       }
     }
 
@@ -549,6 +551,8 @@ class AssistantConversationRoutesSpec
         val obj = responseAs[String].parseJson.asJsObject
         obj.fields.keySet should not contain "hopBudgetExhausted"
         obj.fields.keySet should not contain "searchedWithNoResults"
+        obj.fields.keySet should not contain "stopReason"
+        obj.fields.keySet should not contain "stopMessage"
       }
     }
   }
@@ -572,7 +576,7 @@ class AssistantConversationRoutesSpec
         routesFor(userA, Some(firstAssistant)) ~> check {
           status shouldBe StatusCodes.OK
           val obj = responseAs[String].parseJson.asJsObject
-          obj.fields("hopBudgetExhausted") shouldBe JsBoolean(true)
+          obj.fields("stopReason") shouldBe JsString("failure_budget")
         }
 
       // Second call: a FRESH transport that records exactly what it received.
@@ -598,6 +602,7 @@ class AssistantConversationRoutesSpec
         case Seq(a, b) => a should not be b
         case _         => ()
       }
+      outboundMessages.last.role shouldBe ClaudeRole.User
     }
   }
 
@@ -689,6 +694,72 @@ class AssistantConversationRoutesSpec
 
       transport.receivedRequests should have size 3
       dailyUsageCount(ownerUser) shouldBe None
+    }
+  }
+
+  // HEL-1637 tasks.md 4.2: one turn is one charge however many round trips it takes, and the input-token limit
+  // keeps its refusal semantics.
+  "POST /assistant-conversations/:id/converse budgets (HEL-1637)" should {
+
+    def findInput: JsValue = JsObject("query" -> JsString("orders"), "resourceTypes" -> JsArray(JsString("dataType")))
+
+    "charge a beta turn of 7 round trips exactly the model weight once" in {
+      cleanDb()
+      val betaUser   = newUserWithTier("beta")
+      val outputRepo = mock(classOf[OutputRepository])
+      when(outputRepo.findAllByOwner(betaUser.id, Page.Default)).thenReturn(Future.successful(PagedResult(Vector.empty[Output], 0, 0, 200)))
+      val transport = new SequencedTransport(Vector.tabulate(6)(i => toolUseResponse(s"t$i", "find", findInput)) :+ finalTextResponse("Done."))
+      val detail    = await(conversationService.create(betaUser, None, title = None))
+      val routes    = routesForWithChatAccess(betaUser, Some(assistantServiceWithSearch(transport, outputRepo)), chatAccessServiceWithLimit(50))
+
+      Post(s"/assistant-conversations/${detail.record.id.value}/converse", jsonEntity("""{"message":"Look around","model":"claude-sonnet-5-5"}""")) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[String].parseJson.asJsObject.fields("stopReason") shouldBe JsString("final")
+      }
+
+      transport.receivedRequests should have size 7
+      dailyUsageCount(betaUser) shouldBe Some(new AssistantModelPolicy(ClaudeModelCatalog.all, "claude-test").weightOf("claude-sonnet-5-5"))
+    }
+
+    def sizedMessage(target: Int): String = {
+      def total(n: Int) = ClaudeTokenEstimator.estimate(Seq(ClaudeMessage(ClaudeRole.User, AssistantSystemPrompt.text), ClaudeMessage(ClaudeRole.User, "word " * n)))
+      var k = target
+      while (total(k) > target) k -= 1
+      while (total(k + 1) <= target) k += 1
+      "word " * k
+    }
+
+    "refuse a first request over the input limit with nothing persisted, but keep the work of a turn that grows past it, after which every send is refused" in {
+      cleanDb()
+      val detail     = await(conversationService.create(userA, None, title = None))
+      val outputRepo = mock(classOf[OutputRepository])
+      when(outputRepo.findAllByOwner(userA.id, Page.Default)).thenReturn(Future.successful(PagedResult(Vector.empty[Output], 0, 0, 200)))
+      val transport = new SequencedTransport(Vector(toolUseResponse("t1", "find", findInput), finalTextResponse("never")))
+      val routes    = routesFor(userA, Some(assistantServiceWithSearch(transport, outputRepo)))
+      val id        = detail.record.id.value
+
+      // First request over the limit: refused before sending, nothing persisted.
+      val over = JsObject("message" -> JsString(sizedMessage(claudeConfig().maxInputTokens + 50))).compactPrint
+      Post(s"/assistant-conversations/$id/converse", jsonEntity(over)) ~> routes ~> check { status shouldBe StatusCodes.UnprocessableEntity }
+      transport.receivedRequests shouldBe empty
+      Get(s"/assistant-conversations/$id") ~> routes ~> check { transcriptOf(responseAs[String]) shouldBe empty }
+
+      // Fits the first request, grows past the limit mid-turn: the turn stops with input_budget and persists its work.
+      val near = JsObject("message" -> JsString(sizedMessage(claudeConfig().maxInputTokens - 5))).compactPrint
+      Post(s"/assistant-conversations/$id/converse", jsonEntity(near)) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        val obj = responseAs[String].parseJson.asJsObject
+        obj.fields("stopReason") shouldBe JsString("input_budget")
+        obj.fields("stopMessage").convertTo[String] should include("too long")
+      }
+      transport.receivedRequests should have size 1
+      var persisted = 0
+      Get(s"/assistant-conversations/$id") ~> routes ~> check { persisted = transcriptOf(responseAs[String]).size }
+      persisted shouldBe 4 // user, assistant tool_use, user tool_result, assistant stop text
+
+      // The stored conversation already exceeds the limit: the next send is the guardrail error, nothing persisted.
+      Post(s"/assistant-conversations/$id/converse", jsonEntity("""{"message":"again"}""")) ~> routes ~> check { status shouldBe StatusCodes.UnprocessableEntity }
+      Get(s"/assistant-conversations/$id") ~> routes ~> check { transcriptOf(responseAs[String]).size shouldBe persisted }
     }
   }
 }

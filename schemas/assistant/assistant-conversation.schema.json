@@ -44,7 +44,16 @@
     },
     "hopBudgetExhausted": {
       "type": "boolean",
-      "description": "HEL-667: true when the just-completed converse turn hit the 3-hop tool-call cap before a final answer. Only present on a POST /:id/converse response; absent on GET."
+      "description": "HEL-667: true when the just-completed converse turn hit the hop ceiling (12 round trips, HEL-1637) before a final answer. Only present on a POST /:id/converse response; absent on GET."
+    },
+    "stopReason": {
+      "type": "string",
+      "enum": ["final", "failure_budget", "hop_ceiling", "input_budget"],
+      "description": "HEL-1637: what ended the just-completed converse turn: a final answer, 3 failed tool calls, the 12 round-trip ceiling, or the input-token limit. Only present on a POST /:id/converse response; absent on GET."
+    },
+    "stopMessage": {
+      "type": "string",
+      "description": "HEL-1637: the plain-language message the server composed for a non-final stop (also persisted as the last assistant text turn for failure_budget and input_budget). Only present on a converse response whose stopReason is not final."
     },
     "searchedWithNoResults": {
       "type": "boolean",

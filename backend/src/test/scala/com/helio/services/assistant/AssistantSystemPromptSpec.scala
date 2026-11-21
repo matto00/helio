@@ -92,8 +92,13 @@ class AssistantSystemPromptSpec extends AnyWordSpec with Matchers {
         "successfully tested")
     }
 
-    "state the updated 4-hop cap" in {
-      AssistantSystemPrompt.text should include("at most 4 hops")
+    // HEL-1637: the rule states the real loop limits, interpolated from the same constants the loop uses.
+    "state the hop ceiling and the failure budget the loop enforces" in {
+      AssistantSystemPrompt.text should include(
+        s"up to ${AssistantStopMessages.HopCeiling} hops (tool-call round trips) per turn, and the turn stops after " +
+          s"${AssistantStopMessages.FailureBudget} failed tool calls"
+      )
+      AssistantSystemPrompt.text should not include "at most 4 hops"
     }
 
     // HEL-904 cycle-10 fix (round-7 skeptic, deletion-sweep CR1): the worked propose_dashboard

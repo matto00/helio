@@ -187,8 +187,24 @@ final case class ClaudeToolRequest(
     oncePerResponseTools: Set[String] = Set.empty,
     system: Option[String] = None,
     // HEL-1755 D2: the per-request model, fixed for the whole tool loop; None = `ClaudeConfig.model`.
-    model: Option[ClaudeModelSpec] = None
+    model: Option[ClaudeModelSpec] = None,
+    // HEL-1637 D2: opt-in cap on failed tool calls per loop; None (every other caller) keeps today's behaviour.
+    failureBudget: Option[ToolFailureBudget] = None,
+    // HEL-1637 D4: when true, an input-token guardrail rejection after at least one round trip ends the loop with
+    // the work so far (`InputBudgetExhausted`) instead of failing it; hop 1 always stays `Failed`.
+    stopOnInputBudget: Boolean = false
 )
+
+/** HEL-1637 D2: the failure budget of one tool loop. `classify` returns the failure's plain message for a call the
+ *  loop actually dispatched to the executor, or `None` when that call did not fail. Failures are counted in total
+ *  per loop (not consecutively); the loop stops after the round trip that brings the count to `maxFailures`. */
+final case class ToolFailureBudget(
+    maxFailures: Int,
+    classify: (ClaudeContentBlock.ToolUse, ClaudeContentBlock.ToolResult) => Option[String]
+)
+
+/** One dispatched tool call that `ToolFailureBudget.classify` judged failed. */
+final case class FailedToolCall(name: String, message: String)
 
 /** Caller-supplied tool execution callback (design.md D7, widened HEL-667 design.md D3). A `Left`
  *  is a recoverable tool-execution failure — fed back to Claude as an `isError = true` `ToolResult`
@@ -212,13 +228,35 @@ object ClaudeToolOutcome {
    *  `usage` is summed across every hop (design.md D5). */
   final case class FinalResponse(text: String, history: Seq[ClaudeToolMessage], usage: TokenUsage)(
       val responseModel: Option[String] = None,
-      val stopReason: Option[String] = None
+      val stopReason: Option[String] = None,
+      val hopsUsed: Int = 0,
+      val failedToolCalls: Int = 0
   ) extends ClaudeToolOutcome
 
   /** `maxHops` round trips were already used and Claude requested another tool call — the loop
    *  terminates gracefully (design.md D5): no exception, no further transport call. */
   final case class HopBudgetExhausted(history: Seq[ClaudeToolMessage], usage: TokenUsage)(
-      val responseModel: Option[String] = None
+      val responseModel: Option[String] = None,
+      val hopsUsed: Int = 0,
+      val failedToolCalls: Int = 0
+  ) extends ClaudeToolOutcome
+
+  /** HEL-1637 D2: the request's [[ToolFailureBudget]] was spent. The round trip with the last failure ran to
+   *  completion (every parallel result is in `history`, ending with the user turn of results); no further transport
+   *  call was made. `failedCalls` are the classified failures across the whole loop, in order. */
+  final case class FailureBudgetExhausted(history: Seq[ClaudeToolMessage], usage: TokenUsage, failedCalls: Seq[FailedToolCall])(
+      val responseModel: Option[String] = None,
+      val hopsUsed: Int = 0
+  ) extends ClaudeToolOutcome {
+    def failedToolCalls: Int = failedCalls.size
+  }
+
+  /** HEL-1637 D4: `stopOnInputBudget` was set and the next request would have exceeded the input-token limit after
+   *  at least one round trip. `history` is the work so far (ends with a user turn of tool results). */
+  final case class InputBudgetExhausted(history: Seq[ClaudeToolMessage], usage: TokenUsage)(
+      val responseModel: Option[String] = None,
+      val hopsUsed: Int = 0,
+      val failedToolCalls: Int = 0
   ) extends ClaudeToolOutcome
 
   /** A guardrail rejection or transport/API failure at any hop (design.md D6/D7's error-mapping

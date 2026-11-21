@@ -33,7 +33,18 @@ describe("MessageTurn", () => {
 
     expect(container.querySelector(".message-turn--hop-budget-exhausted")).toBeInTheDocument();
     expect(container.querySelector(".message-turn--searched-no-results")).not.toBeInTheDocument();
-    expect(screen.getByText("Couldn't finish in time")).toBeInTheDocument();
+    expect(screen.getByText("Couldn't finish in one go")).toBeInTheDocument();
+  });
+
+  // HEL-1637 D8 — a note per stop reason.
+  it("renders a note for a failure-budget and an input-budget stop", () => {
+    const { rerender } = render(
+      <MessageTurn role="assistant" text="I stopped." stopReason="failure_budget" />,
+    );
+    expect(screen.getByText("Stopped after repeated errors")).toBeInTheDocument();
+    rerender(<MessageTurn role="assistant" text="Too long." stopReason="input_budget" />);
+    expect(screen.getByText("Stopped: conversation too long")).toBeInTheDocument();
+    expect(screen.queryByText("Stopped after repeated errors")).not.toBeInTheDocument();
   });
 
   // HEL-667 design.md D5/tasks.md 6.2/7.5 — a distinct treatment for a no-results/clarifying-
@@ -55,7 +66,7 @@ describe("MessageTurn", () => {
 
     expect(container.querySelector(".message-turn--hop-budget-exhausted")).not.toBeInTheDocument();
     expect(container.querySelector(".message-turn--searched-no-results")).not.toBeInTheDocument();
-    expect(screen.queryByText("Couldn't finish in time")).not.toBeInTheDocument();
+    expect(screen.queryByText("Couldn't finish in one go")).not.toBeInTheDocument();
     expect(screen.queryByText("Asking a follow-up")).not.toBeInTheDocument();
   });
 });
