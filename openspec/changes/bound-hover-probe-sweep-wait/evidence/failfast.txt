@@ -1,0 +1,5 @@
+  ✘  1 [dev] › e2e/hel1790-hover-probe.spec.ts:29:7 › HEL-1790 guard: the select trigger's rest read is not hovered (dark) (13.8s)
+  ✘  2 [dev] › e2e/hel1790-hover-probe.spec.ts:29:7 › HEL-1790 guard: the select trigger's rest read is not hovered (light) (14.1s)
+    Error: the step sheet's bottom-sheet-in slide was never captured paused (motion setting or selector changed?): page.waitForFunction: Timeout 10000ms exceeded.
+    Error: the step sheet's bottom-sheet-in slide was never captured paused (motion setting or selector changed?): page.waitForFunction: Timeout 10000ms exceeded.
+  2 failed
