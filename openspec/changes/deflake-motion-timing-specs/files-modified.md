@@ -1,4 +1,0 @@
-- `e2e/support/motionRecorder.ts` -- transitionrun computed-value fallback (H-A2) and the chart's first-seen animation options
-- `e2e/support/hel1573-motion-primitives.ts` -- bounded wait for the density indicator to be `ready` (Full) before the click
-- `e2e/hel1573-motion-grid-chart.spec.ts` -- entrance proven from the configured option, `later` span demoted to a labelled guard
-- `openspec/changes/deflake-motion-timing-specs/` -- root-cause.md, probe/red/green evidence .txt files, tasks
