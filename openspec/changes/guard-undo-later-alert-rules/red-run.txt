@@ -1,0 +1,30 @@
+HEL-1811 red run, PatchSetUndoLaterAlertRulesSpec, before any implementation code (sbt -J-Xmx3g testOnly, embedded postgres, helio_app_test role)
+Path each case takes today:
+ - pipeline create + alert rule (A owns): undo SUCCEEDS (restored), rule cascade-deleted. No stale/fingerprint check pre-empts it.
+ - pipeline create + rule inserted by another owner: same, undo succeeds.
+ - output create + alert rule: undo succeeds, rule deleted.
+ - pipelineStep create + rule on a later Output under the step: refused today ONLY by the HEL-1795 later-Output blocker; the rule is never reported (the rule clause is missing from the message).
+ - pipeline create + schedule: undo succeeds, schedule deleted.
+ - pipeline create + editor-added root: undo succeeds, root deleted.
+ - multi-root create, nothing added: undo succeeds (a GUARD for the excusal; green before and after).
+
+[info] the app role
+[info] - should not bypass RLS
+[info] an alert rule added after a pipeline create
+[info] - should refuse the undo, naming the owner's rule and no id, leaving everything *** FAILED ***
+[info]   expected a Conflict, got Right(PatchSetUndoResponse(Vector(EditUndoOutcome(0,restored,Some(c0374af2-ab7a-4941-9a3c-cf50a24c8239),None,None)))) (PatchSetUndoLaterAlertRulesSpec.scala:161)
+[info] - should count, not name, a rule another user owns (direct insert: not reachable through the API) *** FAILED ***
+[info]   expected a Conflict, got Right(PatchSetUndoResponse(Vector(EditUndoOutcome(0,restored,Some(442e563d-6ea1-421f-9457-d4b8fa65bb1c),None,None)))) (PatchSetUndoLaterAlertRulesSpec.scala:161)
+[info] - should refuse an alert rule on the Output of an `output` create edit *** FAILED ***
+[info]   expected a Conflict, got Right(PatchSetUndoResponse(Vector(EditUndoOutcome(0,restored,Some(2683d045-149f-4d5b-8457-210e4228cf16),None,None)))) (PatchSetUndoLaterAlertRulesSpec.scala:161)
+[info] - should refuse an alert rule on an Output under a `pipelineStep` create *** FAILED ***
+[info]   "edit 0 (pipelineStep create): 1 Output(s) were added after the patch set was applied and would be deleted: Output "Under created step"; remove them before undoing" did not include substring "alert rule "Rule under step"" (PatchSetUndoLaterAlertRulesSpec.scala:243)
+[info] a schedule added after a pipeline create
+[info] - should refuse the undo, mentioning the schedule and no id *** FAILED ***
+[info]   expected a Conflict, got Right(PatchSetUndoResponse(Vector(EditUndoOutcome(0,restored,Some(9cc99fb6-f8d4-469a-835c-2b439c3b4908),None,None)))) (PatchSetUndoLaterAlertRulesSpec.scala:161)
+[info] a root added after a pipeline create
+[info] - should refuse the undo, counting an editor's root on the editor's own source without naming it *** FAILED ***
+[info]   expected a Conflict, got Right(PatchSetUndoResponse(Vector(EditUndoOutcome(0,restored,Some(9e0dc19f-0d7e-4b6e-8097-15b39b1ee126),None,None)))) (PatchSetUndoLaterAlertRulesSpec.scala:161)
+[info] - should excuse the roots the create itself made (several), and undo cleanly
+[info] Total number of tests run: 8
+[info] Tests: succeeded 2, failed 6, canceled 0, ignored 0, pending 0

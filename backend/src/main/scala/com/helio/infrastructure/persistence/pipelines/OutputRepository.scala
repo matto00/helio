@@ -348,18 +348,19 @@ class OutputRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pipeline
 
   /** HEL-1720: the patch-set undo's Output delete. Same locks as [[deleteWithPanelsInternal]], then the Output row is locked
    *  `FOR UPDATE` -- which waits for any in-flight panel insert/update that references it (the FK's KEY SHARE lock) and
-   *  blocks a later one until this transaction ends -- and the panels still bound to it are re-counted. `Right(())` when
-   *  none were and the Output is deleted; `Left(n)` (nothing written) when `n` were, so undo never deletes a panel it did
-   *  not create. The lock order (panels, dashboards, pipeline, Output) is the one [[deleteWithPanelsInternal]] already uses:
+   *  blocks a later one until this transaction ends -- and the panels still bound to it and (HEL-1811) the alert rules targeting it are re-counted.
+   *  `Right(())` when there were none and the Output is deleted; `Left((panels, rules))` (nothing written) when there
+   *  were, so undo never deletes a panel or alert rule it did not create. The lock order (panels, dashboards, pipeline, Output) is the one [[deleteWithPanelsInternal]] already uses:
    *  the `FOR UPDATE` only takes earlier the row lock the final `DELETE` takes anyway. */
-  def deleteIfUnboundInternal(id: OutputId): Future[Either[Int, Unit]] = {
+  def deleteIfUnboundInternal(id: OutputId): Future[Either[(Int, Int), Unit]] = {
     val action = for {
       pipelineId <- table.filter(_.id === id.value).map(_.pipelineId).result.headOption
       _          <- PanelRowLocks.lockForDeletion(outputs = Seq(id.value))
       _          <- locks.lockPipelines(LockSite.OutputDelete, pipelineId.toSeq)
       _          <- sql"SELECT 1 FROM outputs WHERE id = ${id.value} FOR UPDATE".as[Int]
       bound      <- sql"SELECT count(*) FROM panels WHERE output_id = ${id.value}".as[Int].head
-      result     <- if (bound > 0) DBIO.successful(Left(bound)) else deleteOutputsCoreAction(Seq(id.value)).map(_ => Right(()))
+      rules      <- sql"SELECT count(*) FROM alert_rules WHERE target_output_id = ${id.value}".as[Int].head
+      result     <- if (bound > 0 || rules > 0) DBIO.successful(Left((bound, rules))) else deleteOutputsCoreAction(Seq(id.value)).map(_ => Right(()))
     } yield result
     ctx.withSystemContext(action.transactionally)
   }

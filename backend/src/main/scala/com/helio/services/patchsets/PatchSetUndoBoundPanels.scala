@@ -3,6 +3,7 @@ package com.helio.services.patchsets
 import com.helio.domain.model.{AuthenticatedUser, DashboardId, Output, PanelId, PipelineId, PipelineStep, PipelineStepId}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
+import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository.JournaledEdit
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -67,6 +68,37 @@ private[services] object PatchSetUndoBoundPanels {
       case _ => Future.successful(NoRows)
     }
 
+  /** HEL-1811: the Outputs `edit`'s undo would delete, for the three arms that delete Outputs: the created Output itself
+   *  (`output`), or every Output of the pipeline / of the created step's removal set ([[doomedRows]]). One computation for
+   *  the panel check and the alert-rule check, so the sets never drift. Empty for every other arm. */
+  def doomedOutputIds(edit: JournaledEdit, ctx: PatchSetUndoContext)(implicit ec: ExecutionContext): Future[Vector[String]] =
+    (edit.targetKind, edit.newId) match {
+      case ("output", Some(id))                        => Future.successful(Vector(id))
+      case ("pipeline" | "pipelineStep", Some(_))       => doomedRows(edit, ctx).map(_.outputs.map(_.id.value))
+      case _                                            => Future.successful(Vector.empty)
+    }
+
+  /** The alert-rule row shape `OutputRepository.findAlertRuleDefinitionsInternal` returns: `(id, metric, condition, name,
+   *  enabled, severity)`. */
+  type AlertRuleRow = (String, String, String, String, Boolean, String)
+
+  /** HEL-1811: the alert-rule clause shared by the draft-save undo's refusal and the patch-set undo's: a rule is named
+   *  (`alert rule "<name>"`) only when `user` owns it ([[OutputRepository.findVisibleAlertRuleIds]]) and the rest are
+   *  counted (`N alert rule(s) you do not own`); no id appears. Deliberately NOT capped like [[nameList]]: the draft-save
+   *  undo has always named every owned rule and its text must stay byte-identical, so do not "fix" it to `NameCap`. */
+  def alertRuleClause(rules: Vector[AlertRuleRow], user: AuthenticatedUser, outputRepo: OutputRepository)(implicit
+      ec: ExecutionContext
+  ): Future[Option[String]] = {
+    val ruleRows = rules.sortBy(_._1)
+    outputRepo.findVisibleAlertRuleIds(ruleRows.map(_._1), user).map { visible =>
+      val (named, unowned) = ruleRows.partition(r => visible.contains(r._1))
+      val ruleNames        = named.map(r => s"""alert rule "${r._4}"""")
+      Some(
+        (ruleNames ++ Some(s"${unowned.size} alert rule(s) you do not own").filter(_ => unowned.nonEmpty).map(c => if (ruleNames.nonEmpty) s"and $c" else c)).mkString(", ")
+      ).filter(_.nonEmpty)
+    }
+  }
+
   /** Ids of every panel `edit`'s undo would delete (including panels the set created). */
   private def doomed(edit: JournaledEdit, ctx: PatchSetUndoContext)(implicit ec: ExecutionContext): Future[Vector[String]] = {
     def byOutputs(outputIds: Set[String]): Future[Vector[String]] =
@@ -75,9 +107,8 @@ private[services] object PatchSetUndoBoundPanels {
       case None => Future.successful(Vector.empty)
       case Some(id) =>
         edit.targetKind match {
-          case "output"   => byOutputs(Set(id))
           case "dashboard" => ctx.dashboardRepo.panelIdsInternal(DashboardId(id)).map(_.map(_.value).toVector)
-          case "pipeline" | "pipelineStep" => doomedRows(edit, ctx).flatMap(rows => byOutputs(rows.outputs.map(_.id.value).toSet))
+          case "output" | "pipeline" | "pipelineStep" => doomedOutputIds(edit, ctx).flatMap(ids => byOutputs(ids.toSet))
           case _ => Future.successful(Vector.empty)
         }
     }

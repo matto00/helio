@@ -218,5 +218,34 @@ class PatchSetUndoRoutesSpec
       }
       await(pipelineRepo.findByIdInternal(PipelineId(pid))).isDefined shouldBe true
     }
+
+    // HEL-1811: the REST path reaches the alert-rule blocker (a 409 naming the owner's rule), not PATCH_SET_STALE.
+    "reject, with 409 naming the rule and restoring nothing, an undo of a pipeline create that would delete a later alert rule" in {
+      import PostgresProfile.api._
+      val source = await(dataSourceServiceF.createStatic(
+        StaticDataSourceRequest("Route 1811 source", "static", Vector(StaticColumnPayload("value", "integer")), Vector(Vector(JsNumber(1)))), userA
+      )).getOrElse(fail("source create failed"))
+      val steps   = JsArray(JsObject("clientId" -> JsString("s1"), "type" -> JsString("limit"), "config" -> JsObject("count" -> JsNumber(1))))
+      val outputs = JsArray(JsObject("nodeStepClientId" -> JsString("s1"), "kind" -> JsString("table"), "name" -> JsString("Route 1811 out")))
+      val patch = JsObject("name" -> JsString("Route 1811 pipeline"), "roots" -> JsArray(JsObject("sourceId" -> JsString(source.id.value))), "steps" -> steps, "outputs" -> outputs)
+      val applied = await(patchSetApplyService.apply(PatchSet(None, Vector(Edit(EditTarget("pipeline", None), "create", None, None, None, None, None, Some(patch)))), userA))
+        .getOrElse(fail("apply refused"))
+      val applicationId = applied.applicationId.getOrElse(fail("not journaled"))
+      val pid = applied.edits.head.newId.getOrElse(fail("no pipeline id"))
+      val outId = await(outputRepoF.listByPipelineInternal(PipelineId(pid))).head.id.value
+      val ruleId = UUID.randomUUID().toString
+      await(db.run(sqlu"""INSERT INTO alert_rules (id, owner_id, target_output_id, metric, condition, name, enabled, severity, created_at, updated_at)
+        VALUES ($ruleId, ${userAId}::uuid, $outId, 'count', '{"comparator":"gt","threshold":5}', 'Route 1811 rule', true, 'warning', now(), now())"""))
+
+      Post(s"/patch-sets/$applicationId/undo") ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.Conflict
+        val body = responseAs[String]
+        body should include("alert rule \\\"Route 1811 rule\\\"")
+        body should not include "PATCH_SET_STALE"
+        body should not include ruleId
+      }
+      await(pipelineRepo.findByIdInternal(PipelineId(pid))).isDefined shouldBe true
+      await(db.run(sql"SELECT count(*) FROM alert_rules WHERE id = $ruleId".as[Int].head)) shouldBe 1
+    }
   }
 }

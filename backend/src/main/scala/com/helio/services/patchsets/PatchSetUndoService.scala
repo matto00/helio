@@ -144,7 +144,7 @@ final class PatchSetUndoService(
       case Some(_) =>
         context.outputRepo.deleteIfUnboundInternal(id).map {
           case Right(_) => Right(())
-          case Left(n)  => Left(ServiceError.Conflict(PatchSetUndoBoundPanels.boundDuringUndo(n)))
+          case Left((panels, rules)) => Left(ServiceError.Conflict(PatchSetUndoLaterChildren.outputBoundDuringUndo(panels, rules)))
         }
     }
 

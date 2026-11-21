@@ -1,0 +1,12 @@
+- `backend/src/main/scala/com/helio/infrastructure/persistence/patchsets/PatchSetApplicationRepository.scala` — JournaledCreatedChildren.rootIds (optional) + jsonFormat3
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyService.scala` — capture the roots a pipeline create made
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRepository.scala` — listRootsInternal (roots with created_at)
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/OutputRepository.scala` — deleteIfUnboundInternal also counts alert rules in its transaction
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoBoundPanels.scala` — doomedOutputIds + shared alertRuleClause
+- `backend/src/main/scala/com/helio/services/pipelines/draft/DraftRestore.scala` — uses the shared alert-rule clause (output unchanged)
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoLaterChildren.scala` — alert rules, schedule, roots blockers and messages
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoService.scala` — output-arm Phase-2 phrase only
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetUndoLaterAlertRulesSpec.scala` — new spec (red first, helio_app_test)
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetUndoLaterOutputsSpec.scala` — Phase-2 phrase updated
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetUndoRoutesSpec.scala` — route-level 409 for a later alert rule
+- `openspec/changes/guard-undo-later-alert-rules/` — tasks ticked, red-run.txt, mutations-run.txt

@@ -213,7 +213,8 @@ final class PatchSetApplyService(
         val read = for {
           steps   <- pipelineStepRepo.listByPipelineInternal(pid)
           outputs <- outputRepo.listByPipelineInternal(pid)
-        } yield Option(JournaledCreatedChildren(steps.map(_.id.value), outputs.map(_.id.value)))
+          roots   <- pipelineRepo.listRootDataSourceIdsInternal(pid)
+        } yield Option(JournaledCreatedChildren(steps.map(_.id.value), outputs.map(_.id.value), Some(roots.map(_._1.value))))
         read.recover { case NonFatal(ex) =>
           log.warn(s"edit ${edit.index}: could not record the steps and Outputs the pipeline create made: ${ex.getClass.getSimpleName}")
           None

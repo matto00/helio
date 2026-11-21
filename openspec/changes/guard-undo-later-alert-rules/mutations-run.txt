@@ -1,0 +1,37 @@
+HEL-1811 mutations (each run against PatchSetUndoLaterAlertRulesSpec, source restored after; all RED):
+== mutation alert-rule-blocker exit 1
+[info] - should refuse the undo, naming the owner's rule and no id, leaving everything *** FAILED ***
+[info] - should count, not name, a rule another user owns (direct insert: not reachable through the API) *** FAILED ***
+[info] - should refuse an alert rule on the Output of an `output` create edit *** FAILED ***
+[info] - should refuse an alert rule on an Output under a `pipelineStep` create *** FAILED ***
+[info] - should report the pipeline edit failed, deleting nothing, when an alert rule lands after the Phase-1 check *** FAILED ***
+[info] Tests: succeeded 8, failed 5, canceled 0, ignored 0, pending 0
+[info] *** 5 TESTS FAILED ***
+== mutation schedule-blocker exit 1
+[info] - should refuse the undo, mentioning the schedule and no id *** FAILED ***
+[info] Tests: succeeded 12, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+== mutation root-blocker exit 1
+[info] - should refuse the undo, counting an editor's root on the editor's own source without naming it *** FAILED ***
+[info] - should excuse the journaled rootIds regardless of timestamps (appliedAt before every root), and not a root outside them *** FAILED ***
+[info] - should fall back, for a row without rootIds, to created_at <= appliedAt: the create's roots excused, a later root blocks *** FAILED ***
+[info] Tests: succeeded 10, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
+== mutation rootids-excusal exit 1
+[info] - should excuse the journaled rootIds regardless of timestamps (appliedAt before every root), and not a root outside them *** FAILED ***
+[info] Tests: succeeded 12, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+== mutation legacy-fallback exit 1
+[info] - should fall back, for a row without rootIds, to created_at <= appliedAt: the create's roots excused, a later root blocks *** FAILED ***
+[info] Tests: succeeded 12, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+== mutation tx-alert-count exit 1
+[info] - should make the output arm's delete transaction refuse (and delete nothing) when an alert rule targets the Output *** FAILED ***
+[info] Tests: succeeded 12, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+
+Regression shards (all green):
+PatchSetUndo-star (incl. routes spec): [info] Suites: completed 18, aborted 0
+PatchSetUndo-star (incl. routes spec): [info] Tests: succeeded 136, failed 0, canceled 0, ignored 0, pending 0
+PatchSetApply, DraftRestore, DraftSave/Undo specs: [info] Suites: completed 7, aborted 0
+PatchSetApply, DraftRestore, DraftSave/Undo specs: [info] Tests: succeeded 86, failed 0, canceled 0, ignored 0, pending 0

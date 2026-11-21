@@ -150,11 +150,13 @@ object PatchSetApplicationRepository extends DefaultJsonProtocol {
 
   /** HEL-1795: the ids of the pipeline steps and Outputs a `pipeline` `create` edit itself made (inline `steps` /
    *  `outputs`), read right after the create returns. Undo excuses exactly these ids when it checks that deleting the
-   *  pipeline removes nothing the patch set did not create. `None` on a journal row written before it existed. */
-  final case class JournaledCreatedChildren(stepIds: Vector[String], outputIds: Vector[String])
+   *  pipeline removes nothing the patch set did not create. `None` on a journal row written before it existed.
+   *  HEL-1811: `rootIds` adds the ids of the roots the create made; `None` on a row written before it (undo then excuses a
+   *  root by `created_at <= appliedAt`). */
+  final case class JournaledCreatedChildren(stepIds: Vector[String], outputIds: Vector[String], rootIds: Option[Vector[String]] = None)
 
   // Declared before `journaledEditFormat`, which uses it: a later declaration reads as null at runtime.
-  implicit val journaledCreatedChildrenFormat: RootJsonFormat[JournaledCreatedChildren] = jsonFormat2(JournaledCreatedChildren.apply)
+  implicit val journaledCreatedChildrenFormat: RootJsonFormat[JournaledCreatedChildren] = jsonFormat3(JournaledCreatedChildren.apply)
 
   /** An inline root source a `pipeline` `create` edit created (HEL-1493): its id, and whether creating it also made an
    *  implicit "Auto:" Connector (a bare-`url` REST root). */
