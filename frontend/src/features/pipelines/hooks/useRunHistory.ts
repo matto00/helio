@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { fetchPipelineById, fetchPipelineRunHistory } from "../state/pipelinesSlice";
 import type { PipelineRunRecord } from "../types/pipelineStep";
@@ -96,8 +97,9 @@ export function useRunHistory(id: string | undefined) {
   const loadWhenTruncated = useCallback(
     (pipelineId: string, pipelineFetch: PromiseLike<unknown>) => {
       const bootOpenId = openIdRef.current;
+      const startEpoch = getSessionEpoch();
       void pipelineFetch.then((action) => {
-        if (openIdRef.current !== bootOpenId) return;
+        if (openIdRef.current !== bootOpenId || getSessionEpoch() !== startEpoch) return;
         if (
           fetchPipelineById.fulfilled.match(action) &&
           action.meta.arg === pipelineId &&

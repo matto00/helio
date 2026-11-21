@@ -1,0 +1,40 @@
+MUTATION: in usePipelineRootAndToggleActions.ts replaced
+---
+if (mountedRef.current && getSessionEpoch() === startEpoch)
+          void dispatch
+--- with
+---
+if (mountedRef.current)
+          void dispatch
+---
+exit code: 1
+
+
+> helio-frontend@0.0.0 test
+> jest --config jest.config.cjs --passWithNoTests --testPathPatterns=usePipelineRootAndToggleActions.sessionEpoch
+
+FAIL src/features/pipelines/hooks/usePipelineRootAndToggleActions.sessionEpoch.test.tsx
+  ● usePipelineRootAndToggleActions after sign-out › add root does not refetch the pipeline
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "pipe-A"
+
+      71 |       await flushPromises();
+      72 |     });
+    > 73 |     expect(getPipelineById).not.toHaveBeenCalled();
+         |                                 ^
+      74 |   });
+      75 |
+      76 |   it("remove root does not refetch the pipeline or resync the steps", async () => {
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineRootAndToggleActions.sessionEpoch.test.tsx:73:33)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 2 passed, 3 total
+Snapshots:   0 total
+Time:        3.676 s, estimated 4 s
+Ran all test suites matching usePipelineRootAndToggleActions.sessionEpoch.

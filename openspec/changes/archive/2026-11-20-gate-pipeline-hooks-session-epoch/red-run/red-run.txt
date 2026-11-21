@@ -1,0 +1,377 @@
+
+> helio-frontend@0.0.0 test
+> jest --config jest.config.cjs --passWithNoTests --testPathPatterns=sessionEpoch.test
+
+FAIL src/features/pipelines/hooks/usePipelineRootAndToggleActions.sessionEpoch.test.tsx
+  ● usePipelineRootAndToggleActions after sign-out › duplicate step does not resync the steps
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: called with 0 arguments
+
+      54 |       await flushPromises();
+      55 |     });
+    > 56 |     expect(syncStepsFromServer).not.toHaveBeenCalled();
+         |                                     ^
+      57 |   });
+      58 |
+      59 |   it("add root does not refetch the pipeline", async () => {
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineRootAndToggleActions.sessionEpoch.test.tsx:56:37)
+
+  ● usePipelineRootAndToggleActions after sign-out › add root does not refetch the pipeline
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "pipe-A"
+
+      71 |       await flushPromises();
+      72 |     });
+    > 73 |     expect(getPipelineById).not.toHaveBeenCalled();
+         |                                 ^
+      74 |   });
+      75 |
+      76 |   it("remove root does not refetch the pipeline or resync the steps", async () => {
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineRootAndToggleActions.sessionEpoch.test.tsx:73:33)
+
+  ● usePipelineRootAndToggleActions after sign-out › remove root does not refetch the pipeline or resync the steps
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "pipe-A"
+
+      88 |       await flushPromises();
+      89 |     });
+    > 90 |     expect(getPipelineById).not.toHaveBeenCalled();
+         |                                 ^
+      91 |     expect(syncStepsFromServer).not.toHaveBeenCalled();
+      92 |   });
+      93 | });
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineRootAndToggleActions.sessionEpoch.test.tsx:90:33)
+
+FAIL src/features/pipelines/hooks/usePipelinePageLoad.sessionEpoch.test.tsx
+  ● usePipelinePageLoad after sign-out › does not run the steps/Outputs settle callbacks of the mount fetches
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: true
+
+      57 |       await flushPromises();
+      58 |     });
+    > 59 |     expect(onStepsSettled).not.toHaveBeenCalled();
+         |                                ^
+      60 |     expect(onOutputsSettled).not.toHaveBeenCalled();
+      61 |   });
+      62 |
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelinePageLoad.sessionEpoch.test.tsx:59:32)
+
+  ● usePipelinePageLoad after sign-out › retryStepsLoad does not settle or re-request analyze
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: true
+
+      82 |       await flushPromises();
+      83 |     });
+    > 84 |     expect(onStepsSettled).not.toHaveBeenCalled();
+         |                                ^
+      85 |     expect(analyzePipeline).not.toHaveBeenCalled();
+      86 |   });
+      87 | });
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelinePageLoad.sessionEpoch.test.tsx:84:32)
+
+FAIL src/features/pipelines/hooks/usePipelineRunAndSaveActions.sessionEpoch.test.tsx
+  ● handleRunPipeline after sign-out › refreshes neither run history nor Output previews
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: called with 0 arguments
+
+      67 |       await flushPromises();
+      68 |     });
+    > 69 |     expect(refreshRunHistoryAfterRun).not.toHaveBeenCalled();
+         |                                           ^
+      70 |     expect(dispatch).not.toHaveBeenCalled();
+      71 |   });
+      72 | });
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineRunAndSaveActions.sessionEpoch.test.tsx:69:43)
+
+  ● handleRunPipeline after sign-out › refreshes neither run history nor Output previews
+
+    Unmocked network request(s) from a unit test:
+      - POST /api/pipelines/pipe-A/preview?outputId=out-1 (in "handleRunPipeline after sign-out refreshes neither run history nor Output previews")
+    Fix: mock the service function it reaches at its module (jest.mock with a requireActual spread); see frontend/src/test/networkGuard.ts.
+
+      76 |   if (violations.length === 0) return;
+      77 |   const message = describeViolations(takeNetworkViolations());
+    > 78 |   throw new Error(message);
+         |         ^
+      79 | }
+      80 |
+      81 | function installXhrGuard(): void {
+
+      at Object.failOnViolations (src/test/networkGuard.ts:78:9)
+
+  ● handleDryRun after sign-out › refreshes neither run history nor Output previews
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: called with 0 arguments
+
+      67 |       await flushPromises();
+      68 |     });
+    > 69 |     expect(refreshRunHistoryAfterRun).not.toHaveBeenCalled();
+         |                                           ^
+      70 |     expect(dispatch).not.toHaveBeenCalled();
+      71 |   });
+      72 | });
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineRunAndSaveActions.sessionEpoch.test.tsx:69:43)
+
+  ● handleDryRun after sign-out › refreshes neither run history nor Output previews
+
+    Unmocked network request(s) from a unit test:
+      - POST /api/pipelines/pipe-A/preview?outputId=out-1 (in "handleDryRun after sign-out refreshes neither run history nor Output previews")
+    Fix: mock the service function it reaches at its module (jest.mock with a requireActual spread); see frontend/src/test/networkGuard.ts.
+
+      76 |   if (violations.length === 0) return;
+      77 |   const message = describeViolations(takeNetworkViolations());
+    > 78 |   throw new Error(message);
+         |         ^
+      79 | }
+      80 |
+      81 | function installXhrGuard(): void {
+
+      at Object.failOnViolations (src/test/networkGuard.ts:78:9)
+
+FAIL src/features/pipelines/hooks/usePipelineStepMutations.sessionEpoch.test.tsx
+  ● usePipelineStepMutations.handleRemoveStep after sign-out › does not resync the steps
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: called with 0 arguments
+
+      42 |       await flushPromises();
+      43 |     });
+    > 44 |     expect(syncStepsFromServer).not.toHaveBeenCalled();
+         |                                     ^
+      45 |   });
+      46 | });
+      47 |
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineStepMutations.sessionEpoch.test.tsx:44:37)
+
+FAIL src/features/pipelines/hooks/usePipelineStepStructure.sessionEpoch.test.tsx
+  ● handleAddOutputViaAggregateTail after sign-out › does not resync, create the Output or roll back when the session ends during createPipelineStep
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "pipe-A"
+
+      69 |       await settled;
+      70 |     });
+    > 71 |     expect(getPipelineSteps).not.toHaveBeenCalled();
+         |                                  ^
+      72 |     expect(createOutput).not.toHaveBeenCalled();
+      73 |     expect(deletePipelineStep).not.toHaveBeenCalled();
+      74 |   });
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineStepStructure.sessionEpoch.test.tsx:71:34)
+
+  ● handleAddOutputViaAggregateTail after sign-out › does not create the Output (or roll back) when the session ends during the resync
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "pipe-A", {"config": {}, "kind": "table", "name": "n", "nodeStepId": "step-new"}
+
+      91 |       await settled;
+      92 |     });
+    > 93 |     expect(createOutput).not.toHaveBeenCalled();
+         |                              ^
+      94 |     expect(deletePipelineStep).not.toHaveBeenCalled();
+      95 |   });
+      96 |
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineStepStructure.sessionEpoch.test.tsx:93:30)
+
+  ● handleAddOutputViaAggregateTail after sign-out › does not refetch Outputs or preview the new Output when the session ends during createOutput
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "pipe-A", undefined
+
+      113 |       await settled;
+      114 |     });
+    > 115 |     expect(listOutputs).not.toHaveBeenCalled();
+          |                             ^
+      116 |     expect(previewOutputs).not.toHaveBeenCalled();
+      117 |     expect(deletePipelineStep).not.toHaveBeenCalled();
+      118 |   });
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineStepStructure.sessionEpoch.test.tsx:115:29)
+
+FAIL src/features/pipelines/hooks/useRunHistory.sessionEpoch.test.tsx
+  ● useRunHistory.loadRunHistoryWhenTruncated after sign-out › requests no run history when a truncated pipeline fetch lands after clearAuth
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "pipe-A"
+
+      48 |       await new Promise((r) => setTimeout(r, 0));
+      49 |     });
+    > 50 |     expect(fetchRunHistory).not.toHaveBeenCalled();
+         |                                 ^
+      51 |   });
+      52 | });
+      53 |
+
+      at Object.<anonymous> (src/features/pipelines/hooks/useRunHistory.sessionEpoch.test.tsx:50:33)
+
+FAIL src/features/pipelines/hooks/useOutputImmediateActions.sessionEpoch.test.tsx
+  ● useOutputImmediateActions.create after sign-out › does not request a preview of the created Output
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "pipe-A", "out-new"
+
+      41 |       await done;
+      42 |     });
+    > 43 |     expect(previewOutputs).not.toHaveBeenCalled();
+         |                                ^
+      44 |   });
+      45 | });
+      46 |
+
+      at Object.<anonymous> (src/features/pipelines/hooks/useOutputImmediateActions.sessionEpoch.test.tsx:43:32)
+
+FAIL src/features/pipelines/hooks/usePipelineDraftSave.sessionEpoch.test.tsx
+  ● usePipelineDraftSave after sign-out › posts nothing and marks no run pending when the session ends while the saved pipeline is read
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "pipe-A", {"baseFingerprint": "v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "outputs": [], "runAfterSave": "run", "steps": [{"config": {"combinator": "and", "conditions": [{"field": "duration_s", "operator": ">=", "value": "180"}]}, "enabled": true, "id": "s1", "position": 0, "rootId": "root-1", "type": "filter"}, {"clientId": "draft-1", "config": {"count": 1}, "enabled": true, "parentStepId": "s1", "position": 0, "type": "limit"}, {"config": {"sortBy": [{"direction": "asc", "field": "date"}]}, "enabled": true, "id": "s2", "parentClientId": "draft-1", "position": 0, "type": "sort"}, {"config": {"column": "duration_min", "expression": "duration_s / 60"}, "enabled": true, "id": "s3", "parentStepId": "s2", "position": 0, "type": "compute"}]}
+
+      109 |       await posted;
+      110 |     });
+    > 111 |     expect(saveDraft).not.toHaveBeenCalled();
+          |                           ^
+      112 |     expect(dispatch).not.toHaveBeenCalled();
+      113 |   });
+      114 |
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineDraftSave.sessionEpoch.test.tsx:111:27)
+
+  ● usePipelineDraftSave after sign-out › settles nothing when the save response arrives after sign-out
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 4
+
+    1: {"payload": {"pipelineId": "pipe-A", "steps": []}, "type": "pipelines/pipelineStepsReplaced"}
+    2: {"payload": {"outputs": [], "pipelineId": "pipe-A"}, "type": "outputs/outputsReplaced"}
+    3: {"payload": {"outcome": "succeeded", "pipelineId": "pipe-A"}, "type": "pipelines/draftSaveRunSettled"}
+
+      135 |       await posted;
+      136 |     });
+    > 137 |     expect(dispatch).not.toHaveBeenCalled();
+          |                          ^
+      138 |     expect(draft.discard).not.toHaveBeenCalled();
+      139 |     expect(getPipelineById).not.toHaveBeenCalled();
+      140 |   });
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineDraftSave.sessionEpoch.test.tsx:137:26)
+
+  ● usePipelineDraftSave after sign-out › does not dispatch a failed settle when the save fails after sign-out
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: {"payload": {"outcome": "failed", "pipelineId": "pipe-A"}, "type": "pipelines/draftSaveRunSettled"}
+
+      158 |       await posted;
+      159 |     });
+    > 160 |     expect(dispatch).not.toHaveBeenCalled();
+          |                          ^
+      161 |   });
+      162 |
+      163 |   it("reload adopts nothing when the session ends while the saved pipeline is read", async () => {
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineDraftSave.sessionEpoch.test.tsx:160:26)
+
+  ● usePipelineDraftSave after sign-out › reload adopts nothing when the session ends while the saved pipeline is read
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 3
+
+    1: {"payload": {"pipelineId": "pipe-A", "steps": [{"config": {"combinator": "and", "conditions": [{"field": "duration_s", "operator": ">=", "value": "180"}]}, "createdAt": "", "enabled": true, "id": "s1", "pipelineId": "pipe-1", "position": 0, "rootId": "root-1", "type": "filter", "updatedAt": ""}, {"config": {"sortBy": [{"direction": "asc", "field": "date"}]}, "createdAt": "", "enabled": true, "id": "s2", "parentStepId": "s1", "pipelineId": "pipe-1", "position": 0, "rootId": undefined, "type": "sort", "updatedAt": ""}, {"config": {"column": "duration_min", "expression": "duration_s / 60"}, "createdAt": "", "enabled": true, "id": "s3", "parentStepId": "s2", "pipelineId": "pipe-1", "position": 0, "rootId": undefined, "type": "compute", "updatedAt": ""}]}, "type": "pipelines/pipelineStepsReplaced"}
+    2: {"payload": {"outputs": [], "pipelineId": "pipe-A"}, "type": "outputs/outputsReplaced"}
+    3: {"payload": {"pipelineId": "pipe-A", "roots": []}, "type": "pipelines/pipelineRootsReplaced"}
+
+      174 |       await reloaded;
+      175 |     });
+    > 176 |     expect(dispatch).not.toHaveBeenCalled();
+          |                          ^
+      177 |     expect(draft.rebase).not.toHaveBeenCalled();
+      178 |   });
+      179 | });
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineDraftSave.sessionEpoch.test.tsx:176:26)
+
+Test Suites: 8 failed, 8 total
+Tests:       17 failed, 17 total
+Snapshots:   0 total
+Time:        5.644 s, estimated 6 s
+Ran all test suites matching sessionEpoch.test.
+exit code: 1

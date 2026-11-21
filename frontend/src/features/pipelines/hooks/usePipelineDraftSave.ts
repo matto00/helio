@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
 import type { useAppDispatch } from "../../../hooks/reduxHooks";
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
 import type { useToast } from "../../toasts/hooks/useToast";
 import { getPipelineWithDefinition, saveDraft } from "../services/draftSaveService";
@@ -135,6 +136,8 @@ export function usePipelineDraftSave({
       setSaving(true);
       setNotice(null);
       let posted = false;
+      // HEL-1798: nothing below dispatches, requests or adopts once the session that started this save has ended.
+      const startEpoch = getSessionEpoch();
       try {
         const summary = await getPipelineWithDefinition(id);
         const built = buildDraftSaveRequest({
@@ -161,16 +164,19 @@ export function usePipelineDraftSave({
           setNotice({ kind: "dropped", count: built.count });
           return;
         }
+        if (getSessionEpoch() !== startEpoch) return;
         dispatch(draftSaveRunPending({ pipelineId: id }));
         setSseActive(true);
         posted = true;
         const response = await saveDraft(id, built.request);
         if (!mountedRef.current) return;
         posted = false;
+        if (getSessionEpoch() !== startEpoch) return;
         settleSaved(id, response);
       } catch (err: unknown) {
         if (posted) {
-          dispatch(draftSaveRunSettled({ pipelineId: id, outcome: "failed" }));
+          if (getSessionEpoch() === startEpoch)
+            dispatch(draftSaveRunSettled({ pipelineId: id, outcome: "failed" }));
           setSseActive(false);
         }
         if (!mountedRef.current) return;
@@ -225,9 +231,10 @@ export function usePipelineDraftSave({
   /** "Reload the saved pipeline": the saved definition becomes the base, the draft is kept as a diff over it. */
   const reload = useCallback(async () => {
     if (!id) return;
+    const startEpoch = getSessionEpoch();
     try {
       const summary = await getPipelineWithDefinition(id);
-      if (!mountedRef.current || !summary.definition) return;
+      if (!mountedRef.current || !summary.definition || getSessionEpoch() !== startEpoch) return;
       const definition = summary.definition;
       const next = adoptDefinition(id, { ...definition, roots: summary.roots });
       const dropped = draft.rebase(next, outputsLoaded ? definition.outputs : null, summary.roots);

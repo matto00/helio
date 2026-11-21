@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
 import type { useAppDispatch } from "../../../hooks/reduxHooks";
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 import { createOutput } from "../services/outputService";
 import { createPipelineStep, deletePipelineStep } from "../services/pipelineService";
 import { fetchOutputs, previewOutput } from "../state/outputsSlice";
@@ -108,6 +109,10 @@ export function usePipelineStepStructure({
       outputPayload: { kind: string; name: string; config: Record<string, unknown> },
     ): Promise<Output> => {
       if (!id) throw new Error("Missing pipeline id");
+      // HEL-1798: every continuation below is checked against the session that started the add. The checks before the `try`
+      // keep the rollback (itself a request with this pipeline's step id) from running under a new session.
+      const startEpoch = getSessionEpoch();
+      const signedOut = () => new Error("Signed out before the Output was created.");
       const persistedStep = await createPipelineStep(
         id,
         "aggregate",
@@ -121,7 +126,9 @@ export function usePipelineStepStructure({
       // actual anchor, and (symmetrically with `handleInsertStep`/
       // `handleAddTailStep`) any subsequent trunk-append can reparent this
       // tail's siblings, so local state must already be server-fresh.
+      if (getSessionEpoch() !== startEpoch) throw signedOut();
       await syncStepsFromServer();
+      if (getSessionEpoch() !== startEpoch) throw signedOut();
       try {
         const output = await createOutput(id, {
           nodeStepId: persistedStep.id,
@@ -129,6 +136,7 @@ export function usePipelineStepStructure({
           name: outputPayload.name,
           config: outputPayload.config,
         });
+        if (getSessionEpoch() !== startEpoch) return output;
         void dispatch(fetchOutputs({ pipelineId: id }));
         // HEL-908 Cycle 13 -- same staleness gap as the sheet's create path:
         // without this the new tail's rail chip shows no preview until its
@@ -140,7 +148,9 @@ export function usePipelineStepStructure({
         // Output failed to save -- delete the orphaned aggregate tail
         // rather than leaving it behind for the caller to notice later.
         setSteps((prev) => prev.filter((s) => s.id !== persistedStep.id));
-        void deletePipelineStep(persistedStep.id).catch(() => {});
+        // HEL-1798: after sign-out the delete would carry this pipeline's step id under the next session; skip it.
+        if (getSessionEpoch() === startEpoch)
+          void deletePipelineStep(persistedStep.id).catch(() => {});
         throw err;
       }
     },

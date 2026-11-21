@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { MutableRefObject } from "react";
 
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 import { fetchSources } from "../../sources/state/sourcesSlice";
 import type { useAppDispatch } from "../../../hooks/reduxHooks";
 import {
@@ -63,8 +64,11 @@ export function usePipelinePageLoad({
     // Already dispatched for this exact pipeline id in this render cycle
     if (lastFetchedIdRef.current === id) return;
     lastFetchedIdRef.current = id;
+    // HEL-1798: a settle that lands after sign-out belongs to the ended session; the callbacks seed page state and may re-request.
+    const startEpoch = getSessionEpoch();
     loadRunHistoryWhenTruncated(id, dispatch(fetchPipelineById(id)));
     void dispatch(fetchPipelineSteps(id)).then((action) => {
+      if (getSessionEpoch() !== startEpoch) return;
       onStepsSettled(fetchPipelineSteps.fulfilled.match(action));
     });
     void dispatch(analyzePipeline(id));
@@ -73,6 +77,7 @@ export function usePipelinePageLoad({
     // detail/steps fetch, NOT embedded in `PipelineSummaryResponse` (verified:
     // that response carries no `outputs` field).
     void dispatch(fetchOutputs({ pipelineId: id })).then((action) => {
+      if (getSessionEpoch() !== startEpoch) return;
       onOutputsSettled(fetchOutputs.fulfilled.match(action));
     });
   }, [
@@ -139,8 +144,9 @@ export function usePipelinePageLoad({
   const retryStepsLoad = useCallback(() => {
     if (!id) return;
     onStepsRetry();
+    const startEpoch = getSessionEpoch();
     void dispatch(fetchPipelineSteps(id)).then((action) => {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || getSessionEpoch() !== startEpoch) return;
       const ok = fetchPipelineSteps.fulfilled.match(action);
       onStepsSettled(ok);
       if (ok && analyzeStatusRef.current === "failed") void dispatch(analyzePipeline(id));
