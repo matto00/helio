@@ -79,6 +79,23 @@
   color: var(--app-surface);
 }
 
+/* HEL-1649 (owner ruling C2): hover for the phone chip row and the Data section links, which had none.
+ * Inactive chip: the Secondary recipe (DESIGN.md section 5); the chip row sits on the `--app-bg` canvas, where the
+ * state-rung table (section 3) says `--app-surface-raised` (soft measured 1.057 dark / 1.054 light, under 1.10). Active (ink-filled) chip: no section 5 recipe paints an
+ * ink fill, so it stays inside its own recipe's family and steps the ink one rung down to `--app-text-muted`
+ * (border moves with it), keeping `--app-surface` text. Hover only, so it is gated (HEL-1675). */
+@media (hover: hover) {
+  .dashboard-chip:hover:not(.dashboard-chip--active) {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-raised);
+  }
+
+  .dashboard-chip--active:hover {
+    border-color: var(--app-text-muted);
+    background: var(--app-text-muted);
+  }
+}
+
 /* HEL-1782: on the active chip's ink background the accent-dim badge would lose contrast, so it inverts: the same pill
  * shape, in the page surface and text colours. */
 .dashboard-chip--active .dashboard-chip__shared {

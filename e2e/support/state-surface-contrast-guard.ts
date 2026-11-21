@@ -49,11 +49,11 @@ import { assertTypeStyleActive, seedTypeStyle, typeStyleUnderTest } from "./type
 // themes x up to MAX_ELEMENTS_PER_VIEW/view (SAMPLED across the full
 // visible-match set, not the first N in DOM order) x 2 forced states
 // (hover, focus) = a bounded, printed element count per run (task
-// 2.7/5.2a), test.setTimeout(360_000) headroom. Single viewport (1440x900):
-// no state-background declaration in this tree is @media-gated (verified:
-// the app's only background @media overrides govern non-state surfaces),
-// so viewport is not a dimension this guard's population varies over —
-// recorded as a scope note rather than silently assumed.
+// 2.7/5.2a), test.setTimeout(360_000) headroom. The cells in THIS file's parts run at 1440x900 (fine pointer): no
+// state-background declaration was viewport-gated when they were written. HEL-1649: that stopped being true with the
+// redesign (phone shell, mobile pipeline, 1100px tweaks), so the layouts that exist only at 1100 / 768 / 390 px are
+// measured by `state-surface-contrast-guard-narrow.spec.ts` (see support/state-surface-contrast-guard-narrow.ts for
+// the width matrix, the fine-pointer reasoning and the scope note).
 //
 // evaluation-1.md CR1 — corrected in place. The chrome (command bar +
 // sidebar) used to be included in EVERY route's un-scoped `page.locator
@@ -508,6 +508,7 @@ export async function probeView(
 export const THEMES = ["dark", "light"] as const;
 export type Theme = (typeof THEMES)[number];
 export const DASH_NAME = "HEL-866 Guard Dashboard";
+export const SECOND_DASH_NAME = "HEL-866 Guard Dashboard B";
 export const PIPELINE_NAME = "HEL-866 Guard Pipeline";
 export const SOURCE_NAME = "HEL-866 Guard Source";
 
@@ -553,7 +554,11 @@ export async function newCell(
   page: Page,
   request: APIRequestContext,
   theme: Theme,
-  options: { seedHomeActivity?: boolean } = {},
+  options: {
+    seedHomeActivity?: boolean;
+    /** HEL-1649: narrow cells only -- a second, newer dashboard so DASH_NAME is the NON-active phone chip. */
+    secondDashboard?: boolean;
+  } = {},
 ) {
   // HEL-1330: idle the page on about:blank before any API seeding. A fresh page already is, and the
   // seed below runs before this cell's first app `goto`; stating it keeps a future earlier `goto`
@@ -573,6 +578,13 @@ export async function newCell(
     headers: { [CSRF_HEADER]: "1" },
   });
   expect(dashRes.status()).toBe(201);
+  if (options.secondDashboard === true) {
+    const second = await request.post("/api/dashboards", {
+      data: { name: SECOND_DASH_NAME },
+      headers: { [CSRF_HEADER]: "1" },
+    });
+    expect(second.status()).toBe(201);
+  }
 
   // evaluation-2.md CR7 — a fresh account renders every list/table view (/sources, /pipelines) as
   // an EMPTY STATE (structurally 1 element). Seeded the same way `e2e/hel908-full-flow.spec.ts`
@@ -673,6 +685,15 @@ export function finishCell(cell: string, results: ElementResult[], counts: Count
       `(the rest is advisory: a channel other than background conveyed the state, gates nothing here).`,
   );
 
+  // HEL-1649: opt-in per-probe ratio dump (`HEL_GUARD_LOG_RATIOS=1`) so a before/after ratio table can be recorded.
+  if (process.env.HEL_GUARD_LOG_RATIOS === "1") {
+    for (const r of results) {
+      console.log(
+        `[HEL-866 ratio] [${r.theme}] ${r.view} :: ${r.desc} (${r.forced}) ${r.verdict} ratio=${r.ratio ?? "n/a"}`,
+      );
+    }
+  }
+
   // Task 2.7 — "any exemption is a reviewed diff entry with a written
   // reason", never a bulk allowlist. These three are the ONLY exemptions
   // in this run, each independently confirmed by reading the real
@@ -709,7 +730,10 @@ export function finishCell(cell: string, results: ElementResult[], counts: Count
     r.forced === "hover" &&
     (r.desc.includes("[accent-picker__swatch]") ||
       r.desc.includes("[command-palette__item]") ||
-      r.desc.includes("[add-source-modal__type-btn]"));
+      r.desc.includes("[add-source-modal__type-btn]") ||
+      // HEL-1649 (owner ruling C1/C2): the glass bottom nav's tab HOVER is exempt -- glass is a DESIGN.md section 0.2
+      // carve-out, touch-first, its hover design deferred to HEL-1801. Its focus stays asserted (hover-only).
+      r.desc.includes("[bottom-nav__tab]"));
 
   const failures = results.filter((r) => r.verdict === "fail" && !isExempt(r));
   const exempted = results.filter((r) => r.verdict === "fail" && isExempt(r));

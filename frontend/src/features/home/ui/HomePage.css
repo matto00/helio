@@ -814,15 +814,31 @@
   flex-direction: column;
   align-items: stretch;
   gap: var(--space-2);
-  width: 100%;
+  /* HEL-1649: Ghost recipe -- inline padding with a compensating negative margin gives the hover wash room (the text
+     does not move), and the radius makes it a button shape. */
+  width: calc(100% + 2 * var(--space-2));
   min-height: 44px;
-  padding: var(--space-3) 0;
+  padding: var(--space-3) var(--space-2);
+  margin-inline: calc(-1 * var(--space-2));
   border: 0;
+  border-radius: var(--app-radius-sm);
   background: transparent;
   color: var(--app-text);
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition: background-color var(--app-transition);
+}
+
+@media (hover: hover) {
+  .tl-disc__head:hover {
+    background: var(--app-surface-soft);
+  }
+
+  /* Dark: soft measured 1.03 against the card surface this sits on (DESIGN.md section 3 state-rung table). */
+  :root[data-theme="dark"] .tl-disc__head:hover {
+    background: var(--app-surface-strong);
+  }
 }
 
 .tl-disc__label {

@@ -1,0 +1,36 @@
+
+Running 4 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel866-guard-1795222296263-27698@example.test
+[HEL-1300 e2e] throwaway user: hel866-guard-1795222296264-39942@example.test
+[HEL-866 guard] view "command-palette" (light): 15 visible interactive element(s), sampled 15
+[HEL-866 guard] view "command-palette" (dark): 15 visible interactive element(s), sampled 15
+[HEL-866 guard] view "modal:add-source" (light): 13 visible interactive element(s), sampled 13
+[HEL-866 guard] view "modal:add-source" (dark): 13 visible interactive element(s), sampled 13
+[HEL-866 guard] view "actions-menu" (light): 5 visible interactive element(s), sampled 5
+[HEL-866 guard] view "actions-menu" (dark): 5 visible interactive element(s), sampled 5
+[HEL-866 guard] elements probed: 66, resolved=66, unresolved=0, pass=43, fail=2, advisory=21 — 68% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] 2 reviewed exemption(s) applied (see the isExempt comment above):
+  [light] command-palette :: button[role=option] "HEL-866 Guard Dashboard" [command-palette__item] (#1) (hover)
+  [light] modal:add-source :: button "REST API" [add-source-modal__type-btn] (#1) (hover)
+[HEL-866 guard] cell "overlays(light)" unresolvedFraction=0.000
+  ✓  2 [dev] › e2e/state-surface-contrast-guard-overlays-chrome.spec.ts:30:9 › HEL-866 state-surface contrast guard › overlays: command palette, modal and actions menu state backgrounds differ measurably from their backdrop (light) (31.2s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795222326875-3692@example.test
+[HEL-866 guard] elements probed: 66, resolved=66, unresolved=0, pass=43, fail=2, advisory=21 — 68% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] 2 reviewed exemption(s) applied (see the isExempt comment above):
+  [dark] command-palette :: button[role=option] "HEL-866 Guard Dashboard" [command-palette__item] (#1) (hover)
+  [dark] modal:add-source :: button "REST API" [add-source-modal__type-btn] (#1) (hover)
+[HEL-866 guard] cell "overlays(dark)" unresolvedFraction=0.000
+  ✓  1 [dev] › e2e/state-surface-contrast-guard-overlays-chrome.spec.ts:30:9 › HEL-866 state-surface contrast guard › overlays: command palette, modal and actions menu state backgrounds differ measurably from their backdrop (dark) (31.3s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795222327036-12529@example.test
+[HEL-866 guard] view "chrome" (dark): 20 visible interactive element(s), sampled 20
+[HEL-866 guard] view "chrome" (light): 20 visible interactive element(s), sampled 20
+[HEL-866 guard] elements probed: 39, resolved=39, unresolved=0, pass=18, fail=0, advisory=21 — 46% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] cell "chrome(dark)" unresolvedFraction=0.000
+  ✓  3 [dev] › e2e/state-surface-contrast-guard-overlays-chrome.spec.ts:122:9 › HEL-866 state-surface contrast guard › chrome: every interactive state background differs measurably from its resolved backdrop (dark) (11.4s)
+[HEL-866 guard] elements probed: 39, resolved=39, unresolved=0, pass=18, fail=0, advisory=21 — 46% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] cell "chrome(light)" unresolvedFraction=0.000
+  ✓  4 [dev] › e2e/state-surface-contrast-guard-overlays-chrome.spec.ts:122:9 › HEL-866 state-surface contrast guard › chrome: every interactive state background differs measurably from its resolved backdrop (light) (11.3s)
+[HEL-1301 e2e] deleted 4 recorded throwaway user(s)
+
+  4 passed (43.4s)
