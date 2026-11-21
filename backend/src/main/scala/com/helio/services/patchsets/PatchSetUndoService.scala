@@ -123,7 +123,7 @@ final class PatchSetUndoService(
       // HEL-987: `DataSourceService.delete` returns `Either[DataSourceDeleteError, Unit]` now
       // (the 409-conflict wrapper) -- `.err` is `restoreCreateUndo`'s `ServiceError` shape,
       // unaffected by whether the failure carried a structured conflict.
-      case ("dataSource", "create")   => restoreCreateUndo(edit, id => dataSourceService.delete(DataSourceId(id), user).map(_.left.map(_.err)))
+      case ("dataSource", "create")   => ifNoLaterDatasetWork(edit, appliedAt)(restoreCreateUndo(edit, id => dataSourceService.delete(DataSourceId(id), user).map(_.left.map(e => if (e.conflict.isDefined) ServiceError.Conflict(PatchSetUndoDatasetLaterWork.gainedUseDuringUndo) else e.err))))
       case ("pipeline", "update")     => restorePipelineUpdate(edit, user)
       case ("pipeline", "create")     => ifStillUnbound(edit, edits, user, appliedAt)(restorePipelineCreateUndo(edit, user))
       case ("pipelineStep", "update") => restorePipelineStepUpdate(edit, user)
@@ -164,6 +164,16 @@ final class PatchSetUndoService(
           else Future.successful(Left(restoreFailed(edit, PatchSetUndoLaterChildren.addedDuringUndo(later.size))))
         }
       case _ => restore
+    }
+
+  /** HEL-1796: re-runs the Phase-1 later-work check immediately before the source delete (which cascades its rows) and
+   *  reports the edit failed, with counts only, when work has landed since. The window from here to the delete remains. */
+  private def ifNoLaterDatasetWork(edit: JournaledEdit, appliedAt: Instant)(
+      restore: => Future[Either[String, EditUndoOutcome]]
+  ): Future[Either[String, EditUndoOutcome]] =
+    PatchSetUndoDatasetLaterWork.blocking(edit, appliedAt, context).flatMap { found =>
+      if (found.isEmpty) restore
+      else Future.successful(Left(restoreFailed(edit, PatchSetUndoDatasetLaterWork.changedDuringUndo(found))))
     }
 
   private def missingPriorState(edit: JournaledEdit): String =
