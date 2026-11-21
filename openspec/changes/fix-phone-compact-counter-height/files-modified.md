@@ -1,5 +1,0 @@
-- `frontend/src/features/panels/ui/grid/MobilePanelStack.css` — add `--form` to the intrinsic-height rule (inline-size containment, height auto) and a form-body override (height auto, overflow-y visible)
-- `frontend/src/features/panels/ui/grid/MobilePanelStack.css.test.ts` — guard: `form` in the intrinsic kinds list plus the form-body override assertion
-- `e2e/hel1791-compact-counter-stack-height.spec.ts` — new: owner/editor x 390/768/1100 x light/dark geometry and no-inner-scroll, plus per-kind height table
-- `openspec/changes/fix-phone-compact-counter-height/evidence/` — probe, red/green/mutation runs, per-kind heights
-- `openspec/changes/fix-phone-compact-counter-height/tasks.md` — tasks ticked
