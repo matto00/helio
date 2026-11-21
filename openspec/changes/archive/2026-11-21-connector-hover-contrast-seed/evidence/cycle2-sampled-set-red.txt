@@ -1,0 +1,8 @@
+  2 failed
+      725 |       `HEL-1805: connector ${name} (doc id ${id}) was visible but NOT probed (sampled out) in "${label}"`,
+      729 |     `[HEL-1805 guard] connector controls probed in "${label}" at ${width}px: ${Object.entries(ids)
+    Error: HEL-1805: connector row (doc id 17) was visible but NOT probed (sampled out) in "/connectors"
+    Expected: true
+    Received: false
+
+Temporary MAX_ELEMENTS_PER_VIEW=4 (restored to 24 afterwards), routes-light -g "/connectors": the 1440 cells fail with the line above, proving the assertion fails when a control is visible but sampled out. (Cycle 1 asserted against the visible set, which could not fail this way.)

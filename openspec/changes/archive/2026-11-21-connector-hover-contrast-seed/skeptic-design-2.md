@@ -1,0 +1,24 @@
+## Skeptic Report — design gate (round 2, skeptic-design-2.md)
+
+Reviewed at HEAD 626cf9852948bc5743320cf93a77f92c921f239a. The planning artifacts are untracked in the change dir. The spawn-cwd guard returned READY.
+
+### What I verified (with evidence)
+
+- **Round-1 CR1 (Edit modal regression) is resolved.** D3 and task 2.2 now scope the Test-connection override to `.connectors-page__row-actions .connectors-page__btn--secondary:hover:not(:disabled)`. They state that modal-hosted `.connectors-page__btn`/`--secondary` keep `--app-surface-soft`. The actions-trigger override uses the same row-actions scope. D4.5 and task 3.2a add a check of the Edit modal's "Replace credential" hover with a bearer/api_key seed, in both themes. Ground truth: the button renders with `connectors-page__btn connectors-page__btn--secondary` inside `.connectors-page__row-actions` (ConnectorsPage.tsx:282-291), so the scoped selector matches it.
+- **Round-1 CR2 (master key) is resolved.** D1 now says the create path encrypts even `""` and needs a master key. It cites CI's fixed test key. I confirmed the key is at ci.yml:239-240, 677-678 and 829-830. D1 gives a BLOCKER path and repeats the C1 ban on reading any `.env`. A local fallback is now allowed (`MAY export ci.yml's fixed test-only values`). This is milder than my round-1 wording, but the value is a committed, public, test-only key and the choice is disclosed, so it is acceptable (see notes).
+- **Round-1 CR3 (no 1440 sampling enforcement) is resolved.** D2 and task 1.2a require every `/connectors` cell, at 1440 and narrow, to assert that the doc ids of the row, the trigger and the button (where mounted) are in the covered set, logged per cell. This follows the HEL-1649 precedent at `state-surface-contrast-guard-narrow.ts:140-147`.
+- **Round-1 notes are addressed.** The trigger mapping is settled in D3 as §5 Secondary hairline icon. overlays-chrome needs no seed, and I verified it only visits `/connectors` (overlays-chrome.spec.ts:54-55). The Standing Constraints heading is filled in. The risk of a hovered control inside a hovered row is recorded, with an escalate-if-invisible rule (task 3.4).
+- **Coverage per width.** `TEST_CONNECTION_MENU_BREAKPOINT_PX = 1100` and `useIsNarrowerThan` uses `(max-width: 1099px)`. So the standalone button is mounted at 1440 and 1100 and is a menu item at 768 and 390. This matches the design's "where mounted" wording, so the "all three controls red" AC can be met where all three exist. `/connectors` is in routes-light (spec l.8) and in all three `NARROW_WIDTHS` (narrow.ts:44-53).
+- **Backdrop and rung.** `probeView` reads `readBackdrop` and `base` BEFORE it hovers the parent and then the candidate (guard.ts:379-400). A trigger inside a hovered row is therefore still measured against the at-rest `--app-bg`, both for the transparent cell at 1440 and for the sticky `td--actions` (`--app-bg`, CSS l.169-174) while overflowing. `--app-surface-raised` is the §3/A.2 `--app-bg` rung (DESIGN.md l.153-157).
+- **Consistency with sibling screens.** `.pipeline-list-table__row:hover` and `.source-list-table__row:hover` already use `--app-surface-raised` on the same backdrop (PipelinesPage.css:21, SourceListTable.css:53). `.dashboard-chip:hover` (HEL-1649) uses `--app-border-strong` + raised (DashboardChipRow.css:88-91). The fix brings the connectors table into line with its siblings rather than adding a new pattern.
+- **Owner-ruling mapping.** §5 Secondary's literal hover is `--app-surface-soft`, which is what fails here. The design reads "the §5 recipe's hover" as the recipe's shape with the backdrop rung from the §3 table, which is binding and marked [mechanical]. HEL-1649 already established that reading. The row is a table row and is covered explicitly by the §3 table ("most table/list rows"), so it is not an unmapped control. No case calls for escalation.
+- **Current CSS** (ConnectorsPage.css l.99-103, 176-181, 263-268, 287-290). All three hovers are `--app-surface-soft` and already sit inside `@media (hover: hover)`, which matches the ticket's ~1.05 and the proposal.
+
+### Verdict: CONFIRM
+
+### Non-blocking notes
+
+- D4.1 still says "overlays-chrome if it renders the page", while D1 and task 1.2 settle that it needs no seed. Treat D1 as authoritative.
+- D1's local fallback (exporting ci.yml's test key for the lane backend) is fine. The executor must check that the exported value actually reaches the lane backend through `start-servers.sh`, and must record that the key came from ci.yml and not from any `.env`. If it does not reach the backend, take the BLOCKER path; do not improvise.
+- The connectors-page-ui spec says the button clears the floor "at every width". Read that as every width where it is mounted (≥1100).
+- The narrow helper already enforces `fullySampled` per view, so the new doc-id assertion there is a second check. That is harmless, and it is the one that names the controls.

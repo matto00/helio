@@ -1,0 +1,12 @@
+mutation-row:   2 failed
+mutation-row:   6 passed (27.9s)
+mutation-row:       [dark] /connectors :: tr "HEL-866 Guard Connectorrest_apihttps://g" [connectors-page__row] (#6) (hover) — ratio=1.0574354379465583
+mutation-row:       [light] /connectors :: tr "HEL-866 Guard Connectorrest_apihttps://g" [connectors-page__row] (#6) (hover) — ratio=1.0538655293965835
+mutation-button:   2 failed
+mutation-button:   6 passed (28.2s)
+mutation-button:       [dark] /connectors :: button "Test connection" [connectors-page__btn] (#7) (hover) — ratio=1.0574354379465583
+mutation-button:       [light] /connectors :: button "Test connection" [connectors-page__btn] (#7) (hover) — ratio=1.0538655293965835
+mutation-trigger:   2 failed
+mutation-trigger:   6 passed (33.2s)
+mutation-trigger:       [dark] /connectors :: button "" aria="HEL-866 Guard Connector actions" [popover__trigger] (#8) (hover) — ratio=1.0574354379465583
+mutation-trigger:       [light] /connectors :: button "" aria="HEL-866 Guard Connector actions" [popover__trigger] (#8) (hover) — ratio=1.0538655293965835

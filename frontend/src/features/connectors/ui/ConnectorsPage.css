@@ -97,8 +97,10 @@
 }
 
 @media (hover: hover) {
+  /* HEL-1805: the row rests on the page canvas (--app-bg), where DESIGN.md Appendix A.2 gives --app-surface-raised as
+     the rung that clears the 1.10 floor (--app-surface-soft measured ~1.05). */
   .connectors-page__row:hover {
-    background: var(--app-surface-soft);
+    background: var(--app-surface-raised);
   }
 }
 
@@ -176,7 +178,7 @@
 @media (hover: hover) {
   .connectors-page__scroll--left .connectors-page__row:hover .connectors-page__td--actions,
   .connectors-page__scroll--right .connectors-page__row:hover .connectors-page__td--actions {
-    background: var(--app-surface-soft);
+    background: var(--app-surface-raised);
   }
 }
 
@@ -287,6 +289,23 @@
 .connectors-page__btn--secondary {
   background: transparent;
   color: var(--app-text-muted);
+}
+
+/* HEL-1805: the row's "Test connection" button and actions trigger sit on the page canvas (--app-bg), where the
+   DESIGN.md section 5 Secondary hover uses the --app-surface-raised rung (Appendix A.2; --app-surface-soft measured
+   ~1.05 against the 1.10 floor). Scoped to the row's actions: the same --secondary class is "Replace credential" in
+   the Edit modal, on --app-surface-strong, where raised equals strong in the light theme and would hide the hover. */
+@media (hover: hover) {
+  .connectors-page__row-actions .connectors-page__btn--secondary:hover:not(:disabled) {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-raised);
+    color: var(--app-text);
+  }
+
+  .connectors-page__row-actions .actions-menu__trigger:hover:not(:disabled) {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-raised);
+  }
 }
 
 /* HEL-1022: `--danger` (Delete's old standalone button) is dead now that
