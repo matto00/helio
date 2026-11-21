@@ -1,0 +1,16 @@
+
+Running 6 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1791-owner-1795223114381-43296@example.test
+[HEL-1300 e2e] throwaway user: hel1791-editor-1795223114627-60000@example.test
+[HEL-1300 e2e] throwaway user: hel1791-measurer-1795223114860-50866@example.test
+[HEL-1300 e2e] throwaway user: hel1088-compact-1795223114999-90461@example.test
+  ✓  1 [dev] › e2e/hel1088-compact-counter-chrome.spec.ts:102:7 › HEL-1088 compact single-counter-field layout (real backend) › computed ARIA, keyboard operability, immediate submit landing on the bound source, and rejection writes nothing (6.9s)
+  ✓  2 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:172:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light (6.2s)
+  ✓  3 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:172:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark (5.1s)
+  ✓  4 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:172:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light (5.7s)
+  ✓  5 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:172:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark (5.4s)
+  ✓  6 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:226:7 › HEL-1791 compact counter height in the panel stack › per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) (9.9s)
+[HEL-1301 e2e] deleted 4 recorded throwaway user(s)
+
+  6 passed (34.8s)
