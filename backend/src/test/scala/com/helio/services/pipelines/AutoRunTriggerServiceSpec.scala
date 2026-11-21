@@ -396,6 +396,79 @@ class AutoRunTriggerServiceSpec extends AnyWordSpec with Matchers with BeforeAnd
     }
   }
 
+  "denial reason text by writer (HEL-1800)" should {
+
+    "neutralizeReasons maps an unknown code to the generic sentence and leaves step-config-invalid and stepId alone" in {
+      import PipelineCostEstimator.CostReason
+      val out = AutoRunTriggerService.neutralizeReasons(Vector(
+        CostReason("some-future-code", "Estimated 99 rows", Some("s9")),
+        CostReason("step-config-invalid", "Step 's1' needs a column", Some("s1"))
+      ))
+      out shouldBe Vector(
+        CostReason("some-future-code", PipelineAnalyzeReads.GenericReasonDetail, Some("s9")),
+        CostReason("step-config-invalid", "Step 's1' needs a column", Some("s1"))
+      )
+    }
+
+    val neutralAi = "A step in this pipeline uses AI, so it is not updated automatically."
+
+    "gives a VIEWER grantee the neutral sentence for an estimator reason, keeping code and stepId" in {
+      cleanDb()
+      val owner  = seedUser()
+      val viewer = seedUser()
+      val dsId   = seedDataset(owner)
+      val pid    = seedPipeline(owner, Vector(dsId))
+      seedAnalyzeWithAiStep(pid)
+      seedGrant(pid, viewer, "viewer")
+
+      val entry = deniedEntry(await(service.triggerAutoRun(dsId, AuthenticatedUser(viewer), Instant.now())), pid).get
+      val ownerEntry = deniedEntry(await(service.triggerAutoRun(dsId, AuthenticatedUser(owner), Instant.now())), pid).get
+      ownerEntry.reasons.head.detail should include ("uses AI op")
+      entry.reasons.map(r => (r.code, r.stepId)) shouldBe ownerEntry.reasons.map(r => (r.code, r.stepId))
+      entry.reasons.head.detail shouldBe neutralAi
+    }
+
+    "gives an EDITOR grantee the neutral sentence for an estimator reason" in {
+      cleanDb()
+      val owner  = seedUser()
+      val editor = seedUser()
+      val dsId   = seedDataset(owner)
+      val pid    = seedPipeline(owner, Vector(dsId))
+      seedAnalyzeWithAiStep(pid)
+      seedGrant(pid, editor, "editor")
+
+      val entry = deniedEntry(await(service.triggerAutoRun(dsId, AuthenticatedUser(editor), Instant.now())), pid).get
+      entry.reasons.head.detail shouldBe neutralAi
+    }
+
+    "keeps the full detail for the pipeline OWNER (guard: failable by neutralizing for everyone)" in {
+      cleanDb()
+      val owner = seedUser()
+      val dsId  = seedDataset(owner)
+      val pid   = seedPipeline(owner, Vector(dsId))
+      seedAnalyzeWithAiStep(pid)
+
+      val entry = deniedEntry(await(service.triggerAutoRun(dsId, AuthenticatedUser(owner), Instant.now())), pid).get
+      entry.reasons.head.detail should startWith ("Step '")
+      entry.reasons.head.detail should include ("analyzewithai")
+    }
+
+    "returns a step-config-invalid reason to a grantee unchanged" in {
+      cleanDb()
+      val owner  = seedUser()
+      val editor = seedUser()
+      val dsId   = seedDataset(owner)
+      val pid    = seedPipeline(owner, Vector(dsId))
+      seedMisconfiguredComputeStep(pid)
+      seedGrant(pid, editor, "editor")
+
+      val ownerEntry = deniedEntry(await(service.triggerAutoRun(dsId, AuthenticatedUser(owner), Instant.now())), pid).get
+      val entry      = deniedEntry(await(service.triggerAutoRun(dsId, AuthenticatedUser(editor), Instant.now())), pid).get
+      entry.reasons.map(_.code) shouldBe Vector("step-config-invalid")
+      entry.reasons shouldBe ownerEntry.reasons
+    }
+  }
+
   "the non-cascade property (HEL-1093 tasks.md 3.8)" should {
 
     "a pipeline's own write-back step (applyWriteBacks) does not itself schedule a debounce row " +

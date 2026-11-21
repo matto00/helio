@@ -4,6 +4,7 @@ import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType
 import com.helio.domain.engine.DatasetRowValidator.FieldError
 import com.helio.domain.model._
 import com.helio.domain.panels._
+import com.helio.domain.steps.ComputeConfig
 import com.helio.domain.util.SystemClock
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
@@ -12,7 +13,7 @@ import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
-import com.helio.services.pipelines.{AutoRunTriggerService, PipelineRunGuardConfig, PipelineRunService, PipelineSchedulerService, TriggerSource}
+import com.helio.services.pipelines.{AutoRunTriggerService, EvaluatedPipeline, PipelineRunGuardConfig, PipelineRunService, PipelineSchedulerService, TriggerSource}
 import com.helio.services.sources.DataSourceService
 import com.helio.spark.PipelineRunCache
 import com.helio.testkit.VerifiedEmbeddedPostgres
@@ -50,6 +51,7 @@ class FormSubmitEditorRlsSpec extends AnyWordSpec with Matchers with BeforeAndAf
   private var dataSourceRepo: DataSourceRepository = _
   private var panelService: PanelService         = _
   private var scheduler: PipelineSchedulerService = _
+  private var pipelineStepRepo: PipelineStepRepository = _
 
   private val owner  = UserId(UUID.randomUUID().toString)
   private val editor = UserId(UUID.randomUUID().toString)
@@ -100,7 +102,7 @@ class FormSubmitEditorRlsSpec extends AnyWordSpec with Matchers with BeforeAndAf
     val panelRepo        = new PanelRepository(ctx)
     val permissionRepo   = new ResourcePermissionRepository(ctx)
     val pipelineRepo     = new PipelineRepository(ctx, dataSourceRepo)
-    val pipelineStepRepo = new PipelineStepRepository(ctx)
+    pipelineStepRepo = new PipelineStepRepository(ctx)
     val pipelineRootRepo = new PipelineRootRepository(ctx)
     val runRepo          = new PipelineRunRepository(ctx)
     val outputRepo       = new OutputRepository(ctx)
@@ -217,6 +219,50 @@ class FormSubmitEditorRlsSpec extends AnyWordSpec with Matchers with BeforeAndAf
       // The guard's rate window and the owner's concurrency count are keyed on the pipeline owner, never the editor.
       await(ctx.withSystemContext(sql"SELECT count(*) FROM pipeline_run_rate_window WHERE user_id = ${owner.value}::uuid".as[Int].head)) should be > 0
       await(ctx.withSystemContext(sql"SELECT count(*) FROM pipeline_run_rate_window WHERE user_id = ${editor.value}::uuid".as[Int].head)) shouldBe 0
+    }
+  }
+
+  /** HEL-1800: a pipeline the writer holds a grant on, forced over the auto-run bound. Service-level (PanelService.submitForm):
+   *  the route copies `detail` verbatim in `DeniedPipelineResponse.fromDomain` (covered by `RowWriteResponseDenyReasonCoverageSpec`). */
+  private def denialFor(s: Seeded, writer: AuthenticatedUser): Vector[EvaluatedPipeline.Denied] =
+    await(panelService.submitForm(s.panelId, Map("quantity" -> JsNumber(3)), writer)).toOption.get.write.deniedPipelines
+
+  private def forceRows(s: Seeded, rows: Long): Unit =
+    await(ctx.withSystemContext(sqlu"UPDATE pipelines SET last_run_row_count = $rows WHERE id = ${s.pipelineId}"))
+
+  private def grantEditorOnPipeline(s: Seeded): Unit =
+    await(ctx.withSystemContext(
+      sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
+             VALUES ('pipeline', ${s.pipelineId}, ${editor.value}::uuid, 'editor', now())"""))
+
+  "a form submit whose auto-run is refused for cost (HEL-1800)" should {
+
+    "show an editor grantee the neutral sentence, with no row count or threshold digit" in {
+      val s = seed(); grantEditorOnPipeline(s); forceRows(s, 12345L)
+      val denied = denialFor(s, editorUser)
+      denied.flatMap(_.reasons.map(_.code)) shouldBe Vector("rows-above-threshold")
+      val detail = denied.head.reasons.head.detail
+      detail shouldBe "This pipeline is too large to update automatically."
+      detail.exists(_.isDigit) shouldBe false
+    }
+
+    "show an editor grantee the neutral sentence for too many steps, with no step count digit" in {
+      val s = seed(); grantEditorOnPipeline(s)
+      (1 to 21).foreach { i =>
+        await(pipelineStepRepo.insertInternal(PipelineId(s.pipelineId), "compute", ComputeConfig(s"c$i", "1 + 1", None), enabled = true, parentStepId = None, explicitRootId = None))
+      }
+      val denied = denialFor(s, editorUser)
+      val reasons = denied.flatMap(_.reasons)
+      reasons.map(_.code) shouldBe Vector("steps-above-bound")
+      reasons.head.detail shouldBe "This pipeline has too many steps to update automatically."
+      reasons.head.detail.exists(_.isDigit) shouldBe false
+    }
+
+    "keep the full detail for the pipeline owner's own submit (guard: failable by neutralizing for everyone)" in {
+      val s = seed(); forceRows(s, 12345L)
+      val denied = denialFor(s, ownerUser)
+      denied.flatMap(_.reasons.map(_.code)) shouldBe Vector("rows-above-threshold")
+      denied.head.reasons.head.detail shouldBe "Estimated 12345 rows exceeds the auto-run threshold of 10000"
     }
   }
 }

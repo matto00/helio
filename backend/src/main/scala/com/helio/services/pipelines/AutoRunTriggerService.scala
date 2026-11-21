@@ -141,9 +141,11 @@ final class AutoRunTriggerService(
       case Some(pipeline) if pipeline.ownerId.value == user.id.value =>
         Future.successful(Some(EvaluatedPipeline.Denied(pipelineId, pipeline.name, verdict.reasons, canRun = !hasConfigReason)))
       case Some(pipeline) =>
+        // HEL-1800: a writer who is not the pipeline's owner gets the neutral reason text (as HEL-1661 does on analyze).
+        val neutral = AutoRunTriggerService.neutralizeReasons(verdict.reasons)
         pipelineRepo.findGrantRole(pipelineId, user).map {
-          case Some("editor") => Some(EvaluatedPipeline.Denied(pipelineId, pipeline.name, verdict.reasons, canRun = !hasConfigReason))
-          case Some(_)        => Some(EvaluatedPipeline.Denied(pipelineId, pipeline.name, verdict.reasons, canRun = false))
+          case Some("editor") => Some(EvaluatedPipeline.Denied(pipelineId, pipeline.name, neutral, canRun = !hasConfigReason))
+          case Some(_)        => Some(EvaluatedPipeline.Denied(pipelineId, pipeline.name, neutral, canRun = false))
           case None           => None // no grant at all -- invisible to this writer, dropped (design.md D1)
         }
     }
@@ -166,6 +168,16 @@ object EvaluatedPipeline {
 }
 
 object AutoRunTriggerService {
+
+  /** HEL-1800: the reasons a non-owner writer may read. Code and stepId are kept; an estimator reason's detail becomes
+   *  HEL-1661's fixed per-code sentence (an unknown code: the generic one), so no count, threshold, source kind, op name
+   *  or quoted id leaves. `step-config-invalid` is a function of the step's own configuration and passes through, as on analyze. */
+  private[pipelines] def neutralizeReasons(reasons: Vector[PipelineCostEstimator.CostReason]): Vector[PipelineCostEstimator.CostReason] =
+    reasons.map { r =>
+      if (r.code == PipelineAnalyzeService.StepConfigInvalidCode) r
+      else r.copy(detail = PipelineAnalyzeReads.NeutralReasonDetail.getOrElse(r.code, PipelineAnalyzeReads.GenericReasonDetail))
+    }
+
   val DefaultDebounceSeconds: Long = 5L
 
   /** Reads `DATASET_WRITE_DEBOUNCE_SECONDS` (falls back to the documented default when unset or
