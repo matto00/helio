@@ -216,7 +216,7 @@ test.describe("HEL-1683 client regex main-thread guard (live)", () => {
 
   // HEL-1697: a single unbounded quantifier with a tail (`(a*)b`) is accepted by the allowlist but quadratic per cell (2.1 s
   // per 1,000 rows of 2,000 characters). This frame is LONG_ROWS x LONG_CELL_LENGTH = 12 x 10,000 (1.2e9 len^2 units, about
-  // 120 KB): the unmodified tree runs it in a 1.2 s task, over 10x the 100 ms bound. The frame is deliberately small in total
+  // 120 KB): with the decline disabled the Playwright harness measures one 1.1-1.3 s main-thread task (1147, 1259, 1349 ms), far over the 100 ms bound. The frame is deliberately small in total
   // characters: the dev build pays per-character render and saved-step re-walk costs in the input handler, which a 1.2 MB frame
   // (400 x 3,000) pushed to 138 ms on CI and 50 x 8,500 (425 KB) to 83 ms locally, while 12 x 10,000 stays at 0 ms.
   test("a single-quantifier pattern over long cells is declined to the server and never blocks the main thread", async ({
@@ -254,7 +254,7 @@ test.describe("HEL-1683 client regex main-thread guard (live)", () => {
       `the declined step goes to the server: ${requests.join(", ")}`,
     ).toBeGreaterThan(0);
     // The server's outcome is what the step shows: its live rows, or its exact time-budget step error for this pattern
-    // (8,500-character cells may need longer than the engine's 2 s per-step budget, depending on runner speed). If NEITHER
+    // (10,000-character cells may need longer than the engine's 2 s per-step budget, depending on runner speed). If NEITHER
     // appears this fails.
     const rows = page.getByRole("region", { name: /^Rows after step 1/ });
     const live = page.getByLabel("Preview is live");
