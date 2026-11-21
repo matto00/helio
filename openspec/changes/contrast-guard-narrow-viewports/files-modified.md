@@ -1,0 +1,8 @@
+- `e2e/support/state-surface-contrast-guard.ts` — second-dashboard seed option, `[bottom-nav__tab]` hover-only exemption (HEL-1801), opt-in ratio dump (`HEL_GUARD_LOG_RATIOS=1`), scope comment updated
+- `e2e/support/state-surface-contrast-guard-narrow.ts` — narrow cell registration (1100/768/390 x both themes), per-width readiness, per-view full-sampling assertion, refresh-button probe log
+- `e2e/state-surface-contrast-guard-narrow-1100-768.spec.ts` — part file, 12 cells
+- `e2e/state-surface-contrast-guard-narrow-390.spec.ts` — part file, 8 cells
+- `frontend/src/app/App.css` — Ghost hover for `.app-command-bar__mobile-title` (soft light / strong dark), gated
+- `frontend/src/features/dashboards/ui/DashboardChipRow.css` — Secondary hover for inactive `.dashboard-chip`, ink-step hover for the active chip, gated
+- `frontend/src/features/home/ui/HomePage.css` — Ghost hover for `.tl-disc__head`, gated
+- `openspec/changes/contrast-guard-narrow-viewports/` — proposal/design/spec/tasks, `hover-inventory.md`, `ci-impact.md`, `evidence/` (red/green/mutation logs)

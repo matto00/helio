@@ -1,0 +1,104 @@
+
+Running 8 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel866-guard-1795222420348-51981@example.test
+[HEL-1300 e2e] throwaway user: hel866-guard-1795222420349-63378@example.test
+[HEL-866 guard] view "chrome@390" (light): 9 visible interactive element(s), sampled 9
+[HEL-866 guard] view "chrome@390" (dark): 9 visible interactive element(s), sampled 9
+[HEL-866 guard] view "/pipelines/:id@390" (light): 14 visible interactive element(s), sampled 14
+[HEL-866 guard] view "/pipelines/:id@390" (dark): 14 visible interactive element(s), sampled 14
+[HEL-1649 guard] "Refresh sample of HEL-866 Guard Source" probed at 390px (dark) in view "/pipelines/:id@390" (doc id 11)
+[HEL-866 guard] elements probed: 45, resolved=45, unresolved=0, pass=18, fail=5, advisory=22 — 51% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [dark] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#29) (hover)
+  [dark] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#30) (hover)
+  [dark] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#31) (hover)
+  [dark] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#32) (hover)
+  [dark] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#33) (hover)
+[HEL-866 guard] cell "/pipelines/:id@390(dark)" unresolvedFraction=0.000
+[HEL-1649 guard] "Refresh sample of HEL-866 Guard Source" probed at 390px (light) in view "/pipelines/:id@390" (doc id 11)
+[HEL-866 guard] elements probed: 45, resolved=45, unresolved=0, pass=18, fail=5, advisory=22 — 51% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [light] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#29) (hover)
+  [light] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#30) (hover)
+  [light] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#31) (hover)
+  [light] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#32) (hover)
+  [light] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#33) (hover)
+[HEL-866 guard] cell "/pipelines/:id@390(light)" unresolvedFraction=0.000
+  ✓  1 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › pipeline-detail @390px: every interactive state background differs measurably from its resolved backdrop (dark) (11.4s)
+  ✓  2 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › pipeline-detail @390px: every interactive state background differs measurably from its resolved backdrop (light) (11.4s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795222431139-52581@example.test
+[HEL-1300 e2e] throwaway user: hel866-guard-1795222431143-17708@example.test
+[HEL-866 guard] view "chrome@390" (light): 10 visible interactive element(s), sampled 10
+[HEL-866 guard] view "chrome@390" (dark): 10 visible interactive element(s), sampled 10
+[HEL-866 guard] view "/dashboards@390" (dark): 3 visible interactive element(s), sampled 3
+[HEL-866 guard] view "/dashboards@390" (light): 3 visible interactive element(s), sampled 3
+[HEL-866 guard] elements probed: 25, resolved=25, unresolved=0, pass=8, fail=5, advisory=12 — 52% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [light] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#9) (hover)
+  [light] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#10) (hover)
+  [light] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#11) (hover)
+  [light] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#12) (hover)
+  [light] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#13) (hover)
+[HEL-866 guard] cell "/dashboards@390(light)" unresolvedFraction=0.000
+  ✓  4 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /dashboards @390px: every interactive state background differs measurably from its resolved backdrop (light) (7.9s)
+[HEL-866 guard] elements probed: 25, resolved=25, unresolved=0, pass=8, fail=5, advisory=12 — 52% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [dark] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#9) (hover)
+  [dark] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#10) (hover)
+  [dark] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#11) (hover)
+  [dark] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#12) (hover)
+  [dark] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#13) (hover)
+[HEL-866 guard] cell "/dashboards@390(dark)" unresolvedFraction=0.000
+[HEL-1300 e2e] throwaway user: hel866-guard-1795222439032-61790@example.test
+  ✓  3 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /dashboards @390px: every interactive state background differs measurably from its resolved backdrop (dark) (7.9s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795222439063-54933@example.test
+[HEL-866 guard] view "chrome@390" (dark): 8 visible interactive element(s), sampled 8
+[HEL-866 guard] view "chrome@390" (light): 8 visible interactive element(s), sampled 8
+[HEL-866 guard] view "/home@390" (dark): 7 visible interactive element(s), sampled 7
+[HEL-866 guard] view "/home@390" (light): 7 visible interactive element(s), sampled 7
+[HEL-866 guard] elements probed: 29, resolved=29, unresolved=0, pass=7, fail=5, advisory=17 — 41% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [dark] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#10) (hover)
+  [dark] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#11) (hover)
+  [dark] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#12) (hover)
+  [dark] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#13) (hover)
+  [dark] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#14) (hover)
+[HEL-866 guard] cell "/home@390(dark)" unresolvedFraction=0.000
+  ✓  5 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /home @390px: every interactive state background differs measurably from its resolved backdrop (dark) (7.9s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795222446906-93386@example.test
+[HEL-866 guard] elements probed: 29, resolved=29, unresolved=0, pass=7, fail=5, advisory=17 — 41% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [light] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#10) (hover)
+  [light] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#11) (hover)
+  [light] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#12) (hover)
+  [light] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#13) (hover)
+  [light] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#14) (hover)
+[HEL-866 guard] cell "/home@390(light)" unresolvedFraction=0.000
+  ✓  6 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /home @390px: every interactive state background differs measurably from its resolved backdrop (light) (7.9s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795222446958-3897@example.test
+[HEL-866 guard] view "chrome@390" (dark): 8 visible interactive element(s), sampled 8
+[HEL-866 guard] view "chrome@390" (light): 8 visible interactive element(s), sampled 8
+[HEL-866 guard] view "/connectors@390" (dark): 3 visible interactive element(s), sampled 3
+[HEL-866 guard] view "/connectors@390" (light): 3 visible interactive element(s), sampled 3
+[HEL-866 guard] elements probed: 21, resolved=21, unresolved=0, pass=6, fail=5, advisory=10 — 52% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [dark] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#6) (hover)
+  [dark] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#7) (hover)
+  [dark] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#8) (hover)
+  [dark] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#9) (hover)
+  [dark] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#10) (hover)
+[HEL-866 guard] cell "/connectors@390(dark)" unresolvedFraction=0.000
+  ✓  7 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /connectors @390px: every interactive state background differs measurably from its resolved backdrop (dark) (6.8s)
+[HEL-866 guard] elements probed: 21, resolved=21, unresolved=0, pass=6, fail=5, advisory=10 — 52% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [light] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#6) (hover)
+  [light] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#7) (hover)
+  [light] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#8) (hover)
+  [light] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#9) (hover)
+  [light] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#10) (hover)
+[HEL-866 guard] cell "/connectors@390(light)" unresolvedFraction=0.000
+  ✓  8 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /connectors @390px: every interactive state background differs measurably from its resolved backdrop (light) (6.7s)
+[HEL-1301 e2e] deleted 8 recorded throwaway user(s)
+
+  8 passed (34.6s)

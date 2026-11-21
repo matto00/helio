@@ -360,14 +360,32 @@
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
-  padding: 0;
+  /* HEL-1649: Ghost recipe (DESIGN.md section 5) -- a painted hover needs a button-shaped box, so the same
+     padding / compensating negative margin / radius trick as `.app-command-bar__logo` above gives the hover wash
+     room without moving the title. */
+  padding: var(--space-1) var(--space-2);
+  margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1);
   border: none;
+  border-radius: var(--app-radius-sm);
   background: transparent;
   color: var(--app-text);
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
   cursor: pointer;
+  transition: background-color var(--app-transition);
+}
+
+/* HEL-1649 (owner ruling C2): Ghost hover. The title sits on the command bar's `--app-surface`, the same backdrop as
+   the logo above, so it takes the logo's measured split: soft in light, strong in dark. */
+@media (hover: hover) {
+  .app-command-bar__mobile-title:hover {
+    background: var(--app-surface-soft);
+  }
+
+  :root[data-theme="dark"] .app-command-bar__mobile-title:hover {
+    background: var(--app-surface-strong);
+  }
 }
 
 .app-command-bar__mobile-title-name {

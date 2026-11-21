@@ -1,0 +1,45 @@
+
+Running 2 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel866-guard-1795222105229-64848@example.test
+[HEL-1300 e2e] throwaway user: hel866-guard-1795222105232-41943@example.test
+[HEL-866 guard] view "/pipelines/:id:sidebar-rail" (dark): 5 visible interactive element(s), sampled 5
+[HEL-866 guard] view "/pipelines/:id:sidebar-rail" (light): 5 visible interactive element(s), sampled 5
+[HEL-866 guard] view "/pipelines/:id" (dark): 19 visible interactive element(s), sampled 19
+[HEL-866 guard] view "/pipelines/:id" (light): 19 visible interactive element(s), sampled 19
+[HEL-866 guard] elements probed: 48, resolved=48, unresolved=0, pass=21, fail=1, advisory=26 — 46% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] elements probed: 48, resolved=48, unresolved=0, pass=22, fail=0, advisory=26 — 46% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] cell "/pipelines/:id(light)" unresolvedFraction=0.000
+  ✓  2 [dev] › e2e/support/state-surface-contrast-guard.ts:803:11 › HEL-866 state-surface contrast guard › pipeline-detail: every interactive state background differs measurably from its resolved backdrop (light) (12.6s)
+  ✘  1 [dev] › e2e/support/state-surface-contrast-guard.ts:803:11 › HEL-866 state-surface contrast guard › pipeline-detail: every interactive state background differs measurably from its resolved backdrop (dark) (12.7s)
+[HEL-1301 e2e] deleted 2 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/support/state-surface-contrast-guard.ts:803:11 › HEL-866 state-surface contrast guard › pipeline-detail: every interactive state background differs measurably from its resolved backdrop (dark) 
+
+    Error: HEL-866 guard: 1 state(s) failed the 1.1 contrast threshold:
+      [dark] /pipelines/:id :: button "" aria="Refresh sample of HEL-866 Guard Source" [ui-icon-btn] (#6) (hover) — ratio=1.0301171241280085
+
+      759 |       return `  [${f.theme}] ${f.view} :: ${f.desc} (${f.forced}) — ${ratioText}`;
+      760 |     });
+    > 761 |     throw new Error(
+          |           ^
+      762 |       `HEL-866 guard: ${failures.length} state(s) failed the ${CONTRAST_THRESHOLD} contrast threshold:\n${lines.join("\n")}`,
+      763 |     );
+      764 |   }
+        at finishCell (/home/matt/Development/helio/.claude/worktrees/task/contrast-guard-narrow-viewports/HEL-1649/e2e/support/state-surface-contrast-guard.ts:761:11)
+        at /home/matt/Development/helio/.claude/worktrees/task/contrast-guard-narrow-viewports/HEL-1649/e2e/support/state-surface-contrast-guard.ts:894:9
+
+    Error Context: test-results/state-surface-contrast-gua-ff3d9-its-resolved-backdrop-dark--dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/state-surface-contrast-gua-ff3d9-its-resolved-backdrop-dark--dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/state-surface-contrast-gua-ff3d9-its-resolved-backdrop-dark--dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [dev] › e2e/support/state-surface-contrast-guard.ts:803:11 › HEL-866 state-surface contrast guard › pipeline-detail: every interactive state background differs measurably from its resolved backdrop (dark) 
+  1 passed (13.5s)

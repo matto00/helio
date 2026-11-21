@@ -1,0 +1,834 @@
+
+Running 20 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221579911-90317@example.test
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221579911-67698@example.test
+[HEL-866 guard] view "chrome@1100" (light): 11 visible interactive element(s), sampled 11
+[HEL-866 guard] view "chrome@1100" (dark): 11 visible interactive element(s), sampled 11
+[HEL-866 guard] view "/home@1100:sidebar-rail" (light): 0 visible interactive element(s), sampled 0
+[HEL-866 guard] view "/home@1100" (light): 8 visible interactive element(s), sampled 8
+[HEL-866 guard] view "/home@1100:sidebar-rail" (dark): 0 visible interactive element(s), sampled 0
+[HEL-866 guard] view "/home@1100" (dark): 8 visible interactive element(s), sampled 8
+[HEL-866 guard] elements probed: 37, resolved=37, unresolved=0, pass=16, fail=0, advisory=21 — 43% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [light] chrome@1100 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Helio home" [app-rail__logo] (#1) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Helio home" [app-rail__logo] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Home" [app-rail__item] (#2) (hover) pass ratio=1.3556908901381421
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Home" [app-rail__item] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Dashboards" [app-rail__item] (#3) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Dashboards" [app-rail__item] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Data Sources" [app-rail__item] (#4) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Data Sources" [app-rail__item] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Data Pipelines" [app-rail__item] (#5) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Data Pipelines" [app-rail__item] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Connectors" [app-rail__item] (#6) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Connectors" [app-rail__item] (#6) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Assistant" [app-rail__item] (#7) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Assistant" [app-rail__item] (#7) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Settings" [app-rail__item] (#8) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Settings" [app-rail__item] (#8) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: button "H" aria="User menu" [user-menu__trigger] (#9) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] chrome@1100 :: button "H" aria="User menu" [user-menu__trigger] (#9) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: button "" aria="Open assistant" [ui-icon-btn] (#10) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@1100 :: button "" aria="Open assistant" [ui-icon-btn] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@1100 :: a "All 1 →" [home-section__link] (#0) (hover) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@1100 :: a "All 1 →" [home-section__link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@1100 :: a "No panels yetHEL-866 Guard Dashboardnow" [home-card] (#1) (hover) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@1100 :: a "No panels yetHEL-866 Guard Dashboardnow" [home-card] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@1100 :: button "" aria="HEL-866 Guard Pipeline, succeeded, 08:39" [tl__mark] (#2) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /home@1100 :: button "" aria="HEL-866 Guard Pipeline, succeeded, 08:39" [tl__mark] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@1100 :: button "" aria="HEL-866 Guard Pipeline, failed, 13:39, source returned 0 rows" [tl__mark] (#3) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /home@1100 :: button "" aria="HEL-866 Guard Pipeline, failed, 13:39, source returned 0 rows" [tl__mark] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@1100 :: button "" aria="HEL-866 Guard Pipeline, scheduled, 19:39" [tl__mark] (#4) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /home@1100 :: button "" aria="HEL-866 Guard Pipeline, scheduled, 19:39" [tl__mark] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@1100 :: a "Open" [home-btn] (#5) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /home@1100 :: a "Open" [home-btn] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@1100 :: button "Retry" [home-btn] (#6) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /home@1100 :: button "Retry" [home-btn] (#6) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@1100 :: a "19:39HEL-866 Guard Pipeline" [home-upnext__row] (#7) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /home@1100 :: a "19:39HEL-866 Guard Pipeline" [home-upnext__row] (#7) (focus) advisory ratio=n/a
+[HEL-866 guard] cell "/home@1100(light)" unresolvedFraction=0.000
+  ✓   1 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /home @1100px: every interactive state background differs measurably from its resolved backdrop (light) (10.6s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221589902-81236@example.test
+[HEL-866 guard] elements probed: 37, resolved=37, unresolved=0, pass=16, fail=0, advisory=21 — 43% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [dark] chrome@1100 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Helio home" [app-rail__logo] (#1) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Helio home" [app-rail__logo] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Home" [app-rail__item] (#2) (hover) pass ratio=1.6164339581954212
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Home" [app-rail__item] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Dashboards" [app-rail__item] (#3) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Dashboards" [app-rail__item] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Data Sources" [app-rail__item] (#4) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Data Sources" [app-rail__item] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Data Pipelines" [app-rail__item] (#5) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Data Pipelines" [app-rail__item] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Connectors" [app-rail__item] (#6) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Connectors" [app-rail__item] (#6) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Assistant" [app-rail__item] (#7) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Assistant" [app-rail__item] (#7) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Settings" [app-rail__item] (#8) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Settings" [app-rail__item] (#8) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: button "H" aria="User menu" [user-menu__trigger] (#9) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] chrome@1100 :: button "H" aria="User menu" [user-menu__trigger] (#9) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: button "" aria="Open assistant" [ui-icon-btn] (#10) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@1100 :: button "" aria="Open assistant" [ui-icon-btn] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@1100 :: a "All 1 →" [home-section__link] (#0) (hover) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@1100 :: a "All 1 →" [home-section__link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@1100 :: a "No panels yetHEL-866 Guard Dashboardnow" [home-card] (#1) (hover) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@1100 :: a "No panels yetHEL-866 Guard Dashboardnow" [home-card] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@1100 :: button "" aria="HEL-866 Guard Pipeline, succeeded, 08:39" [tl__mark] (#2) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /home@1100 :: button "" aria="HEL-866 Guard Pipeline, succeeded, 08:39" [tl__mark] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@1100 :: button "" aria="HEL-866 Guard Pipeline, failed, 13:39, source returned 0 rows" [tl__mark] (#3) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /home@1100 :: button "" aria="HEL-866 Guard Pipeline, failed, 13:39, source returned 0 rows" [tl__mark] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@1100 :: button "" aria="HEL-866 Guard Pipeline, scheduled, 19:39" [tl__mark] (#4) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /home@1100 :: button "" aria="HEL-866 Guard Pipeline, scheduled, 19:39" [tl__mark] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@1100 :: a "Open" [home-btn] (#5) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /home@1100 :: a "Open" [home-btn] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@1100 :: button "Retry" [home-btn] (#6) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /home@1100 :: button "Retry" [home-btn] (#6) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@1100 :: a "19:39HEL-866 Guard Pipeline" [home-upnext__row] (#7) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /home@1100 :: a "19:39HEL-866 Guard Pipeline" [home-upnext__row] (#7) (focus) advisory ratio=n/a
+[HEL-866 guard] cell "/home@1100(dark)" unresolvedFraction=0.000
+  ✓   2 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /home @1100px: every interactive state background differs measurably from its resolved backdrop (dark) (10.7s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221590008-87981@example.test
+[HEL-866 guard] view "chrome@1100" (light): 11 visible interactive element(s), sampled 11
+[HEL-866 guard] view "chrome@1100" (dark): 11 visible interactive element(s), sampled 11
+[HEL-866 guard] view "/connectors@1100:sidebar-rail" (light): 0 visible interactive element(s), sampled 0
+[HEL-866 guard] view "/connectors@1100" (light): 1 visible interactive element(s), sampled 1
+[HEL-866 guard] view "/connectors@1100:sidebar-rail" (dark): 0 visible interactive element(s), sampled 0
+[HEL-866 guard] view "/connectors@1100" (dark): 1 visible interactive element(s), sampled 1
+[HEL-866 guard] elements probed: 23, resolved=23, unresolved=0, pass=11, fail=0, advisory=12 — 48% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [light] chrome@1100 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Helio home" [app-rail__logo] (#1) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Helio home" [app-rail__logo] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Home" [app-rail__item] (#2) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Home" [app-rail__item] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Dashboards" [app-rail__item] (#3) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Dashboards" [app-rail__item] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Data Sources" [app-rail__item] (#4) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Data Sources" [app-rail__item] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Data Pipelines" [app-rail__item] (#5) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Data Pipelines" [app-rail__item] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Connectors" [app-rail__item] (#6) (hover) pass ratio=1.3556908901381421
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Connectors" [app-rail__item] (#6) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Assistant" [app-rail__item] (#7) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Assistant" [app-rail__item] (#7) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Settings" [app-rail__item] (#8) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] chrome@1100 :: a "" aria="Settings" [app-rail__item] (#8) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: button "H" aria="User menu" [user-menu__trigger] (#9) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] chrome@1100 :: button "H" aria="User menu" [user-menu__trigger] (#9) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@1100 :: button "" aria="Open assistant" [ui-icon-btn] (#10) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@1100 :: button "" aria="Open assistant" [ui-icon-btn] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /connectors@1100 :: button "Add connector" [ui-empty-state__cta] (#0) (hover) pass ratio=2.3922703041814666
+[HEL-866 ratio] [light] /connectors@1100 :: button "Add connector" [ui-empty-state__cta] (#0) (focus) advisory ratio=n/a
+[HEL-866 guard] cell "/connectors@1100(light)" unresolvedFraction=0.000
+  ✓   4 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /connectors @1100px: every interactive state background differs measurably from its resolved backdrop (light) (8.3s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221598322-1364@example.test
+[HEL-866 guard] elements probed: 23, resolved=23, unresolved=0, pass=11, fail=0, advisory=12 — 48% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [dark] chrome@1100 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Helio home" [app-rail__logo] (#1) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Helio home" [app-rail__logo] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Home" [app-rail__item] (#2) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Home" [app-rail__item] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Dashboards" [app-rail__item] (#3) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Dashboards" [app-rail__item] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Data Sources" [app-rail__item] (#4) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Data Sources" [app-rail__item] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Data Pipelines" [app-rail__item] (#5) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Data Pipelines" [app-rail__item] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Connectors" [app-rail__item] (#6) (hover) pass ratio=1.6164339581954212
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Connectors" [app-rail__item] (#6) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Assistant" [app-rail__item] (#7) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Assistant" [app-rail__item] (#7) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Settings" [app-rail__item] (#8) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] chrome@1100 :: a "" aria="Settings" [app-rail__item] (#8) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: button "H" aria="User menu" [user-menu__trigger] (#9) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] chrome@1100 :: button "H" aria="User menu" [user-menu__trigger] (#9) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@1100 :: button "" aria="Open assistant" [ui-icon-btn] (#10) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@1100 :: button "" aria="Open assistant" [ui-icon-btn] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /connectors@1100 :: button "Add connector" [ui-empty-state__cta] (#0) (hover) pass ratio=8.515228755746108
+[HEL-866 ratio] [dark] /connectors@1100 :: button "Add connector" [ui-empty-state__cta] (#0) (focus) advisory ratio=n/a
+[HEL-866 guard] cell "/connectors@1100(dark)" unresolvedFraction=0.000
+  ✓   3 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /connectors @1100px: every interactive state background differs measurably from its resolved backdrop (dark) (8.5s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221598420-11029@example.test
+[HEL-866 guard] view "chrome@768" (dark): 9 visible interactive element(s), sampled 9
+[HEL-866 guard] view "chrome@768" (light): 9 visible interactive element(s), sampled 9
+[HEL-866 guard] view "/pipelines/:id@768" (dark): 14 visible interactive element(s), sampled 14
+[HEL-866 guard] view "/pipelines/:id@768" (light): 14 visible interactive element(s), sampled 14
+[HEL-1649 guard] "Refresh sample of HEL-866 Guard Source" probed at 768px (dark) in view "/pipelines/:id@768" (doc id 11)
+[HEL-866 guard] elements probed: 45, resolved=45, unresolved=0, pass=18, fail=5, advisory=22 — 51% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [dark] chrome@768 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@768 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (focus) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@768 :: button "Data Pipelines" aria="Switch data pipelines (current: Data Pipelines)" [app-command-bar__mobile-title] (#2) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@768 :: button "Data Pipelines" aria="Switch data pipelines (current: Data Pipelines)" [app-command-bar__mobile-title] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: button "" aria="Open assistant" [ui-icon-btn] (#3) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@768 :: button "" aria="Open assistant" [ui-icon-btn] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#29) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#29) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#30) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#30) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#31) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#31) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#32) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#32) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#33) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#33) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: a "" aria="Back to pipelines" [mobile-header__back] (#0) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: a "" aria="Back to pipelines" [mobile-header__back] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "" aria="Pipeline actions" [popover__trigger] (#1) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "" aria="Pipeline actions" [popover__trigger] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "Add schedule" aria="Add schedule" [spine-header__chip] (#2) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "Add schedule" aria="Add schedule" [spine-header__chip] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button[role=tab] "Steps" [mobile-tabs__tab] (#3) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button[role=tab] "Steps" [mobile-tabs__tab] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button[role=tab] "Preview" [mobile-tabs__tab] (#4) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button[role=tab] "Preview" [mobile-tabs__tab] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button[role=tab] "Runs" [mobile-tabs__tab] (#5) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button[role=tab] "Runs" [mobile-tabs__tab] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "HEL-866 Guard Source" aria="Edit source HEL-866 Guard Source" [spine-card__name-btn] (#6) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "HEL-866 Guard Source" aria="Edit source HEL-866 Guard Source" [spine-card__name-btn] (#6) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "" aria="Refresh sample of HEL-866 Guard Source" [ui-icon-btn] (#7) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "" aria="Refresh sample of HEL-866 Guard Source" [ui-icon-btn] (#7) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "" aria="Source actions for HEL-866 Guard Source" [popover__trigger] (#8) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "" aria="Source actions for HEL-866 Guard Source" [popover__trigger] (#8) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "1Limit rowsfirst 2—" aria="Step 1: Limit rows" [spine-row__select] (#9) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "1Limit rowsfirst 2—" aria="Step 1: Limit rows" [spine-row__select] (#9) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "+ Add step" aria="+ Add transformation step" [spine-add-row] (#10) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "+ Add step" aria="+ Add transformation step" [spine-add-row] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "+ Output" aria="New output" [spine-ghost-btn] (#11) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "+ Output" aria="New output" [spine-ghost-btn] (#11) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "Dry run" aria="Dry run" [mobile-pill] (#12) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "Dry run" aria="Dry run" [mobile-pill] (#12) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "Run pipeline" aria="Run pipeline" [mobile-pill] (#13) (hover) pass ratio=8.515228755746108
+[HEL-866 ratio] [dark] /pipelines/:id@768 :: button "Run pipeline" aria="Run pipeline" [mobile-pill] (#13) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [dark] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#29) (hover)
+  [dark] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#30) (hover)
+  [dark] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#31) (hover)
+  [dark] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#32) (hover)
+  [dark] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#33) (hover)
+[HEL-866 guard] cell "/pipelines/:id@768(dark)" unresolvedFraction=0.000
+  ✓   5 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › pipeline-detail @768px: every interactive state background differs measurably from its resolved backdrop (dark) (10.4s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221608739-8005@example.test
+[HEL-1649 guard] "Refresh sample of HEL-866 Guard Source" probed at 768px (light) in view "/pipelines/:id@768" (doc id 11)
+[HEL-866 guard] elements probed: 45, resolved=45, unresolved=0, pass=18, fail=5, advisory=22 — 51% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [light] chrome@768 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@768 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (focus) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@768 :: button "Data Pipelines" aria="Switch data pipelines (current: Data Pipelines)" [app-command-bar__mobile-title] (#2) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@768 :: button "Data Pipelines" aria="Switch data pipelines (current: Data Pipelines)" [app-command-bar__mobile-title] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: button "" aria="Open assistant" [ui-icon-btn] (#3) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@768 :: button "" aria="Open assistant" [ui-icon-btn] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#29) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#29) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#30) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#30) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#31) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#31) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#32) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#32) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#33) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#33) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@768 :: a "" aria="Back to pipelines" [mobile-header__back] (#0) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@768 :: a "" aria="Back to pipelines" [mobile-header__back] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "" aria="Pipeline actions" [popover__trigger] (#1) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "" aria="Pipeline actions" [popover__trigger] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "Add schedule" aria="Add schedule" [spine-header__chip] (#2) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "Add schedule" aria="Add schedule" [spine-header__chip] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button[role=tab] "Steps" [mobile-tabs__tab] (#3) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button[role=tab] "Steps" [mobile-tabs__tab] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button[role=tab] "Preview" [mobile-tabs__tab] (#4) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button[role=tab] "Preview" [mobile-tabs__tab] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button[role=tab] "Runs" [mobile-tabs__tab] (#5) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button[role=tab] "Runs" [mobile-tabs__tab] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "HEL-866 Guard Source" aria="Edit source HEL-866 Guard Source" [spine-card__name-btn] (#6) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "HEL-866 Guard Source" aria="Edit source HEL-866 Guard Source" [spine-card__name-btn] (#6) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "" aria="Refresh sample of HEL-866 Guard Source" [ui-icon-btn] (#7) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "" aria="Refresh sample of HEL-866 Guard Source" [ui-icon-btn] (#7) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "" aria="Source actions for HEL-866 Guard Source" [popover__trigger] (#8) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "" aria="Source actions for HEL-866 Guard Source" [popover__trigger] (#8) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "1Limit rowsfirst 2—" aria="Step 1: Limit rows" [spine-row__select] (#9) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "1Limit rowsfirst 2—" aria="Step 1: Limit rows" [spine-row__select] (#9) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "+ Add step" aria="+ Add transformation step" [spine-add-row] (#10) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "+ Add step" aria="+ Add transformation step" [spine-add-row] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "+ Output" aria="New output" [spine-ghost-btn] (#11) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "+ Output" aria="New output" [spine-ghost-btn] (#11) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "Dry run" aria="Dry run" [mobile-pill] (#12) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "Dry run" aria="Dry run" [mobile-pill] (#12) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "Run pipeline" aria="Run pipeline" [mobile-pill] (#13) (hover) pass ratio=2.3922703041814666
+[HEL-866 ratio] [light] /pipelines/:id@768 :: button "Run pipeline" aria="Run pipeline" [mobile-pill] (#13) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [light] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#29) (hover)
+  [light] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#30) (hover)
+  [light] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#31) (hover)
+  [light] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#32) (hover)
+  [light] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#33) (hover)
+[HEL-866 guard] cell "/pipelines/:id@768(light)" unresolvedFraction=0.000
+  ✓   6 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › pipeline-detail @768px: every interactive state background differs measurably from its resolved backdrop (light) (10.4s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221608791-52191@example.test
+[HEL-866 guard] view "chrome@768" (dark): 10 visible interactive element(s), sampled 10
+[HEL-866 guard] view "chrome@768" (light): 10 visible interactive element(s), sampled 10
+[HEL-866 guard] view "/dashboards@768" (light): 3 visible interactive element(s), sampled 3
+[HEL-866 guard] view "/dashboards@768" (dark): 3 visible interactive element(s), sampled 3
+[HEL-866 guard] elements probed: 25, resolved=25, unresolved=0, pass=8, fail=5, advisory=12 — 52% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [light] chrome@768 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@768 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (focus) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@768 :: button "HEL-866 Guard Dashboard B" aria="Switch dashboards (current: HEL-866 Guard Dashboard B)" [app-command-bar__mobile-title] (#2) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@768 :: button "HEL-866 Guard Dashboard B" aria="Switch dashboards (current: HEL-866 Guard Dashboard B)" [app-command-bar__mobile-title] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: button "" aria="Open assistant" [ui-icon-btn] (#4) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@768 :: button "" aria="Open assistant" [ui-icon-btn] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: button "" aria="Dashboard actions" [popover__trigger] (#5) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@768 :: button "" aria="Dashboard actions" [popover__trigger] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#9) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#9) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#10) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#11) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#11) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#12) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#12) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#13) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#13) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /dashboards@768 :: button "HEL-866 Guard Dashboard B" aria="HEL-866 Guard Dashboard B" [dashboard-chip] (#0) (hover) pass ratio=5.727343035623457
+[HEL-866 ratio] [light] /dashboards@768 :: button "HEL-866 Guard Dashboard B" aria="HEL-866 Guard Dashboard B" [dashboard-chip] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /dashboards@768 :: button "HEL-866 Guard Dashboard" aria="HEL-866 Guard Dashboard" [dashboard-chip] (#1) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /dashboards@768 :: button "HEL-866 Guard Dashboard" aria="HEL-866 Guard Dashboard" [dashboard-chip] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /dashboards@768 :: button "Add panel" [ui-empty-state__cta] (#2) (hover) pass ratio=2.3922703041814666
+[HEL-866 ratio] [light] /dashboards@768 :: button "Add panel" [ui-empty-state__cta] (#2) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [light] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#9) (hover)
+  [light] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#10) (hover)
+  [light] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#11) (hover)
+  [light] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#12) (hover)
+  [light] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#13) (hover)
+[HEL-866 guard] cell "/dashboards@768(light)" unresolvedFraction=0.000
+[HEL-866 guard] elements probed: 25, resolved=25, unresolved=0, pass=8, fail=5, advisory=12 — 52% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [dark] chrome@768 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@768 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (focus) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@768 :: button "HEL-866 Guard Dashboard B" aria="Switch dashboards (current: HEL-866 Guard Dashboard B)" [app-command-bar__mobile-title] (#2) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@768 :: button "HEL-866 Guard Dashboard B" aria="Switch dashboards (current: HEL-866 Guard Dashboard B)" [app-command-bar__mobile-title] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: button "" aria="Open assistant" [ui-icon-btn] (#4) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@768 :: button "" aria="Open assistant" [ui-icon-btn] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: button "" aria="Dashboard actions" [popover__trigger] (#5) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@768 :: button "" aria="Dashboard actions" [popover__trigger] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#9) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#9) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#10) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#11) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#11) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#12) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#12) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#13) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#13) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /dashboards@768 :: button "HEL-866 Guard Dashboard B" aria="HEL-866 Guard Dashboard B" [dashboard-chip] (#0) (hover) pass ratio=7.805264889603955
+[HEL-866 ratio] [dark] /dashboards@768 :: button "HEL-866 Guard Dashboard B" aria="HEL-866 Guard Dashboard B" [dashboard-chip] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /dashboards@768 :: button "HEL-866 Guard Dashboard" aria="HEL-866 Guard Dashboard" [dashboard-chip] (#1) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /dashboards@768 :: button "HEL-866 Guard Dashboard" aria="HEL-866 Guard Dashboard" [dashboard-chip] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /dashboards@768 :: button "Add panel" [ui-empty-state__cta] (#2) (hover) pass ratio=8.515228755746108
+[HEL-866 ratio] [dark] /dashboards@768 :: button "Add panel" [ui-empty-state__cta] (#2) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [dark] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#9) (hover)
+  [dark] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#10) (hover)
+  [dark] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#11) (hover)
+  [dark] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#12) (hover)
+  [dark] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#13) (hover)
+[HEL-866 guard] cell "/dashboards@768(dark)" unresolvedFraction=0.000
+  ✓   8 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /dashboards @768px: every interactive state background differs measurably from its resolved backdrop (light) (7.7s)
+  ✓   7 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /dashboards @768px: every interactive state background differs measurably from its resolved backdrop (dark) (7.8s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221616517-12342@example.test
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221616517-63428@example.test
+[HEL-866 guard] view "chrome@768" (dark): 8 visible interactive element(s), sampled 8
+[HEL-866 guard] view "chrome@768" (light): 8 visible interactive element(s), sampled 8
+[HEL-866 guard] view "/home@768" (light): 7 visible interactive element(s), sampled 7
+[HEL-866 guard] view "/home@768" (dark): 7 visible interactive element(s), sampled 7
+[HEL-866 guard] elements probed: 29, resolved=29, unresolved=0, pass=7, fail=5, advisory=17 — 41% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [dark] chrome@768 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@768 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (focus) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@768 :: button "" aria="Open assistant" [ui-icon-btn] (#2) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@768 :: button "" aria="Open assistant" [ui-icon-btn] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#10) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#11) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#11) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#12) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#12) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#13) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#13) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#14) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#14) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@768 :: a "All 2 →" [home-section__link] (#0) (hover) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@768 :: a "All 2 →" [home-section__link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@768 :: a "No panels yetHEL-866 Guard Dashboard Bno" [home-card] (#1) (hover) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@768 :: a "No panels yetHEL-866 Guard Dashboard Bno" [home-card] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@768 :: a "No panels yetHEL-866 Guard Dashboardnow" [home-card] (#2) (hover) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@768 :: a "No panels yetHEL-866 Guard Dashboardnow" [home-card] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@768 :: button "HEL-866 Guard Pipeline, 2 runs, 1 failed" [tl-disc__head] (#3) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /home@768 :: button "HEL-866 Guard Pipeline, 2 runs, 1 failed" [tl-disc__head] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@768 :: a "Open" [home-btn] (#4) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /home@768 :: a "Open" [home-btn] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@768 :: button "Retry" [home-btn] (#5) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /home@768 :: button "Retry" [home-btn] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@768 :: a "19:40HEL-866 Guard Pipeline" [home-upnext__row] (#6) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /home@768 :: a "19:40HEL-866 Guard Pipeline" [home-upnext__row] (#6) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [dark] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#10) (hover)
+  [dark] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#11) (hover)
+  [dark] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#12) (hover)
+  [dark] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#13) (hover)
+  [dark] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#14) (hover)
+[HEL-866 guard] cell "/home@768(dark)" unresolvedFraction=0.000
+[HEL-866 guard] elements probed: 29, resolved=29, unresolved=0, pass=7, fail=5, advisory=17 — 41% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [light] chrome@768 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@768 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (focus) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@768 :: button "" aria="Open assistant" [ui-icon-btn] (#2) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@768 :: button "" aria="Open assistant" [ui-icon-btn] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#10) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#11) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#11) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#12) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#12) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#13) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#13) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#14) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#14) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@768 :: a "All 2 →" [home-section__link] (#0) (hover) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@768 :: a "All 2 →" [home-section__link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@768 :: a "No panels yetHEL-866 Guard Dashboard Bno" [home-card] (#1) (hover) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@768 :: a "No panels yetHEL-866 Guard Dashboard Bno" [home-card] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@768 :: a "No panels yetHEL-866 Guard Dashboardnow" [home-card] (#2) (hover) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@768 :: a "No panels yetHEL-866 Guard Dashboardnow" [home-card] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@768 :: button "HEL-866 Guard Pipeline, 2 runs, 1 failed" [tl-disc__head] (#3) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /home@768 :: button "HEL-866 Guard Pipeline, 2 runs, 1 failed" [tl-disc__head] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@768 :: a "Open" [home-btn] (#4) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /home@768 :: a "Open" [home-btn] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@768 :: button "Retry" [home-btn] (#5) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /home@768 :: button "Retry" [home-btn] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@768 :: a "19:40HEL-866 Guard Pipeline" [home-upnext__row] (#6) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /home@768 :: a "19:40HEL-866 Guard Pipeline" [home-upnext__row] (#6) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [light] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#10) (hover)
+  [light] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#11) (hover)
+  [light] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#12) (hover)
+  [light] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#13) (hover)
+  [light] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#14) (hover)
+[HEL-866 guard] cell "/home@768(light)" unresolvedFraction=0.000
+  ✓   9 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /home @768px: every interactive state background differs measurably from its resolved backdrop (dark) (7.7s)
+  ✓  10 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /home @768px: every interactive state background differs measurably from its resolved backdrop (light) (7.7s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221624232-22601@example.test
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221624232-53759@example.test
+[HEL-866 guard] view "chrome@768" (light): 8 visible interactive element(s), sampled 8
+[HEL-866 guard] view "chrome@768" (dark): 8 visible interactive element(s), sampled 8
+[HEL-866 guard] view "/connectors@768" (light): 3 visible interactive element(s), sampled 3
+[HEL-866 guard] view "/connectors@768" (dark): 3 visible interactive element(s), sampled 3
+[HEL-866 guard] elements probed: 21, resolved=21, unresolved=0, pass=6, fail=5, advisory=10 — 52% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [light] chrome@768 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@768 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (focus) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@768 :: button "" aria="Open assistant" [ui-icon-btn] (#2) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@768 :: button "" aria="Open assistant" [ui-icon-btn] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#6) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#6) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#7) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#7) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#8) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#8) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#9) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#9) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#10) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /connectors@768 :: a "Sources" [dashboard-chip] (#0) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /connectors@768 :: a "Sources" [dashboard-chip] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /connectors@768 :: a "Connectors" [dashboard-chip] (#1) (hover) pass ratio=5.727343035623457
+[HEL-866 ratio] [light] /connectors@768 :: a "Connectors" [dashboard-chip] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /connectors@768 :: button "Add connector" [ui-empty-state__cta] (#2) (hover) pass ratio=2.3922703041814666
+[HEL-866 ratio] [light] /connectors@768 :: button "Add connector" [ui-empty-state__cta] (#2) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [light] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#6) (hover)
+  [light] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#7) (hover)
+  [light] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#8) (hover)
+  [light] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#9) (hover)
+  [light] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#10) (hover)
+[HEL-866 guard] cell "/connectors@768(light)" unresolvedFraction=0.000
+  ✓  12 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /connectors @768px: every interactive state background differs measurably from its resolved backdrop (light) (6.8s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221631054-70963@example.test
+[HEL-866 guard] elements probed: 21, resolved=21, unresolved=0, pass=6, fail=5, advisory=10 — 52% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [dark] chrome@768 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@768 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (focus) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@768 :: button "" aria="Open assistant" [ui-icon-btn] (#2) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@768 :: button "" aria="Open assistant" [ui-icon-btn] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#6) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#6) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#7) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#7) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#8) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#8) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#9) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#9) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#10) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /connectors@768 :: a "Sources" [dashboard-chip] (#0) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /connectors@768 :: a "Sources" [dashboard-chip] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /connectors@768 :: a "Connectors" [dashboard-chip] (#1) (hover) pass ratio=7.805264889603955
+[HEL-866 ratio] [dark] /connectors@768 :: a "Connectors" [dashboard-chip] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /connectors@768 :: button "Add connector" [ui-empty-state__cta] (#2) (hover) pass ratio=8.515228755746108
+[HEL-866 ratio] [dark] /connectors@768 :: button "Add connector" [ui-empty-state__cta] (#2) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [dark] chrome@768 :: a "Home" aria="Home" [bottom-nav__tab] (#6) (hover)
+  [dark] chrome@768 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#7) (hover)
+  [dark] chrome@768 :: a "Data" aria="Data" [bottom-nav__tab] (#8) (hover)
+  [dark] chrome@768 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#9) (hover)
+  [dark] chrome@768 :: button "Me" aria="Me" [bottom-nav__tab] (#10) (hover)
+[HEL-866 guard] cell "/connectors@768(dark)" unresolvedFraction=0.000
+  ✓  11 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /connectors @768px: every interactive state background differs measurably from its resolved backdrop (dark) (6.9s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221631111-22145@example.test
+[HEL-866 guard] view "chrome@390" (dark): 9 visible interactive element(s), sampled 9
+[HEL-866 guard] view "chrome@390" (light): 9 visible interactive element(s), sampled 9
+[HEL-866 guard] view "/pipelines/:id@390" (dark): 14 visible interactive element(s), sampled 14
+[HEL-866 guard] view "/pipelines/:id@390" (light): 14 visible interactive element(s), sampled 14
+[HEL-1649 guard] "Refresh sample of HEL-866 Guard Source" probed at 390px (dark) in view "/pipelines/:id@390" (doc id 11)
+[HEL-866 guard] elements probed: 45, resolved=45, unresolved=0, pass=18, fail=5, advisory=22 — 51% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [dark] chrome@390 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@390 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (focus) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@390 :: button "Data Pipelines" aria="Switch data pipelines (current: Data Pipelines)" [app-command-bar__mobile-title] (#2) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@390 :: button "Data Pipelines" aria="Switch data pipelines (current: Data Pipelines)" [app-command-bar__mobile-title] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: button "" aria="Open assistant" [ui-icon-btn] (#3) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@390 :: button "" aria="Open assistant" [ui-icon-btn] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#29) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#29) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#30) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#30) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#31) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#31) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#32) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#32) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#33) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#33) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: a "" aria="Back to pipelines" [mobile-header__back] (#0) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: a "" aria="Back to pipelines" [mobile-header__back] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "" aria="Pipeline actions" [popover__trigger] (#1) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "" aria="Pipeline actions" [popover__trigger] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "Add schedule" aria="Add schedule" [spine-header__chip] (#2) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "Add schedule" aria="Add schedule" [spine-header__chip] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button[role=tab] "Steps" [mobile-tabs__tab] (#3) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button[role=tab] "Steps" [mobile-tabs__tab] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button[role=tab] "Preview" [mobile-tabs__tab] (#4) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button[role=tab] "Preview" [mobile-tabs__tab] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button[role=tab] "Runs" [mobile-tabs__tab] (#5) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button[role=tab] "Runs" [mobile-tabs__tab] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "HEL-866 Guard Source" aria="Edit source HEL-866 Guard Source" [spine-card__name-btn] (#6) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "HEL-866 Guard Source" aria="Edit source HEL-866 Guard Source" [spine-card__name-btn] (#6) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "" aria="Refresh sample of HEL-866 Guard Source" [ui-icon-btn] (#7) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "" aria="Refresh sample of HEL-866 Guard Source" [ui-icon-btn] (#7) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "" aria="Source actions for HEL-866 Guard Source" [popover__trigger] (#8) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "" aria="Source actions for HEL-866 Guard Source" [popover__trigger] (#8) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "1Limit rowsfirst 2—" aria="Step 1: Limit rows" [spine-row__select] (#9) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "1Limit rowsfirst 2—" aria="Step 1: Limit rows" [spine-row__select] (#9) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "+ Add step" aria="+ Add transformation step" [spine-add-row] (#10) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "+ Add step" aria="+ Add transformation step" [spine-add-row] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "+ Output" aria="New output" [spine-ghost-btn] (#11) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "+ Output" aria="New output" [spine-ghost-btn] (#11) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "Dry run" aria="Dry run" [mobile-pill] (#12) (hover) pass ratio=1.2339387677673934
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "Dry run" aria="Dry run" [mobile-pill] (#12) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "Run pipeline" aria="Run pipeline" [mobile-pill] (#13) (hover) pass ratio=8.515228755746108
+[HEL-866 ratio] [dark] /pipelines/:id@390 :: button "Run pipeline" aria="Run pipeline" [mobile-pill] (#13) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [dark] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#29) (hover)
+  [dark] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#30) (hover)
+  [dark] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#31) (hover)
+  [dark] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#32) (hover)
+  [dark] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#33) (hover)
+[HEL-866 guard] cell "/pipelines/:id@390(dark)" unresolvedFraction=0.000
+  ✓  13 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › pipeline-detail @390px: every interactive state background differs measurably from its resolved backdrop (dark) (10.6s)
+[HEL-1649 guard] "Refresh sample of HEL-866 Guard Source" probed at 390px (light) in view "/pipelines/:id@390" (doc id 11)
+[HEL-866 guard] elements probed: 45, resolved=45, unresolved=0, pass=18, fail=5, advisory=22 — 51% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [light] chrome@390 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@390 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (focus) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@390 :: button "Data Pipelines" aria="Switch data pipelines (current: Data Pipelines)" [app-command-bar__mobile-title] (#2) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@390 :: button "Data Pipelines" aria="Switch data pipelines (current: Data Pipelines)" [app-command-bar__mobile-title] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: button "" aria="Open assistant" [ui-icon-btn] (#3) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@390 :: button "" aria="Open assistant" [ui-icon-btn] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#29) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#29) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#30) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#30) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#31) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#31) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#32) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#32) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#33) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#33) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@390 :: a "" aria="Back to pipelines" [mobile-header__back] (#0) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@390 :: a "" aria="Back to pipelines" [mobile-header__back] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "" aria="Pipeline actions" [popover__trigger] (#1) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "" aria="Pipeline actions" [popover__trigger] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "Add schedule" aria="Add schedule" [spine-header__chip] (#2) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "Add schedule" aria="Add schedule" [spine-header__chip] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button[role=tab] "Steps" [mobile-tabs__tab] (#3) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button[role=tab] "Steps" [mobile-tabs__tab] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button[role=tab] "Preview" [mobile-tabs__tab] (#4) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button[role=tab] "Preview" [mobile-tabs__tab] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button[role=tab] "Runs" [mobile-tabs__tab] (#5) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button[role=tab] "Runs" [mobile-tabs__tab] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "HEL-866 Guard Source" aria="Edit source HEL-866 Guard Source" [spine-card__name-btn] (#6) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "HEL-866 Guard Source" aria="Edit source HEL-866 Guard Source" [spine-card__name-btn] (#6) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "" aria="Refresh sample of HEL-866 Guard Source" [ui-icon-btn] (#7) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "" aria="Refresh sample of HEL-866 Guard Source" [ui-icon-btn] (#7) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "" aria="Source actions for HEL-866 Guard Source" [popover__trigger] (#8) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "" aria="Source actions for HEL-866 Guard Source" [popover__trigger] (#8) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "1Limit rowsfirst 2—" aria="Step 1: Limit rows" [spine-row__select] (#9) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "1Limit rowsfirst 2—" aria="Step 1: Limit rows" [spine-row__select] (#9) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "+ Add step" aria="+ Add transformation step" [spine-add-row] (#10) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "+ Add step" aria="+ Add transformation step" [spine-add-row] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "+ Output" aria="New output" [spine-ghost-btn] (#11) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "+ Output" aria="New output" [spine-ghost-btn] (#11) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "Dry run" aria="Dry run" [mobile-pill] (#12) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "Dry run" aria="Dry run" [mobile-pill] (#12) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "Run pipeline" aria="Run pipeline" [mobile-pill] (#13) (hover) pass ratio=2.3922703041814666
+[HEL-866 ratio] [light] /pipelines/:id@390 :: button "Run pipeline" aria="Run pipeline" [mobile-pill] (#13) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [light] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#29) (hover)
+  [light] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#30) (hover)
+  [light] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#31) (hover)
+  [light] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#32) (hover)
+  [light] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#33) (hover)
+[HEL-866 guard] cell "/pipelines/:id@390(light)" unresolvedFraction=0.000
+  ✓  14 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › pipeline-detail @390px: every interactive state background differs measurably from its resolved backdrop (light) (10.6s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221641660-23811@example.test
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221641683-14488@example.test
+[HEL-866 guard] view "chrome@390" (dark): 10 visible interactive element(s), sampled 10
+[HEL-866 guard] view "chrome@390" (light): 10 visible interactive element(s), sampled 10
+[HEL-866 guard] view "/dashboards@390" (dark): 3 visible interactive element(s), sampled 3
+[HEL-866 guard] view "/dashboards@390" (light): 3 visible interactive element(s), sampled 3
+[HEL-866 guard] elements probed: 25, resolved=25, unresolved=0, pass=8, fail=5, advisory=12 — 52% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [dark] chrome@390 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@390 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (focus) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@390 :: button "HEL-866 Guard Dashboard B" aria="Switch dashboards (current: HEL-866 Guard Dashboard B)" [app-command-bar__mobile-title] (#2) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@390 :: button "HEL-866 Guard Dashboard B" aria="Switch dashboards (current: HEL-866 Guard Dashboard B)" [app-command-bar__mobile-title] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: button "" aria="Open assistant" [ui-icon-btn] (#4) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@390 :: button "" aria="Open assistant" [ui-icon-btn] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: button "" aria="Dashboard actions" [popover__trigger] (#5) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@390 :: button "" aria="Dashboard actions" [popover__trigger] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#9) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#9) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#10) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#11) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#11) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#12) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#12) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#13) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#13) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /dashboards@390 :: button "HEL-866 Guard Dashboard B" aria="HEL-866 Guard Dashboard B" [dashboard-chip] (#0) (hover) pass ratio=7.805264889603955
+[HEL-866 ratio] [dark] /dashboards@390 :: button "HEL-866 Guard Dashboard B" aria="HEL-866 Guard Dashboard B" [dashboard-chip] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /dashboards@390 :: button "HEL-866 Guard Dashboard" aria="HEL-866 Guard Dashboard" [dashboard-chip] (#1) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /dashboards@390 :: button "HEL-866 Guard Dashboard" aria="HEL-866 Guard Dashboard" [dashboard-chip] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /dashboards@390 :: button "Add panel" [ui-empty-state__cta] (#2) (hover) pass ratio=8.515228755746108
+[HEL-866 ratio] [dark] /dashboards@390 :: button "Add panel" [ui-empty-state__cta] (#2) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [dark] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#9) (hover)
+  [dark] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#10) (hover)
+  [dark] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#11) (hover)
+  [dark] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#12) (hover)
+  [dark] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#13) (hover)
+[HEL-866 guard] cell "/dashboards@390(dark)" unresolvedFraction=0.000
+[HEL-866 guard] elements probed: 25, resolved=25, unresolved=0, pass=8, fail=5, advisory=12 — 52% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [light] chrome@390 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@390 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (focus) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@390 :: button "HEL-866 Guard Dashboard B" aria="Switch dashboards (current: HEL-866 Guard Dashboard B)" [app-command-bar__mobile-title] (#2) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@390 :: button "HEL-866 Guard Dashboard B" aria="Switch dashboards (current: HEL-866 Guard Dashboard B)" [app-command-bar__mobile-title] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: button "" aria="Open assistant" [ui-icon-btn] (#4) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@390 :: button "" aria="Open assistant" [ui-icon-btn] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: button "" aria="Dashboard actions" [popover__trigger] (#5) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@390 :: button "" aria="Dashboard actions" [popover__trigger] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#9) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#9) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#10) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#11) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#11) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#12) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#12) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#13) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#13) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /dashboards@390 :: button "HEL-866 Guard Dashboard B" aria="HEL-866 Guard Dashboard B" [dashboard-chip] (#0) (hover) pass ratio=5.727343035623457
+[HEL-866 ratio] [light] /dashboards@390 :: button "HEL-866 Guard Dashboard B" aria="HEL-866 Guard Dashboard B" [dashboard-chip] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /dashboards@390 :: button "HEL-866 Guard Dashboard" aria="HEL-866 Guard Dashboard" [dashboard-chip] (#1) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /dashboards@390 :: button "HEL-866 Guard Dashboard" aria="HEL-866 Guard Dashboard" [dashboard-chip] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /dashboards@390 :: button "Add panel" [ui-empty-state__cta] (#2) (hover) pass ratio=2.3922703041814666
+[HEL-866 ratio] [light] /dashboards@390 :: button "Add panel" [ui-empty-state__cta] (#2) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [light] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#9) (hover)
+  [light] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#10) (hover)
+  [light] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#11) (hover)
+  [light] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#12) (hover)
+  [light] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#13) (hover)
+[HEL-866 guard] cell "/dashboards@390(light)" unresolvedFraction=0.000
+  ✓  15 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /dashboards @390px: every interactive state background differs measurably from its resolved backdrop (dark) (7.8s)
+  ✓  16 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /dashboards @390px: every interactive state background differs measurably from its resolved backdrop (light) (7.8s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221649459-47961@example.test
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221649459-42118@example.test
+[HEL-866 guard] view "chrome@390" (dark): 8 visible interactive element(s), sampled 8
+[HEL-866 guard] view "chrome@390" (light): 8 visible interactive element(s), sampled 8
+[HEL-866 guard] view "/home@390" (dark): 7 visible interactive element(s), sampled 7
+[HEL-866 guard] view "/home@390" (light): 7 visible interactive element(s), sampled 7
+[HEL-866 guard] elements probed: 29, resolved=29, unresolved=0, pass=7, fail=5, advisory=17 — 41% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [dark] chrome@390 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@390 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (focus) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@390 :: button "" aria="Open assistant" [ui-icon-btn] (#2) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@390 :: button "" aria="Open assistant" [ui-icon-btn] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#10) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#11) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#11) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#12) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#12) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#13) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#13) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#14) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#14) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@390 :: a "All 2 →" [home-section__link] (#0) (hover) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@390 :: a "All 2 →" [home-section__link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@390 :: a "No panels yetHEL-866 Guard Dashboard Bno" [home-card] (#1) (hover) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@390 :: a "No panels yetHEL-866 Guard Dashboard Bno" [home-card] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@390 :: a "No panels yetHEL-866 Guard Dashboardnow" [home-card] (#2) (hover) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@390 :: a "No panels yetHEL-866 Guard Dashboardnow" [home-card] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@390 :: button "HEL-866 Guard Pipeline, 2 runs, 1 failed" [tl-disc__head] (#3) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /home@390 :: button "HEL-866 Guard Pipeline, 2 runs, 1 failed" [tl-disc__head] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@390 :: a "Open" [home-btn] (#4) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /home@390 :: a "Open" [home-btn] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@390 :: button "Retry" [home-btn] (#5) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /home@390 :: button "Retry" [home-btn] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /home@390 :: a "19:40HEL-866 Guard Pipeline" [home-upnext__row] (#6) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /home@390 :: a "19:40HEL-866 Guard Pipeline" [home-upnext__row] (#6) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [dark] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#10) (hover)
+  [dark] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#11) (hover)
+  [dark] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#12) (hover)
+  [dark] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#13) (hover)
+  [dark] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#14) (hover)
+[HEL-866 guard] cell "/home@390(dark)" unresolvedFraction=0.000
+  ✓  17 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /home @390px: every interactive state background differs measurably from its resolved backdrop (dark) (7.8s)
+[HEL-866 guard] elements probed: 29, resolved=29, unresolved=0, pass=7, fail=5, advisory=17 — 41% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [light] chrome@390 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@390 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (focus) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@390 :: button "" aria="Open assistant" [ui-icon-btn] (#2) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@390 :: button "" aria="Open assistant" [ui-icon-btn] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#10) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#11) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#11) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#12) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#12) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#13) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#13) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#14) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#14) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@390 :: a "All 2 →" [home-section__link] (#0) (hover) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@390 :: a "All 2 →" [home-section__link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@390 :: a "No panels yetHEL-866 Guard Dashboard Bno" [home-card] (#1) (hover) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@390 :: a "No panels yetHEL-866 Guard Dashboard Bno" [home-card] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@390 :: a "No panels yetHEL-866 Guard Dashboardnow" [home-card] (#2) (hover) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@390 :: a "No panels yetHEL-866 Guard Dashboardnow" [home-card] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@390 :: button "HEL-866 Guard Pipeline, 2 runs, 1 failed" [tl-disc__head] (#3) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /home@390 :: button "HEL-866 Guard Pipeline, 2 runs, 1 failed" [tl-disc__head] (#3) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@390 :: a "Open" [home-btn] (#4) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /home@390 :: a "Open" [home-btn] (#4) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@390 :: button "Retry" [home-btn] (#5) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /home@390 :: button "Retry" [home-btn] (#5) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /home@390 :: a "19:40HEL-866 Guard Pipeline" [home-upnext__row] (#6) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /home@390 :: a "19:40HEL-866 Guard Pipeline" [home-upnext__row] (#6) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [light] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#10) (hover)
+  [light] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#11) (hover)
+  [light] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#12) (hover)
+  [light] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#13) (hover)
+  [light] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#14) (hover)
+[HEL-866 guard] cell "/home@390(light)" unresolvedFraction=0.000
+  ✓  18 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /home @390px: every interactive state background differs measurably from its resolved backdrop (light) (7.8s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221657243-63726@example.test
+[HEL-1300 e2e] throwaway user: hel866-guard-1795221657264-89018@example.test
+[HEL-866 guard] view "chrome@390" (light): 8 visible interactive element(s), sampled 8
+[HEL-866 guard] view "chrome@390" (dark): 8 visible interactive element(s), sampled 8
+[HEL-866 guard] view "/connectors@390" (light): 3 visible interactive element(s), sampled 3
+[HEL-866 guard] view "/connectors@390" (dark): 3 visible interactive element(s), sampled 3
+[HEL-866 guard] elements probed: 21, resolved=21, unresolved=0, pass=6, fail=5, advisory=10 — 52% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [dark] chrome@390 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@390 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (focus) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@390 :: button "" aria="Open assistant" [ui-icon-btn] (#2) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] chrome@390 :: button "" aria="Open assistant" [ui-icon-btn] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#6) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#6) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#7) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#7) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#8) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#8) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#9) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#9) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#10) (hover) fail ratio=n/a
+[HEL-866 ratio] [dark] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /connectors@390 :: a "Sources" [dashboard-chip] (#0) (hover) pass ratio=1.1865749596772812
+[HEL-866 ratio] [dark] /connectors@390 :: a "Sources" [dashboard-chip] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /connectors@390 :: a "Connectors" [dashboard-chip] (#1) (hover) pass ratio=7.805264889603955
+[HEL-866 ratio] [dark] /connectors@390 :: a "Connectors" [dashboard-chip] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [dark] /connectors@390 :: button "Add connector" [ui-empty-state__cta] (#2) (hover) pass ratio=8.515228755746108
+[HEL-866 ratio] [dark] /connectors@390 :: button "Add connector" [ui-empty-state__cta] (#2) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [dark] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#6) (hover)
+  [dark] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#7) (hover)
+  [dark] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#8) (hover)
+  [dark] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#9) (hover)
+  [dark] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#10) (hover)
+[HEL-866 guard] cell "/connectors@390(dark)" unresolvedFraction=0.000
+[HEL-866 guard] elements probed: 21, resolved=21, unresolved=0, pass=6, fail=5, advisory=10 — 52% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [light] chrome@390 :: a "Skip to content" [app-skip-link] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@390 :: a "Helio" aria="Helio home" [app-command-bar__logo] (#1) (focus) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@390 :: button "" aria="Open assistant" [ui-icon-btn] (#2) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] chrome@390 :: button "" aria="Open assistant" [ui-icon-btn] (#2) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#6) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#6) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#7) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#7) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#8) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#8) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#9) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#9) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#10) (hover) fail ratio=n/a
+[HEL-866 ratio] [light] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#10) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /connectors@390 :: a "Sources" [dashboard-chip] (#0) (hover) pass ratio=1.1187853548488382
+[HEL-866 ratio] [light] /connectors@390 :: a "Sources" [dashboard-chip] (#0) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /connectors@390 :: a "Connectors" [dashboard-chip] (#1) (hover) pass ratio=5.727343035623457
+[HEL-866 ratio] [light] /connectors@390 :: a "Connectors" [dashboard-chip] (#1) (focus) advisory ratio=n/a
+[HEL-866 ratio] [light] /connectors@390 :: button "Add connector" [ui-empty-state__cta] (#2) (hover) pass ratio=2.3922703041814666
+[HEL-866 ratio] [light] /connectors@390 :: button "Add connector" [ui-empty-state__cta] (#2) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+  [light] chrome@390 :: a "Home" aria="Home" [bottom-nav__tab] (#6) (hover)
+  [light] chrome@390 :: a "Dashboards" aria="Dashboards" [bottom-nav__tab] (#7) (hover)
+  [light] chrome@390 :: a "Data" aria="Data" [bottom-nav__tab] (#8) (hover)
+  [light] chrome@390 :: a "Pipelines" aria="Pipelines" [bottom-nav__tab] (#9) (hover)
+  [light] chrome@390 :: button "Me" aria="Me" [bottom-nav__tab] (#10) (hover)
+[HEL-866 guard] cell "/connectors@390(light)" unresolvedFraction=0.000
+  ✓  19 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /connectors @390px: every interactive state background differs measurably from its resolved backdrop (dark) (6.6s)
+  ✓  20 [dev] › e2e/support/state-surface-contrast-guard-narrow.ts:64:13 › HEL-866 state-surface contrast guard (narrow viewports) › /connectors @390px: every interactive state background differs measurably from its resolved backdrop (light) (6.6s)
+[HEL-1301 e2e] deleted 20 recorded throwaway user(s)
+
+  20 passed (1.4m)
+
+real	1m25.694s
+user	1m11.844s
+sys	0m38.385s
