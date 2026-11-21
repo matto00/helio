@@ -665,7 +665,7 @@ final class ApiRoutes(
     panelService, dashboardService, dataSourceService, pipelineService,
     panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
     patchSetApplicationRepo, outputRepo = outputRepo,
-    draftRestore = new DraftRestore(draftSaveService, outputRepo, panelRepo)
+    draftRestore = new DraftRestore(draftSaveService, outputRepo, panelRepo, dashboardRepo)
   )
   // HEL-904 task 3.6/4.1: `BoundPanelService` (`POST /api/panels/bound`) is
   // deleted outright — design.md's P1.1 row lists it explicitly, and its
