@@ -1,0 +1,4 @@
+- `e2e/hel1786-shared-dashboard-freshness.spec.ts` — beforeAll waits for the checked pipeline's armed HEL-1093 auto-run (terminal run with triggerSource "auto-run" in run-history, 50 s bound) so the owner's latest run cannot flip during the grantee tests; hook gets an explicit 180 s timeout
+- `openspec/changes/fix-grantee-freshness-fact-flake/root-cause.md` — H1 confirmed / H2 refuted, probe evidence
+- `openspec/changes/fix-grantee-freshness-fact-flake/red-run.txt` — induced-timing red run (exact CI failure message)
+- `openspec/changes/fix-grantee-freshness-fact-flake/eval-serial-20.txt` — the evaluator's serial 20-pass transcript (AC2 evidence); the executor's earlier overlapping batches are not AC2 evidence

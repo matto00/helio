@@ -1,0 +1,152 @@
+== eval serial batch 1 start 2026-11-21T01:45:40-08:00 HEAD=7eeb209c45e8343745ffb2611f0d268058018d4f
+
+Running 15 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254341709-7658@example.test
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254341722-79439@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254342689-48759@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254342693-24520@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254343025-38993@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254343029-35607@example.test
+  ✓   2 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.5s)
+  ✓   1 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.5s)
+  ✓   3 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (18.1s)
+  ✓   4 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (18.1s)
+  ✓   5 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (2.4s)
+  ✓   6 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (2.4s)
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254398710-25581@example.test
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254398750-10396@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254399305-63739@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254399336-31765@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254399562-49581@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254399579-8733@example.test
+  ✓   8 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.6s)
+  ✓   7 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.6s)
+  ✓  10 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.7s)
+  ✓   9 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.8s)
+  ✓  11 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (2.5s)
+  ✓  12 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (2.5s)
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254459055-97805@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254459511-53882@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254459790-12937@example.test
+  ✓  13 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.0s)
+  ✓  14 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.0s)
+  ✓  15 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (1.7s)
+[HEL-1301 e2e] deleted 15 recorded throwaway user(s)
+
+  15 passed (2.9m)
+exit=0 end 2026-11-21T01:48:36-08:00
+== eval serial batch 2 start 2026-11-21T01:48:41-08:00 HEAD=7eeb209c45e8343745ffb2611f0d268058018d4f
+
+Running 15 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254522558-92512@example.test
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254522559-52052@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254523165-94816@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254523165-98324@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254523412-74338@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254523414-95117@example.test
+  ✓   2 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (16.7s)
+  ✓   1 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.7s)
+  ✓   3 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.5s)
+  ✓   4 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.5s)
+  ✓   5 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (2.3s)
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254577615-28957@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254578024-42499@example.test
+  ✓   6 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (2.4s)
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254578280-58420@example.test
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254578539-29775@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254578913-55118@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254579182-79431@example.test
+  ✓   8 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.5s)
+  ✓   7 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.5s)
+  ✓   9 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.3s)
+  ✓  10 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.4s)
+  ✓  12 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (1.9s)
+  ✓  11 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (2.4s)
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254637547-41547@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254637990-12641@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254638234-89205@example.test
+  ✓  13 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.0s)
+  ✓  14 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.0s)
+  ✓  15 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (1.7s)
+[HEL-1301 e2e] deleted 15 recorded throwaway user(s)
+
+  15 passed (2.9m)
+exit=0 end 2026-11-21T01:51:35-08:00
+== eval serial batch 3 start 2026-11-21T01:51:40-08:00 HEAD=7eeb209c45e8343745ffb2611f0d268058018d4f
+
+Running 15 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254701539-33221@example.test
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254701539-17530@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254702182-79763@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254702182-41519@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254702429-12503@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254702430-64038@example.test
+  ✓   1 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.5s)
+  ✓   2 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.5s)
+  ✓   3 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.4s)
+  ✓   4 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.4s)
+  ✓   5 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (1.9s)
+  ✓   6 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (1.9s)
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254758346-93410@example.test
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254758353-44586@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254758978-2959@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254758986-55080@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254759224-95186@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254759224-34680@example.test
+  ✓   7 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.4s)
+  ✓   8 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.4s)
+  ✓  10 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.2s)
+  ✓   9 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.4s)
+  ✓  12 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (1.9s)
+  ✓  11 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (2.4s)
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254818252-32727@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254818705-15779@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254818960-96711@example.test
+  ✓  13 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.4s)
+  ✓  14 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.5s)
+  ✓  15 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (1.7s)
+[HEL-1301 e2e] deleted 15 recorded throwaway user(s)
+
+  15 passed (2.9m)
+exit=0 end 2026-11-21T01:54:37-08:00
+== eval serial batch 4 start 2026-11-21T01:54:42-08:00 HEAD=7eeb209c45e8343745ffb2611f0d268058018d4f
+
+Running 15 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254883214-66843@example.test
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254883216-32687@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254883874-95279@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254883881-81139@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254884126-70816@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254884126-59398@example.test
+  ✓   1 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.5s)
+  ✓   2 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.5s)
+  ✓   3 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.5s)
+  ✓   4 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.4s)
+  ✓   6 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (2.0s)
+  ✓   5 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (2.0s)
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254938142-69400@example.test
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254938149-51430@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254938796-59373@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254938801-63481@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254939052-7732@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254939072-54770@example.test
+  ✓   8 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.4s)
+  ✓   7 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.4s)
+  ✓   9 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.4s)
+  ✓  10 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.4s)
+  ✓  11 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (1.9s)
+  ✓  12 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (1.9s)
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795254998004-50631@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795254998444-4530@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795254998689-62525@example.test
+  ✓  13 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.0s)
+  ✓  14 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:334:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only (17.0s)
+  ✓  15 [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:379:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control (1.7s)
+[HEL-1301 e2e] deleted 15 recorded throwaway user(s)
+
+  15 passed (2.9m)
+exit=0 end 2026-11-21T01:57:37-08:00
