@@ -1,0 +1,7 @@
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineAnalyzeReads.scala` — shared `ownerRootSchemas`/`nonOwnerValidity` helpers; `analyze` and `analyzeConcise` judge a non-owner's step validity by the owner's schema
+- `backend/src/test/scala/com/helio/services/pipelines/Hel1799GranteeConciseAnalyzeSpec.scala` — new red-first spec on the helio_app_test (NOBYPASSRLS) harness
+- `openspec/changes/grantee-concise-analyze-owner-schema/red-run.txt` — recorded red run on unchanged main
+- `openspec/changes/grantee-concise-analyze-owner-schema/design.md` — test 5/7 labels and why
+- `openspec/changes/grantee-concise-analyze-owner-schema/tasks.md` — tasks ticked
+- `openspec/changes/grantee-concise-analyze-owner-schema/files-modified.md` — this handoff
+- `openspec/changes/grantee-concise-analyze-owner-schema/{.openspec.yaml,proposal.md,ticket.md,specs/pipeline-analyze-api/spec.md,skeptic-design-1.md,skeptic-design-2.md}` — change artifacts

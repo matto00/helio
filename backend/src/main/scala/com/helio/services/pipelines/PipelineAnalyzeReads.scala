@@ -3,7 +3,7 @@ package com.helio.services.pipelines
 import com.helio.services.ServiceError
 import com.helio.api.protocols.pipelines.{PipelineAnalyzeResponse, PipelineStepConfigCodec, RootSourceSchemaResponse, SourceSchemaDriftResponse, TypeChangedColumnResponse}
 import com.helio.api.protocols.pipelines.{ConciseAnalyzeNode, CostReasonResponse, CostVerdictResponse, PipelineAnalyzeConciseResponse}
-import com.helio.domain.model.{AuthenticatedUser, PipelineId, PipelineSchemaDrift, PipelineStep, SchemaDrift, UserId}
+import com.helio.domain.model.{AuthenticatedUser, DataSourceId, PipelineId, PipelineRootId, PipelineSchemaDrift, PipelineStep, SchemaDrift, UserId}
 import com.helio.domain.engine.{AnalyzeSchemaWarnings, PipelineAnalyzeService, PipelineCostEstimator, RuntimeGraphPath, SchemaField}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -81,11 +81,7 @@ private[pipelines] final class PipelineAnalyzeReads(
             secondarySchemas  <- resolveSecondarySourceSchemas(allSteps.map(s => s.kind -> PipelineStepConfigCodec.encode(s)), dataSourceRepo.findByIdInternal)
             upsertProblems    <- upsertTargetProblems(allSteps, pipeline.ownerId)
             // HEL-1661 D2: the roots as the pipeline OWNER sees them, read only to decide a non-owner's step validity.
-            ownerSchemas      <- if (callerIsOwner) Future.successful(None)
-                                 else Future.traverse(rootDataSourceIds) { case (rootId, dsId) =>
-                                   dataSourceRepo.findByIdOwnedByInternal(dsId, pipeline.ownerId)
-                                     .map(dsOpt => rootId.value -> dsOpt.map(_.inferredSchema).getOrElse(Vector.empty[SchemaField]))
-                                 }.map(rs => Some(rs.toMap))
+            ownerSchemas      <- ownerRootSchemas(rootDataSourceIds, pipeline.ownerId, callerIsOwner)
           } yield (rootDataSourceIds, rootIdOfStep, rootDsOpts, secondarySchemas, upsertProblems, ownerSchemas)
 
           rootFetch.flatMap { case (rootDataSourceIds, rootIdOfStep, rootDsOpts, secondarySchemas, upsertProblems, ownerSchemas) =>
@@ -135,15 +131,10 @@ private[pipelines] final class PipelineAnalyzeReads(
             // Reassemble in the SAME order `enabledSteps` lists them; a node that never resolved
             // (unknown parentStepId, dangling lane reference) is simply absent, mirroring
             // `analyzeNodes`'s own existing tolerant-degradation contract elsewhere in this file.
-            val callerViewAnalyzed = enabledSteps.flatMap(s => projections.get(s.id.value))
-            // HEL-1661 D2: a non-owner's step validity (and so `step-config-invalid`, `autoRunnable`, `canRun`) is
-            // judged against the owner's root schemas; the schemas, warnings and everything else stay caller-view.
-            val analyzed = ownerSchemas match {
-              case None => callerViewAnalyzed
-              case Some(byRoot) =>
-                val ownerProjections = UpsertTargetAnalysis.overlay(PipelineAnalyzeService.analyzeNodes(nodeInputs, byRoot, secondarySchemas), upsertProblems)
-                callerViewAnalyzed.map(s => s.copy(validationError = nonOwnerValidationError(s, ownerProjections.get(s.id).flatMap(_.validationError))))
-            }
+            // HEL-1661 D2 / HEL-1799 D1: a non-owner's step validity (and so `step-config-invalid`, `autoRunnable`,
+            // `canRun`) is judged against the owner's root schemas; the schemas, warnings and everything else stay caller-view.
+            val validated = nonOwnerValidity(projections, nodeInputs, ownerSchemas, secondarySchemas, upsertProblems)
+            val analyzed  = enabledSteps.flatMap(s => validated.get(s.id.value))
 
             // HEL-1092/HEL-1093 (design.md Decision 2a): `CostInput` gathering is shared with the
             // auto-run trigger path via `PipelineCostInputGathering`. HEL-1661 D1: this call site supplies the
@@ -226,6 +217,35 @@ private[pipelines] final class PipelineAnalyzeReads(
     )
   }
 
+  /** HEL-1661 D2 / HEL-1799 D1: the pipeline's root schemas as its OWNER sees them, keyed by root id; `None` for the
+   *  owner (the caller view is already the owner's). Read only to decide a non-owner's step validity. */
+  private def ownerRootSchemas(
+      rootDataSourceIds: Vector[(PipelineRootId, DataSourceId)],
+      ownerId:           UserId,
+      callerIsOwner:     Boolean
+  ): Future[Option[Map[String, Vector[SchemaField]]]] =
+    if (callerIsOwner) Future.successful(None)
+    else Future.traverse(rootDataSourceIds) { case (rootId, dsId) =>
+      dataSourceRepo.findByIdOwnedByInternal(dsId, ownerId)
+        .map(dsOpt => rootId.value -> dsOpt.map(_.inferredSchema).getOrElse(Vector.empty[SchemaField]))
+    }.map(rs => Some(rs.toMap))
+
+  /** HEL-1799 D1: the per-step result with a non-owner's `validationError` judged against the owner's schemas and
+   *  mapped through `nonOwnerValidationError`; every other field is the caller-view one. For the owner (`None`) the
+   *  caller view is returned unchanged. Shared by `analyze` and `analyzeConcise`. */
+  private def nonOwnerValidity(
+      callerView:       Map[String, PipelineAnalyzeService.AnalyzedStep],
+      nodeInputs:       Vector[PipelineAnalyzeService.NodeStepInput],
+      ownerSchemas:     Option[Map[String, Vector[SchemaField]]],
+      secondarySchemas: Map[String, Vector[SchemaField]],
+      upsertProblems:   Map[String, String]
+  ): Map[String, PipelineAnalyzeService.AnalyzedStep] = ownerSchemas match {
+    case None => callerView
+    case Some(byRoot) =>
+      val ownerView = UpsertTargetAnalysis.overlay(PipelineAnalyzeService.analyzeNodes(nodeInputs, byRoot, secondarySchemas), upsertProblems)
+      callerView.map { case (id, s) => id -> s.copy(validationError = nonOwnerValidationError(s, ownerView.get(id).flatMap(_.validationError))) }
+  }
+
   /** HEL-1661 D2: the `validationError` a non-owner receives for a step, given the error the OWNER's view of that step
    *  reports. Owner-view inference messages can carry column types from the owner's schema, so only text a non-owner
    *  can already derive is sent: the schema-independent config problem (a function of the step's own configuration),
@@ -261,9 +281,11 @@ private[pipelines] final class PipelineAnalyzeReads(
                                   }
             secondarySchemas  <- resolveSecondarySourceSchemas(allSteps.map(s => s.kind -> PipelineStepConfigCodec.encode(s)), dataSourceRepo.findByIdInternal)
             upsertProblems    <- upsertTargetProblems(allSteps, pipeline.ownerId)
-          } yield (rootDataSourceIds.map(_._1.value), rootIdOfStep, rootSchemas.toMap, secondarySchemas, upsertProblems)
+            // HEL-1799 D1: the same owner-view read the full route makes for a non-owner.
+            ownerSchemas      <- ownerRootSchemas(rootDataSourceIds, pipeline.ownerId, pipeline.ownerId.value == user.id.value)
+          } yield (rootDataSourceIds.map(_._1.value), rootIdOfStep, rootSchemas.toMap, secondarySchemas, upsertProblems, ownerSchemas)
 
-          rootFetch.map { case (rootIds, rootIdOfStep, schemasByRoot, secondarySchemas, upsertProblems) =>
+          rootFetch.map { case (rootIds, rootIdOfStep, schemasByRoot, secondarySchemas, upsertProblems, ownerSchemas) =>
             val rootIdOfStepStr = rootIdOfStep.map { case (sid, rid) => sid.value -> rid.value }
             val nodeInputs = allSteps.map(s =>
               PipelineAnalyzeService.NodeStepInput(
@@ -277,6 +299,8 @@ private[pipelines] final class PipelineAnalyzeReads(
               )
             )
             val projections = UpsertTargetAnalysis.overlay(PipelineAnalyzeService.analyzeNodes(nodeInputs, schemasByRoot, secondarySchemas), upsertProblems)
+            // HEL-1799 D1/D2: `validationError` is the owner-view one for a non-owner; path, op and warnings stay caller-view.
+            val validated    = nonOwnerValidity(projections, nodeInputs, ownerSchemas, secondarySchemas, upsertProblems)
             val graphPath    = RuntimeGraphPath.build(allSteps, rootIds, rootIdOfStepStr)
             val warningsByStep = AnalyzeSchemaWarnings.compute(nodeInputs, projections, secondarySchemas).groupMap(_.stepId)(_.message)
             val nodes = allSteps.filter(_.enabled).flatMap { s =>
@@ -284,7 +308,7 @@ private[pipelines] final class PipelineAnalyzeReads(
                 ConciseAnalyzeNode(
                   path            = graphPath.pathOf(s),
                   op              = s.kind,
-                  validationError = analyzed.validationError,
+                  validationError = validated.get(s.id.value).flatMap(_.validationError),
                   warnings        = warningsByStep.get(s.id.value)
                 )
               }
