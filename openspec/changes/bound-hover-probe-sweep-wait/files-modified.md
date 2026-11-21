@@ -1,2 +1,0 @@
-- `e2e/hel1790-hover-probe.spec.ts` — hold the slide paused before the click, seek it to straddle the pointer row, release; every wait bounded (10 s) with a diagnostic; test timeout 240 s -> 60 s
-- `openspec/changes/bound-hover-probe-sweep-wait/evidence/*` — red probe output, probe source (.txt), root cause
