@@ -32,7 +32,9 @@ class PatchSetUndoInlineSourceCleanupSpec extends PatchSetInlineSourceFixture {
   "the apply journal" should {
     "record the created inline source of a pipeline create, and an empty list when every root names an existing source" in {
       val (appId, pipelineId) = applyCreate(CreatePipelineRequest(s"journal-${UUID.randomUUID()}", Vector(datasetRoot())))
-      journaled(appId).inlineSources shouldBe Some(Vector(JournaledInlineSource(rootSourceIds(pipelineId).head, implicitConnector = false)))
+      // HEL-1796: a dataset-kind inline root also carries its created-dataset record
+      journaled(appId).inlineSources.map(_.map(_.copy(createdDataset = None))) shouldBe Some(Vector(JournaledInlineSource(rootSourceIds(pipelineId).head, implicitConnector = false)))
+      journaled(appId).inlineSources.get.head.createdDataset.flatMap(_.rowsStampedAt).isDefined shouldBe true
       val existing = staticSource(s"existing-${UUID.randomUUID()}")
       val (appId2, _) = applyCreate(CreatePipelineRequest(s"journal-none-${UUID.randomUUID()}", Vector(CreatePipelineRootRequest(Some(existing.value)))))
       journaled(appId2).inlineSources shouldBe Some(Vector.empty)
