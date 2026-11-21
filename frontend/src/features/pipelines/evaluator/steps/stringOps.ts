@@ -11,7 +11,9 @@ import {
 } from "../config";
 import { javaTrim } from "../javaNumbers";
 import { compileJavaRegex } from "../javaRegex";
-import { anyToString, cell, withCellLast, type Row, type Value } from "../value";
+import type { RegexWork } from "../javaRegexCost";
+import { workExceedsBudget } from "../regexInputCost";
+import { anyToString, cell, withCellLast, type Frame, type Row, type Value } from "../value";
 import type { ClientDeclineReason, StepHandler } from "./types";
 
 interface StringOpsConfig {
@@ -91,6 +93,16 @@ function valueFn(cfg: StringOpsConfig): (row: Row) => Value {
   }
 }
 
+/** Whether the predicted work of `work` over `field` of `input` exceeds the budget. */
+function overBudget(input: Frame, field: string, work: RegexWork): boolean {
+  const texts: string[] = [];
+  for (const row of input) {
+    const v = cell(row, field);
+    if (v !== null) texts.push(anyToString(v));
+  }
+  return workExceedsBudget(texts, work);
+}
+
 export const stringOpsHandler: StepHandler<StringOpsConfig> = {
   stepClass: "client*",
   decode(raw) {
@@ -118,6 +130,12 @@ export const stringOpsHandler: StepHandler<StringOpsConfig> = {
     )
       return "unsafeRegex";
     return undefined;
+  },
+  declinesInput(c, input): ClientDeclineReason | undefined {
+    if (c.operation !== "extractRegex" || c.pattern === undefined) return undefined;
+    const compiled = compileJavaRegex(c.pattern);
+    if (!compiled.ok) return undefined;
+    return overBudget(input, c.field, compiled.work) ? "regexInputCost" : undefined;
   },
   apply(rows, cfg) {
     if (!OPERATIONS.includes(cfg.operation)) {

@@ -245,11 +245,11 @@ export const MODULE_STATE_NOT_USER_DATA: readonly { id: string; reason: string }
     reason: "Constant lookup table, never mutated after load; holds no user data.",
   },
   {
-    id: "features/pipelines/evaluator/javaRegex.ts#ESCAPED_META",
+    id: "features/pipelines/evaluator/javaRegexClass.ts#ESCAPED_META",
     reason: "Constant lookup table, never mutated after load; holds no user data.",
   },
   {
-    id: "features/pipelines/evaluator/javaRegex.ts#SIMPLE_ESCAPES",
+    id: "features/pipelines/evaluator/javaRegexClass.ts#SIMPLE_ESCAPES",
     reason: "Constant lookup table, never mutated after load; holds no user data.",
   },
   {

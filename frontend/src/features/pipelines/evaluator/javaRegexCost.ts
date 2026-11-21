@@ -3,7 +3,7 @@
 // several choice points trading the same characters. `isBacktrackBounded` is a static, conservative test: a `false` answer
 // declines the pattern to the server, which evaluates it under its 2 s per-step regex time budget.
 
-import { disjointSets, type Ranges } from "./javaRegexSets";
+import { disjointSets, unionSets, type Ranges } from "./javaRegexSets";
 
 export interface AtomItem {
   kind: "atom";
@@ -58,19 +58,25 @@ function isFenced(seq: Item[], i: number): boolean {
   );
 }
 
-function weightOf(item: Item): number {
+/** How a wide atom weighs: 1 for the backtracking rules, `max(1, min)` for the HEL-1697 per-start work (its mandatory part). */
+type WideWeight = (a: AtomItem) => number;
+const ONE: WideWeight = () => 1;
+const BY_MIN: WideWeight = (a) => Math.max(1, a.min);
+
+function weightOf(item: Item, wide: WideWeight): number {
   switch (item.kind) {
     case "atom":
-      return isWide(item) ? 1 : item.max;
+      return isWide(item) ? wide(item) : item.max;
     case "anchor":
       return item.dollar ? DOLLAR_WEIGHT : 0;
     case "group":
-      return altsWeight(item.alts);
+      return altsWeight(item.alts, wide);
   }
 }
-const seqWeight = (seq: Item[], from = 0): number =>
-  seq.slice(from).reduce((sum, item) => sum + weightOf(item), 0);
-const altsWeight = (alts: Item[][]): number => Math.max(...alts.map((seq) => seqWeight(seq)));
+const seqWeight = (seq: Item[], wide: WideWeight, from = 0): number =>
+  seq.slice(from).reduce((sum, item) => sum + weightOf(item, wide), 0);
+const altsWeight = (alts: Item[][], wide: WideWeight = ONE): number =>
+  Math.max(...alts.map((seq) => seqWeight(seq, wide)));
 
 function seqPaths(seq: Item[]): number {
   let paths = 1;
@@ -85,17 +91,21 @@ const altsPaths = (alts: Item[][]): number => alts.reduce((sum, seq) => sum + se
 
 interface WideRef {
   fenced: boolean;
+  /** Some item follows it in its branch, counting after its enclosing groups (anchors included). */
+  hasNext: boolean;
   /** Weight of everything that can follow it in its branch, including after its enclosing groups. */
   tail: number;
 }
 
 /** Every wide quantifier in document order. */
-function collectWides(alts: Item[][], after: number, out: WideRef[]): void {
+function collectWides(alts: Item[][], after: number, out: WideRef[], outerNext = false): void {
   for (const seq of alts) {
     seq.forEach((item, i) => {
-      const tail = seqWeight(seq, i + 1) + after;
-      if (item.kind === "group") collectWides(item.alts, tail, out);
-      else if (item.kind === "atom" && isWide(item)) out.push({ fenced: isFenced(seq, i), tail });
+      const tail = seqWeight(seq, ONE, i + 1) + after;
+      const hasNext = outerNext || i + 1 < seq.length;
+      if (item.kind === "group") collectWides(item.alts, tail, out, hasNext);
+      else if (item.kind === "atom" && isWide(item))
+        out.push({ fenced: isFenced(seq, i), hasNext, tail });
     });
   }
 }
@@ -116,4 +126,66 @@ export function isBacktrackBounded(root: Item[][]): boolean {
   const paths = altsPaths(alts);
   if (paths > 1 && paths * Math.max(1, altsWeight(alts)) > MAX_COST) return false;
   return wides.every((w) => w.fenced || paths * Math.max(1, w.tail) <= MAX_TAIL_COST);
+}
+
+/** Atoms with more ranges than this make the pattern `unsafeRegex` (design D1 addendum 2). */
+export const MAX_CLASS_RANGES = 64;
+
+/**
+ * HEL-1697 -- how much slower V8 tests a character against a class of `r` ranges than against a narrow one: a step function
+ * calibrated in `.concertino/runs/HEL-1697/evidence/regex-work-calibration.md` (class-width section).
+ */
+export function classFactor(r: number): number {
+  if (r <= 8) return 1;
+  if (r <= 16) return CLASS_FACTORS[0];
+  if (r <= 32) return CLASS_FACTORS[1];
+  return CLASS_FACTORS[2];
+}
+const CLASS_FACTORS = [1.75, 2, 2] as const;
+
+/**
+ * HEL-1697 -- the constants of the predicted-work model (design D1 and addenda 2-4). Per input cell of `len` UTF-16 units:
+ * `f x (A x len + sum over maximal runs R of characters in `chars` of (R x A x min(R, W) + m x R^2))`. `A` is the number of
+ * alternative paths (each tries its leading item at every position), `W` the per-start-position work of one path (counted
+ * atoms and a wide atom's `min` included, at least 1), `m` the multiplier for a wide quantifier that has further items
+ * after it (whose tail is re-run per give-back), `f` the class-width factor of the widest atom, and `chars` the union of
+ * every atom's set (a start position outside it fails at once). Only meaningful for a pattern `isBacktrackBounded` accepted.
+ */
+export interface RegexWork {
+  A: number;
+  W: number;
+  m: number;
+  f: number;
+  chars: Ranges;
+}
+
+function atomSets(alts: Item[][], out: Ranges[]): void {
+  for (const seq of alts)
+    for (const item of seq) {
+      if (item.kind === "atom") out.push(item.set);
+      else if (item.kind === "group") atomSets(item.alts, out);
+    }
+}
+
+/** The range count of the widest atom set of the pattern. */
+export function widestClass(root: Item[][]): number {
+  const sets: Ranges[] = [];
+  atomSets(root, sets);
+  return Math.max(0, ...sets.map((set) => set.length));
+}
+
+export function regexWorkModel(root: Item[][]): RegexWork {
+  const alts = flatten(root);
+  const paths = altsPaths(alts);
+  const wides: WideRef[] = [];
+  collectWides(alts, 0, wides);
+  const sets: Ranges[] = [];
+  atomSets(alts, sets);
+  return {
+    A: paths,
+    W: Math.max(1, altsWeight(alts, BY_MIN)),
+    m: Math.max(0, ...wides.filter((w) => w.hasNext).map((w) => paths * Math.max(1, w.tail))),
+    f: classFactor(widestClass(alts)),
+    chars: unionSets(sets),
+  };
 }
