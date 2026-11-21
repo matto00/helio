@@ -1,0 +1,2 @@
+CDP Emulation.setCPUThrottlingRate=4 for the whole test (temporary env-gated patch, not committed); FULL spec files hel1573-motion-primitives-full-subtle + hel1573-motion-grid-chart, --repeat-each=3, 2 workers, nice 19
+  24 passed (3.5m)

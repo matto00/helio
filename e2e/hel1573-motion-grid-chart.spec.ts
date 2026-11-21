@@ -147,9 +147,20 @@ test.describe("HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1)
       "the chart entrance ran (the animation clock was busy at least once)",
     ).toBeGreaterThanOrEqual(1);
     const entrance = Math.max(...first);
-    // About the token (280ms) plus frame granularity; the library default is 1000ms.
+    // HEL-1814: the entrance's duration is proven from what the chart was configured with when it was first found (the
+    // entrance window is still open), not from a wall-clock span: a span is the tween plus every main-thread stall that
+    // lands inside it (649ms under a 450ms stall, 616ms on a CI runner), so an upper bound on it flakes on a loaded host.
+    // The library default is 1000ms, so a chart that lost the token override fails here.
+    const firstOption = await page.evaluate(
+      () =>
+        (window as unknown as { __chartFirstOption: Record<string, unknown> }).__chartFirstOption,
+    );
+    expect(
+      firstOption,
+      "the entrance was configured at the standard token (280ms, not 1000ms)",
+    ).toEqual({ animationDuration: 280, animationDurationUpdate: 280 });
+    // Observed: the entrance really ran. A slow host only lengthens a span, so a lower bound is not exposed.
     expect(entrance).toBeGreaterThan(150);
-    expect(entrance).toBeLessThan(600);
 
     // New data (a rebuilt option) arriving through the panel's Refresh must not replay the entrance. The rows really
     // change, so the chart's option differs and echarts-for-react re-applies it.
@@ -253,8 +264,12 @@ test.describe("HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1)
     ).toBeGreaterThan(0.9);
     expect(replay.appliedAnimationDuration).toBe(0);
     const later = (await edges()).slice(before);
-    // The data update itself may tween (animationDurationUpdate keeps the token), but never beyond the token.
-    expect(Math.max(0, ...spans(later))).toBeLessThan(600);
+    // GUARD (not a mutation-covered assertion, like the bar-collapse guard above): the contract that an update never
+    // exceeds the token is proven by `applied` (animationDurationUpdate 280, animationDuration 0) and `replay.longestSpanMs
+    // < 60`, which ran first. This span is wall-clock (the tween plus any main-thread stall inside it), so the bound is only
+    // the library default (1000ms): 616ms was seen on a CI runner and 649ms under a 450ms stall, and a replay at the default
+    // duration plus any stall would still be over it.
+    expect(Math.max(0, ...spans(later))).toBeLessThan(1000);
 
     writeFileSync(
       evidencePath(TICKET, "chart-entrance.json"),

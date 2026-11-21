@@ -1,0 +1,16 @@
+  ✘  1 [dev] › e2e/support/hel1573-motion-primitives.ts:284:11 › HEL-1573 primitives under Motion = full, dark theme (14.6s)
+  1) [dev] › e2e/support/hel1573-motion-primitives.ts:284:11 › HEL-1573 primitives under Motion = full, dark theme 
+    Error: rail indicator transform transition
+    Expected: >= [32m1[39m
+    Received:    [31m0[39m
+      216 |           (x) => x.target.includes("motion-indicator") && x.name === "transform",
+      217 |         );
+    > 218 |         expect(t.length, `${key} indicator transform transition`).toBeGreaterThanOrEqual(1);
+      219 |         expect(Math.abs(t[0].duration - 280)).toBeLessThan(1);
+      220 |         expect(t[0].easing).toContain("cubic-bezier(0.3, 0.9, 0.4, 1)");
+      221 |       }
+        at runMode (/home/matt/Development/helio/.claude/worktrees/bug/hel1573-motion-timing-flakes/hel-1814/e2e/support/hel1573-motion-primitives.ts:218:67)
+        at /home/matt/Development/helio/.claude/worktrees/bug/hel1573-motion-timing-flakes/hel-1814/e2e/support/hel1573-motion-primitives.ts:288:9
+    Error Context: test-results/hel1573-motion-primitives--8b3a7-nder-Motion-full-dark-theme-dev/error-context.md
+  1 failed
+    [dev] › e2e/support/hel1573-motion-primitives.ts:284:11 › HEL-1573 primitives under Motion = full, dark theme 

@@ -1,0 +1,11 @@
+PROBEB rate=1 entrance=[310.40000000596046] later=[649.3000000119209,216.5] laterEdges=[[4663,true],[5312,false],[8062,true],[8278,false]]
+  ✘  1 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:104:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (13.7s)
+  1) [dev] › e2e/hel1573-motion-grid-chart.spec.ts:104:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it 
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThan[2m([22m[32mexpected[39m[2m)[22m
+    Expected: < [32m600[39m
+    Received:   [31m649.3000000119209[39m
+      261 |     console.log("PROBEB rate=" + process.env.PROBE_RATE + " entrance=" + JSON.stringify(first) + " later=" + JSON.stringify(spans(later)) + " laterEdges=" + JSON.stringify(later.map((e) => [Math.round(e.t), e.unfinished])));
+    > 262 |     expect(Math.max(0, ...spans(later))).toBeLessThan(600);
+        at /home/matt/Development/helio/.claude/worktrees/bug/hel1573-motion-timing-flakes/hel-1814/e2e/hel1573-motion-grid-chart.spec.ts:262:42
+  1 failed
+    [dev] › e2e/hel1573-motion-grid-chart.spec.ts:104:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it 

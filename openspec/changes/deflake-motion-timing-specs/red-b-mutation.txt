@@ -1,0 +1,15 @@
+  ✘  1 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:104:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (7.3s)
+  1) [dev] › e2e/hel1573-motion-grid-chart.spec.ts:104:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it 
+    Error: the entrance was configured at the standard token (280ms, not 1000ms)
+    [32m- Expected  - 2[39m
+    [31m+ Received  + 2[39m
+      159 |       firstOption,
+      160 |       "the entrance was configured at the standard token (280ms, not 1000ms)",
+    > 161 |     ).toEqual({ animationDuration: 280, animationDurationUpdate: 280 });
+      162 |     // Observed: the entrance really ran. A slow host only lengthens a span, so a lower bound is not exposed.
+      163 |     expect(entrance).toBeGreaterThan(150);
+      164 |
+        at /home/matt/Development/helio/.claude/worktrees/bug/hel1573-motion-timing-flakes/hel-1814/e2e/hel1573-motion-grid-chart.spec.ts:161:7
+    Error Context: test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev/error-context.md
+  1 failed
+    [dev] › e2e/hel1573-motion-grid-chart.spec.ts:104:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it 

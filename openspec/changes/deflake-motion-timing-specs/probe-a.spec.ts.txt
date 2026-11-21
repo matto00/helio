@@ -1,0 +1,76 @@
+import { test } from "@playwright/test";
+import { registerAndLogin } from "./support/auth";
+import { setMotion } from "./support/motionPrimitivesSeed";
+import { RECORDER, log, clearLog } from "./support/motionRecorder";
+
+const RATE = Number(process.env.PROBE_RATE ?? "1");
+const N = Number(process.env.PROBE_N ?? "10");
+
+test("probe A: segmented indicator click vs data-indicator", async ({ page, request }, testInfo) => {
+  test.setTimeout(500_000);
+  await page.addInitScript(RECORDER);
+  await page.addInitScript(() => {
+    (window as unknown as { __tr: unknown[] }).__tr = [];
+    (window as unknown as { __clk: unknown[] }).__clk = [];
+    (window as unknown as { __mo: unknown[] }).__mo = [];
+    new MutationObserver((ms) => {
+      for (const m of ms) for (const n of Array.from(m.addedNodes)) {
+        if (n instanceof Element && (n.matches("[role=radiogroup]") || n.querySelector("[role=radiogroup]")))
+          (window as unknown as { __mo: unknown[] }).__mo.push({ t: Math.round(performance.now()), added: n.getAttribute("aria-label") ?? n.tagName });
+      }
+    }).observe(document, { childList: true, subtree: true });
+    document.addEventListener("click", (e) => {
+      (window as unknown as { __mo: unknown[] }).__mo.push({ t: Math.round(performance.now()), click: true });
+      const BLOCK = (window as unknown as { __block?: number }).__block ?? 0;
+      if (BLOCK && (e.target as Element).closest?.("[role=radiogroup]"))
+        setTimeout(() => { const t = performance.now(); while (performance.now() - t < BLOCK) { /* long frame */ } (window as unknown as { __mo: unknown[] }).__mo.push({ blockedUntil: Math.round(performance.now()) }); }, 0);
+      const g = (e.target as Element).closest?.("[role=radiogroup]");
+      if (g) (window as unknown as { __clk: unknown[] }).__clk.push(g.getAttribute("data-indicator"));
+    }, true);
+    document.addEventListener(
+      "transitionrun",
+      (e) => {
+        const t = e.target as Element;
+        if (e.propertyName !== "transform") return;
+        const live = t.getAnimations().filter((a) => a instanceof CSSTransition && a.transitionProperty === "transform").length;
+        (window as unknown as { __tr: unknown[] }).__tr.push({ now: Math.round(performance.now()), ct: t.getAnimations().map((a) => Math.round(Number(a.currentTime))), cls: (t as HTMLElement).className, live, di: t.parentElement?.getAttribute("data-indicator") });
+      },
+      true,
+    );
+  });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const cdp = await page.context().newCDPSession(page);
+  const rows: unknown[] = [];
+  for (let i = 0; i < N; i++) {
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+    await page.context().clearCookies();
+    console.log("iter " + i);
+    await registerAndLogin(page, request, { prefix: "hel1814", displayName: "HEL-1814", label: "probeA" + i, isolate: true });
+    await setMotion(request, "full");
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+    await page.goto("/dashboards");
+    await page.waitForTimeout(500);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: RATE });
+    const DELAY = Number(process.env.PROBE_DELAY ?? "0");
+    await page.unroute("**/api/**");
+    if (DELAY) await page.route("**/api/**", async (route) => { await new Promise((r) => setTimeout(r, DELAY)); await route.continue(); });
+    await page.goto("/settings");
+    await page.evaluate((b) => ((window as unknown as { __block: number }).__block = b), Number(process.env.PROBE_BLOCK ?? "0"));
+    const density = page.getByRole("radiogroup", { name: /density/i });
+    await density.waitFor({ state: "visible" });
+    await clearLog(page);
+    await page.evaluate(() => ((window as unknown as { __tr: unknown[] }).__tr.length = 0));
+    await page.evaluate(() => ((window as unknown as { __clk: unknown[] }).__clk.length = 0));
+    await density.getByRole("radio", { name: /compact/i }).click();
+    await page.waitForTimeout(700);
+    const recs = (await log(page)).filter((r) => r.target.includes("motion-indicator") && r.name === "transform").length;
+    const tr = await page.evaluate(() => (window as unknown as { __tr: unknown[] }).__tr);
+    const clk = await page.evaluate(() => (window as unknown as { __clk: unknown[] }).__clk);
+    const mo = await page.evaluate(() => (window as unknown as { __mo: unknown[] }).__mo);
+    rows.push({ i, mo: JSON.stringify(mo), atClick: clk[0], recorderTransformRecords: recs, transitionrun: tr });
+    await density.getByRole("radio", { name: /comfortable/i }).click();
+  }
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+  console.log("PROBEA rate=" + RATE + "\n" + rows.map((r) => JSON.stringify(r)).join("\n"));
+  testInfo.attach("rows", { body: JSON.stringify(rows) });
+});
