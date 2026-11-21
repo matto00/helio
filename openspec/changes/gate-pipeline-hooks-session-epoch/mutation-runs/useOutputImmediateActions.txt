@@ -1,0 +1,39 @@
+MUTATION: in useOutputImmediateActions.ts replaced
+---
+        if (getSessionEpoch() !== startEpoch) return;
+
+--- with
+---
+
+---
+exit code: 1
+
+
+> helio-frontend@0.0.0 test
+> jest --config jest.config.cjs --passWithNoTests --testPathPatterns=useOutputImmediateActions.sessionEpoch
+
+FAIL src/features/pipelines/hooks/useOutputImmediateActions.sessionEpoch.test.tsx
+  ● useOutputImmediateActions.create after sign-out › does not request a preview of the created Output
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "pipe-A", "out-new"
+
+      41 |       await done;
+      42 |     });
+    > 43 |     expect(previewOutputs).not.toHaveBeenCalled();
+         |                                ^
+      44 |   });
+      45 | });
+      46 |
+
+      at Object.<anonymous> (src/features/pipelines/hooks/useOutputImmediateActions.sessionEpoch.test.tsx:43:32)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 total
+Snapshots:   0 total
+Time:        3.68 s
+Ran all test suites matching useOutputImmediateActions.sessionEpoch.

@@ -1,0 +1,39 @@
+MUTATION: in usePipelineStepStructure.ts replaced
+---
+        if (getSessionEpoch() !== startEpoch) return output;
+
+--- with
+---
+
+---
+exit code: 1
+
+
+> helio-frontend@0.0.0 test
+> jest --config jest.config.cjs --passWithNoTests --testPathPatterns=usePipelineStepStructure.sessionEpoch
+
+FAIL src/features/pipelines/hooks/usePipelineStepStructure.sessionEpoch.test.tsx
+  ● handleAddOutputViaAggregateTail after sign-out › does not refetch Outputs or preview the new Output when the session ends during createOutput
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "pipe-A", undefined
+
+      113 |       await settled;
+      114 |     });
+    > 115 |     expect(listOutputs).not.toHaveBeenCalled();
+          |                             ^
+      116 |     expect(previewOutputs).not.toHaveBeenCalled();
+      117 |     expect(deletePipelineStep).not.toHaveBeenCalled();
+      118 |   });
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineStepStructure.sessionEpoch.test.tsx:115:29)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 2 passed, 3 total
+Snapshots:   0 total
+Time:        3.65 s
+Ran all test suites matching usePipelineStepStructure.sessionEpoch.

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
 import { useInFlightGuard } from "../../../hooks/useInFlightGuard";
 import type { useAppDispatch } from "../../../hooks/reduxHooks";
@@ -59,9 +60,11 @@ export function usePipelineRootAndToggleActions({
       // control (HEL-620 was exactly a picker defaulting to an unset id and
       // issuing a request that 404'd on the ACL check).
       if (!sourceId) return;
+      const startEpoch = getSessionEpoch();
       try {
         await addPipelineRoot(id, { sourceId });
-        if (mountedRef.current) void dispatch(fetchPipelineById(id));
+        if (mountedRef.current && getSessionEpoch() === startEpoch)
+          void dispatch(fetchPipelineById(id));
       } catch (err: unknown) {
         const message = extractErrorMessage(err, "the request could not be completed.");
         pushToast({ variant: "error", message: `Failed to add source: ${message}` });
@@ -81,9 +84,10 @@ export function usePipelineRootAndToggleActions({
   const handleRemoveRoot = useCallback(
     async (rootId: string) => {
       if (!id) return;
+      const startEpoch = getSessionEpoch();
       try {
         const result = await removePipelineRoot(id, rootId);
-        if (mountedRef.current) {
+        if (mountedRef.current && getSessionEpoch() === startEpoch) {
           await Promise.all([dispatch(fetchPipelineById(id)), syncStepsFromServer()]);
         }
         pushToast({
@@ -149,6 +153,7 @@ export function usePipelineRootAndToggleActions({
   const handleDuplicateStep = useCallback(
     (stepId: string) => {
       guardedStepDuplicateRun(stepId, async () => {
+        const startEpoch = getSessionEpoch();
         try {
           await duplicatePipelineStep(stepId);
           // CR10 — `duplicatePipelineStep` hits the same server-side
@@ -158,6 +163,7 @@ export function usePipelineRootAndToggleActions({
           // trunk step's clone renders as a tail branch and the real tail gets
           // promoted to a top-level trunk card until a hard reload. Resync from
           // the server, mirroring the other three CR9 fixes above.
+          if (getSessionEpoch() !== startEpoch) return;
           await syncStepsFromServer();
         } catch (err: unknown) {
           const message = extractErrorMessage(err, "Failed to duplicate step.");

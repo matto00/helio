@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
 import { deletePipelineStep, reorderPipelineSteps } from "../services/pipelineService";
 import { isTempStepId, pipelineStepToStep } from "../state/stepNarrowing";
@@ -73,6 +74,7 @@ export function usePipelineStepMutations({
       // DELETE would 404. Fire-and-forget mirrors the config-PATCH path in
       // useStepCardState: local state already reflects user intent.
       if (!isTempStepId(stepId)) {
+        const startEpoch = getSessionEpoch();
         void deletePipelineStep(stepId)
           .then(() => {
             // CR11 — `deleteInternal` on the backend mutates steps OTHER than
@@ -85,6 +87,7 @@ export function usePipelineStepMutations({
             // side at all) until a hard reload. Resync from the server,
             // mirroring the CR9/CR10 fix on the sibling insert/duplicate
             // handlers above.
+            if (getSessionEpoch() !== startEpoch) return undefined;
             return syncStepsFromServer();
           })
           .catch((err: unknown) => {

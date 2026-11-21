@@ -72,6 +72,7 @@ function registerPruneListener<K extends "dashboards" | "sources" | "pipelines">
 ) {
   startListening({
     predicate: (_action, currentState: RootState, previousState: RootState) =>
+      // Every slice `K` can name has a `status`, but the generic `K` index does not narrow to a type that has one.
       (currentState[slice] as { status: string }).status === "succeeded" &&
       (previousState[slice] as { status: string }).status !== "succeeded",
     effect: (_action, listenerApi) => {

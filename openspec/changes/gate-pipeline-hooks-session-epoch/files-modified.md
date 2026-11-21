@@ -1,0 +1,22 @@
+- `frontend/src/features/commandPalette/state/recentVisitsListeners.ts`
+- `frontend/src/features/pipelines/hooks/sessionEpochTestKit.ts`
+- `frontend/src/features/pipelines/hooks/useOutputImmediateActions.sessionEpoch.test.tsx`
+- `frontend/src/features/pipelines/hooks/useOutputImmediateActions.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineDraftSave.sessionEpoch.test.tsx`
+- `frontend/src/features/pipelines/hooks/usePipelineDraftSave.ts`
+- `frontend/src/features/pipelines/hooks/usePipelinePageLoad.sessionEpoch.test.tsx`
+- `frontend/src/features/pipelines/hooks/usePipelinePageLoad.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineRootAndToggleActions.sessionEpoch.test.tsx`
+- `frontend/src/features/pipelines/hooks/usePipelineRootAndToggleActions.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineRunAndSaveActions.sessionEpoch.test.tsx`
+- `frontend/src/features/pipelines/hooks/usePipelineRunAndSaveActions.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineStepMutations.sessionEpoch.test.tsx`
+- `frontend/src/features/pipelines/hooks/usePipelineStepMutations.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineStepStructure.sessionEpoch.test.tsx`
+- `frontend/src/features/pipelines/hooks/usePipelineStepStructure.ts`
+- `frontend/src/features/pipelines/hooks/useRunHistory.sessionEpoch.test.tsx`
+- `frontend/src/features/pipelines/hooks/useRunHistory.ts`
+- `frontend/src/shared/session/sessionModuleStateAllowlist.ts`
+- `frontend/src/shared/session/sessionResetGuard.test.ts`
+- `frontend/src/shared/session/sessionStorageAllowlist.ts`
+- `frontend/src/shared/session/sessionStateAllowlist.ts` (deleted: split into sessionStorageAllowlist.ts and sessionModuleStateAllowlist.ts)

@@ -32,11 +32,8 @@ import { join, relative } from "path";
 import { clearAuth } from "../../features/auth/state/authSlice";
 import { store } from "../../store/store";
 import { COVERAGE_MECHANISMS, listDeclaredCoverage, listSessionResets } from "./sessionReset";
-import {
-  MODULE_STATE_NOT_USER_DATA,
-  STORAGE_KEYS_CLEARED_BY_HOOK,
-  STORAGE_KEYS_KEPT,
-} from "./sessionStateAllowlist";
+import { MODULE_STATE_NOT_USER_DATA } from "./sessionModuleStateAllowlist";
+import { STORAGE_KEYS_CLEARED_BY_HOOK, STORAGE_KEYS_KEPT } from "./sessionStorageAllowlist";
 
 const SRC = join(__dirname, "..", "..");
 
@@ -168,17 +165,6 @@ describe("static half", () => {
       }
     }
     expect(unlisted).toEqual([]);
-  });
-
-  test("every cleared key names a registered hook or a known mechanism", () => {
-    const names = new Set([
-      ...listSessionResets().map((hook) => hook.name),
-      ...COVERAGE_MECHANISMS,
-    ]);
-    const bad = STORAGE_KEYS_CLEARED_BY_HOOK.filter((e) => !names.has(e.clearedBy ?? "")).map(
-      (e) => `${e.key} cleared by ${e.clearedBy}`,
-    );
-    expect(bad).toEqual([]);
   });
 
   test("every cleared key names a registered hook or a known mechanism", () => {

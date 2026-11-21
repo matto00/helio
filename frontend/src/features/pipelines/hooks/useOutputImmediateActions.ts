@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { createOutput, deleteOutput, previewOutput, updateOutput } from "../state/outputsSlice";
 import type { Output } from "../types/output";
@@ -29,9 +30,11 @@ export function useOutputImmediateActions(pipelineId: string): OutputActions {
   return useMemo(
     () => ({
       create: async (payload) => {
+        const startEpoch = getSessionEpoch();
         const created = await dispatch(createOutput({ pipelineId, payload })).unwrap();
         // HEL-908 Cycle 13 -- the preview fetched while creating is cached under the unsaved `step:<stepId>` key, not the new
         // Output's real id; without this the rail chip of a freshly created Output shows no preview until its sheet is reopened.
+        if (getSessionEpoch() !== startEpoch) return;
         void dispatch(previewOutput({ pipelineId, outputId: created.id }));
       },
       update: async (output, payload) => {

@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { NavigateFunction } from "react-router-dom";
 
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 import type { useAppDispatch } from "../../../hooks/reduxHooks";
 import { previewOutput } from "../state/outputsSlice";
 import { submitPipelineRun, updatePipeline } from "../state/pipelinesSlice";
@@ -70,8 +71,10 @@ export function usePipelineRunAndSaveActions({
   const handleRunPipeline = useCallback(async () => {
     if (!id || !mayRun) return;
     setSseActive(true);
+    const startEpoch = getSessionEpoch();
     try {
       await dispatch(submitPipelineRun({ pipelineId: id })).unwrap();
+      if (getSessionEpoch() !== startEpoch) return;
       refreshRunHistoryAfterRun();
       refreshVisibleOutputPreviews(id);
     } catch {
@@ -83,8 +86,10 @@ export function usePipelineRunAndSaveActions({
   const handleDryRun = useCallback(async () => {
     if (!id || !mayRun) return;
     setSseActive(true);
+    const startEpoch = getSessionEpoch();
     try {
       await dispatch(submitPipelineRun({ pipelineId: id, dryRun: true })).unwrap();
+      if (getSessionEpoch() !== startEpoch) return;
       refreshRunHistoryAfterRun();
       refreshVisibleOutputPreviews(id);
     } catch {
