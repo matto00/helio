@@ -1,0 +1,37 @@
+diff --git a/e2e/hel1573-motion-grid-chart.spec.ts b/e2e/hel1573-motion-grid-chart.spec.ts
+index dfae21739..5b46a2b91 100644
+--- a/e2e/hel1573-motion-grid-chart.spec.ts
++++ b/e2e/hel1573-motion-grid-chart.spec.ts
+@@ -111,6 +111,7 @@ test.describe("HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1)
+     await setMotion(request, "full");
+     const world = await seedWorld(request, "M-chart");
+     await page.mouse.move(5, 5);
++    const rate = Number(process.env.PROBE_RATE ?? "1");
+     await page.goto("/dashboards");
+     await expect(page.locator(".chart-panel__canvas canvas").first()).toBeVisible();
+     await page.waitForTimeout(2500);
+@@ -153,6 +154,7 @@ test.describe("HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1)
+ 
+     // New data (a rebuilt option) arriving through the panel's Refresh must not replay the entrance. The rows really
+     // change, so the chart's option differs and echarts-for-react re-applies it.
++    if (rate > 1) await (await page.context().newCDPSession(page)).send("Emulation.setCPUThrottlingRate", { rate });
+     const before = (await edges()).length;
+     const put = await request.put(`/api/data-sources/${world.sourceId}/rows`, {
+       data: {
+@@ -172,6 +174,8 @@ test.describe("HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1)
+       .locator(".panel-grid-card", { hasText: "M-chart Chart" })
+       .getByRole("button", { name: /refresh/i })
+       .click();
++    const blockMs = Number(process.env.PROBE_BLOCKB ?? "0");
++    if (blockMs) await page.evaluate((b) => { setTimeout(() => { const t = performance.now(); while (performance.now() - t < b) { /* stall */ } }, 150); }, blockMs);
+     await page.waitForTimeout(1800);
+     // And a viewport change (a ResizeObserver-driven rebuild).
+     await page.setViewportSize({ width: 1500, height: 1000 });
+@@ -254,6 +258,7 @@ test.describe("HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1)
+     expect(replay.appliedAnimationDuration).toBe(0);
+     const later = (await edges()).slice(before);
+     // The data update itself may tween (animationDurationUpdate keeps the token), but never beyond the token.
++    console.log("PROBEB rate=" + process.env.PROBE_RATE + " entrance=" + JSON.stringify(first) + " later=" + JSON.stringify(spans(later)) + " laterEdges=" + JSON.stringify(later.map((e) => [Math.round(e.t), e.unfinished])));
+     expect(Math.max(0, ...spans(later))).toBeLessThan(600);
+ 
+     writeFileSync(

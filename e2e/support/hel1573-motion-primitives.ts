@@ -96,6 +96,15 @@ export async function drivePrimitives(page: Page, mode: Mode, theme: Theme, tag:
   await page.goto("/settings");
   const density = page.getByRole("radiogroup", { name: /density/i });
   await expect(density).toBeVisible();
+  // HEL-1814: the indicator only transitions once the group is `ready` (two frames after its first placement); a click before
+  // that moves it with no transition by design. Wait for it, bounded, so the click is a transition by construction. Outside
+  // Full every placement snaps by design, so there is nothing to wait for.
+  if (mode === "full") {
+    await expect(
+      density,
+      "the density group's indicator settled to ready before the click",
+    ).toHaveAttribute("data-indicator", "ready", { timeout: 15_000 });
+  }
   await clearLog(page);
   await density.getByRole("radio", { name: /compact/i }).click();
   await page.waitForTimeout(600);

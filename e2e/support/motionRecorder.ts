@@ -128,11 +128,44 @@ export const RECORDER = () => {
     "transitionrun",
     (event) => {
       const target = event.target as Element;
+      let found = false;
       for (const anim of target.getAnimations()) {
         if (anim instanceof CSSTransition && anim.transitionProperty === event.propertyName) {
           record("css-transition", anim);
+          found = true;
         }
       }
+      if (found) return;
+      // HEL-1814: a long main-thread stall between the style change and this event's dispatch lets the transition
+      // finish and be dropped from getAnimations() before the handler runs, so nothing would be recorded (seen on
+      // CI: every transition of one click missing). Fall back to the computed transition-* values the element
+      // started with, the same way the animationstart handler does. No computed entry for the property: record nothing.
+      const style = getComputedStyle(target);
+      const list = (value: string) => value.split(/,\s*(?![^()]*\))/);
+      const props = list(style.transitionProperty);
+      let i = props.indexOf(event.propertyName);
+      if (i < 0) i = props.indexOf("all");
+      if (i < 0) return;
+      const ms = (value: string | undefined) => {
+        const v = (value ?? "0s").trim();
+        return v.endsWith("ms") ? parseFloat(v) : parseFloat(v) * 1000;
+      };
+      const at = (value: string) => {
+        const values = list(value);
+        return values[i % values.length];
+      };
+      w.__motionLog.push({
+        kind: "css-transition",
+        target: label(target),
+        name: event.propertyName,
+        duration: ms(at(style.transitionDuration)),
+        delay: ms(at(style.transitionDelay)),
+        easing: at(style.transitionTimingFunction) ?? "",
+        props: [event.propertyName],
+        inferred: true,
+        // Conservative: a fallback transform transition counts as moving, so Subtle/Off stay at least as strict.
+        moves: MOVING.includes(event.propertyName),
+      });
     },
     true,
   );
@@ -147,6 +180,7 @@ export const RECORDER = () => {
   type Fiber = { stateNode?: { getEchartsInstance?: () => unknown } | null; return?: Fiber };
   type DisplayEl = { type?: string; shape?: { height?: number }; ignore?: boolean };
   type Instance = {
+    getOption(): Record<string, unknown>;
     getZr(): {
       animation: { isFinished(): boolean };
       storage: { getDisplayList(update?: boolean, includeIgnored?: boolean): DisplayEl[] };
@@ -176,10 +210,22 @@ export const RECORDER = () => {
     return null;
   };
   (w as unknown as { __findChart: typeof find }).__findChart = find;
+  // HEL-1814: the animation options the chart held the first time it was found (the entrance window is still open then),
+  // so a spec can assert the configured entrance duration instead of timing it against the wall clock.
+  const firstOption: { animationDuration?: unknown; animationDurationUpdate?: unknown } = {};
+  (window as unknown as { __chartFirstOption: typeof firstOption }).__chartFirstOption =
+    firstOption;
   let last: boolean | null = null;
+  let seen = false;
   const tick = () => {
     const instance = find();
     if (instance) {
+      if (!seen) {
+        seen = true;
+        const option = instance.getOption();
+        firstOption.animationDuration = option.animationDuration;
+        firstOption.animationDurationUpdate = option.animationDurationUpdate;
+      }
       const zr = instance.getZr();
       const sum = zr.storage
         .getDisplayList(false, false)

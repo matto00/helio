@@ -1,0 +1,10 @@
+PROBEA rate=1
+{"i":0,"mo":"[{\"t\":992,\"added\":\"DIV\"},{\"t\":1180,\"click\":true},{\"blockedUntil\":1710}]","atClick":"ready","recorderTransformRecords":1,"transitionrun":[{"now":1711,"ct":[17,17],"cls":"motion-indicator ui-segmented__indicator","live":1,"di":"ready"}]}
+{"i":1,"mo":"[{\"t\":976,\"added\":\"DIV\"},{\"t\":1129,\"click\":true},{\"blockedUntil\":1657}]","atClick":"ready","recorderTransformRecords":0,"transitionrun":[{"now":1659,"ct":[],"cls":"motion-indicator ui-segmented__indicator","live":0,"di":"ready"}]}
+{"i":2,"mo":"[{\"t\":823,\"added\":\"DIV\"},{\"t\":1111,\"click\":true},{\"blockedUntil\":1636}]","atClick":"ready","recorderTransformRecords":1,"transitionrun":[{"now":1636,"ct":[17,17],"cls":"motion-indicator ui-segmented__indicator","live":1,"di":"ready"}]}
+{"i":3,"mo":"[{\"t\":799,\"added\":\"DIV\"},{\"t\":966,\"click\":true},{\"blockedUntil\":1499}]","atClick":"ready","recorderTransformRecords":1,"transitionrun":[{"now":1499,"ct":[17,17],"cls":"motion-indicator ui-segmented__indicator","live":1,"di":"ready"}]}
+{"i":4,"mo":"[{\"t\":977,\"added\":\"DIV\"},{\"t\":1129,\"click\":true},{\"blockedUntil\":1659}]","atClick":"ready","recorderTransformRecords":1,"transitionrun":[{"now":1660,"ct":[17,17],"cls":"motion-indicator ui-segmented__indicator","live":1,"di":"ready"}]}
+{"i":5,"mo":"[{\"t\":810,\"added\":\"DIV\"},{\"t\":974,\"click\":true},{\"blockedUntil\":1502}]","atClick":"ready","recorderTransformRecords":1,"transitionrun":[{"now":1503,"ct":[17,17],"cls":"motion-indicator ui-segmented__indicator","live":1,"di":"ready"}]}
+{"i":6,"mo":"[{\"t\":986,\"added\":\"DIV\"},{\"t\":1147,\"click\":true},{\"blockedUntil\":1674}]","atClick":"ready","recorderTransformRecords":1,"transitionrun":[{"now":1675,"ct":[17,17],"cls":"motion-indicator ui-segmented__indicator","live":1,"di":"ready"}]}
+{"i":7,"mo":"[{\"t\":817,\"added\":\"DIV\"},{\"t\":1011,\"click\":true},{\"blockedUntil\":1540}]","atClick":"ready","recorderTransformRecords":1,"transitionrun":[{"now":1540,"ct":[17,17],"cls":"motion-indicator ui-segmented__indicator","live":1,"di":"ready"}]}
+  1 passed (48.7s)

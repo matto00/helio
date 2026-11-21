@@ -1,0 +1,4 @@
+full-subtle spec file, --repeat-each=10, batch 1 of 2 (2 workers, nice 19)
+  40 passed (5.3m)
+batch 2 of 2
+  40 passed (5.2m)
