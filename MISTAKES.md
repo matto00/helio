@@ -208,7 +208,7 @@ CON-166.)
 
 ### The backend CI job is sharded, and sbt's own forked-group limit of 1 beats yours
 
-The `backend` job is a 4-leg matrix (owner cap, HEL-1288: backend + e2e shared ~8 legs of a ~20-job free-plan pool; HEL-1698 then took e2e to 6 legs and HEL-1772 to 7 by owner ruling, so backend 4 + e2e 7 = 11 parallel jobs; adding legs is an owner decision) (`HELIO_TEST_SHARD_INDEX/COUNT`; `backend/project/TestShards.scala`
+The `backend` job is a 4-leg matrix (owner cap, HEL-1288: backend + e2e shared ~8 legs of a ~20-job free-plan pool; HEL-1698 then took e2e to 6 legs and HEL-1772 to 7 and HEL-1793 to 8 by owner ruling, so backend 4 + e2e 8 = 12 parallel jobs; adding legs is an owner decision) (`HELIO_TEST_SHARD_INDEX/COUNT`; `backend/project/TestShards.scala`
 partitions suites exactly once and fails a leg naming any suite assigned to zero or two shards). Each leg
 runs ~1/4 of the suites and restores a cached compile output so zinc compiles incrementally (`backend/target/out` AND `~/.cache/sbt` as one entry -- sbt 2 symlinks into its disk cache, so `target/out` alone restores dangling links; saved only by main pushes under the `backend-compile-v3-` prefix, never test reports); measured legs ran 3:23-3:43 warm (exact compile-cache hit) and 4:04-6:04 cold, against 12-18 min for the old single job (HEL-1287, `profile.md`). Three traps:
 
