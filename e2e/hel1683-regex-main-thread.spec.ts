@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { registerAndLogin } from "./support/auth";
 
@@ -6,9 +6,9 @@ import { registerAndLogin } from "./support/auth";
 // Method: a `longtask` PerformanceObserver is installed before each pattern edit; the pattern is entered in ONE fill (not
 // typed), so every long task in the window is the evaluation of that single pattern. The control edit proves the client
 // evaluator ran in the window (no draft-preview request, client rows rendered) and bounds the dev-build noise; the probe edit
-// enters `^(.*.*.*.*.*.*.*.*x)` over 2 rows of "a"x28 + "!", which V8 backtracks for ~165 ms per cell when the client
-// evaluates it, so the unmodified tree produces a finite long task far above the 100 ms bound. The failing assertions report
-// the measured duration, never a timeout.
+// enters `^(.*.*.*.*.*.*.*.*x)` over 2 rows of "a"x28 + "!", which V8 backtracks catastrophically when the client
+// evaluates it, so the unmodified tree produces a finite long task far above the 100 ms bound (the server needs about
+// 0.37 s per such cell, see ROW_COUNT). The failing assertions report the measured duration, never a timeout.
 
 const CSRF = { "X-Helio-Requested-With": "1" };
 const AUTH = { prefix: "hel1683", displayName: "HEL-1683", domain: "example.test" } as const;
@@ -24,6 +24,11 @@ const ROW_COUNT = 2;
 // Measured (evidence/server-overrun.md) to exceed the server's 2 s per-step regex budget on one such cell.
 const OVERRUN_PATTERN = "^(a*a*a*a*a*a*a*a*a*a*)$";
 const LONG_TASK_BOUND_MS = 100;
+/** How the rows table renders a null cell. */
+const NULL_CELL = "—";
+const LONG_ROWS = 12;
+const LONG_CELL_LENGTH = 10_000;
+const LONG_PROBE_PATTERN = "(a*)b";
 
 async function post<T>(page: Page, url: string, data: unknown): Promise<T> {
   const res = await page.request.post(url, { data, headers: CSRF });
@@ -31,12 +36,12 @@ async function post<T>(page: Page, url: string, data: unknown): Promise<T> {
   return (await res.json()) as T;
 }
 
-async function seed(page: Page): Promise<string> {
+async function seed(page: Page, cell = CELL, rowCount = ROW_COUNT): Promise<string> {
   const source = await post<{ id: string }>(page, "/api/data-sources", {
     name: "hel1683-src",
     type: "static",
     columns: [{ name: "text", type: "string" }],
-    rows: Array.from({ length: ROW_COUNT }, () => [CELL]),
+    rows: Array.from({ length: rowCount }, () => [cell]),
   });
   const pipeline = await post<{ id: string }>(page, "/api/pipelines", {
     name: "hel1683-pipe",
@@ -75,6 +80,21 @@ async function longestTask(page: Page): Promise<{ longest: number; all: number[]
     const w = window as unknown as { __hel1683: number[]; __hel1683Obs: PerformanceObserver };
     for (const e of w.__hel1683Obs.takeRecords()) w.__hel1683.push(e.duration);
     return { longest: Math.max(0, ...w.__hel1683), all: [...w.__hel1683] };
+  });
+}
+
+/** The text of every body cell in the `out` column of the rows table inside `rows`. */
+async function outColumnCells(rows: Locator): Promise<string[]> {
+  return rows.locator("table").evaluate((table) => {
+    const heads = Array.from(table.querySelectorAll("thead th"), (th) =>
+      (th.firstChild?.textContent ?? "").trim(),
+    );
+    const col = heads.findIndex((h) => h === "out");
+    if (col < 0) throw new Error(`no out column among: ${heads.join(", ")}`);
+    return Array.from(table.querySelectorAll("tbody tr"), (tr) => {
+      const cell = tr.children[col];
+      return cell ? (cell.textContent ?? "").trim() : "<missing>";
+    });
   });
 }
 
@@ -168,13 +188,23 @@ test.describe("HEL-1683 client regex main-thread guard (live)", () => {
       live.or(budgetError).first(),
       "the server's live result or its exact time-budget step error for the probe step",
     ).toBeVisible({ timeout: 15_000 });
-    if (await live.isVisible()) await expect(rows.getByText("2 rows")).toBeVisible();
+    if (await live.isVisible()) {
+      await expect(rows.getByText("2 rows")).toBeVisible();
+      // The probe pattern matches nothing, so the server's `out` cell is null (rendered "—") for both rows.
+      expect(await outColumnCells(rows), "the server's out cells for the probe pattern").toEqual([
+        NULL_CELL,
+        NULL_CELL,
+      ]);
+    }
 
     // Overrun: the server's time-budget step error is what the draft shows, and the main thread stays free meanwhile.
     await startLongTaskWindow(page);
     await pattern.fill(OVERRUN_PATTERN);
     await expect(
-      page.getByText(/exceeded the 2 s regex time budget for this step/).first(),
+      page
+        .getByText(/pattern '.*' exceeded the 2 s regex time budget for this step/)
+        .filter({ hasText: OVERRUN_PATTERN })
+        .first(),
     ).toBeVisible({ timeout: 30_000 });
     const overrun = await longestTask(page);
     console.log(`[HEL-1683 e2e] overrun longest long task: ${overrun.longest.toFixed(1)} ms`);
@@ -182,5 +212,62 @@ test.describe("HEL-1683 client regex main-thread guard (live)", () => {
       overrun.longest,
       `overrun pattern ${OVERRUN_PATTERN}: longest main-thread task was ${overrun.longest.toFixed(1)} ms, must be <= ${LONG_TASK_BOUND_MS} ms`,
     ).toBeLessThanOrEqual(LONG_TASK_BOUND_MS);
+  });
+
+  // HEL-1697: a single unbounded quantifier with a tail (`(a*)b`) is accepted by the allowlist but quadratic per cell (2.1 s
+  // per 1,000 rows of 2,000 characters). This frame is LONG_ROWS x LONG_CELL_LENGTH = 12 x 10,000 (1.2e9 len^2 units, about
+  // 120 KB): with the decline disabled the Playwright harness measures one 1.1-1.3 s main-thread task (1147, 1259, 1349 ms), far over the 100 ms bound. The frame is deliberately small in total
+  // characters: the dev build pays per-character render and saved-step re-walk costs in the input handler, which a 1.2 MB frame
+  // (400 x 3,000) pushed to 138 ms on CI and 50 x 8,500 (425 KB) to 83 ms locally, while 12 x 10,000 stays at 0 ms.
+  test("a single-quantifier pattern over long cells is declined to the server and never blocks the main thread", async ({
+    page,
+    request,
+  }) => {
+    const creds = await registerAndLogin(page, request, { ...AUTH, label: "regex-long" });
+    expect(creds.email).toContain("hel1683");
+    const pipelineId = await seed(page, "a".repeat(LONG_CELL_LENGTH), LONG_ROWS);
+    const sample = page.waitForResponse((r) =>
+      SAMPLE_URL.test(new URL(r.url()).pathname + new URL(r.url()).search),
+    );
+    await page.goto(`/pipelines/${pipelineId}`);
+    await sample;
+    await expect(page.getByRole("region", { name: /^Rows after step 1/ })).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    const pattern = page.getByRole("textbox", { name: "Pattern" });
+    await expect(pattern).toBeVisible();
+
+    await startLongTaskWindow(page);
+    const api = recordApi(page);
+    await pattern.fill(LONG_PROBE_PATTERN);
+    await page.waitForTimeout(4000);
+    const requests = api.stop();
+    const probe = await longestTask(page);
+    console.log(
+      `[HEL-1697 e2e] long-cell probe longest long task: ${probe.longest.toFixed(1)} ms (tasks: ${probe.all.map((n) => n.toFixed(1)).join(", ")}); requests: ${requests.join(", ")}`,
+    );
+    expect(
+      probe.longest,
+      `long-cell pattern ${LONG_PROBE_PATTERN}: longest main-thread task was ${probe.longest.toFixed(1)} ms, must be <= ${LONG_TASK_BOUND_MS} ms`,
+    ).toBeLessThanOrEqual(LONG_TASK_BOUND_MS);
+    expect(
+      requests.filter((r) => r.includes("/draft-preview")).length,
+      `the declined step goes to the server: ${requests.join(", ")}`,
+    ).toBeGreaterThan(0);
+    // The server's outcome is what the step shows: its live rows, or its exact time-budget step error for this pattern
+    // (10,000-character cells may need longer than the engine's 2 s per-step budget, depending on runner speed). If NEITHER
+    // appears this fails.
+    const rows = page.getByRole("region", { name: /^Rows after step 1/ });
+    const live = page.getByLabel("Preview is live");
+    const budgetError = page
+      .getByText(/pattern '.*' exceeded the 2 s regex time budget for this step/)
+      .filter({ hasText: LONG_PROBE_PATTERN })
+      .first();
+    await expect(
+      live.or(budgetError).first(),
+      "the server's live result or its exact time-budget step error for the long-cell probe step",
+    ).toBeVisible({ timeout: 30_000 });
+    const branch = (await live.isVisible()) ? "live" : "time-budget error";
+    console.log(`[HEL-1697 e2e] long-cell server outcome: ${branch}`);
+    if (branch === "live") await expect(rows.getByText(`${LONG_ROWS} rows`)).toBeVisible();
   });
 });

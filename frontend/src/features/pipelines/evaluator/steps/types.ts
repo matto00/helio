@@ -13,6 +13,7 @@ export type ClientDeclineReason =
   | "aiStep"
   | "legacyExpression"
   | "unsafeRegex"
+  | "regexInputCost"
   | "secondaryNotCached"
   | "unknownFunction"
   | "unknownKind";
@@ -34,6 +35,8 @@ export interface StepHandler<C = unknown> {
   apply(rows: Frame, config: C, ctx: RunContext): Frame;
   /** A config-level reason this step cannot be evaluated client-side, checked before `problems`. */
   declines?(config: C, ctx: RunContext): ClientDeclineReason | undefined;
+  /** A data-dependent reason this step cannot be evaluated client-side, checked after `problems` and before `apply`. */
+  declinesInput?(config: C, input: Frame, ctx: RunContext): ClientDeclineReason | undefined;
   /** True for `upsertsource`: the step writes on Save & run. */
   readonly writesOnSave?: boolean;
 }

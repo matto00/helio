@@ -63,6 +63,8 @@ export function evaluateStep(step: StepInput, input: Frame, ctx: RunContext): St
     if (declined !== undefined) return { status: "needsServer", reason: declined };
     const problems = handler.problems(config);
     if (problems.length > 0) return { status: "error", message: problems.join("; ") };
+    const declinedInput = handler.declinesInput?.(config, input, ctx);
+    if (declinedInput !== undefined) return { status: "needsServer", reason: declinedInput };
     return {
       status: "ok",
       rows: handler.apply(input, config, ctx),
