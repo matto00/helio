@@ -362,6 +362,9 @@ export async function probeView(
   results: ElementResult[],
   counts: { resolved: number; unresolved: number; pass: number; fail: number; advisory: number },
   excludeSelector?: string,
+  /** HEL-1805: when passed, receives the doc ids of the candidates actually PROBED (the sampled set), as opposed to
+   *  the returned `docIds`, which covers every visible element whether or not it was sampled. */
+  sampledDocIds?: Set<string>,
 ): Promise<Set<string>> {
   const { candidates, totalVisible, docIds } = await collectCandidates(
     page,
@@ -369,6 +372,7 @@ export async function probeView(
     MAX_ELEMENTS_PER_VIEW,
     excludeSelector,
   );
+  for (const c of candidates) if (c.docId) sampledDocIds?.add(c.docId);
   // Task 5.2a — per-view visible/sampled counts, printed unconditionally so
   // a population collapse is visible in the log rather than hidden behind
   // a single run-wide total (evaluation-1.md CR1).
@@ -383,6 +387,12 @@ export async function probeView(
       let clearFocus: (() => Promise<void>) | null = null;
       try {
         if (forced === "hover") {
+          // HEL-1805: a forced hover scrolls the element into view WITHOUT a hit-target check, and Playwright parks it
+          // against the scroll container's edge, where a sticky column (the connectors table's Actions column) can sit
+          // on top of it: the pointer then lands on the sticky cell, the candidate never gets `:hover`, and the probe
+          // reads a false "nothing changed" (measured: the Credential / Dependents headers at 390px, hover=false with
+          // the pointer over `.connectors-page__th--actions`). Centre the candidate horizontally first so the
+          // pointer reaches the element itself; a no-op where nothing scrolls sideways.
           // Cycle 4 — several row-hosted triggers (e.g. `.dashboard-list__
           // item-row .actions-menu__trigger`, and its `SourceListTable`/
           // `PipelinesPage` siblings, all newly reachable via the sidebar-
@@ -393,6 +403,9 @@ export async function probeView(
           // engages and the probe reads a false "nothing changed". Hover
           // the immediate parent first (harmless where it isn't needed) so
           // any such reveal-on-ancestor-hover state actually activates.
+          await cand.locator
+            .evaluate((el) => el.scrollIntoView({ block: "nearest", inline: "center" }))
+            .catch(() => {});
           await cand.locator
             .locator("xpath=..")
             .hover({ force: true, timeout: 1000 })
@@ -511,6 +524,9 @@ export const DASH_NAME = "HEL-866 Guard Dashboard";
 export const SECOND_DASH_NAME = "HEL-866 Guard Dashboard B";
 export const PIPELINE_NAME = "HEL-866 Guard Pipeline";
 export const SOURCE_NAME = "HEL-866 Guard Source";
+// HEL-1805: the no-auth REST connector seeded for the `/connectors` cells only. The `.invalid` TLD (RFC 6761) never
+// resolves, so creating or listing it makes no outbound call, and the guard never clicks "Test connection".
+export const CONNECTOR_NAME = "HEL-866 Guard Connector";
 
 // `/sources/:id` and the `*/review` routes remain deliberately excluded — named here rather than
 // left implicit, per design.md D6.2. Runtime ids are resolved inside the cell; titles and logged
@@ -556,6 +572,8 @@ export async function newCell(
   theme: Theme,
   options: {
     seedHomeActivity?: boolean;
+    /** HEL-1805: seed one offline connector so `/connectors` renders its row, actions trigger and "Test connection". */
+    seedConnector?: boolean;
     /** HEL-1649: narrow cells only -- a second, newer dashboard so DASH_NAME is the NON-active phone chip. */
     secondDashboard?: boolean;
   } = {},
@@ -636,6 +654,21 @@ export async function newCell(
     expect(scheduleRes.status()).toBe(200);
   }
 
+  // HEL-1805: `/connectors` renders an empty state on a fresh account, so its row controls were never measured.
+  if (options.seedConnector === true) {
+    const connectorRes = await request.post("/api/connectors", {
+      data: {
+        name: CONNECTOR_NAME,
+        kind: "rest_api",
+        baseUrl: "https://guard-connector.invalid",
+        credential: "",
+        config: { authType: "none" },
+      },
+      headers: { [CSRF_HEADER]: "1" },
+    });
+    expect(connectorRes.status(), await connectorRes.text()).toBe(201);
+  }
+
   // HEL-1288: store the theme; every cell's first `goto` applies it (no separate reload), and
   // each cell asserts `data-theme` after that load.
   // Root cause of the earlier `/settings` 24-vs-25 (probe, HEL-1288 cycle 5): the audit-log table on
@@ -659,6 +692,44 @@ export async function newCell(
   await assertTypeStyleActive(page, typeStyleUnderTest());
   await expect(page.getByRole("button", { name: DASH_NAME, exact: true })).toBeVisible();
   return { client, pipelineId: pipeline.id as string };
+}
+
+/** HEL-1805: the seeded connector's row, actions trigger and (only where mounted, i.e. at/above the 1100px
+ *  `TEST_CONNECTION_MENU_BREAKPOINT_PX`; below it "Test connection" is a menu item) "Test connection" button must have
+ *  been PROBED. `probed` is the sampled set `probeView` fills in (`sampledDocIds`), NOT its returned `docIds`: a view
+ *  over `MAX_ELEMENTS_PER_VIEW` is sampled evenly and a sampled-out control still counts as "in the view" for the
+ *  partition check while never being measured. Fails the cell loudly; logs the result per cell. */
+export async function assertConnectorControlsCovered(
+  page: Page,
+  probed: Set<string>,
+  width: number,
+  label: string,
+) {
+  const docId = async (loc: Locator) => {
+    await expect(loc).toHaveCount(1);
+    return loc.getAttribute(DOC_ID_ATTR);
+  };
+  const row = page.locator("tr.connectors-page__row", { hasText: CONNECTOR_NAME });
+  const trigger = page.getByRole("button", { name: `${CONNECTOR_NAME} actions`, exact: true });
+  const test = page.getByRole("button", { name: "Test connection", exact: true });
+  const ids: Record<string, string | null> = {
+    row: await docId(row),
+    trigger: await docId(trigger),
+  };
+  if (width >= 1100) ids["test-connection"] = await docId(test);
+  else await expect(test).toHaveCount(0);
+  for (const [name, id] of Object.entries(ids)) {
+    expect(id, `${name} was stamped`).not.toBeNull();
+    expect(
+      probed.has(id ?? ""),
+      `HEL-1805: connector ${name} (doc id ${id}) was visible but NOT probed (sampled out) in "${label}"`,
+    ).toBe(true);
+  }
+  console.log(
+    `[HEL-1805 guard] connector controls probed in "${label}" at ${width}px: ${Object.entries(ids)
+      .map(([n, id]) => `${n}=${id}`)
+      .join(", ")}${width >= 1100 ? "" : " (Test connection is a menu item here, not mounted)"}`,
+  );
 }
 
 /** Reports counts and asserts (exemptions, failures, per-cell unresolved ceiling). */
@@ -733,7 +804,12 @@ export function finishCell(cell: string, results: ElementResult[], counts: Count
       r.desc.includes("[add-source-modal__type-btn]") ||
       // HEL-1649 (owner ruling C1/C2): the glass bottom nav's tab HOVER is exempt -- glass is a DESIGN.md section 0.2
       // carve-out, touch-first, its hover design deferred to HEL-1801. Its focus stays asserted (hover-only).
-      r.desc.includes("[bottom-nav__tab]"));
+      r.desc.includes("[bottom-nav__tab]") ||
+      // HEL-1805 (owner ruling C2): the connectors table's scroll region (`div[role=region]`, focusable only while the
+      // table overflows, so it appears at 768/390) is a scroll CONTAINER, not a hover control: it has no hover
+      // affordance by design and a hover state on a pane the pointer merely crosses would be noise. Hover-only (the
+      // `r.forced === "hover"` guard above); its focus ring stays asserted. Keyed on the class token.
+      r.desc.includes("[connectors-page__scroll]"));
 
   const failures = results.filter((r) => r.verdict === "fail" && !isExempt(r));
   const exempted = results.filter((r) => r.verdict === "fail" && isExempt(r));
@@ -806,6 +882,7 @@ export function registerRouteCells(routeKeys: readonly RouteKey[]) {
       }) => {
         const { client, pipelineId } = await newCell(page, request, theme, {
           seedHomeActivity: routeKey === "/home",
+          seedConnector: routeKey === "/connectors",
         });
         const results: ElementResult[] = [];
         const counts: Counts = { resolved: 0, unresolved: 0, pass: 0, fail: 0, advisory: 0 };
@@ -846,6 +923,8 @@ export function registerRouteCells(routeKeys: readonly RouteKey[]) {
           await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
           // async-loaded audit-log table (see newCell); HEL-1336's shared readiness helper.
           await waitForSettingsAuditTable(page);
+        } else if (routeKey === "/connectors") {
+          await seeded(page.locator("main"), CONNECTOR_NAME);
         } else {
           await expect(page.locator("main")).toBeVisible();
         }
@@ -877,7 +956,18 @@ export function registerRouteCells(routeKeys: readonly RouteKey[]) {
         );
         const main = page.locator("main");
         await expect(main).toBeVisible();
-        const mainDocIds = await probeView(page, client, viewName, theme, main, results, counts);
+        const mainSampledDocIds = new Set<string>();
+        const mainDocIds = await probeView(
+          page,
+          client,
+          viewName,
+          theme,
+          main,
+          results,
+          counts,
+          undefined,
+          mainSampledDocIds,
+        );
         // Chrome's coverage on THIS route's fresh stamp — collected (not re-probed; the `chrome`
         // cell measures hover/focus) purely to credit chrome's elements for the partition check.
         const { docIds: chromeCoverageHere } = await collectCandidates(
@@ -886,6 +976,9 @@ export function registerRouteCells(routeKeys: readonly RouteKey[]) {
           MAX_ELEMENTS_PER_VIEW,
           CHROME_EXCLUDE,
         );
+        if (routeKey === "/connectors") {
+          await assertConnectorControlsCovered(page, mainSampledDocIds, 1440, viewName);
+        }
         await assertPartitioned(page, viewName, totalStamped, [
           chromeCoverageHere,
           sidebarRailDocIds,

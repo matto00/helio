@@ -1,0 +1,4 @@
+- `e2e/support/state-surface-contrast-guard.ts` — connector seed + readiness + coverage assertion that checks the PROBED (sampled) set via a new optional `sampledDocIds` out-param of probeView (cycle 2); probeView centres the candidate horizontally before a forced hover (sticky-column occlusion artifact); hover-only isExempt entry for the connectors scroll region (owner ruling C2)
+- `e2e/support/state-surface-contrast-guard-narrow.ts` — narrow cells seed the connector, wait on its name, assert the controls are sampled
+- `frontend/src/features/connectors/ui/ConnectorsPage.css` — row (and sticky actions cell), row-scoped Test connection and actions-trigger hovers to --app-surface-raised
+- `openspec/changes/connector-hover-contrast-seed/` — tasks, evidence/, ci-impact.md

@@ -1,7 +1,9 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
 import {
+  assertConnectorControlsCovered,
   assertPartitioned,
+  CONNECTOR_NAME,
   CHROME_EXCLUDE,
   collectCandidates,
   type Counts,
@@ -69,6 +71,7 @@ export function registerNarrowCells(widths: readonly NarrowWidth[]) {
           await page.setViewportSize({ width, height });
           const { client, pipelineId } = await newCell(page, request, theme, {
             seedHomeActivity: routeKey === "/home",
+            seedConnector: routeKey === "/connectors",
             secondDashboard: phone,
           });
           const results: ElementResult[] = [];
@@ -133,7 +136,20 @@ export function registerNarrowCells(widths: readonly NarrowWidth[]) {
           }
           const main = page.locator("main");
           await expect(main).toBeVisible();
-          covered.push(await probeView(page, client, viewName, theme, main, results, counts));
+          const mainSampledDocIds = new Set<string>();
+          covered.push(
+            await probeView(
+              page,
+              client,
+              viewName,
+              theme,
+              main,
+              results,
+              counts,
+              undefined,
+              mainSampledDocIds,
+            ),
+          );
           await fullySampled(`chrome@${width}`, page.locator("body"), CHROME_EXCLUDE);
           await fullySampled(viewName, main);
           if (routeKey === "pipeline-detail") {
@@ -146,6 +162,9 @@ export function registerNarrowCells(widths: readonly NarrowWidth[]) {
             console.log(
               `[HEL-1649 guard] "Refresh sample of ${SOURCE_NAME}" probed at ${width}px (${theme}) in view "${viewName}" (doc id ${refreshId})`,
             );
+          }
+          if (routeKey === "/connectors") {
+            await assertConnectorControlsCovered(page, mainSampledDocIds, width, viewName);
           }
           await assertPartitioned(page, viewName, totalStamped, covered);
           finishCell(`${viewName}(${theme})`, results, counts);
@@ -175,6 +194,8 @@ async function awaitReady(page: Page, routeKey: RouteKey, phone: boolean) {
     const refresh = page.getByRole("button", { name: `Refresh sample of ${SOURCE_NAME}` });
     await expect(refresh).toBeVisible();
     await expect(refresh).toBeEnabled();
+  } else if (routeKey === "/connectors") {
+    await seeded(page.locator("main"), CONNECTOR_NAME);
   } else {
     await expect(page.locator("main")).toBeVisible();
   }

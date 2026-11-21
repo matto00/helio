@@ -1,0 +1,24 @@
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+[HEL-866 ratio] [light] /home@390 :: button "HEL-866 Guard Pipeline, 2 runs, 1 failed" [tl-disc__head] (#3) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /home@390 :: button "HEL-866 Guard Pipeline, 2 runs, 1 failed" [tl-disc__head] (#3) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+[HEL-866 ratio] [dark] /home@390 :: button "HEL-866 Guard Pipeline, 2 runs, 1 failed" [tl-disc__head] (#3) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /home@390 :: button "HEL-866 Guard Pipeline, 2 runs, 1 failed" [tl-disc__head] (#3) (focus) advisory ratio=n/a
+[HEL-866 guard] 5 reviewed exemption(s) applied (see the isExempt comment above):
+[HEL-866 guard] 6 reviewed exemption(s) applied (see the isExempt comment above):
+  [dark] /connectors@390 :: div[role=region] "NameKindBase URLCredentialDependentsUpda" aria="Connectors table" [connectors-page__scroll] (#2) (hover)
+[HEL-866 guard] 6 reviewed exemption(s) applied (see the isExempt comment above):
+  [light] /connectors@390 :: div[role=region] "NameKindBase URLCredentialDependentsUpda" aria="Connectors table" [connectors-page__scroll] (#2) (hover)
+    Error: HEL-866 guard: 2 state(s) failed the 1.1 contrast threshold:
+      [dark] /connectors@390 :: tr "HEL-866 Guard Connectorrest_apihttps://g" [connectors-page__row] (#9) (hover) — ratio=1.0574354379465583
+      [dark] /connectors@390 :: button "" aria="HEL-866 Guard Connector actions" [popover__trigger] (#10) (hover) — ratio=1.0574354379465583
+      833 |       `HEL-866 guard: ${failures.length} state(s) failed the ${CONTRAST_THRESHOLD} contrast threshold:\n${lines.join("\n")}`,
+    Error: HEL-866 guard: 2 state(s) failed the 1.1 contrast threshold:
+      [light] /connectors@390 :: tr "HEL-866 Guard Connectorrest_apihttps://g" [connectors-page__row] (#9) (hover) — ratio=1.0538655293965835
+      [light] /connectors@390 :: button "" aria="HEL-866 Guard Connector actions" [popover__trigger] (#10) (hover) — ratio=1.0538655293965835
+      833 |       `HEL-866 guard: ${failures.length} state(s) failed the ${CONTRAST_THRESHOLD} contrast threshold:\n${lines.join("\n")}`,
+  2 failed
+  6 passed (40.1s)

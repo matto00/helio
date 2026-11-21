@@ -1,0 +1,66 @@
+[1/8] [dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /home: every interactive state background differs measurably from its resolved backdrop (light)
+[2/8] [dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /home: every interactive state background differs measurably from its resolved backdrop (dark)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /home: every interactive state background differs measurably from its resolved backdrop (light)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /home: every interactive state background differs measurably from its resolved backdrop (dark)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /home: every interactive state background differs measurably from its resolved backdrop (light)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /home: every interactive state background differs measurably from its resolved backdrop (dark)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /home: every interactive state background differs measurably from its resolved backdrop (light)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /home: every interactive state background differs measurably from its resolved backdrop (dark)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /home: every interactive state background differs measurably from its resolved backdrop (light)
+[HEL-866 guard] elements probed: 16, resolved=16, unresolved=0, pass=6, fail=0, advisory=10 — 38% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [light] /home :: button "" aria="HEL-866 Guard Pipeline, failed, 21:27, source returned 0 rows" [tl__mark] (#3) (hover) pass ratio=1.149916487957563
+[HEL-866 ratio] [light] /home :: button "" aria="HEL-866 Guard Pipeline, failed, 21:27, source returned 0 rows" [tl__mark] (#3) (focus) advisory ratio=n/a
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /home: every interactive state background differs measurably from its resolved backdrop (dark)
+[HEL-866 guard] elements probed: 16, resolved=16, unresolved=0, pass=6, fail=0, advisory=10 — 38% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 ratio] [dark] /home :: button "" aria="HEL-866 Guard Pipeline, failed, 21:27, source returned 0 rows" [tl__mark] (#3) (hover) pass ratio=1.1327997421191345
+[HEL-866 ratio] [dark] /home :: button "" aria="HEL-866 Guard Pipeline, failed, 21:27, source returned 0 rows" [tl__mark] (#3) (focus) advisory ratio=n/a
+[3/8] [dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /dashboards: every interactive state background differs measurably from its resolved backdrop (dark)
+[4/8] [dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /dashboards: every interactive state background differs measurably from its resolved backdrop (light)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /dashboards: every interactive state background differs measurably from its resolved backdrop (light)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /dashboards: every interactive state background differs measurably from its resolved backdrop (dark)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /dashboards: every interactive state background differs measurably from its resolved backdrop (light)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /dashboards: every interactive state background differs measurably from its resolved backdrop (dark)
+[HEL-866 guard] elements probed: 18, resolved=18, unresolved=0, pass=9, fail=0, advisory=9 — 50% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /dashboards: every interactive state background differs measurably from its resolved backdrop (light)
+[HEL-866 guard] elements probed: 18, resolved=18, unresolved=0, pass=9, fail=0, advisory=9 — 50% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[5/8] [dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /chat: every interactive state background differs measurably from its resolved backdrop (dark)
+[6/8] [dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /chat: every interactive state background differs measurably from its resolved backdrop (light)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /chat: every interactive state background differs measurably from its resolved backdrop (dark)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /chat: every interactive state background differs measurably from its resolved backdrop (light)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /chat: every interactive state background differs measurably from its resolved backdrop (dark)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /chat: every interactive state background differs measurably from its resolved backdrop (light)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /chat: every interactive state background differs measurably from its resolved backdrop (dark)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /chat: every interactive state background differs measurably from its resolved backdrop (light)
+[HEL-866 guard] elements probed: 8, resolved=8, unresolved=0, pass=4, fail=0, advisory=4 — 50% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[7/8] [dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /connectors: every interactive state background differs measurably from its resolved backdrop (dark)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /chat: every interactive state background differs measurably from its resolved backdrop (dark)
+[HEL-866 guard] elements probed: 8, resolved=8, unresolved=0, pass=4, fail=0, advisory=4 — 50% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[8/8] [dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /connectors: every interactive state background differs measurably from its resolved backdrop (light)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /connectors: every interactive state background differs measurably from its resolved backdrop (dark)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /connectors: every interactive state background differs measurably from its resolved backdrop (light)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /connectors: every interactive state background differs measurably from its resolved backdrop (dark)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /connectors: every interactive state background differs measurably from its resolved backdrop (light)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /connectors: every interactive state background differs measurably from its resolved backdrop (dark)
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /connectors: every interactive state background differs measurably from its resolved backdrop (light)
+[HEL-1805 guard] connector controls probed in "/connectors" at 1440px: row=17, trigger=19, test-connection=18
+[HEL-866 guard] elements probed: 20, resolved=20, unresolved=0, pass=1, fail=3, advisory=16 — 20% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /connectors: every interactive state background differs measurably from its resolved backdrop (dark)
+[HEL-1805 guard] connector controls probed in "/connectors" at 1440px: row=17, trigger=19, test-connection=18
+[HEL-866 guard] elements probed: 20, resolved=20, unresolved=0, pass=1, fail=3, advisory=16 — 20% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+  1) [dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /connectors: every interactive state background differs measurably from its resolved backdrop (light) 
+    Error: HEL-866 guard: 3 state(s) failed the 1.1 contrast threshold:
+      [light] /connectors :: tr "HEL-866 Guard Connectorrest_apihttps://g" [connectors-page__row] (#6) (hover) — ratio=1.0538655293965835
+      [light] /connectors :: button "Test connection" [connectors-page__btn] (#7) (hover) — ratio=1.0538655293965835
+      [light] /connectors :: button "" aria="HEL-866 Guard Connector actions" [popover__trigger] (#8) (hover) — ratio=1.0538655293965835
+      819 |       `HEL-866 guard: ${failures.length} state(s) failed the ${CONTRAST_THRESHOLD} contrast threshold:\n${lines.join("\n")}`,
+  2) [dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /connectors: every interactive state background differs measurably from its resolved backdrop (dark) 
+    Error: HEL-866 guard: 3 state(s) failed the 1.1 contrast threshold:
+      [dark] /connectors :: tr "HEL-866 Guard Connectorrest_apihttps://g" [connectors-page__row] (#6) (hover) — ratio=1.0574354379465583
+      [dark] /connectors :: button "Test connection" [connectors-page__btn] (#7) (hover) — ratio=1.0574354379465583
+      [dark] /connectors :: button "" aria="HEL-866 Guard Connector actions" [popover__trigger] (#8) (hover) — ratio=1.0574354379465583
+      819 |       `HEL-866 guard: ${failures.length} state(s) failed the ${CONTRAST_THRESHOLD} contrast threshold:\n${lines.join("\n")}`,
+  2 failed
+    [dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /connectors: every interactive state background differs measurably from its resolved backdrop (dark) 
+    [dev] › e2e/support/state-surface-contrast-guard.ts:860:11 › HEL-866 state-surface contrast guard › /connectors: every interactive state background differs measurably from its resolved backdrop (light) 
+  6 passed (31.2s)
+real	0m31.775s

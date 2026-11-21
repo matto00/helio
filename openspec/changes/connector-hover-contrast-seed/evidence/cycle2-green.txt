@@ -1,0 +1,9 @@
+routes-light:   8 passed (28.4s)
+narrow-1100-768:   12 passed (1.1m)
+narrow-390:   8 passed (43.9s)
+routes-dense:   8 passed (42.9s)
+overlays-chrome:   4 passed (43.3s)
+[HEL-1805 guard] connector controls probed in "/connectors@1100" at 1100px: row=17, trigger=19, test-connection=18
+[HEL-1805 guard] connector controls probed in "/connectors@390" at 390px: row=12, trigger=13 (Test connection is a menu item here, not mounted)
+[HEL-1805 guard] connector controls probed in "/connectors@768" at 768px: row=12, trigger=13 (Test connection is a menu item here, not mounted)
+[HEL-1805 guard] connector controls probed in "/connectors" at 1440px: row=17, trigger=19, test-connection=18
