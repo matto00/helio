@@ -159,6 +159,8 @@ test.describe("HEL-1786 dashboard grantees get freshness, run-finish refresh and
   test.setTimeout(90_000);
 
   test.beforeAll(async ({ browser }) => {
+    // The three 30 s polls plus the auto-run settle below (<= ~50 s) exceed a hook's default 30 s project timeout (the describe's 90 s applies to tests, not hooks): give the hook its own budget.
+    test.setTimeout(180_000);
     owner = await newActor(browser, "owner");
     viewer = await newActor(browser, "viewer");
     editor = await newActor(browser, "editor");
@@ -224,6 +226,29 @@ test.describe("HEL-1786 dashboard grantees get freshness, run-finish refresh and
           return res.status() === 200 ? ((await res.json()) as { invalid: boolean }).invalid : null;
         },
         { timeout: 30_000 },
+      )
+      .toBe(true);
+    // The violating-row write above armed a HEL-1093 auto-run that the blocked manual run does not cancel (HEL-1739); it fires
+    // on the next scheduler tick after the debounce (<= ~35 s) at a time the test does not control. Its finish flips the
+    // owner's latest run to "failed" while a grantee page only learns of it at its next 15 s poll, which is what raced
+    // `expectFact` (HEL-1812). No route exposes the armed debounce, so wait on observable run history instead: a TERMINAL
+    // run whose triggerSource is "auto-run". After it no further auto-run of this pipeline is armed.
+    await expect
+      .poll(
+        async () => {
+          const res = await api.get(`/api/pipelines/${checkedPipeline.id}/run-history`);
+          if (res.status() !== 200) return `run-history ${res.status()}`;
+          const runs = (await res.json()) as { triggerSource: string; status: string }[];
+          return runs.some(
+            (r) =>
+              r.triggerSource === "auto-run" && (r.status === "succeeded" || r.status === "failed"),
+          );
+        },
+        {
+          timeout: 50_000,
+          message:
+            "the checked pipeline's armed auto-run (5 s debounce + 30 s scheduler tick) never finished",
+        },
       )
       .toBe(true);
 
