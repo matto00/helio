@@ -1,0 +1,54 @@
+import { test, type CDPSession } from "@playwright/test";
+
+import { registerAndLogin } from "./support/auth";
+import { AUTH, THEMES, openPipeline, seedPipeline } from "./support/hel1582Phone";
+import { trackPointer } from "./support/hel1790Rest";
+
+// HEL-1813 PROBE (temporary): records per-rAF trigger geometry across the sheet slide and whether the HEL-1790
+// sweep predicate (top <= 360 && bottom >= 366) was ever observed, at several CPU throttle rates.
+test.use({ viewport: { width: 390, height: 844 } });
+const RATES = [1, 4, 8];
+for (const theme of THEMES) {
+  for (const rate of RATES) {
+    test(`probe ${theme} cpu x${rate}`, async ({ page, request }) => {
+      test.setTimeout(120_000);
+      await trackPointer(page);
+      await registerAndLogin(page, request, { ...AUTH, label: `h1813-${theme}-${rate}` });
+      const pipelineId = await seedPipeline(page, false, false, true);
+      await openPipeline(page, pipelineId, theme);
+      const cdp: CDPSession = await page.context().newCDPSession(page);
+      await page.evaluate(() => {
+        const w = window as unknown as { __frames: unknown[]; __hit: boolean };
+        w.__frames = [];
+        w.__hit = false;
+        const start = performance.now();
+        const tick = () => {
+          const t = document.querySelector(".mobile-step-sheet .ui-select__trigger");
+          const r = t?.getBoundingClientRect();
+          const now = performance.now();
+          if (r) {
+            if (r.top <= 360 && r.bottom >= 366) w.__hit = true;
+            w.__frames.push({ t: Math.round(now - start), top: Math.round(r.top), h: Math.round(r.height) });
+          }
+          if (now - start < 4000) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+      if (rate > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate });
+      await page.locator(".spine-row__select").first().click();
+      await page.waitForTimeout(3000);
+      const out = await page.evaluate(() => {
+        const w = window as unknown as { __frames: { t: number; top: number; h: number }[]; __hit: boolean };
+        return { hit: w.__hit, frames: w.__frames };
+      });
+      const f = out.frames;
+      const deltas = f.slice(1).map((x, i) => x.t - f[i].t);
+      const travel = f.slice(1).map((x, i) => f[i].top - x.top);
+      const h = f[0]?.h ?? 0;
+      const slide = f.filter((x) => x.top > 248 + 2 && x.top < 1100);
+      console.log(
+        `PROBE theme=${theme} cpu=${rate} hit=${out.hit} triggerH=${h} bandWidthPx=${h - 6} frames=${f.length} slideFrames=${slide.length} maxFrameDeltaMs=${Math.max(...deltas)} maxTravelPerFramePx=${Math.max(...travel)} restTop=${f.at(-1)?.top} tops=${JSON.stringify(f.filter((x) => x.top < 1100 && x.top > 240).map((x) => [x.t, x.top]))}`,
+      );
+    });
+  }
+}
