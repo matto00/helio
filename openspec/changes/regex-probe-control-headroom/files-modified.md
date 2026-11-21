@@ -1,7 +1,0 @@
-- `e2e/hel1683-regex-main-thread.spec.ts` — Long Animation Frame + API timeline diagnostics; HEL1808_CPU_THROTTLE knob (off by default, invalid values throw); windows unchanged
-- `openspec/changes/regex-probe-control-headroom/attribution-old-shape.txt` — old-shape attribution output
-- `openspec/changes/regex-probe-control-headroom/attribution-new-shape.txt` — narrowed-window attempt (reverted)
-- `openspec/changes/regex-probe-control-headroom/attribution.md` — PR-ready remaining margin and cause
-- `openspec/changes/regex-probe-control-headroom/mutation-decline-disabled.{diff,txt}` — AC2 mutation
-- `openspec/changes/regex-probe-control-headroom/mutation-control-busyloop.{diff,txt}` — control mutation
-- `openspec/changes/regex-probe-control-headroom/final-1x-x5.txt` — final-tree 1x x5 values
