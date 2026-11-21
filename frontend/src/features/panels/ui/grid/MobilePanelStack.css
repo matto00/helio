@@ -56,7 +56,8 @@
 .mobile-panel-stack__item.mobile-panel-stack__item--text,
 .mobile-panel-stack__item.mobile-panel-stack__item--image,
 .mobile-panel-stack__item.mobile-panel-stack__item--collection,
-.mobile-panel-stack__item.mobile-panel-stack__item--timeline {
+.mobile-panel-stack__item.mobile-panel-stack__item--timeline,
+.mobile-panel-stack__item.mobile-panel-stack__item--form {
   container-type: inline-size;
   height: auto;
   flex-shrink: 0;
@@ -262,4 +263,14 @@
   background: var(--app-surface);
   box-shadow: var(--app-shadow-card);
   font-size: var(--text-xs);
+}
+
+/* Form (HEL-1791): fully intrinsic in the stack. `form` is a real PanelKind that the intrinsic-height rule above never
+   listed, so a form card kept `.panel-grid-card`'s `container-type: size` against this auto-height column and collapsed
+   to ~30px (its `.crossfade` flex 1 / min-height 0 and the `overflow-y: auto` body shrank to ~24px, so a compact
+   counter scrolled inside the card). `.panel-content--form` (PanelContent.css) scrolls on desktop inside a fixed
+   `h x rowHeight` cell; the stack has no such cell, so restore intrinsic sizing (mirrors the text override). */
+.mobile-panel-stack__item--form .panel-content--form {
+  height: auto;
+  overflow-y: visible;
 }

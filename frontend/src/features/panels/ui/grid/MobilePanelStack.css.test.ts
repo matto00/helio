@@ -43,7 +43,16 @@ describe("MobilePanelStack.css — intrinsic-height items vs. container-type: si
   // HEL-317: `timeline` is the same intrinsic shape as `collection` — added
   // here after the cycle-1 evaluator caught it missing from this override
   // (the panel collapsed to 0px visible height at the 390×844 breakpoint).
-  const intrinsicKinds = ["table", "markdown", "text", "image", "collection", "timeline"] as const;
+  // HEL-1791: `form` is a real PanelKind that no stack rule listed, so a compact counter card collapsed to ~30px.
+  const intrinsicKinds = [
+    "table",
+    "markdown",
+    "text",
+    "image",
+    "collection",
+    "timeline",
+    "form",
+  ] as const;
 
   it.each(intrinsicKinds)("the --%s stack-item rule does not set container-type: size", (kind) => {
     const body = findRuleBody(css, `.mobile-panel-stack__item--${kind}`);
@@ -142,5 +151,13 @@ describe("MobilePanelStack.css — chart canvas height", () => {
   it("pins a definite height on the stack's chart canvas", () => {
     const body = findRuleBody(css, ".mobile-panel-stack__item--output .chart-panel__canvas");
     expect(body).toMatch(/(?<![-\w])height:\s*100px\s*;/);
+  });
+});
+
+describe("MobilePanelStack.css — form body is intrinsic in the stack (HEL-1791)", () => {
+  it("the form body is not an inner scroller and takes its content height", () => {
+    const body = findRuleBody(css, ".mobile-panel-stack__item--form .panel-content--form");
+    expect(body).toMatch(/height:\s*auto/);
+    expect(body).toMatch(/overflow-y:\s*visible/);
   });
 });

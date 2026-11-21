@@ -1,0 +1,138 @@
+
+Running 5 tests using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1791-owner-1795222289027-86086@example.test
+[HEL-1300 e2e] throwaway user: hel1791-editor-1795222289271-92518@example.test
+  ✘  1 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:164:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light (2.4s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-1795222293659-7579@example.test
+[HEL-1300 e2e] throwaway user: hel1791-editor-1795222293938-2291@example.test
+  ✘  2 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:164:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark (2.1s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-1795222298279-24130@example.test
+[HEL-1300 e2e] throwaway user: hel1791-editor-1795222298586-91573@example.test
+  ✘  3 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:164:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light (2.3s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-1795222302980-79100@example.test
+[HEL-1300 e2e] throwaway user: hel1791-editor-1795222303264-48345@example.test
+  ✘  4 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:164:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark (2.2s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-1795222307435-61317@example.test
+[HEL-1300 e2e] throwaway user: hel1791-editor-1795222307707-19310@example.test
+  ✓  5 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:218:7 › HEL-1791 compact counter height in the panel stack › per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) (10.7s)
+Error: userCleanup: psql failed (is psql installed and the DB reachable?): ERROR:  userCleanup: 0 of 10 recorded users match their exact id and email; nothing deleted
+CONTEXT:  PL/pgSQL function inline_code_block line 10 at RAISE
+
+
+  75 |         ? "psql is not installed"
+  76 |         : stderr || `exit status ${e?.status ?? "unknown"}${e?.code ? ` (${e.code})` : ""}`;
+> 77 |     throw new Error(`${label}: psql failed (is psql installed and the DB reachable?): ${reason}`);
+     |           ^
+  78 |   }
+  79 | }
+  80 |
+
+
+  1) [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:164:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light 
+
+    Error: owner light 390px value bottom inside card
+
+    expect(received).toBeLessThanOrEqual(expected)
+
+    Expected: <= 823.0469360351562
+    Received:    881.2344360351562
+
+      155 |     expect(t!.height, `${what} has height`).toBeGreaterThan(0);
+      156 |     expect(t!.y, `${what} top inside card`).toBeGreaterThanOrEqual(c!.y - 0.5);
+    > 157 |     expect(t!.y + t!.height, `${what} bottom inside card`).toBeLessThanOrEqual(
+          |                                                            ^
+      158 |       c!.y + c!.height + 0.5,
+      159 |     );
+      160 |   }
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1791-compact-counter-st-ebb9d--with-no-inner-scroll-light-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1791-compact-counter-st-ebb9d--with-no-inner-scroll-light-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:164:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark 
+
+    Error: owner dark 390px value bottom inside card
+
+    expect(received).toBeLessThanOrEqual(expected)
+
+    Expected: <= 823.03125
+    Received:    881.21875
+
+      155 |     expect(t!.height, `${what} has height`).toBeGreaterThan(0);
+      156 |     expect(t!.y, `${what} top inside card`).toBeGreaterThanOrEqual(c!.y - 0.5);
+    > 157 |     expect(t!.y + t!.height, `${what} bottom inside card`).toBeLessThanOrEqual(
+          |                                                            ^
+      158 |       c!.y + c!.height + 0.5,
+      159 |     );
+      160 |   }
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1791-compact-counter-st-15d4e-s-with-no-inner-scroll-dark-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1791-compact-counter-st-15d4e-s-with-no-inner-scroll-dark-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:164:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light 
+
+    Error: editor light 390px value bottom inside card
+
+    expect(received).toBeLessThanOrEqual(expected)
+
+    Expected: <= 823.1754150390625
+    Received:    873.8629150390625
+
+      155 |     expect(t!.height, `${what} has height`).toBeGreaterThan(0);
+      156 |     expect(t!.y, `${what} top inside card`).toBeGreaterThanOrEqual(c!.y - 0.5);
+    > 157 |     expect(t!.y + t!.height, `${what} bottom inside card`).toBeLessThanOrEqual(
+          |                                                            ^
+      158 |       c!.y + c!.height + 0.5,
+      159 |     );
+      160 |   }
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1791-compact-counter-st-335aa--with-no-inner-scroll-light-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1791-compact-counter-st-335aa--with-no-inner-scroll-light-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:164:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark 
+
+    Error: editor dark 390px value bottom inside card
+
+    expect(received).toBeLessThanOrEqual(expected)
+
+    Expected: <= 823.2299194335938
+    Received:    873.9174194335938
+
+      155 |     expect(t!.height, `${what} has height`).toBeGreaterThan(0);
+      156 |     expect(t!.y, `${what} top inside card`).toBeGreaterThanOrEqual(c!.y - 0.5);
+    > 157 |     expect(t!.y + t!.height, `${what} bottom inside card`).toBeLessThanOrEqual(
+          |                                                            ^
+      158 |       c!.y + c!.height + 0.5,
+      159 |     );
+      160 |   }
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1791-compact-counter-st-d2c51-n-with-no-inner-scroll-dark-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1791-compact-counter-st-d2c51-n-with-no-inner-scroll-dark-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4 failed
+    [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:164:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light 
+    [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:164:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark 
+    [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:164:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light 
+    [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:164:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark 
+  1 passed (31.5s)
+  1 error was not a part of any test, see above for details

@@ -1,0 +1,19 @@
+  ✘  1 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:164:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light (2.0s)
+  ✘  2 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:164:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark (2.3s)
+  ✘  3 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:164:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light (2.2s)
+  ✘  4 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:164:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark (2.2s)
+  ✓  5 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:218:7 › HEL-1791 compact counter height in the panel stack › per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) (10.8s)
+    Error: owner light 390px value bottom inside card
+    Expected: <= 823.0768432617188
+    Received:    881.2643432617188
+    Error: owner dark 390px value bottom inside card
+    Expected: <= 823.0338745117188
+    Received:    881.2213745117188
+    Error: editor light 390px value bottom inside card
+    Expected: <= 823.076904296875
+    Received:    873.764404296875
+    Error: editor dark 390px value bottom inside card
+    Expected: <= 823.0592651367188
+    Received:    873.7467651367188
+  4 failed
+  1 passed (29.8s)

@@ -2,7 +2,9 @@
 
 ## Purpose
 Give phone-width panels content-appropriate per-kind heights, density, and chrome so dashboards feel native rather than like a squashed desktop grid.
+
 ## Requirements
+
 ### Requirement: Stack panel heights are content-appropriate per panel kind
 In the phone stack, panel heights SHALL be derived from the panel kind — never from the desktop formula
 `h × rowHeight`. The stored `h` SHALL only modulate within a kind's clamped band. Per-kind policy (starting
@@ -17,6 +19,8 @@ values, expected to be tuned on device):
 - `divider`: intrinsic hairline with no card chrome (no header, no footer).
 - `collection`: fully intrinsic — no fixed height, no internal scroll; the item grid wraps to the
   stack's content width (an explicit policy entry, not a fall-through default).
+- `form`: fully intrinsic — no fixed height, no cap, no internal scroll; a compact counter form shows its value,
+  both step buttons and any caption without scrolling inside the card.
 
 The per-kind policy SHALL live in a single pure module so device-tuning is a one-file change.
 
@@ -37,6 +41,13 @@ The per-kind policy SHALL live in a single pure module so device-tuning is a one
 - **WHEN** a collection panel with several metric items renders in the stack at phone width
 - **THEN** the panel grows to its intrinsic content height with no internal scrollbar
 - **AND** the item grid wraps within the stack content width with no horizontal body scroll
+
+#### Scenario: Compact counter form is fully visible in the stack
+- **WHEN** a form panel with exactly one counter field renders in the single-column panel stack at 390 px, 768 px, or
+  1100 px with the sidebar open, in light or dark theme
+- **THEN** the card shows the counter value, both step buttons and, for a non-owner, the session-change caption
+  without any scrolling inside the card
+- **AND** every other panel kind in the stack keeps the height it had before the change
 
 ### Requirement: Only tables may scroll internally
 In the phone stack, the table panel SHALL be the only panel kind with a nested scroll container. Tables SHALL
@@ -81,4 +92,3 @@ overflow at phone widths SHALL be handled via ECharts configuration, not CSS ove
 #### Scenario: Container size change triggers chart resize
 - **WHEN** a chart panel's container changes size while mounted in the stack
 - **THEN** the ECharts instance resizes to fit the new container dimensions
-
