@@ -33,5 +33,5 @@
 
 ## 5. After measurement (Delivery, on the PR)
 
-- [ ] 5.1 After the PR exists: measure at least 5 counting 8-leg PR runs per design D4 (first run, then `HEL-1793 CI measurement run N` empty commits one at a time; cap 6 runs; fewer than 5 counting in 6 -> stop and escalate, design D4). Verify: measurement.md "After" table with run ids, slowest/mean leg wall, per-leg CPU model, counting status, trigger of each run, and the verdict (<= 1200 s on every counting run, or the gap with its cause).
+- [x] 5.1 After the PR exists: measure at least 5 counting 8-leg PR runs per design D4 (first run, then `HEL-1793 CI measurement run N` empty commits one at a time; cap 6 runs; fewer than 5 counting in 6 -> stop and escalate, design D4). Verify: measurement.md "After" table with run ids, slowest/mean leg wall, per-leg CPU model, counting status, trigger of each run, and the verdict (<= 1200 s on every counting run, or the gap with its cause).
 - [ ] 5.2 Post-merge: measure any main run completed before cleanup; hand the rest of the 5-run main watch to the driver and state it in the closing comment (design D4a). Verify: closing comment and final report name the pending watch and the scripts' path.
