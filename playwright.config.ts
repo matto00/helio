@@ -189,8 +189,8 @@ export default defineConfig({
   timeout: 30_000,
   retries: 0,
   fullyParallel: false,
-  // HEL-1288 — CI pins 2 workers per shard leg (the e2e matrix runs 7 legs: HEL-1772 owner
-  // ruling, up from 6 (HEL-1698); it was capped at 4 by the account-wide concurrent-job limit, HEL-1288 C8).
+  // HEL-1288 — CI pins 2 workers per shard leg (the e2e matrix runs 8 legs: HEL-1793 owner
+  // ruling, up from 7 (HEL-1772) and 6 (HEL-1698); it was capped at 4 by the account-wide concurrent-job limit, HEL-1288 C8).
   // 3 workers measured no faster and 4 workers flaked on CI
   // (the 4-vCPU runner is CPU-bound); 2 is also the runner default. Cross-test isolation at 2 workers can only be proven on CI
   // (local runs stay at <= 2 workers). CI additionally writes a JSON report (uploaded as an artifact by
