@@ -1,7 +1,0 @@
-- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoBoundPanels.scala` — extract `describeBlocking` (blocker text unchanged)
-- `backend/src/main/scala/com/helio/services/pipelines/draft/DraftRestore.scala` — named/counted created-Outputs refusal, count-only removed refusal, combined message, dashboardRepo param
-- `backend/src/main/scala/com/helio/services/pipelines/draft/DraftSaveTransaction.scala` — cascadeGate Restore refusal count-only
-- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — pass dashboardRepo to DraftRestore
-- `backend/src/test/scala/com/helio/services/pipelines/draft/DraftUndoPanelNamingSpec.scala` — new two-user helio_app_test spec
-- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveUndoSpec.scala` — message assertions updated
-- `backend/src/test/scala/com/helio/testsupport/DraftUndoRlsFixture.scala` — spec setup split out of the spec
