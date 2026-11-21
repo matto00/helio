@@ -5,6 +5,8 @@ import com.helio.testkit.TempDirectorySupport
 
 import com.helio.api.routes.patchsets.PatchSetUndoRoutes
 import com.helio.api.protocols.dashboards.UpdateDashboardRequest
+import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
+import spray.json._
 import com.helio.api.protocols.patchsets.{Edit, EditTarget, PatchSet, PatchSetUndoResponse}
 import com.helio.services.auth.AccessChecker
 import com.helio.services.dashboards.DashboardService
@@ -66,6 +68,8 @@ class PatchSetUndoRoutesSpec
   private var panelService: PanelService                 = _
   private var patchSetApplyService: PatchSetApplyService = _
   private var patchSetUndoService: PatchSetUndoService   = _
+  private var dataSourceServiceF: DataSourceService      = _
+  private var outputRepoF: OutputRepository              = _
 
   private val userAId = UUID.randomUUID().toString
   private val userBId = UUID.randomUUID().toString
@@ -100,6 +104,8 @@ class PatchSetUndoRoutesSpec
     dashboardService = new DashboardService(dashboardRepo, accessChecker, outputRepo = new OutputRepository(ctx))
     panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, outputRepo = new OutputRepository(ctx))
     val dataSourceService = new DataSourceService(dataSourceRepo, fileSystem)
+    dataSourceServiceF = dataSourceService
+    outputRepoF = new OutputRepository(ctx)
     val pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = new OutputRepository(ctx))
 
     val applicationRepo = new PatchSetApplicationRepository(ctx)(routeEc)
@@ -190,6 +196,27 @@ class PatchSetUndoRoutesSpec
         status shouldBe StatusCodes.Conflict
       }
       await(dashboardRepo.findByIdInternal(dashboard.id)).map(_.name) shouldBe Some("Changed independently")
+    }
+
+    // HEL-1795: proves the REST path reaches the Output blocker (a 409 carrying its message), not PATCH_SET_STALE.
+    "reject, with 409 naming the Output and restoring nothing, an undo of a pipeline create that would delete a later Output" in {
+      val source = await(dataSourceServiceF.createStatic(
+        StaticDataSourceRequest("Route 1795 source", "static", Vector(StaticColumnPayload("value", "integer")), Vector(Vector(JsNumber(1)))), userA
+      )).getOrElse(fail("source create failed"))
+      val patch = JsObject("name" -> JsString("Route 1795 pipeline"), "roots" -> JsArray(JsObject("sourceId" -> JsString(source.id.value))), "steps" -> JsArray(), "outputs" -> JsArray())
+      val applied = await(patchSetApplyService.apply(PatchSet(None, Vector(Edit(EditTarget("pipeline", None), "create", None, None, None, None, None, Some(patch)))), userA))
+        .getOrElse(fail("apply refused"))
+      val applicationId = applied.applicationId.getOrElse(fail("not journaled"))
+      val pid = applied.edits.head.newId.getOrElse(fail("no pipeline id"))
+      await(outputRepoF.insertInternal(PipelineId(pid), None, userA.id, "Route later output", OutputKind.Table, explicitRootId = None))
+
+      Post(s"/patch-sets/$applicationId/undo") ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.Conflict
+        val body = responseAs[String]
+        body should include("Route later output")
+        body should not include "PATCH_SET_STALE"
+      }
+      await(pipelineRepo.findByIdInternal(PipelineId(pid))).isDefined shouldBe true
     }
   }
 }

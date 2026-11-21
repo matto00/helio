@@ -23,6 +23,7 @@ import PatchSetApplyServiceJson._
 import org.slf4j.LoggerFactory
 import spray.json._
 
+import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -77,16 +78,16 @@ final class PatchSetUndoService(
         if (draftRestore == null) Future.successful(Left(ServiceError.InternalError("Undo of a draft save is unavailable")))
         else draftRestore.restore(record.edits.find(_.targetKind == DraftSaveJournal.TargetKind).get, user)
       case Some(record) =>
-        PatchSetUndoConflictCheck.checkAll(record.edits, user, context).flatMap { blockers =>
+        PatchSetUndoConflictCheck.checkAll(record.edits, user, context, record.appliedAt).flatMap { blockers =>
           if (blockers.nonEmpty)
             Future.successful(Left(ServiceError.Conflict(blockers.mkString("; "))))
           else
-            restoreAll(record.edits, user).map(outcomes => Right(PatchSetUndoResponse(outcomes)))
+            restoreAll(record.edits, user, record.appliedAt).map(outcomes => Right(PatchSetUndoResponse(outcomes)))
         }
     }
 
 
-  private def restoreAll(edits: Vector[JournaledEdit], user: AuthenticatedUser): Future[Vector[EditUndoOutcome]] = {
+  private def restoreAll(edits: Vector[JournaledEdit], user: AuthenticatedUser, appliedAt: Instant): Future[Vector[EditUndoOutcome]] = {
     def loop(
         remaining: Vector[JournaledEdit],
         acc: Vector[EditUndoOutcome],
@@ -98,7 +99,7 @@ final class PatchSetUndoService(
           if (failedOnwards)
             loop(remaining.tail, acc :+ EditUndoOutcome(edit.index, "notAttempted", None, None), failedOnwards = true)
           else
-            safeRestoreOne(edit, edits, user).flatMap {
+            safeRestoreOne(edit, edits, user, appliedAt).flatMap {
               case Right(outcome) => loop(remaining.tail, acc :+ outcome, failedOnwards = false)
               case Left(reason) =>
                 log.error(s"undo restore failed for edit ${edit.index} (kind=${edit.targetKind}, op=${edit.op}): $reason")
@@ -108,26 +109,26 @@ final class PatchSetUndoService(
     loop(edits.reverse, Vector.empty, failedOnwards = false).map(_.sortBy(_.index))
   }
 
-  private def safeRestoreOne(edit: JournaledEdit, edits: Vector[JournaledEdit], user: AuthenticatedUser): Future[Either[String, EditUndoOutcome]] =
-    restoreOne(edit, edits, user).recover { case NonFatal(ex) => Left(s"edit ${edit.index}: ${ex.getMessage}") }
+  private def safeRestoreOne(edit: JournaledEdit, edits: Vector[JournaledEdit], user: AuthenticatedUser, appliedAt: Instant): Future[Either[String, EditUndoOutcome]] =
+    restoreOne(edit, edits, user, appliedAt).recover { case NonFatal(ex) => Left(s"edit ${edit.index}: ${ex.getMessage}") }
 
-  private def restoreOne(edit: JournaledEdit, edits: Vector[JournaledEdit], user: AuthenticatedUser): Future[Either[String, EditUndoOutcome]] =
+  private def restoreOne(edit: JournaledEdit, edits: Vector[JournaledEdit], user: AuthenticatedUser, appliedAt: Instant): Future[Either[String, EditUndoOutcome]] =
     (edit.targetKind, edit.op) match {
       case ("panel", "update")        => restorePanelUpdate(edit, user)
       case ("panel", "create")        => restoreCreateUndo(edit, id => panelService.delete(PanelId(id), user))
       case ("panel", "delete")        => restorePanelDelete(edit, user)
       case ("dashboard", "update")    => restoreDashboardUpdate(edit, user)
-      case ("dashboard", "create")    => ifStillUnbound(edit, edits)(restoreCreateUndo(edit, id => dashboardService.delete(DashboardId(id), user)))
+      case ("dashboard", "create")    => ifStillUnbound(edit, edits, user, appliedAt)(restoreCreateUndo(edit, id => dashboardService.delete(DashboardId(id), user)))
       case ("dataSource", "update")   => restoreDataSourceUpdate(edit, user)
       // HEL-987: `DataSourceService.delete` returns `Either[DataSourceDeleteError, Unit]` now
       // (the 409-conflict wrapper) -- `.err` is `restoreCreateUndo`'s `ServiceError` shape,
       // unaffected by whether the failure carried a structured conflict.
       case ("dataSource", "create")   => restoreCreateUndo(edit, id => dataSourceService.delete(DataSourceId(id), user).map(_.left.map(_.err)))
       case ("pipeline", "update")     => restorePipelineUpdate(edit, user)
-      case ("pipeline", "create")     => ifStillUnbound(edit, edits)(restorePipelineCreateUndo(edit, user))
+      case ("pipeline", "create")     => ifStillUnbound(edit, edits, user, appliedAt)(restorePipelineCreateUndo(edit, user))
       case ("pipelineStep", "update") => restorePipelineStepUpdate(edit, user)
       case ("pipelineStep", "delete") => restorePipelineStepDelete(edit, user)
-      case ("pipelineStep", "create") => ifStillUnbound(edit, edits)(restorePipelineStepCreate(edit, user))
+      case ("pipelineStep", "create") => ifStillUnbound(edit, edits, user, appliedAt)(restorePipelineStepCreate(edit, user))
       // HEL-1639 D2: delete the Output the apply created (and any panel still bound to it; undo walks the set in reverse,
       // so a panel created in the same set is already gone).
       case ("output", "create")       => restoreCreateUndo(edit, id => deleteCreatedOutput(OutputId(id), user))
@@ -151,12 +152,18 @@ final class PatchSetUndoService(
    *  delete and reports the edit failed (so the walk stops) when a panel has been bound since. These deletes run inside
    *  service-owned transactions, so the window from this re-check to the cascade remains: the same accepted residual as
    *  V130's RESIDUAL paragraph (and HEL-1485's "panel created after the pre-lock"). */
-  private def ifStillUnbound(edit: JournaledEdit, edits: Vector[JournaledEdit])(
+  private def ifStillUnbound(edit: JournaledEdit, edits: Vector[JournaledEdit], user: AuthenticatedUser, appliedAt: Instant)(
       restore: => Future[Either[String, EditUndoOutcome]]
   ): Future[Either[String, EditUndoOutcome]] =
     PatchSetUndoBoundPanels.blockingPanelIds(edit, edits, context).flatMap {
       case ids if ids.nonEmpty => Future.successful(Left(restoreFailed(edit, PatchSetUndoBoundPanels.boundDuringUndo(ids.size))))
-      case _                   => restore
+      // HEL-1795 D4: the same re-check for Outputs and steps the patch set did not create
+      case _ if PatchSetUndoLaterChildren.guards(edit) =>
+        PatchSetUndoLaterChildren.blocking(edit, edits, appliedAt, user, context).flatMap { later =>
+          if (later.isEmpty) restore
+          else Future.successful(Left(restoreFailed(edit, PatchSetUndoLaterChildren.addedDuringUndo(later.size))))
+        }
+      case _ => restore
     }
 
   private def missingPriorState(edit: JournaledEdit): String =
