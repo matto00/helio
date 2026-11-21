@@ -126,8 +126,27 @@ object PatchSetApplicationRepository extends DefaultJsonProtocol {
       newId: Option[String],
       rawResultingConfig: Option[JsValue],
       inlineSources: Option[Vector[JournaledInlineSource]] = None,
-      createdChildren: Option[JournaledCreatedChildren] = None
+      createdChildren: Option[JournaledCreatedChildren] = None,
+      createdDataset: Option[JournaledCreatedDataset] = None
   )
+
+  /** HEL-1796: what a `dataSource` `create` edit made, read back from the database right after it returned:
+   *  `rowsStampedAt` is the stored `data_sources.created_at` (the one value stamped on the source and on all its rows, never the
+   *  in-memory instant), `declaredSchema` the stored `dataset_schema`. Undo refuses when rows were created after
+   *  `rowsStampedAt`, an apply-era row was edited after it, or the live schema differs. `None` on a journal row written
+   *  before it existed, or when the read-back failed (undo then uses `appliedAt`). */
+  final case class JournaledCreatedDataset(rowsStampedAt: Option[Instant], declaredSchema: Option[JsValue])
+
+  implicit object JournaledInstantFormat extends JsonFormat[Instant] {
+    def write(i: Instant): JsValue = JsString(i.toString)
+    def read(v: JsValue): Instant = v match {
+      case JsString(s) => Instant.parse(s)
+      case other       => deserializationError(s"expected an ISO-8601 instant, got $other")
+    }
+  }
+
+  // Declared before `journaledEditFormat`, which uses it: a later declaration reads as null at runtime.
+  implicit val journaledCreatedDatasetFormat: RootJsonFormat[JournaledCreatedDataset] = jsonFormat2(JournaledCreatedDataset.apply)
 
   /** HEL-1795: the ids of the pipeline steps and Outputs a `pipeline` `create` edit itself made (inline `steps` /
    *  `outputs`), read right after the create returns. Undo excuses exactly these ids when it checks that deleting the
@@ -144,7 +163,7 @@ object PatchSetApplicationRepository extends DefaultJsonProtocol {
   // Declared before `journaledEditFormat`, which uses it: a later declaration reads as null at runtime.
   implicit val journaledInlineSourceFormat: RootJsonFormat[JournaledInlineSource] = jsonFormat2(JournaledInlineSource.apply)
 
-  implicit val journaledEditFormat: RootJsonFormat[JournaledEdit] = jsonFormat9(JournaledEdit.apply)
+  implicit val journaledEditFormat: RootJsonFormat[JournaledEdit] = jsonFormat10(JournaledEdit.apply)
 
   implicit val journaledEditsColumnType: BaseColumnType[Vector[JournaledEdit]] =
     MappedColumnType.base[Vector[JournaledEdit], String](

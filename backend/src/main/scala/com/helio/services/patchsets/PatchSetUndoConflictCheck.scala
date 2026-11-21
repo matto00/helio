@@ -53,7 +53,7 @@ private[services] object PatchSetUndoConflictCheck {
       ctx: PatchSetUndoContext,
       appliedAt: Instant
   )(implicit ec: ExecutionContext): Future[Option[String]] = {
-    val own = checkOne(edit, user, ctx)
+    val own = checkOne(edit, user, ctx, appliedAt)
     if (!PatchSetUndoBoundPanels.guards(edit)) own
     else
       for {
@@ -69,7 +69,8 @@ private[services] object PatchSetUndoConflictCheck {
   private def checkOne(
       edit: JournaledEdit,
       user: AuthenticatedUser,
-      ctx: PatchSetUndoContext
+      ctx: PatchSetUndoContext,
+      appliedAt: Instant
   )(implicit ec: ExecutionContext): Future[Option[String]] =
     (edit.targetKind, edit.op) match {
       case ("panel", "delete") | ("pipelineStep", "delete") =>
@@ -80,7 +81,16 @@ private[services] object PatchSetUndoConflictCheck {
         ))
       case ("panel", "update" | "create")     => checkPanel(edit, ctx)
       case ("dashboard", "update" | "create") => checkDashboard(edit, user, ctx)
-      case ("dataSource", "update" | "create")=> checkDataSource(edit, user, ctx)
+      case ("dataSource", "update")           => checkDataSource(edit, user, ctx)
+      // HEL-1796: the name check plus the later-work blockers. Here, not in `guarded`, whose bound-panels branch skips `dataSource`.
+      case ("dataSource", "create") =>
+        for {
+          named <- checkDataSource(edit, user, ctx)
+          later <- PatchSetUndoDatasetLaterWork.blockers(edit, appliedAt, user, ctx)
+        } yield (named.toVector ++ later) match {
+          case Vector() => None
+          case parts    => Some(parts.mkString("; "))
+        }
       case ("pipeline", "update" | "create")  => checkPipeline(edit, user, ctx)
       case ("pipelineStep", "update")         => checkPipelineStep(edit, ctx)
       case ("pipelineStep", "create")         => checkPipelineStepCreate(edit, ctx)
