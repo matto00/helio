@@ -39,4 +39,4 @@
 
 ## 5. Delivery (orchestrator)
 
-- [ ] 5.1 Raise the D9 inline-dataset-root follow-up via follow-up triage before presenting the PR; cite its id in PR body + closing comment
+- [x] 5.1 Raise the D9 inline-dataset-root follow-up via follow-up triage before presenting the PR; cite its id in PR body + closing comment

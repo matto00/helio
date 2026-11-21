@@ -1,8 +1,0 @@
-- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoDatasetLaterWork.scala` — new: shared Phase-1/Phase-2 predicate and messages for a dataSource create undo
-- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoConflictCheck.scala` — wire the blockers into checkOne's dataSource create arm (appliedAt threaded in)
-- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoService.scala` — Phase-2 re-check before the source delete; fixed phrase for a reference conflict
-- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyService.scala` — journal the stored created_at and declared schema of a created dataset
-- `backend/src/main/scala/com/helio/infrastructure/persistence/patchsets/PatchSetApplicationRepository.scala` — JournaledCreatedDataset, optional createdDataset field, instant format
-- `backend/src/main/scala/com/helio/infrastructure/persistence/sources/DataSourceRepository.scala` — new reads readCreatedDatasetStamp and datasetLaterWork (no row-write method touched)
-- `backend/src/main/scala/com/helio/services/patchsets/README.md` — document the new guard and journal field
-- `backend/src/test/scala/com/helio/services/patchsets/PatchSetUndoDatasetLaterWorkSpec.scala` — red-first spec on helio_app_test through the real PatchSetUndoService.undo
