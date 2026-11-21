@@ -1,0 +1,10 @@
+[info] - should gives a VIEWER grantee the neutral sentence for an estimator reason, keeping code and stepId *** FAILED ***
+[info]   "[Step '9ce24b75-9c63-49ca-8f47-83845d6c142c' uses AI op 'analyzewithai']" was not equal to "[A step in this pipeline uses AI, so it is not updated automatically.]" (AutoRunTriggerServiceSpec.scala:416)
+[info] - should gives an EDITOR grantee the neutral sentence for an estimator reason *** FAILED ***
+[info]   "[Step 'a1ff03ba-09f4-4f70-8879-794e826602e9' uses AI op 'analyzewithai']" was not equal to "[A step in this pipeline uses AI, so it is not updated automatically.]" (AutoRunTriggerServiceSpec.scala:429)
+[info] - should show an editor grantee the neutral sentence, with no row count or threshold digit *** FAILED ***
+[info]   "[Estimated 12345 rows exceeds the auto-run threshold of 10000]" was not equal to "[This pipeline is too large to update automatically.]" (FormSubmitEditorRlsSpec.scala:245)
+[info] - should show an editor grantee the neutral sentence for too many steps, with no step count digit *** FAILED ***
+[info]   "[21 enabled steps exceeds the auto-run bound of 20]" was not equal to "[This pipeline has too many steps to update automatically.]" (FormSubmitEditorRlsSpec.scala:257)
+[info] Tests: succeeded 24, failed 4, canceled 0, ignored 0, pending 0
+[info] *** 4 TESTS FAILED ***

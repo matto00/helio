@@ -1,0 +1,4 @@
+- `backend/src/main/scala/com/helio/services/pipelines/AutoRunTriggerService.scala` — neutralizeReasons; non-owner branches of handleDenied use it
+- `backend/src/test/scala/com/helio/services/pipelines/AutoRunTriggerServiceSpec.scala` — viewer/editor/owner/step-config-invalid and unknown-code tests
+- `backend/src/test/scala/com/helio/services/panels/FormSubmitEditorRlsSpec.scala` — editor/owner form-submit denial tests (wired auto-run)
+- `openspec/changes/neutral-autorun-denial-reasons/red-run-excerpt.txt` — recorded red output
