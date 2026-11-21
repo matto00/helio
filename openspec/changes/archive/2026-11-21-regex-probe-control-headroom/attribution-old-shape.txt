@@ -1,0 +1,56 @@
+# HEL-1808 attribution, OLD frame shape (diagnostics only added). Local, 2 workers, nice 19.
+=== THROTTLE 1
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+[HEL-1683 e2e] probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/3372c9b3-45ad-4ddf-b517-673caae42494/draft-preview; frames: none >= 30 ms; api: POST /api/pipelines/3372c9b3-45ad-4ddf-b517-673caae42494/draft-preview@1124ms
+[HEL-1683 e2e] overrun longest long task: 0.0 ms; frames: none >= 30 ms; api: POST /api/pipelines/3372c9b3-45ad-4ddf-b517-673caae42494/draft-preview@2441ms
+  2 passed (21.0s)
+=== THROTTLE 1
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+[HEL-1683 e2e] probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/e3b00312-3a7e-4c77-a635-f1a8ac6bd16c/draft-preview; frames: none >= 30 ms; api: POST /api/pipelines/e3b00312-3a7e-4c77-a635-f1a8ac6bd16c/draft-preview@1108ms
+[HEL-1683 e2e] overrun longest long task: 0.0 ms; frames: none >= 30 ms; api: POST /api/pipelines/e3b00312-3a7e-4c77-a635-f1a8ac6bd16c/draft-preview@2418ms
+  2 passed (20.5s)
+=== THROTTLE 1
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+[HEL-1683 e2e] probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/d76095ac-1fb6-4274-8471-28588b813f3d/draft-preview; frames: none >= 30 ms; api: POST /api/pipelines/d76095ac-1fb6-4274-8471-28588b813f3d/draft-preview@1183ms
+[HEL-1683 e2e] overrun longest long task: 0.0 ms; frames: none >= 30 ms; api: POST /api/pipelines/d76095ac-1fb6-4274-8471-28588b813f3d/draft-preview@2419ms
+  2 passed (20.7s)
+=== THROTTLE 1
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+[HEL-1683 e2e] probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/89d34c93-e037-4b84-9ce3-e66a80bf1fac/draft-preview; frames: none >= 30 ms; api: POST /api/pipelines/89d34c93-e037-4b84-9ce3-e66a80bf1fac/draft-preview@1116ms
+[HEL-1683 e2e] overrun longest long task: 0.0 ms; frames: none >= 30 ms; api: POST /api/pipelines/89d34c93-e037-4b84-9ce3-e66a80bf1fac/draft-preview@2444ms
+  2 passed (21.1s)
+=== THROTTLE 1
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+[HEL-1683 e2e] probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/fef52dce-a795-4cc8-940d-f6b7ed6be7e2/draft-preview; frames: none >= 30 ms; api: POST /api/pipelines/fef52dce-a795-4cc8-940d-f6b7ed6be7e2/draft-preview@1132ms
+[HEL-1683 e2e] overrun longest long task: 0.0 ms; frames: none >= 30 ms; api: POST /api/pipelines/fef52dce-a795-4cc8-940d-f6b7ed6be7e2/draft-preview@2412ms
+  2 passed (20.9s)
+=== THROTTLE 4
+[HEL-1683 e2e] control longest long task: 68.0 ms (tasks: 68.0); frames: LoAF@57ms dur=71 block=20 render=2 styleLayout=0 scripts=[DIV#root.oninput|react-dom_client.js?v=76fe0648:dispatchDiscreteEvent|65]; api: none
+[HEL-1683 e2e] probe longest long task: 51.0 ms (tasks: 51.0); requests: POST /api/pipelines/be55f16a-c256-4838-8a83-4959b895e78e/draft-preview; frames: LoAF@50ms dur=56 block=3 render=2 styleLayout=0 scripts=[DIV#root.oninput|react-dom_client.js?v=76fe0648:dispatchDiscreteEvent|45] || LoAF@1363ms dur=53 block=0 render=2 styleLayout=1 scripts=[MessagePort.onmessage|react-dom_client.js?v=76fe0648:performWorkUntilDeadline|35]; api: POST /api/pipelines/be55f16a-c256-4838-8a83-4959b895e78e/draft-preview@1359ms
+[HEL-1683 e2e] overrun longest long task: 0.0 ms; frames: none >= 30 ms; api: POST /api/pipelines/be55f16a-c256-4838-8a83-4959b895e78e/draft-preview@2512ms
+  2 passed (22.1s)
+=== THROTTLE 4
+[HEL-1683 e2e] control longest long task: 72.0 ms (tasks: 72.0); frames: LoAF@44ms dur=76 block=25 render=2 styleLayout=0 scripts=[DIV#root.oninput|react-dom_client.js?v=76fe0648:dispatchDiscreteEvent|70]; api: none
+[HEL-1683 e2e] probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/246b7e4f-5620-4f8b-bed9-9986b4624315/draft-preview; frames: none >= 30 ms; api: POST /api/pipelines/246b7e4f-5620-4f8b-bed9-9986b4624315/draft-preview@1378ms
+[HEL-1683 e2e] overrun longest long task: 61.0 ms; frames: LoAF@75ms dur=59 block=8 render=0 styleLayout=0 scripts=[DIV#root.oninput|react-dom_client.js?v=76fe0648:dispatchDiscreteEvent|52]; api: POST /api/pipelines/246b7e4f-5620-4f8b-bed9-9986b4624315/draft-preview@2551ms
+  2 passed (23.0s)
+=== THROTTLE 4
+[HEL-1683 e2e] control longest long task: 62.0 ms (tasks: 62.0); frames: LoAF@43ms dur=65 block=14 render=2 styleLayout=0 scripts=[DIV#root.oninput|react-dom_client.js?v=76fe0648:dispatchDiscreteEvent|59]; api: none
+[HEL-1683 e2e] probe longest long task: 57.0 ms (tasks: 57.0); requests: POST /api/pipelines/b2d1ff0c-e024-4eae-8671-596b69818139/draft-preview; frames: LoAF@46ms dur=56 block=5 render=1 styleLayout=0 scripts=[DIV#root.oninput|react-dom_client.js?v=76fe0648:dispatchDiscreteEvent|46]; api: POST /api/pipelines/b2d1ff0c-e024-4eae-8671-596b69818139/draft-preview@1192ms
+[HEL-1683 e2e] overrun longest long task: 0.0 ms; frames: none >= 30 ms; api: POST /api/pipelines/b2d1ff0c-e024-4eae-8671-596b69818139/draft-preview@2466ms
+  2 passed (22.0s)
+=== THROTTLE 6
+[HEL-1683 e2e] control longest long task: 55.0 ms (tasks: 55.0); frames: LoAF@52ms dur=56 block=2 render=2 styleLayout=0 scripts=[DIV#root.oninput|react-dom_client.js?v=76fe0648:dispatchDiscreteEvent|46]; api: none
+[HEL-1683 e2e] probe longest long task: 63.0 ms (tasks: 63.0); requests: POST /api/pipelines/f4f8d984-495e-451e-8058-9294c602c50b/draft-preview; frames: LoAF@39ms dur=65 block=15 render=2 styleLayout=0 scripts=[DIV#root.oninput|react-dom_client.js?v=76fe0648:dispatchDiscreteEvent|56] || LoAF@453ms dur=54 block=0 render=1 styleLayout=0 scripts=[MessagePort.onmessage|react-dom_client.js?v=76fe0648:performWorkUntilDeadline|43] || LoAF@1202ms dur=57 block=0 render=2 styleLayout=1 scripts=[MessagePort.onmessage|react-dom_client.js?v=76fe0648:performWorkUntilDeadline|38]; api: POST /api/pipelines/f4f8d984-495e-451e-8058-9294c602c50b/draft-preview@1197ms
+[HEL-1683 e2e] overrun longest long task: 60.0 ms; frames: LoAF@52ms dur=59 block=8 render=1 styleLayout=0 scripts=[DIV#root.oninput|react-dom_client.js?v=76fe0648:dispatchDiscreteEvent|49]; api: POST /api/pipelines/f4f8d984-495e-451e-8058-9294c602c50b/draft-preview@2506ms
+  2 passed (21.1s)
+=== THROTTLE 6
+[HEL-1683 e2e] control longest long task: 58.0 ms (tasks: 58.0); frames: LoAF@63ms dur=67 block=12 render=3 styleLayout=0 scripts=[DIV#root.oninput|react-dom_client.js?v=76fe0648:dispatchDiscreteEvent|54]; api: none
+[HEL-1683 e2e] probe longest long task: 73.0 ms (tasks: 73.0); requests: POST /api/pipelines/f139caf2-308f-4398-944a-6cdcaa32a3df/draft-preview; frames: LoAF@68ms dur=78 block=25 render=2 styleLayout=0 scripts=[DIV#root.oninput|react-dom_client.js?v=76fe0648:dispatchDiscreteEvent|65] || LoAF@494ms dur=59 block=0 render=2 styleLayout=0 scripts=[MessagePort.onmessage|react-dom_client.js?v=76fe0648:performWorkUntilDeadline|41]; api: POST /api/pipelines/f139caf2-308f-4398-944a-6cdcaa32a3df/draft-preview@1305ms
+[HEL-1683 e2e] overrun longest long task: 52.0 ms; frames: LoAF@44ms dur=55 block=4 render=2 styleLayout=0 scripts=[DIV#root.oninput|react-dom_client.js?v=76fe0648:dispatchDiscreteEvent|47] || LoAF@2499ms dur=58 block=0 render=2 styleLayout=0 scripts=[MessagePort.onmessage|react-dom_client.js?v=76fe0648:performWorkUntilDeadline|40]; api: POST /api/pipelines/f139caf2-308f-4398-944a-6cdcaa32a3df/draft-preview@2496ms
+  2 passed (21.6s)
+=== THROTTLE 6
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+[HEL-1683 e2e] probe longest long task: 64.0 ms (tasks: 64.0); requests: POST /api/pipelines/9b80c1f7-3019-4bf9-a4aa-7352f8a54ed8/draft-preview; frames: LoAF@41ms dur=63 block=12 render=2 styleLayout=0 scripts=[DIV#root.oninput|react-dom_client.js?v=76fe0648:dispatchDiscreteEvent|55]; api: POST /api/pipelines/9b80c1f7-3019-4bf9-a4aa-7352f8a54ed8/draft-preview@1200ms
+[HEL-1683 e2e] overrun longest long task: 85.0 ms; frames: LoAF@86ms dur=91 block=37 render=2 styleLayout=0 scripts=[DIV#root.oninput|react-dom_client.js?v=76fe0648:dispatchDiscreteEvent|76] || LoAF@523ms dur=66 block=16 render=0 styleLayout=0 scripts=[MessagePort.onmessage|react-dom_client.js?v=76fe0648:performWorkUntilDeadline|65] || LoAF@2593ms dur=72 block=7 render=3 styleLayout=1 scripts=[MessagePort.onmessage|react-dom_client.js?v=76fe0648:performWorkUntilDeadline|54]; api: POST /api/pipelines/9b80c1f7-3019-4bf9-a4aa-7352f8a54ed8/draft-preview@2589ms
+  2 passed (21.9s)

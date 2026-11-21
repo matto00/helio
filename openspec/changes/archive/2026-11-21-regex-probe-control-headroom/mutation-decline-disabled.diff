@@ -1,0 +1,26 @@
+diff --git a/frontend/src/features/pipelines/evaluator/javaRegex.ts b/frontend/src/features/pipelines/evaluator/javaRegex.ts
+index 6aea5d70e..839b7be12 100644
+--- a/frontend/src/features/pipelines/evaluator/javaRegex.ts
++++ b/frontend/src/features/pipelines/evaluator/javaRegex.ts
+@@ -193,7 +193,7 @@ export function compileJavaRegex(pattern: string): JavaRegex {
+   let result: JavaRegex;
+   try {
+     const { source, groupCount, tree } = translate(pattern);
+-    if (!isBacktrackBounded(tree) || widestClass(tree) > MAX_CLASS_RANGES) throw new Decline();
++    if (widestClass(tree) > MAX_CLASS_RANGES) throw new Decline();
+     result = { ok: true, regex: new RegExp(source, "u"), groupCount, work: regexWorkModel(tree) };
+   } catch {
+     result = { ok: false };
+diff --git a/frontend/src/features/pipelines/evaluator/steps/stringOps.ts b/frontend/src/features/pipelines/evaluator/steps/stringOps.ts
+index 5c15362cf..aa445158d 100644
+--- a/frontend/src/features/pipelines/evaluator/steps/stringOps.ts
++++ b/frontend/src/features/pipelines/evaluator/steps/stringOps.ts
+@@ -135,7 +135,7 @@ export const stringOpsHandler: StepHandler<StringOpsConfig> = {
+     if (c.operation !== "extractRegex" || c.pattern === undefined) return undefined;
+     const compiled = compileJavaRegex(c.pattern);
+     if (!compiled.ok) return undefined;
+-    return overBudget(input, c.field, compiled.work) ? "regexInputCost" : undefined;
++    return undefined;
+   },
+   apply(rows, cfg) {
+     if (!OPERATIONS.includes(cfg.operation)) {

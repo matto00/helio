@@ -1,0 +1,36 @@
+# HEL-1808 final tree, 1x, full spec file x5, 2 workers, nice 19. Verbatim output filtered by grep for the log prefixes, passed/failed and Error lines; only ANSI escapes stripped; no other edits.
+=== run 1
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+[HEL-1683 e2e] probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/45eb7820-8d0e-49c7-a4a6-5278001136e7/draft-preview; frames: none >= 30 ms; api: POST /api/pipelines/45eb7820-8d0e-49c7-a4a6-5278001136e7/draft-preview@1312ms
+[HEL-1683 e2e] overrun longest long task: 0.0 ms; frames: none >= 30 ms; api: POST /api/pipelines/45eb7820-8d0e-49c7-a4a6-5278001136e7/draft-preview@2422ms
+[HEL-1697 e2e] long-cell probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/d25d39de-da0d-4131-aff7-8076c39947c2/draft-preview
+[HEL-1697 e2e] long-cell server outcome: time-budget error
+  2 passed (23.1s)
+=== run 2
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+[HEL-1683 e2e] probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/8aa8e0c5-c853-44a3-9b89-3d1cb8ff0edf/draft-preview; frames: none >= 30 ms; api: POST /api/pipelines/8aa8e0c5-c853-44a3-9b89-3d1cb8ff0edf/draft-preview@1095ms
+[HEL-1683 e2e] overrun longest long task: 0.0 ms; frames: none >= 30 ms; api: POST /api/pipelines/8aa8e0c5-c853-44a3-9b89-3d1cb8ff0edf/draft-preview@2415ms
+[HEL-1697 e2e] long-cell probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/c4fb7617-c7c7-4493-8f82-a336d39de51a/draft-preview
+[HEL-1697 e2e] long-cell server outcome: time-budget error
+  2 passed (20.2s)
+=== run 3
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+[HEL-1683 e2e] probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/0a6f4ded-df31-427b-b765-7a55b40c7771/draft-preview; frames: none >= 30 ms; api: POST /api/pipelines/0a6f4ded-df31-427b-b765-7a55b40c7771/draft-preview@1157ms
+[HEL-1683 e2e] overrun longest long task: 0.0 ms; frames: none >= 30 ms; api: POST /api/pipelines/0a6f4ded-df31-427b-b765-7a55b40c7771/draft-preview@2439ms
+[HEL-1697 e2e] long-cell probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/2ce7d493-1f53-490f-b3ff-edfd377aed51/draft-preview
+[HEL-1697 e2e] long-cell server outcome: time-budget error
+  2 passed (20.7s)
+=== run 4
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+[HEL-1683 e2e] probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/7681f22d-5f38-48f5-bba5-5de6bd50b309/draft-preview; frames: none >= 30 ms; api: POST /api/pipelines/7681f22d-5f38-48f5-bba5-5de6bd50b309/draft-preview@1099ms
+[HEL-1683 e2e] overrun longest long task: 0.0 ms; frames: none >= 30 ms; api: POST /api/pipelines/7681f22d-5f38-48f5-bba5-5de6bd50b309/draft-preview@2409ms
+[HEL-1697 e2e] long-cell probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/04766a01-4dac-44be-8d31-ab821c7cda62/draft-preview
+[HEL-1697 e2e] long-cell server outcome: time-budget error
+  2 passed (20.3s)
+=== run 5
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+[HEL-1683 e2e] probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/1dc67ab1-c8cd-43e7-a0d3-f4ea1297e253/draft-preview; frames: none >= 30 ms; api: POST /api/pipelines/1dc67ab1-c8cd-43e7-a0d3-f4ea1297e253/draft-preview@1092ms
+[HEL-1683 e2e] overrun longest long task: 0.0 ms; frames: none >= 30 ms; api: POST /api/pipelines/1dc67ab1-c8cd-43e7-a0d3-f4ea1297e253/draft-preview@2407ms
+[HEL-1697 e2e] long-cell probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/54b8038f-682c-43d0-a2f4-d718bdf8f35f/draft-preview
+[HEL-1697 e2e] long-cell server outcome: time-budget error
+  2 passed (19.8s)
