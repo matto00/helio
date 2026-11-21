@@ -9,19 +9,20 @@ import com.helio.services.pipelines.{OutputService, PipelineService}
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.patchsets.{EditOutcome, PatchSet, PatchSetApplyResponse}
 import com.helio.domain.panels.PanelConfigCodec
-import com.helio.domain.model.{AuthenticatedUser, OutputId, PatchSetApplicationId, PipelineId}
+import com.helio.domain.model.{AuthenticatedUser, DataSourceId, OutputId, PatchSetApplicationId, PipelineId}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.services.sources.SourceService
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
-import PatchSetApplicationRepository.{JournaledCreatedChildren, JournaledEdit, JournaledInlineSource, PatchSetApplicationRecord}
+import PatchSetApplicationRepository.{JournaledCreatedChildren, JournaledCreatedDataset, JournaledEdit, JournaledInlineSource, PatchSetApplicationRecord}
 import org.slf4j.LoggerFactory
-import spray.json.JsValue
+import spray.json.{JsValue, JsonParser}
 
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
@@ -130,6 +131,8 @@ final class PatchSetApplyService(
       resolved: Vector[ResolvedEdit],
       user: AuthenticatedUser
   ): Future[Either[ServiceError, PatchSetApplyResponse]] = {
+    // HEL-1796: what each `dataSource` create made, keyed by edit index (written once per edit, read at journaling).
+    val createdDatasets = new ConcurrentHashMap[Int, JournaledCreatedDataset]()
     def loop(
         remaining: Vector[ResolvedEdit],
         applied: Vector[(ResolvedEdit, EditOutcome)],
@@ -150,7 +153,9 @@ final class PatchSetApplyService(
                   for {
                     rawConfigOpt <- captureRawPanelConfig(edit)
                     childrenOpt  <- captureCreatedChildren(edit, outcome)
+                    datasetOpt   <- captureCreatedDataset(edit, outcome, user)
                     next <- {
+                      datasetOpt.foreach(d => createdDatasets.put(edit.index, d))
                       val nextChildren   = childrenOpt.fold(children)(c => children + (edit.index -> c))
                       val nextRawConfigs = rawConfigOpt.fold(rawConfigs)(json => rawConfigs + (edit.index -> json))
                       val nextCreated = (edit.ref, edit.action, outcome.newId) match {
@@ -173,7 +178,7 @@ final class PatchSetApplyService(
             appliedAll.collect { case (e, o) if e.action.isInstanceOf[ResolvedAction.OutputCreate] => o.newId }.flatten.map(OutputId(_)),
             user
           )
-        journalSuccess(appliedAll, rawConfigs, children, user).map { applicationId =>
+        journalSuccess(appliedAll, rawConfigs, children, createdDatasets, user).map { applicationId =>
           Right(PatchSetApplyResponse(appliedAll.map(_._2), failure = None, applicationId = Some(applicationId)))
         }
       case Left((err, appliedSoFar)) =>
@@ -216,6 +221,25 @@ final class PatchSetApplyService(
       case _ => Future.successful(None)
     }
 
+  /** HEL-1796: for a `dataSource` `create` edit, the stored `created_at` (the row watermark) and declared schema of the
+   *  source it made, read back from the database on the applier's own context right after the create returned. `None` for
+   *  every other edit, and, with a warning, when the read fails, so undo falls back to `appliedAt` rather than the apply
+   *  failing. */
+  private def captureCreatedDataset(edit: ResolvedEdit, outcome: EditOutcome, user: AuthenticatedUser): Future[Option[JournaledCreatedDataset]] =
+    (edit.action, outcome.newId) match {
+      case (_: ResolvedAction.DataSourceCreate, Some(id)) =>
+        dataSourceRepo.readCreatedDatasetStamp(DataSourceId(id), user).map {
+          case Some((createdAt, schemaText)) => Some(JournaledCreatedDataset(Some(createdAt), schemaText.map(JsonParser(_))))
+          case None =>
+            log.warn(s"edit ${edit.index}: could not read back the data source the create made; undo will fall back to the apply time")
+            None
+        }.recover { case NonFatal(ex) =>
+          log.warn(s"edit ${edit.index}: could not record the dataset the data source create made: ${ex.getClass.getSimpleName}")
+          None
+        }
+      case _ => Future.successful(None)
+    }
+
   /** HEL-1493: the inline root sources a `pipeline` `create` edit made, journaled so undo can remove them. `None` for
    *  every other edit, and for a create whose roots cannot be lined up with the created pipeline's (nothing is
    *  recorded rather than guessed, so undo keeps today's behaviour). An inline root without a reported id is left
@@ -246,29 +270,53 @@ final class PatchSetApplyService(
       appliedAll: Vector[(ResolvedEdit, EditOutcome)],
       rawConfigs: Map[Int, JsValue],
       children: Map[Int, JournaledCreatedChildren],
+      createdDatasets: ConcurrentHashMap[Int, JournaledCreatedDataset],
       user: AuthenticatedUser
-  ): Future[String] = {
-    val journaledEdits = appliedAll.map { case (edit, outcome) =>
-      JournaledEdit(
-        index              = edit.index,
-        targetKind         = edit.kind,
-        op                 = edit.op,
-        priorState         = outcome.priorState,
-        resultingState     = outcome.resultingState,
-        newId              = outcome.newId,
-        rawResultingConfig = rawConfigs.get(edit.index),
-        inlineSources      = journaledInlineSources(edit, outcome),
-        createdChildren    = children.get(edit.index)
+  ): Future[String] =
+    Future.traverse(appliedAll) { case (edit, outcome) =>
+      withInlineStamps(journaledInlineSources(edit, outcome), user).map { inline =>
+        JournaledEdit(
+          index              = edit.index,
+          targetKind         = edit.kind,
+          op                 = edit.op,
+          priorState         = outcome.priorState,
+          resultingState     = outcome.resultingState,
+          newId              = outcome.newId,
+          rawResultingConfig = rawConfigs.get(edit.index),
+          inlineSources      = inline,
+          createdChildren    = children.get(edit.index),
+          createdDataset     = Option(createdDatasets.get(edit.index))
+        )
+      }
+    }.flatMap { journaledEdits =>
+      val now = Instant.now()
+      val record = PatchSetApplicationRecord(
+        id        = PatchSetApplicationId(UUID.randomUUID().toString),
+        ownerId   = user.id,
+        appliedAt = now,
+        edits     = journaledEdits,
+        createdAt = now
       )
+      applicationRepo.create(record).map(_.id.value)
     }
-    val now = Instant.now()
-    val record = PatchSetApplicationRecord(
-      id        = PatchSetApplicationId(UUID.randomUUID().toString),
-      ownerId   = user.id,
-      appliedAt = now,
-      edits     = journaledEdits,
-      createdAt = now
-    )
-    applicationRepo.create(record).map(_.id.value)
-  }
+
+  /** HEL-1796: each dataset-kind inline root source gets the same read-back a `dataSource` create does (stored
+   *  `created_at` plus declared schema), per source, so undo can tell later rows from the ones the apply made. A source
+   *  with no declared schema (not a dataset) or a failed read is left without one (undo then falls back to `appliedAt`);
+   *  it never fails the apply. */
+  private def withInlineStamps(sources: Option[Vector[JournaledInlineSource]], user: AuthenticatedUser): Future[Option[Vector[JournaledInlineSource]]] =
+    sources match {
+      case Some(list) if list.nonEmpty =>
+        Future.traverse(list) { source =>
+          dataSourceRepo.readCreatedDatasetStamp(DataSourceId(source.id), user).map {
+            case Some((createdAt, Some(schemaText))) =>
+              source.copy(createdDataset = Some(JournaledCreatedDataset(Some(createdAt), Some(JsonParser(schemaText)))))
+            case _ => source
+          }.recover { case NonFatal(ex) =>
+            log.warn(s"could not record the dataset an inline root source made: ${ex.getClass.getSimpleName}")
+            source
+          }
+        }.map(Some(_))
+      case other => Future.successful(other)
+    }
 }

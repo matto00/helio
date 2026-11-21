@@ -290,6 +290,29 @@ class DataSourceRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pipe
     ctx.withUserContext(user.id.value)(action.transactionally).map(_ > 0)
   }
 
+  /** HEL-1796: what a patch-set `dataSource` create wrote, as stored, read right after the create returns on the applier's
+   *  own RLS context: the source's `created_at` (one value stamped on the source and on every row it created) and its
+   *  declared `dataset_schema` text. `None` when the source is not visible. */
+  def readCreatedDatasetStamp(id: DataSourceId, user: AuthenticatedUser): Future[Option[(Instant, Option[String])]] =
+    ctx.withUserContext(user.id.value)(
+      table.filter(_.id === id.value).map(r => (r.createdAt, r.datasetSchema)).result.headOption
+    )
+
+  /** HEL-1796: what has happened to a dataset source's rows and schema since `threshold`, for the patch-set undo's
+   *  later-work guard. Counts only (never a row value or id), on the privileged pool so RLS cannot hide a row, like
+   *  [[DataSourceReferenceRepository]]. `appended`: rows created after it; `edited`: rows created at or before it and
+   *  updated after it. `None` when the source does not exist. Detection is by timestamps, never `seq` (append reuses
+   *  `seq` after a delete; replace and schema migration renumber). A separate read from the row-write methods. */
+  def datasetLaterWork(id: DataSourceId, threshold: Instant): Future[Option[DatasetLaterWork]] = {
+    val rowsT = TableQuery[DatasetRowTable].filter(_.dataSourceId === id.value)
+    val action = for {
+      source   <- table.filter(_.id === id.value).map(r => (r.datasetSchema, r.updatedAt)).result.headOption
+      appended <- rowsT.filter(_.createdAt > threshold).length.result
+      edited   <- rowsT.filter(r => r.createdAt <= threshold && r.updatedAt > threshold).length.result
+    } yield source.map { case (schema, updatedAt) => DatasetLaterWork(appended, edited, schema, updatedAt) }
+    ctx.withSystemContext(action)
+  }
+
   /** HEL-1252: every persisted reference to `id` (pipeline roots, join/lookup/union secondary inputs,
    *  upsert targets, form-panel bindings) as seen by `user`: visible referencing resources by identity, hidden
    *  ones as unnamed counts. Supersedes HEL-989's roots-only `rootReferences`; see
@@ -1098,6 +1121,10 @@ class DataSourceRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pipe
 }
 
 object DataSourceRepository {
+
+  /** HEL-1796: the result of [[DataSourceRepository.datasetLaterWork]]. */
+  final case class DatasetLaterWork(appended: Int, edited: Int, schemaText: Option[String], sourceUpdatedAt: Instant)
+
 
   /** HEL-1078 design.md D5/D6: the four (PATCH: five, including `ValidationFailed`) distinguishable
    *  outcomes of `patchRow`/`deleteRow` other than success -- a sealed trait rather than a nested
