@@ -120,6 +120,10 @@ class PipelineRepository(
     ).map(_.map(rowToPipeline))
   }
 
+  /** HEL-1811: every root of a pipeline with its `created_at`, ordered by `position`. Privileged; the patch-set undo's
+    * later-roots check (the caller has already resolved the pipeline as the applier's own). */
+  def listRootsInternal(id: PipelineId): Future[Vector[PipelineRoot]] = rootRepo.listInternal(id)
+
   /** HEL-913 task 5.4: every root's `(PipelineRootId, DataSourceId)`, ordered by `position`
     * ascending (R3's cross-root tiebreak) -- the multi-root-aware, ACL-bypassing
     * resolution of a pipeline's root data sources (it replaced the single-root

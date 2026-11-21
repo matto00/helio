@@ -284,7 +284,7 @@ class PatchSetUndoLaterOutputsSpec extends AssistantStandingsFixture {
           await(undoing).getOrElse(fail("expected an outcome list, not a refusal")).edits.map(_.status) shouldBe Vector("failed", "restored")
         }
         val reason = logs.find(_.contains("undo restore failed")).getOrElse(fail(s"no ERROR log: $logs"))
-        reason should include("1 Output(s) or pipeline step(s) were added during the undo; nothing further was undone")
+        reason should include("1 Output(s), pipeline step(s), alert rule(s), schedule(s) or root(s) were added during the undo; nothing further was undone")
         reason should not include "Landed late"
         reason should not include laterOutputId
       } finally holder.close()

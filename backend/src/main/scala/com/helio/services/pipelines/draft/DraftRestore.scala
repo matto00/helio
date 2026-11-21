@@ -85,15 +85,10 @@ final class DraftRestore(save: DraftSaveService, outputRepo: OutputRepository, p
           rules   <- outputRepo.findAlertRuleDefinitionsInternal(created)
           panelIds = panels.values.flatten.toVector.distinct.sorted
           ruleRows = rules.values.flatten.toVector.sortBy(_._1)
-          visible <- outputRepo.findVisibleAlertRuleIds(ruleRows.map(_._1), user)
+          ruleClause <- PatchSetUndoBoundPanels.alertRuleClause(ruleRows, user, outputRepo)
           described <- if (panelIds.isEmpty) Future.successful("") else PatchSetUndoBoundPanels.describeBlocking(panelIds, user, panelRepo, dashboardRepo)
         } yield {
-          val (named, unowned) = ruleRows.partition(r => visible.contains(r._1))
           val panelClause = Some(s"${panelIds.size} panel(s) (${described.stripPrefix("and ")})").filter(_ => panelIds.nonEmpty)
-          val ruleNames   = named.map(r => s"""alert rule "${r._4}"""")
-          val ruleClause = Some(
-            (ruleNames ++ Some(s"${unowned.size} alert rule(s) you do not own").filter(_ => unowned.nonEmpty).map(c => if (ruleNames.nonEmpty) s"and $c" else c)).mkString(", ")
-          ).filter(_.nonEmpty)
           val clauses = Vector(panelClause, ruleClause).flatten
           if (clauses.isEmpty) None
           else Some(s"this save created Outputs that now have dependents undo would delete: ${clauses.mkString("; ")}; remove or rebind them before undoing")

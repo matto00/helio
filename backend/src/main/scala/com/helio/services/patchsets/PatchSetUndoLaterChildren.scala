@@ -1,6 +1,6 @@
 package com.helio.services.patchsets
 
-import com.helio.domain.model.{AuthenticatedUser, Output, OutputId, PipelineStep}
+import com.helio.domain.model.{AuthenticatedUser, Output, OutputId, PipelineId, PipelineRoot, PipelineStep}
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository.JournaledEdit
 
 import java.time.Instant
@@ -16,21 +16,33 @@ import scala.concurrent.{ExecutionContext, Future}
  *  `pipeline` arm, the ids the apply journaled as `createdChildren`. A `pipeline` row with no `createdChildren` (written
  *  before HEL-1795) falls back to: an Output is excused iff the applier owns it and it was created at or before
  *  `appliedAt`; a step iff created at or before `appliedAt`. A `pipelineStep` create has no fallback: only same-set
- *  creates are excused. */
+ *  creates are excused.
+ *
+ *  HEL-1811 adds what the same deletes cascade into besides Outputs and steps: alert rules on a doomed Output (every arm,
+ *  the `output` create included), and, on the `pipeline` arm, the pipeline's schedule and its roots. A patch set has no
+ *  alert-rule or schedule target kind, so none is ever excused: every rule on a doomed Output and any schedule was added
+ *  after the apply. A root is excused iff the create made it (`createdChildren.rootIds`); a row without `rootIds` falls
+ *  back to `created_at <= appliedAt`. Blocking is the safe direction in doubt. */
 private[services] object PatchSetUndoLaterChildren {
 
-  def guards(edit: JournaledEdit): Boolean = edit.op == "create" && Set("pipeline", "pipelineStep").contains(edit.targetKind)
+  def guards(edit: JournaledEdit): Boolean = edit.op == "create" && Set("pipeline", "pipelineStep", "output").contains(edit.targetKind)
 
-  final case class Later(outputs: Vector[Output], steps: Vector[PipelineStep]) {
-    def isEmpty: Boolean = outputs.isEmpty && steps.isEmpty
-    def size: Int        = outputs.size + steps.size
+  final case class Later(
+      outputs: Vector[Output],
+      steps: Vector[PipelineStep],
+      alertRules: Vector[PatchSetUndoBoundPanels.AlertRuleRow] = Vector.empty,
+      schedule: Boolean = false,
+      roots: Vector[PipelineRoot] = Vector.empty
+  ) {
+    def isEmpty: Boolean = outputs.isEmpty && steps.isEmpty && alertRules.isEmpty && !schedule && roots.isEmpty
+    def size: Int        = outputs.size + steps.size + alertRules.size + (if (schedule) 1 else 0) + roots.size
   }
 
   /** The Outputs and steps `edit`'s undo would delete that the patch set did not create. */
   def blocking(edit: JournaledEdit, edits: Vector[JournaledEdit], appliedAt: Instant, applier: AuthenticatedUser, ctx: PatchSetUndoContext)(implicit
       ec: ExecutionContext
   ): Future[Later] =
-    PatchSetUndoBoundPanels.doomedRows(edit, ctx).map { rows =>
+    PatchSetUndoBoundPanels.doomedRows(edit, ctx).flatMap { rows =>
       def createdIds(kind: String) = edits.filter(e => e.targetKind == kind && e.op == "create").flatMap(_.newId).toSet
       val setOutputs = createdIds("output")
       val setSteps   = createdIds("pipelineStep")
@@ -45,7 +57,22 @@ private[services] object PatchSetUndoLaterChildren {
           case Some(c) => c.stepIds.contains(st.id.value)
           case None    => edit.targetKind == "pipeline" && !st.createdAt.isAfter(appliedAt)
         })
-      Later(rows.outputs.filterNot(outputExcused).sortBy(_.id.value), rows.steps.filterNot(stepExcused).sortBy(_.id.value))
+      val outputs = rows.outputs.filterNot(outputExcused).sortBy(_.id.value)
+      val steps   = rows.steps.filterNot(stepExcused).sortBy(_.id.value)
+      val pipeline = edit.targetKind == "pipeline"
+      for {
+        doomedOutputs <- PatchSetUndoBoundPanels.doomedOutputIds(edit, ctx)
+        rules         <- ctx.outputRepo.findAlertRuleDefinitionsInternal(doomedOutputs).map(_.values.flatten.toVector.sortBy(_._1))
+        schedule      <- if (pipeline) edit.newId.fold(Future.successful(false))(id => ctx.pipelineRepo.findScheduleDefinitionInternal(PipelineId(id)).map(_.isDefined)) else Future.successful(false)
+        roots         <- if (pipeline) edit.newId.fold(Future.successful(Vector.empty[PipelineRoot]))(id => ctx.pipelineRepo.listRootsInternal(PipelineId(id))) else Future.successful(Vector.empty[PipelineRoot])
+      } yield {
+        val rootExcused: PipelineRoot => Boolean = r =>
+          children.flatMap(_.rootIds) match {
+            case Some(ids) => ids.contains(r.id.value)
+            case None      => !r.createdAt.isAfter(appliedAt)
+          }
+        Later(outputs, steps, rules, schedule, roots.filterNot(rootExcused).sortBy(_.id.value))
+      }
     }
 
   /** The Phase-1 blockers for `edit` (one string per kind that blocks), or empty. Names the Outputs the undoing user can
@@ -71,7 +98,32 @@ private[services] object PatchSetUndoLaterChildren {
             .map(parts =>
               Some(s"$head: ${later.steps.size} pipeline step(s) were added after the patch set was applied and would be deleted: $parts; remove them before undoing")
             )
-      for { o <- outputsMsg; s <- stepsMsg } yield Vector(o, s).flatten
+      val rulesMsg: Future[Option[String]] =
+        if (later.alertRules.isEmpty) Future.successful(None)
+        else
+          PatchSetUndoBoundPanels.alertRuleClause(later.alertRules, user, ctx.outputRepo).map(
+            _.map(parts => s"$head: ${later.alertRules.size} alert rule(s) were added after the patch set was applied and would be deleted: $parts; remove them before undoing")
+          )
+      val scheduleMsg: Option[String] =
+        Some(s"$head: the pipeline has a schedule that was added after the patch set was applied and would be deleted; remove it before undoing").filter(_ => later.schedule)
+      val rootsMsg: Future[Option[String]] =
+        if (later.roots.isEmpty) Future.successful(None)
+        else
+          PatchSetUndoBoundPanels
+            .nameList(later.roots.map(_.id.value), describeRoot(_, later.roots, user, ctx), "root(s) on data sources you cannot see")
+            .map(parts => Some(s"$head: ${later.roots.size} root(s) were added after the patch set was applied and would be deleted: $parts; remove them before undoing"))
+      for { o <- outputsMsg; s <- stepsMsg; a <- rulesMsg; r <- rootsMsg } yield Vector(o, s, a, scheduleMsg, r).flatten
+    }
+
+  /** `root on data source "<name>"` when the undoing user owns the data source (`DataSourceRepository.findByIdOwned`, the
+   *  owner-scoped read; there is no sharing-aware by-id read), else `None` (counted, never named). */
+  private def describeRoot(id: String, roots: Vector[PipelineRoot], user: AuthenticatedUser, ctx: PatchSetUndoContext)(implicit
+      ec: ExecutionContext
+  ): Future[Option[String]] =
+    roots.find(_.id.value == id) match {
+      case None => Future.successful(None)
+      case Some(root) =>
+        ctx.dataSourceRepo.findByIdOwned(root.dataSourceId, user).map(_.map(ds => s"""root on data source "${ds.name}""""))
     }
 
   private def describeOutput(id: String, user: AuthenticatedUser, ctx: PatchSetUndoContext)(implicit ec: ExecutionContext): Future[Option[String]] =
@@ -88,5 +140,12 @@ private[services] object PatchSetUndoLaterChildren {
 
   /** The fixed Phase-2 failure phrase: a count only, never a name or id (it is logged at ERROR). */
   def addedDuringUndo(count: Int): String =
-    s"$count Output(s) or pipeline step(s) were added during the undo; nothing further was undone"
+    s"$count Output(s), pipeline step(s), alert rule(s), schedule(s) or root(s) were added during the undo; nothing further was undone"
+
+  /** The fixed Phase-2 failure phrase of the `output` arm's in-transaction re-count (counts only). */
+  def outputBoundDuringUndo(panels: Int, alertRules: Int): String =
+    Vector(
+      Some(PatchSetUndoBoundPanels.boundDuringUndo(panels)).filter(_ => panels > 0),
+      Some(s"$alertRules alert rule(s) were added during the undo; nothing further was undone").filter(_ => alertRules > 0)
+    ).flatten.mkString("; ")
 }
