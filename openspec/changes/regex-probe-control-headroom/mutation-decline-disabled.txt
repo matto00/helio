@@ -1,0 +1,9 @@
+# HEL-1808 AC2 mutation: client decline disabled (isBacktrackBounded check and regexInputCost budget off); diff in mutation-decline-disabled.diff
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+[HEL-1683 e2e] probe longest long task: 491.0 ms (tasks: 491.0); requests: ; frames: LoAF@7ms dur=492 block=441 render=0 styleLayout=0 scripts=[DIV#root.oninput|react-dom_client.js?v=bb8d41c9:dispatchDiscreteEvent|490]; api: none
+    Error: probe pattern ^(.*.*.*.*.*.*.*.*x): longest main-thread task was 491.0 ms, must be <= 100 ms (control 0.0 ms)
+      286 |       `probe pattern ${PROBE_PATTERN}: longest main-thread task was ${probe.longest.toFixed(1)} ms, must be <= ${LONG_TASK_BOUND_MS} ms (control ${control.longest.toFixed(1)} ms)`,
+[HEL-1697 e2e] long-cell probe longest long task: 1132.0 ms (tasks: 1132.0); requests: 
+    Error: long-cell pattern (a*)b: longest main-thread task was 1132.0 ms, must be <= 100 ms
+      368 |       `long-cell pattern ${LONG_PROBE_PATTERN}: longest main-thread task was ${probe.longest.toFixed(1)} ms, must be <= ${LONG_TASK_BOUND_MS} ms`,
+  2 failed

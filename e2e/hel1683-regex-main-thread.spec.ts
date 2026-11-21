@@ -60,27 +60,110 @@ async function seed(page: Page, cell = CELL, rowCount = ROW_COUNT): Promise<stri
   return pipeline.id;
 }
 
-/** Installs a long-task observer for one window; `read` returns the longest task (ms) seen since `start`. */
+/** One Long Animation Frame, reduced to what attributes a long task (HEL-1808). */
+interface Loaf {
+  at: number;
+  dur: number;
+  blocking: number;
+  render: number;
+  styleLayout: number;
+  scripts: string[];
+}
+
+/** Installs a long-task (and Long Animation Frame) observer for one window. */
 async function startLongTaskWindow(page: Page): Promise<void> {
   await page.evaluate(() => {
-    const w = window as unknown as { __hel1683: number[]; __hel1683Obs?: PerformanceObserver };
+    const w = window as unknown as {
+      __hel1683: number[];
+      __hel1683Obs?: PerformanceObserver;
+      __hel1683Loaf: unknown[];
+      __hel1683LoafObs?: PerformanceObserver;
+      __hel1683T0: number;
+    };
     w.__hel1683Obs?.disconnect();
+    w.__hel1683LoafObs?.disconnect();
     w.__hel1683 = [];
+    w.__hel1683Loaf = [];
+    w.__hel1683T0 = performance.timeOrigin + performance.now();
     const obs = new PerformanceObserver((list) => {
       for (const e of list.getEntries()) w.__hel1683.push(e.duration);
     });
     obs.observe({ type: "longtask", buffered: false });
     w.__hel1683Obs = obs;
+    try {
+      const loafObs = new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) {
+          const x = e as unknown as {
+            startTime: number;
+            duration: number;
+            blockingDuration: number;
+            renderStart: number;
+            styleAndLayoutStart: number;
+            scripts: {
+              invoker: string;
+              sourceURL: string;
+              sourceFunctionName: string;
+              duration: number;
+            }[];
+          };
+          w.__hel1683Loaf.push({
+            at: performance.timeOrigin + x.startTime,
+            dur: x.duration,
+            blocking: x.blockingDuration,
+            render: x.renderStart > 0 ? x.startTime + x.duration - x.renderStart : 0,
+            styleLayout:
+              x.styleAndLayoutStart > 0 ? x.startTime + x.duration - x.styleAndLayoutStart : 0,
+            scripts: x.scripts.map(
+              (sc) =>
+                `${sc.invoker}|${sc.sourceURL.replace(/^.*\//, "")}:${sc.sourceFunctionName}|${sc.duration.toFixed(0)}`,
+            ),
+          });
+        }
+      });
+      loafObs.observe({ type: "long-animation-frame", buffered: false });
+      w.__hel1683LoafObs = loafObs;
+    } catch {
+      // Long Animation Frames are Chromium-only diagnostics; the longtask bound does not depend on them.
+    }
   });
 }
 
-async function longestTask(page: Page): Promise<{ longest: number; all: number[] }> {
+interface WindowReading {
+  longest: number;
+  all: number[];
+  loaf: Loaf[];
+  t0: number;
+}
+
+async function longestTask(page: Page): Promise<WindowReading> {
   // takeRecords() flushes tasks the observer has not yet delivered.
   return page.evaluate(() => {
-    const w = window as unknown as { __hel1683: number[]; __hel1683Obs: PerformanceObserver };
+    const w = window as unknown as {
+      __hel1683: number[];
+      __hel1683Obs: PerformanceObserver;
+      __hel1683Loaf: Loaf[];
+      __hel1683LoafObs?: PerformanceObserver;
+      __hel1683T0: number;
+    };
     for (const e of w.__hel1683Obs.takeRecords()) w.__hel1683.push(e.duration);
-    return { longest: Math.max(0, ...w.__hel1683), all: [...w.__hel1683] };
+    return {
+      longest: Math.max(0, ...w.__hel1683),
+      all: [...w.__hel1683],
+      loaf: [...w.__hel1683Loaf],
+      t0: w.__hel1683T0,
+    };
   });
+}
+
+/** One line per window: every long task plus the animation frames (script/render split) that contained work. */
+function attribution(reading: WindowReading, api: ApiTimeline): string {
+  const frames = reading.loaf
+    .filter((f) => f.dur >= 30)
+    .map(
+      (f) =>
+        `LoAF@${(f.at - reading.t0).toFixed(0)}ms dur=${f.dur.toFixed(0)} block=${f.blocking.toFixed(0)} render=${f.render.toFixed(0)} styleLayout=${f.styleLayout.toFixed(0)} scripts=[${f.scripts.join("; ")}]`,
+    );
+  return `frames: ${frames.join(" || ") || "none >= 30 ms"}; api: ${api.timeline(reading.t0)}`;
 }
 
 /** The text of every body cell in the `out` column of the rows table inside `rows`. */
@@ -98,19 +181,49 @@ async function outColumnCells(rows: Locator): Promise<string[]> {
   });
 }
 
-function recordApi(page: Page): { stop: () => string[] } {
+interface ApiTimeline {
+  stop: () => string[];
+  /** Responses that landed in the window, as `METHOD path@ms-since-window-start`. */
+  timeline: (t0: number) => string;
+}
+
+function recordApi(page: Page): ApiTimeline {
   const log: string[] = [];
+  const responses: { label: string; at: number }[] = [];
   const onRequest = (r: { method(): string; url(): string }) => {
     const { pathname } = new URL(r.url());
     if (pathname.startsWith("/api/")) log.push(`${r.method()} ${pathname}`);
   };
+  const onResponse = (r: { url(): string; request(): { method(): string } }) => {
+    const { pathname } = new URL(r.url());
+    if (pathname.startsWith("/api/"))
+      responses.push({ label: `${r.request().method()} ${pathname}`, at: Date.now() });
+  };
   page.on("request", onRequest);
+  page.on("response", onResponse);
   return {
     stop: () => {
       page.off("request", onRequest);
+      page.off("response", onResponse);
       return log;
     },
+    timeline: (t0) =>
+      responses.map((x) => `${x.label}@${(x.at - t0).toFixed(0)}ms`).join(", ") || "none",
   };
+}
+
+/**
+ * HEL-1808 diagnostic only: HEL1808_CPU_THROTTLE=4 slows the page's CPU (CDP) to reproduce the slow-CI-host tail.
+ * Unset (CI never sets it) or 1 makes no CDP call; any other non-integer-or-below-1 value throws.
+ */
+async function applyDiagnosticThrottle(page: Page): Promise<void> {
+  const raw = process.env.HEL1808_CPU_THROTTLE;
+  if (raw === undefined || raw === "" || raw === "1") return;
+  if (!/^[2-9]$|^[1-9][0-9]+$/.test(raw)) {
+    throw new Error(`HEL1808_CPU_THROTTLE must be an integer >= 1 (e.g. 4), got "${raw}"`);
+  }
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: Number(raw) });
 }
 
 test.describe("HEL-1683 client regex main-thread guard (live)", () => {
@@ -134,6 +247,7 @@ test.describe("HEL-1683 client regex main-thread guard (live)", () => {
     const pattern = page.getByRole("textbox", { name: "Pattern" });
     await expect(pattern).toBeVisible();
     const rows = page.getByRole("region", { name: /^Rows after step 1/ });
+    await applyDiagnosticThrottle(page);
 
     // Control: a safe pattern is evaluated by the client, inside the same kind of window.
     await startLongTaskWindow(page);
@@ -146,7 +260,7 @@ test.describe("HEL-1683 client regex main-thread guard (live)", () => {
     const controlRequests = controlApi.stop();
     const control = await longestTask(page);
     console.log(
-      `[HEL-1683 e2e] control longest long task: ${control.longest.toFixed(1)} ms (tasks: ${control.all.map((n) => n.toFixed(1)).join(", ")})`,
+      `[HEL-1683 e2e] control longest long task: ${control.longest.toFixed(1)} ms (tasks: ${control.all.map((n) => n.toFixed(1)).join(", ")}); ${attribution(control, controlApi)}`,
     );
     expect(
       controlRequests.filter((r) => r.includes("/draft-preview")),
@@ -165,7 +279,7 @@ test.describe("HEL-1683 client regex main-thread guard (live)", () => {
     const probeRequests = probeApi.stop();
     const probe = await longestTask(page);
     console.log(
-      `[HEL-1683 e2e] probe longest long task: ${probe.longest.toFixed(1)} ms (tasks: ${probe.all.map((n) => n.toFixed(1)).join(", ")}); requests: ${probeRequests.join(", ")}`,
+      `[HEL-1683 e2e] probe longest long task: ${probe.longest.toFixed(1)} ms (tasks: ${probe.all.map((n) => n.toFixed(1)).join(", ")}); requests: ${probeRequests.join(", ")}; ${attribution(probe, probeApi)}`,
     );
     expect(
       probe.longest,
@@ -199,6 +313,7 @@ test.describe("HEL-1683 client regex main-thread guard (live)", () => {
 
     // Overrun: the server's time-budget step error is what the draft shows, and the main thread stays free meanwhile.
     await startLongTaskWindow(page);
+    const overrunApi = recordApi(page);
     await pattern.fill(OVERRUN_PATTERN);
     await expect(
       page
@@ -206,8 +321,11 @@ test.describe("HEL-1683 client regex main-thread guard (live)", () => {
         .filter({ hasText: OVERRUN_PATTERN })
         .first(),
     ).toBeVisible({ timeout: 30_000 });
+    overrunApi.stop();
     const overrun = await longestTask(page);
-    console.log(`[HEL-1683 e2e] overrun longest long task: ${overrun.longest.toFixed(1)} ms`);
+    console.log(
+      `[HEL-1683 e2e] overrun longest long task: ${overrun.longest.toFixed(1)} ms; ${attribution(overrun, overrunApi)}`,
+    );
     expect(
       overrun.longest,
       `overrun pattern ${OVERRUN_PATTERN}: longest main-thread task was ${overrun.longest.toFixed(1)} ms, must be <= ${LONG_TASK_BOUND_MS} ms`,

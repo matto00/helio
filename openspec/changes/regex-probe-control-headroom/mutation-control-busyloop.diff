@@ -1,0 +1,13 @@
+diff --git a/frontend/src/features/pipelines/evaluator/steps/stringOps.ts b/frontend/src/features/pipelines/evaluator/steps/stringOps.ts
+index 5c15362cf..a6e131573 100644
+--- a/frontend/src/features/pipelines/evaluator/steps/stringOps.ts
++++ b/frontend/src/features/pipelines/evaluator/steps/stringOps.ts
+@@ -73,6 +73,8 @@ function valueFn(cfg: StringOpsConfig): (row: Row) => Value {
+         );
+       }
+       return (row) => {
++        const t0 = performance.now();
++        while (performance.now() - t0 < 150);
+         const v = cell(row, cfg.field);
+         if (v === null) return null;
+         const m = compiled.regex.exec(anyToString(v));

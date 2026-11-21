@@ -1,0 +1,8 @@
+# HEL-1808 control mutation: 150 ms busy loop per row in client extractRegex; diff in mutation-control-busyloop.diff
+[HEL-1683 e2e] control longest long task: 1209.0 ms (tasks: 1209.0); frames: LoAF@9ms dur=1210 block=1159 render=1 styleLayout=0 scripts=[DIV#root.oninput|react-dom_client.js?v=bb8d41c9:dispatchDiscreteEvent|1208]; api: none
+    Error: control (client-evaluated) longest task 1209.0 ms must be <= 100 ms; escalate, do not relax
+      271 |       `control (client-evaluated) longest task ${control.longest.toFixed(1)} ms must be <= ${LONG_TASK_BOUND_MS} ms; escalate, do not relax`,
+[HEL-1697 e2e] long-cell probe longest long task: 3619.0 ms (tasks: 3619.0); requests: POST /api/pipelines/7a05b6a4-968f-4548-bf60-208eb61ddfb0/draft-preview
+    Error: long-cell pattern (a*)b: longest main-thread task was 3619.0 ms, must be <= 100 ms
+      368 |       `long-cell pattern ${LONG_PROBE_PATTERN}: longest main-thread task was ${probe.longest.toFixed(1)} ms, must be <= ${LONG_TASK_BOUND_MS} ms`,
+  2 failed
