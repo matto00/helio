@@ -85,8 +85,9 @@ describe("AppShell panel loading waits for tab hydration (HEL-1575 D1)", () => {
     });
 
     await waitFor(() => expect(store.getState().dashboards.status).toBe("succeeded"));
-    // The reducer auto-selected "a" (most recent), yet nothing is fetched while hydration is pending.
-    expect(store.getState().dashboards.selectedDashboardId).toBe("a");
+    // HEL-1624: the reducer selects the saved active tab "b" directly (this asserted the transient landing default "a",
+    // the very behaviour HEL-1624 removes), and nothing is fetched while hydration is pending.
+    expect(store.getState().dashboards.selectedDashboardId).toBe("b");
     expect(store.getState().dashboardTabs.hydrated).toBe(false);
     await act(async () => {
       await Promise.resolve();

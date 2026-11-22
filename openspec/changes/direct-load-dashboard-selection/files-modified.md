@@ -1,0 +1,8 @@
+- `frontend/src/features/dashboards/tabs/loadTarget.ts` — new cycle-free helper: deepLinkDashboardId, mostRecentlyViewed, pruneSavedTabs, resolveLoadTarget
+- `frontend/src/features/dashboards/tabs/hydrateTabs.ts` — planHydration uses resolveLoadTarget/pruneSavedTabs; re-exports deepLinkDashboardId
+- `frontend/src/features/dashboards/state/dashboardsSlice.ts` — fetchDashboards computes the load target after its await and returns it as meta; fulfilled applies it
+- `frontend/src/features/dashboards/tabs/loadSelection.test.ts` — selection-recording jest test (5 RED, 2 GUARD)
+- `frontend/src/app/AppShell.tabsHydration.test.tsx` — assertion that encoded the transient landing default updated to the saved active tab
+- `e2e/hel1624-direct-load-selection.spec.ts` — grantee deep-link e2e: recents signal (RED on main) and request log (GUARD)
+- `openspec/changes/direct-load-dashboard-selection/` — consumer-audit.md, red/mutation .txt runs, tasks ticked
+- `e2e/hel1624-direct-load-selection.spec.ts`, `consumer-audit.md`, `tasks.md`, `dashboardsSlice.ts` — cycle 2: honest guard label, audit rows, meta check simplified; `mutation-e2e-panel-fetch-landing-default.txt` added

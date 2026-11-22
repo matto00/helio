@@ -1,0 +1,40 @@
+FAIL src/features/dashboards/tabs/loadSelection.test.ts (7.861 s)
+  ● HEL-1624 load selection never passes through another dashboard › GUARD (mutation: make getMostRecentDashboardId return the second item): no saved tabs selects the landing default
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "A"
+    Received: "B"
+
+      132 |   it("GUARD (mutation: make getMostRecentDashboardId return the second item): no saved tabs selects the landing default", async () => {
+      133 |     const { seen, harness } = await loadAndRecord({ path: "/dashboards", list });
+    > 134 |     expect(harness.getState().dashboards.selectedDashboardId).toBe("A");
+          |                                                               ^
+      135 |     expect(onlyNullAnd(seen, "A")).toEqual([]);
+      136 |   });
+      137 |
+
+      at Object.<anonymous> (src/features/dashboards/tabs/loadSelection.test.ts:134:63)
+
+  ● HEL-1624 load selection never passes through another dashboard › GUARD (not reachable in production: a signed-in user always exists when the list resolves): null currentUser applies the deep link and the landing default
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "A"
+    Received: "B"
+
+      140 |     expect(deep.harness.getState().dashboards.selectedDashboardId).toBe("B");
+      141 |     const landing = await loadAndRecord({ path: "/dashboards", list, noUser: true });
+    > 142 |     expect(landing.harness.getState().dashboards.selectedDashboardId).toBe("A");
+          |                                                                       ^
+      143 |   });
+      144 | });
+      145 |
+
+      at Object.<anonymous> (src/features/dashboards/tabs/loadSelection.test.ts:142:71)
+
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 5 passed, 7 total
+Snapshots:   0 total
+Time:        8.368 s
+Ran all test suites matching src/features/dashboards/tabs/loadSelection.test.ts.
