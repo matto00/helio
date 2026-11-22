@@ -1,0 +1,461 @@
+HEL-1585 task 1.2: the guard run IN FULL against unmodified main frontend code (branch at c405b6817; the only changes are the new spec file and openspec dir).
+RESULT: nothing reproduced. Every route passes at both viewports (see measurements below). Command: DEV_PORT=7017 HELIO_PLAYWRIGHT_WORKERS=2 npx playwright test e2e/hel1585-document-never-scrolls.spec.ts --reporter=list; exit=0
+
+
+Running 4 tests using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1585-1440-1795341845963-64711@example.test
+[HEL-1585 e2e] every authenticated route fits the viewport (1440x900): 74 /api requests, max 60s window 74 (limit 120, target <= 90), 0 x 429; top: 7 GET /api/outputs/:id/rows; 6 GET /api/outputs/:id/assertion-status; 4 GET /api/dashboards; 4 GET /api/data-sources; 4 GET /api/data-sources/:id/schema; 3 GET /api/dashboards/:id/panels; 3 GET /api/outputs/:id; 3 GET /api/pipelines/:id
+  ✓  1 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:450:9 › HEL-1585 document never scrolls at 1440x900 › every authenticated route fits the viewport (1440x900) (8.3s)
+[HEL-1300 e2e] throwaway user: hel1585-1280-1795341853816-60917@example.test
+[HEL-1585 e2e] every authenticated route fits the viewport (1280x800): 74 /api requests, max 60s window 74 (limit 120, target <= 90), 0 x 429; top: 7 GET /api/outputs/:id/rows; 6 GET /api/outputs/:id/assertion-status; 4 GET /api/dashboards; 4 GET /api/data-sources; 4 GET /api/data-sources/:id/schema; 3 GET /api/dashboards/:id/panels; 3 GET /api/outputs/:id; 3 GET /api/pipelines/:id
+  ✓  2 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:450:9 › HEL-1585 document never scrolls at 1280x800 › every authenticated route fits the viewport (1280x800) (6.6s)
+  ✓  3 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:457:7 › HEL-1585 guard preconditions › the route list covers every route inside ProtectedRoute (1ms)
+[HEL-1300 e2e] throwaway user: hel1585-errprobe-1795341860385-9170@example.test
+  ✓  4 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:467:7 › HEL-1585 guard preconditions › the error-state selector matches a real rendered error state (1.9s)
+userCleanup: removed 0 of 3 conversation folders
+[HEL-1301 e2e] deleted 3 recorded throwaway user(s)
+
+  4 passed (17.4s)
+
+=== measurements-1440x900.json ===
+{
+  "width": 1440,
+  "height": 900,
+  "seedRequests": 38,
+  "report": {
+    "total": 74,
+    "maxWindow": 74,
+    "count429": 0,
+    "top": [
+      [
+        "GET /api/outputs/:id/rows",
+        7
+      ],
+      [
+        "GET /api/outputs/:id/assertion-status",
+        6
+      ],
+      [
+        "GET /api/dashboards",
+        4
+      ],
+      [
+        "GET /api/data-sources",
+        4
+      ],
+      [
+        "GET /api/data-sources/:id/schema",
+        4
+      ],
+      [
+        "GET /api/dashboards/:id/panels",
+        3
+      ],
+      [
+        "GET /api/outputs/:id",
+        3
+      ],
+      [
+        "GET /api/pipelines/:id",
+        3
+      ]
+    ]
+  },
+  "wheel": {
+    "scrollY": 0,
+    "commandBarMoved": false,
+    "innerMoved": true,
+    "innerRegion": "aside.spine-body__spine",
+    "innerScrollTop": 600
+  },
+  "measurements": [
+    {
+      "route": "home",
+      "path": "/home",
+      "scrollHeight": 900,
+      "innerHeight": 900,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "dashboards",
+      "path": "/dashboards",
+      "scrollHeight": 900,
+      "innerHeight": 900,
+      "scrollY": 0,
+      "tabBar": true,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "dashboard detail",
+      "path": "/dashboards/23fcb719-7315-46c0-be4a-6a5e7c507bee",
+      "scrollHeight": 900,
+      "innerHeight": 900,
+      "scrollY": 0,
+      "tabBar": true,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "sources",
+      "path": "/sources",
+      "scrollHeight": 900,
+      "innerHeight": 900,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "source detail",
+      "path": "/sources/ee90f1cc-4d6d-47bf-94ae-2ea085f66527",
+      "scrollHeight": 900,
+      "innerHeight": 900,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "pipelines",
+      "path": "/pipelines",
+      "scrollHeight": 900,
+      "innerHeight": 900,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": "pipeline links=32"
+    },
+    {
+      "route": "pipeline detail (long steps)",
+      "path": "/pipelines/95b4b7c5-1d03-4640-ae5e-5226a5c03349",
+      "scrollHeight": 900,
+      "innerHeight": 900,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": "; inner region: aside.spine-body__spine scrollHeight=1904 clientHeight=763"
+    },
+    {
+      "route": "pipeline detail (short steps)",
+      "path": "/pipelines/cb7052d0-d0c2-4134-9356-8b5b1d9e2e7a",
+      "scrollHeight": 900,
+      "innerHeight": 900,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "connectors",
+      "path": "/connectors",
+      "scrollHeight": 900,
+      "innerHeight": 900,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "chat",
+      "path": "/chat",
+      "scrollHeight": 900,
+      "innerHeight": 900,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "settings",
+      "path": "/settings",
+      "scrollHeight": 900,
+      "innerHeight": 900,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "admin usage",
+      "path": "/admin/usage",
+      "scrollHeight": 900,
+      "innerHeight": 900,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "proposal review",
+      "path": "/proposals/review",
+      "scrollHeight": 900,
+      "innerHeight": 900,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "patch-set review",
+      "path": "/patch-sets/review",
+      "scrollHeight": 900,
+      "innerHeight": 900,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "pipeline-proposal review",
+      "path": "/pipeline-proposals/review",
+      "scrollHeight": 900,
+      "innerHeight": 900,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "combined-proposal review",
+      "path": "/combined-proposals/review",
+      "scrollHeight": 900,
+      "innerHeight": 900,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "connect mcp",
+      "path": "/connect/mcp",
+      "scrollHeight": 900,
+      "innerHeight": 900,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    }
+  ]
+}=== measurements-1280x800.json ===
+{
+  "width": 1280,
+  "height": 800,
+  "seedRequests": 38,
+  "report": {
+    "total": 74,
+    "maxWindow": 74,
+    "count429": 0,
+    "top": [
+      [
+        "GET /api/outputs/:id/rows",
+        7
+      ],
+      [
+        "GET /api/outputs/:id/assertion-status",
+        6
+      ],
+      [
+        "GET /api/dashboards",
+        4
+      ],
+      [
+        "GET /api/data-sources",
+        4
+      ],
+      [
+        "GET /api/data-sources/:id/schema",
+        4
+      ],
+      [
+        "GET /api/dashboards/:id/panels",
+        3
+      ],
+      [
+        "GET /api/outputs/:id",
+        3
+      ],
+      [
+        "GET /api/pipelines/:id",
+        3
+      ]
+    ]
+  },
+  "wheel": {},
+  "measurements": [
+    {
+      "route": "home",
+      "path": "/home",
+      "scrollHeight": 800,
+      "innerHeight": 800,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "dashboards",
+      "path": "/dashboards",
+      "scrollHeight": 800,
+      "innerHeight": 800,
+      "scrollY": 0,
+      "tabBar": true,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "dashboard detail",
+      "path": "/dashboards/786d6c8a-335e-42ba-9159-2822d1d8bd18",
+      "scrollHeight": 800,
+      "innerHeight": 800,
+      "scrollY": 0,
+      "tabBar": true,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "sources",
+      "path": "/sources",
+      "scrollHeight": 800,
+      "innerHeight": 800,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "source detail",
+      "path": "/sources/1f03724d-4390-4108-b5f4-153a9d97fd27",
+      "scrollHeight": 800,
+      "innerHeight": 800,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "pipelines",
+      "path": "/pipelines",
+      "scrollHeight": 800,
+      "innerHeight": 800,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": "pipeline links=32"
+    },
+    {
+      "route": "pipeline detail (long steps)",
+      "path": "/pipelines/89c60deb-c043-4ce9-8a34-d5cf434138c7",
+      "scrollHeight": 800,
+      "innerHeight": 800,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": "; inner region: aside.spine-body__spine scrollHeight=1904 clientHeight=663"
+    },
+    {
+      "route": "pipeline detail (short steps)",
+      "path": "/pipelines/53c4c263-967e-425c-929e-08475622965d",
+      "scrollHeight": 800,
+      "innerHeight": 800,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "connectors",
+      "path": "/connectors",
+      "scrollHeight": 800,
+      "innerHeight": 800,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "chat",
+      "path": "/chat",
+      "scrollHeight": 800,
+      "innerHeight": 800,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "settings",
+      "path": "/settings",
+      "scrollHeight": 800,
+      "innerHeight": 800,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "admin usage",
+      "path": "/admin/usage",
+      "scrollHeight": 800,
+      "innerHeight": 800,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "proposal review",
+      "path": "/proposals/review",
+      "scrollHeight": 800,
+      "innerHeight": 800,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "patch-set review",
+      "path": "/patch-sets/review",
+      "scrollHeight": 800,
+      "innerHeight": 800,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "pipeline-proposal review",
+      "path": "/pipeline-proposals/review",
+      "scrollHeight": 800,
+      "innerHeight": 800,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "combined-proposal review",
+      "path": "/combined-proposals/review",
+      "scrollHeight": 800,
+      "innerHeight": 800,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    },
+    {
+      "route": "connect mcp",
+      "path": "/connect/mcp",
+      "scrollHeight": 800,
+      "innerHeight": 800,
+      "scrollY": 0,
+      "tabBar": false,
+      "offender": null,
+      "note": ""
+    }
+  ]
+}
