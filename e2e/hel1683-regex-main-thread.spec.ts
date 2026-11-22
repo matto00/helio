@@ -29,6 +29,8 @@ const NULL_CELL = "—";
 const LONG_ROWS = 12;
 const LONG_CELL_LENGTH = 10_000;
 const LONG_PROBE_PATTERN = "(a*)b";
+// HEL-1807: the start-anchored form of an over-budget pattern is one match attempt per cell, so it stays on the client.
+const ANCHORED_PATTERN = "^(.*)$";
 
 async function post<T>(page: Page, url: string, data: unknown): Promise<T> {
   const res = await page.request.post(url, { data, headers: CSRF });
@@ -387,5 +389,56 @@ test.describe("HEL-1683 client regex main-thread guard (live)", () => {
     const branch = (await live.isVisible()) ? "live" : "time-budget error";
     console.log(`[HEL-1697 e2e] long-cell server outcome: ${branch}`);
     if (branch === "live") await expect(rows.getByText(`${LONG_ROWS} rows`)).toBeVisible();
+  });
+  // HEL-1807: `^(.*)$` is as quadratic as `(.*)$` when V8 may restart at every position, but it is anchored: V8 makes one
+  // attempt per cell, and the cost model charges one attempt. Over the same 12 x 10,000 frame as the test above, the unrefined
+  // model declines it (its per-position charge is about 2.4e9 units) and the refined one evaluates it on the client.
+  test("a start-anchored pattern over long cells is evaluated on the client without blocking the main thread", async ({
+    page,
+    request,
+  }) => {
+    const creds = await registerAndLogin(page, request, { ...AUTH, label: "regex-anchored" });
+    expect(creds.email).toContain("hel1683");
+    const longCell = "a".repeat(LONG_CELL_LENGTH);
+    const pipelineId = await seed(page, longCell, LONG_ROWS);
+    const sample = page.waitForResponse((r) =>
+      SAMPLE_URL.test(new URL(r.url()).pathname + new URL(r.url()).search),
+    );
+    await page.goto(`/pipelines/${pipelineId}`);
+    await sample;
+    await expect(page.getByRole("region", { name: /^Rows after step 1/ })).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    const pattern = page.getByRole("textbox", { name: "Pattern" });
+    await expect(pattern).toBeVisible();
+    const rows = page.getByRole("region", { name: /^Rows after step 1/ });
+
+    await startLongTaskWindow(page);
+    const api = recordApi(page);
+    await pattern.fill(ANCHORED_PATTERN);
+    await expect(page.getByText("Draft · unsaved changes")).toBeVisible();
+    // The saved pattern matches nothing (out is empty), so the cells can only hold the cell text if a run of `^(.*)$` produced them.
+    await expect
+      .poll(async () => (await outColumnCells(rows)).filter((c) => c.startsWith("aaaa")).length, {
+        message: "the rows table shows the anchored pattern's out cells",
+        timeout: 15_000,
+      })
+      .toBe(LONG_ROWS);
+    await page.waitForTimeout(1500);
+    const requests = api.stop();
+    const reading = await longestTask(page);
+    console.log(
+      `[HEL-1807 e2e] anchored longest long task: ${reading.longest.toFixed(1)} ms (tasks: ${reading.all.map((n) => n.toFixed(1)).join(", ")}); requests: ${requests.join(", ")}`,
+    );
+    expect(
+      requests.filter((r) => r.includes("/draft-preview")),
+      `the anchored pattern is client-evaluated (no draft-preview request): ${requests.join(", ")}`,
+    ).toEqual([]);
+    expect(
+      reading.longest,
+      `anchored pattern ${ANCHORED_PATTERN}: longest main-thread task was ${reading.longest.toFixed(1)} ms, must be <= ${LONG_TASK_BOUND_MS} ms`,
+    ).toBeLessThanOrEqual(LONG_TASK_BOUND_MS);
+    expect(await outColumnCells(rows), "every out cell holds the whole cell").toEqual(
+      Array.from({ length: LONG_ROWS }, () => longCell),
+    );
   });
 });

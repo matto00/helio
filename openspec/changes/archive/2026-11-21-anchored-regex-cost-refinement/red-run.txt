@@ -1,0 +1,187 @@
+# HEL-1807 red run on the pre-change model (run before any implementation code; 3 jest workers)
+# npx jest --config jest.config.cjs --maxWorkers=3 regexInputCost regexWorkModel regexCellWork
+
+FAIL src/features/pipelines/evaluator/regexWorkModel.test.ts
+  ● Test suite failed to run
+
+    src/features/pipelines/evaluator/regexWorkModel.test.ts:43:41 - error TS2339: Property 'anchored' does not exist on type 'RegexWork'.
+
+    43     expect(compiled.ok && compiled.work.anchored).toBe(anchored);
+                                               ~~~~~~~~
+
+FAIL src/features/pipelines/evaluator/regexCellWork.test.ts
+  ● cellWork of a start-anchored pattern › charges f x (A x (1 + W) + R0 x (A + m)) for the first U-run R0
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 11
+    Received: 28
+
+      89 |   it("charges f x (A x (1 + W) + R0 x (A + m)) for the first U-run R0", () => {
+      90 |     // ^(a*)b: A = 1, W = 2, m = 1. "aaab" is one run of 4: 3 + 4 x 2 = 11 (28 per position).
+    > 91 |     expect(cellWork("aaab", workOf("^(a*)b"))).toBe(11);
+         |                                                ^
+      92 |     // "aa-aa": R0 = 2 (the second run is never tried): 3 + 2 x 2 = 7 (21 per position).
+      93 |     expect(cellWork("aa-aa", workOf("^(a*)b"))).toBe(7);
+      94 |   });
+
+      at Object.<anonymous> (src/features/pipelines/evaluator/regexCellWork.test.ts:91:48)
+
+  ● cellWork of a start-anchored pattern › charges the constant for a cell whose first character is outside U
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 3
+    Received: 4
+
+       95 |
+       96 |   it("charges the constant for a cell whose first character is outside U", () => {
+    >  97 |     expect(cellWork("zzzz", workOf("^(a*)b"))).toBe(3);
+          |                                                ^
+       98 |     expect(cellWork("zaaa", workOf("^(a*)b"))).toBe(3);
+       99 |   });
+      100 |
+
+      at Object.<anonymous> (src/features/pipelines/evaluator/regexCellWork.test.ts:97:48)
+
+  ● cellWork of a start-anchored pattern › counts an unpaired surrogate of the first run as two units
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 15
+    Received: 54
+
+      111 |   it("counts an unpaired surrogate of the first run as two units", () => {
+      112 |     // ^(.*)x: A = 1, W = 2, m = 1. Three unpaired surrogates are one run of 6 units: 3 + 6 x 2 = 15 (9 at one unit each).
+    > 113 |     expect(cellWork("\ud800\ud800\ud800", workOf("^(.*)x"))).toBe(15);
+          |                                                              ^
+      114 |   });
+      115 | });
+      116 |
+
+      at Object.<anonymous> (src/features/pipelines/evaluator/regexCellWork.test.ts:113:62)
+
+  ● cellWorkBound of a start-anchored pattern › uses the surrogate-free length 2 x text.length, never testing the cell
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 6
+    Received: 4
+
+      147 |     // ^(a+): A = 1, W = 1, m = 0: L = 4 for two characters, min(4 + 4 x 1, 2 + 4) = 6, lone surrogate or not.
+      148 |     const work = workOf("^(a+)");
+    > 149 |     expect(cellWorkBound("aa", work)).toBe(6);
+          |                                       ^
+      150 |     expect(cellWorkBound("a\ud800", work)).toBe(6);
+      151 |     expect(cellWorkBound("\ud83d\ude00", work)).toBe(6);
+      152 |   });
+
+      at Object.<anonymous> (src/features/pipelines/evaluator/regexCellWork.test.ts:149:39)
+
+FAIL src/features/pipelines/evaluator/regexInputCost.test.ts
+  ● regexInputCost start-anchored patterns › evaluates ^(.*)$ over 1,000 rows of 500-character cells on the client, with the cell as its own match
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "ok"
+    Received: "needsServer"
+
+      133 |     const cell = "a".repeat(500);
+      134 |     const outcome = evaluateStep(step("^(.*)$"), frame(1000, cell), none);
+    > 135 |     expect(outcome.status).toBe("ok");
+          |                            ^
+      136 |     if (outcome.status !== "ok") return;
+      137 |     expect(outcome.rows).toHaveLength(1000);
+      138 |     expect(outcome.rows.every((r) => r.out === cell)).toBe(true);
+
+      at Object.<anonymous> (src/features/pipelines/evaluator/regexInputCost.test.ts:135:28)
+
+  ● regexInputCost start-anchored patterns › charges R0 (the first run) per cell: ^(.*)x is client-side at 1,998 characters and declined at 2,000
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 2
+
+      Object {
+    -   "status": "ok",
+    +   "reason": "regexInputCost",
+    +   "status": "needsServer",
+      }
+
+      141 |   it("charges R0 (the first run) per cell: ^(.*)x is client-side at 1,998 characters and declined at 2,000", () => {
+      142 |     // A = 1, W = 2, m = 1: 3 + 2 x len per cell, so 3.999e6 and 4.003e6 over 1,000 rows.
+    > 143 |     expect(run("^(.*)x", 1000, "a".repeat(1998))).toEqual(OK);
+          |                                                   ^
+      144 |     expect(run("^(.*)x", 1000, "a".repeat(2000))).toEqual(DECLINED);
+      145 |   });
+      146 |
+
+      at Object.<anonymous> (src/features/pipelines/evaluator/regexInputCost.test.ts:143:51)
+
+  ● regexInputCost start-anchored patterns › charges only the constant for a cell that starts outside the pattern's characters
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 2
+
+      Object {
+    -   "status": "ok",
+    +   "reason": "regexInputCost",
+    +   "status": "needsServer",
+      }
+
+      159 |   it("charges only the constant for a cell that starts outside the pattern's characters", () => {
+      160 |     // R0 = 0: 3 per cell however long the cell is, where the per-position scan would charge 20,000 per cell.
+    > 161 |     expect(run("^(a*)b", 1000, "c" + "a".repeat(20000))).toEqual(OK);
+          |                                                          ^
+      162 |     expect(run("(a*)b", 1000, "c" + "a".repeat(20000))).toEqual(DECLINED);
+      163 |   });
+      164 |
+
+      at Object.<anonymous> (src/features/pipelines/evaluator/regexInputCost.test.ts:161:58)
+
+  ● regexInputCost start-anchored patterns › decision scan › reads only the first run of a cell whose anchored charge is already the smaller one
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: false
+    Received: true
+
+      194 |       const cells = Array.from({ length: 1000 }, () => "aaac" + "a".repeat(20000));
+      195 |       const reads = countReads(() => {
+    > 196 |         expect(workExceedsBudget(cells, work("^(a*)b"))).toBe(false);
+          |                                                          ^
+      197 |       });
+      198 |       expect(reads).toBeLessThanOrEqual(1000 * (3 + 1));
+      199 |     });
+
+      at src/features/pipelines/evaluator/regexInputCost.test.ts:196:58
+      at countReads (src/features/pipelines/evaluator/regexInputCost.test.ts:184:9)
+      at Object.<anonymous> (src/features/pipelines/evaluator/regexInputCost.test.ts:195:21)
+
+  ● regexInputCost start-anchored patterns › decision scan › reads at most one character of a cell that starts outside the pattern's characters
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: false
+    Received: true
+
+      202 |       const cells = Array.from({ length: 1000 }, () => "c" + "a".repeat(20000));
+      203 |       const reads = countReads(() => {
+    > 204 |         expect(workExceedsBudget(cells, work("^(a*)b"))).toBe(false);
+          |                                                          ^
+      205 |       });
+      206 |       expect(reads).toBeLessThanOrEqual(1000);
+      207 |     });
+
+      at src/features/pipelines/evaluator/regexInputCost.test.ts:204:58
+      at countReads (src/features/pipelines/evaluator/regexInputCost.test.ts:184:9)
+      at Object.<anonymous> (src/features/pipelines/evaluator/regexInputCost.test.ts:203:21)
+
+Test Suites: 3 failed, 3 total
+Tests:       9 failed, 42 passed, 51 total
+Snapshots:   0 total
+Time:        4.237 s
+Ran all test suites matching src/features/pipelines/evaluator/regexInputCost.test.ts|src/features/pipelines/evaluator/regexWorkModel.test.ts|src/features/pipelines/evaluator/regexCellWork.test.ts.

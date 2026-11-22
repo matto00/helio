@@ -24,4 +24,22 @@ describe("regexWorkModel", () => {
     expect(compiled.ok && compiled.work.f).toBe(1);
     expect(compiled.ok && compiled.work.chars).toEqual([[0x61, 0x62]]);
   });
+
+  // HEL-1807 -- `anchored` is true when every top-level alternative of the flattened tree starts with `^`.
+  it.each([
+    ["^(.*)$", true],
+    ["(^a*)b", true],
+    ["^a*b|^c", true],
+    ["()^a", true],
+    ["(^(a*)|^(c))b", true],
+    ["^a*b|c", false],
+    ["^(a*)b|(c)", false],
+    ["(a)^b", false],
+    ["(.*)^(x)", false],
+    ["(a*)b", false],
+    ["(a*)$", false],
+  ])("%s has anchored=%s", (pattern, anchored) => {
+    const compiled = compileJavaRegex(pattern);
+    expect(compiled.ok && compiled.work.anchored).toBe(anchored);
+  });
 });
