@@ -7,6 +7,7 @@ import {
   type MarkStatus,
   type TimelineMark as Mark,
 } from "../utils/timelineMarks";
+import { triggerSourceLabel } from "../../pipelines/utils/triggerSourceLabel";
 import { formatClock } from "../utils/timelineScale";
 
 /** The shape that distinguishes a status by more than hue (DESIGN.md §8): succeeded a filled circle, failed a
@@ -22,17 +23,6 @@ export function MarkShape({ status }: { status: MarkStatus }) {
       onAnimationEnd={done}
     />
   );
-}
-
-const TRIGGER_WORD: Record<string, string> = {
-  manual: "Manual",
-  scheduled: "Scheduled",
-  external: "External",
-  auto: "Auto",
-};
-
-function triggerWord(source: string): string {
-  return TRIGGER_WORD[source] ?? source;
 }
 
 /** The hover/focus details of one mark: status, start, duration, rows, trigger and (failed) error. */
@@ -57,7 +47,7 @@ export function MarkDetails({
       {run !== null ? (
         <span className="tl-tip__row">
           {run.rowCount !== null ? `${run.rowCount} rows · ` : ""}
-          {triggerWord(run.triggerSource)}
+          {triggerSourceLabel(run.triggerSource)}
         </span>
       ) : (
         <span className="tl-tip__row">Next scheduled run</span>

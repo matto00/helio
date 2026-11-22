@@ -292,6 +292,10 @@ function normalizeRunRecord(run: PipelineRunRecord): PipelineRunRecord {
   return {
     ...run,
     triggerSource: run.triggerSource ?? "manual",
+    // The route omits these when unset (no explicit nulls on the wire); the client type is `T | null`.
+    completedAt: run.completedAt ?? null,
+    rowCount: run.rowCount ?? null,
+    errorLog: run.errorLog ?? null,
     assertions: run.assertions ?? EMPTY_ASSERTION_SUMMARY,
   };
 }

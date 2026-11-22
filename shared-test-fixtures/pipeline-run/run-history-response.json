@@ -1,0 +1,72 @@
+[
+  {
+    "assertions": {
+      "errorFailed": 0,
+      "failures": [],
+      "passed": 0,
+      "warnFailed": 0
+    },
+    "completedAt": "{{TIMESTAMP}}",
+    "id": "{{RUN_auto-run}}",
+    "pipelineId": "{{PIPELINE_1}}",
+    "rowCount": 3,
+    "startedAt": "{{TIMESTAMP}}",
+    "status": "succeeded",
+    "triggerSource": "auto-run",
+    "truncation": {
+      "reads": [],
+      "truncated": false
+    }
+  },
+  {
+    "assertions": {
+      "errorFailed": 0,
+      "failures": [],
+      "passed": 0,
+      "warnFailed": 0
+    },
+    "id": "{{RUN_external}}",
+    "pipelineId": "{{PIPELINE_1}}",
+    "startedAt": "{{TIMESTAMP}}",
+    "status": "queued",
+    "triggerSource": "external"
+  },
+  {
+    "assertions": {
+      "errorFailed": 0,
+      "failures": [],
+      "passed": 0,
+      "warnFailed": 0
+    },
+    "completedAt": "{{TIMESTAMP}}",
+    "errorLog": "boom",
+    "id": "{{RUN_scheduled}}",
+    "pipelineId": "{{PIPELINE_1}}",
+    "startedAt": "{{TIMESTAMP}}",
+    "status": "failed",
+    "triggerSource": "scheduled",
+    "truncation": {
+      "reads": [],
+      "truncated": false
+    }
+  },
+  {
+    "assertions": {
+      "errorFailed": 0,
+      "failures": [],
+      "passed": 0,
+      "warnFailed": 0
+    },
+    "completedAt": "{{TIMESTAMP}}",
+    "id": "{{RUN_manual}}",
+    "pipelineId": "{{PIPELINE_1}}",
+    "rowCount": 5,
+    "startedAt": "{{TIMESTAMP}}",
+    "status": "succeeded",
+    "triggerSource": "manual",
+    "truncation": {
+      "reads": [],
+      "truncated": false
+    }
+  }
+]
