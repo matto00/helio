@@ -1,0 +1,22 @@
+  ok - dry run lists exactly the two orphans
+  ok - dry run counts kept, skipped and deleted=0
+  ok - dry run reports how many users each database matched (counts only)
+  ok - dry run changes nothing on disk
+  ok - a user present only in the second database is not an orphan
+  ok - an unreadable database fails closed: throws and deletes nothing
+  ok - summary is counts only
+  ok - delete removes exactly the orphans
+  ok - orphans are gone; present, second-db, skipped, symlink target and other families are intact
+  ok - CLI requires --uploads-root
+  ok - CLI requires at least one --database-url
+  ok - CLI refuses a relative uploads root
+  ok - CLI with an unreachable database exits non-zero, lists no orphan, deletes nothing
+  ok - CLI never prints the connection string or password
+  FAIL - CLI maps DB_USER/DB_PASSWORD to PGUSER/PGPASSWORD for the psql it spawns: 0  seen=user=false pass=false
+
+  ok - CLI success output never contains the credentials or the URL
+  FAIL - CLI failure output redacts DB_USER, DB_PASSWORD and the URL: prune-orphan-conversation-folders: prune: psql failed (is psql installed and the DB reachable?): FATAL: auth failed for  with
+
+  ok - CLI without DB_USER/DB_PASSWORD passes no credential through
+
+16 passed, 2 failed

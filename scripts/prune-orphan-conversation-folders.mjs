@@ -10,6 +10,8 @@
 // is given. Deletion addresses each folder by joining root + "assistant-conversations" + the exact UUID: no glob,
 // no pattern, no time window, and a symlinked folder is never followed. If any database cannot be read the script
 // fails with nothing listed and nothing deleted. A connection string or credential is never printed.
+// Credentials: DB_USER / DB_PASSWORD in the environment are passed to psql as PGUSER / PGPASSWORD (a URL's own
+// user/password wins), the same mapping the e2e helpers use.
 
 import { lstatSync, readdirSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -97,14 +99,20 @@ export function parseArgs(argv) {
 /** A query against one database via the shared psql helper; the ids are validated UUIDs, so safe to inline. */
 function databaseQuery(url) {
   const require = createRequire(import.meta.url);
-  const { psql, scrubSecrets } = require("../e2e/support/db.cjs");
+  const { credentialEnv, psql, scrubSecrets } = require("../e2e/support/db.cjs");
   const bare = url.replace(/^jdbc:/, "");
+  // DB_USER/DB_PASSWORD from the process environment only (never backend/.env: the URLs are explicit and may
+  // target several databases), mapped exactly as e2e/support/db.cjs does and scrubbed from any error text.
+  const user = process.env.DB_USER;
+  const password = process.env.DB_PASSWORD;
+  const secrets = [url, bare, user, password];
+  const env = credentialEnv(process.env, user, password);
   return async (ids) => {
     const sql = `SELECT id::text FROM users WHERE id = ANY('{${ids.join(",")}}'::uuid[]);`;
     try {
-      return new Set(psql(sql, "prune", { url: bare, env: process.env, secrets: [url, bare] }));
+      return new Set(psql(sql, "prune", { url: bare, env, secrets }));
     } catch (e) {
-      throw new Error(scrubSecrets(e?.message ?? "query failed", [url, bare]));
+      throw new Error(scrubSecrets(e?.message ?? "query failed", secrets));
     }
   };
 }

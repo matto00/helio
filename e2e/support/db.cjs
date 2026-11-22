@@ -26,6 +26,16 @@ function readEnvFile(path) {
   return out;
 }
 
+/** `baseEnv` plus `PGUSER`/`PGPASSWORD` for the given non-empty credentials (libpq reads them; a URL's own
+ *  embedded user/password still wins there). Pure: shared by `dbConnection` and the prune script. */
+function credentialEnv(baseEnv, user, password) {
+  return {
+    ...baseEnv,
+    ...(user ? { PGUSER: user } : {}),
+    ...(password ? { PGPASSWORD: password } : {}),
+  };
+}
+
 /** Resolves the connection from the process environment, then `backend/.env`. */
 function dbConnection() {
   const file = readEnvFile(ENV_FILE);
@@ -39,11 +49,7 @@ function dbConnection() {
   return {
     url,
     secrets: [jdbc, url, user, password],
-    env: {
-      ...process.env,
-      ...(user ? { PGUSER: user } : {}),
-      ...(password ? { PGPASSWORD: password } : {}),
-    },
+    env: credentialEnv(process.env, user, password),
   };
 }
 
@@ -83,4 +89,4 @@ function readBackendEnv() {
   return readEnvFile(ENV_FILE);
 }
 
-module.exports = { dbConnection, scrubSecrets, psql, readBackendEnv };
+module.exports = { credentialEnv, dbConnection, scrubSecrets, psql, readBackendEnv };

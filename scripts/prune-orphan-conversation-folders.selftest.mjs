@@ -4,10 +4,12 @@
 
 import { spawnSync } from "node:child_process";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -168,6 +170,73 @@ try {
     ![SENTINEL, "sentineldb"].some((x) => down.stdout.includes(x) || down.stderr.includes(x)),
     down.stderr,
   );
+
+  // --- HEL-1817: credentials from DB_USER / DB_PASSWORD, via a fake psql on PATH -------------------
+  const shimDir = mkdtempSync(join(tmpdir(), "hel1817-shim-"));
+  try {
+    const seen = join(shimDir, "seen.txt");
+    const USER_S = "hel1817sentineluser";
+    const PASS_S = "hel1817sentinelpass";
+    const shim = join(shimDir, "psql");
+    writeFileSync(
+      shim,
+      [
+        "#!/bin/sh",
+        'if [ "$PGUSER" = "$HEL1817_EXPECT_USER" ]; then u=true; else u=false; fi',
+        'if [ "$PGPASSWORD" = "$HEL1817_EXPECT_PASS" ]; then p=true; else p=false; fi',
+        'echo "user=$u pass=$p" >> "$HEL1817_SEEN"',
+        'if [ "$HEL1817_MODE" = "fail" ]; then',
+        '  echo "FATAL: auth failed for $PGUSER with $PGPASSWORD" >&2',
+        "  exit 2",
+        "fi",
+        "exit 0",
+        "",
+      ].join("\n"),
+    );
+    chmodSync(shim, 0o755);
+    const credUrl = "postgresql://127.0.0.1:1/hel1817credentialless";
+    const runShim = (mode, withCreds = true) =>
+      cli(["--uploads-root", root, "--database-url", credUrl], {
+        PATH: `${shimDir}:${process.env.PATH}`,
+        HEL1817_SEEN: seen,
+        HEL1817_MODE: mode,
+        HEL1817_EXPECT_USER: USER_S,
+        HEL1817_EXPECT_PASS: PASS_S,
+        ...(withCreds ? { DB_USER: USER_S, DB_PASSWORD: PASS_S } : {}),
+      });
+    const readSeen = () => (existsSync(seen) ? readFileSync(seen, "utf8") : "");
+    const okRun = runShim("ok");
+    record(
+      "CLI maps DB_USER/DB_PASSWORD to PGUSER/PGPASSWORD for the psql it spawns",
+      okRun.status === 0 && readSeen().includes("user=true pass=true"),
+      `${okRun.status} ${okRun.stderr} seen=${readSeen()}`,
+    );
+    const outOk = okRun.stdout + okRun.stderr;
+    record(
+      "CLI success output never contains the credentials or the URL",
+      ![USER_S, PASS_S, credUrl, "credentialless"].some((x) => outOk.includes(x)),
+      outOk,
+    );
+    rmSync(seen, { force: true });
+    const failRun = runShim("fail");
+    const outFail = failRun.stdout + failRun.stderr;
+    record(
+      "CLI failure output redacts DB_USER, DB_PASSWORD and the URL",
+      failRun.status !== 0 &&
+        outFail.includes("<redacted>") &&
+        ![USER_S, PASS_S, credUrl, "credentialless"].some((x) => outFail.includes(x)),
+      outFail,
+    );
+    rmSync(seen, { force: true });
+    runShim("ok", false);
+    record(
+      "CLI without DB_USER/DB_PASSWORD passes no credential through",
+      readSeen().includes("user=false pass=false"),
+      readSeen(),
+    );
+  } finally {
+    rmSync(shimDir, { recursive: true, force: true });
+  }
 } finally {
   rmSync(root, { recursive: true, force: true });
 }

@@ -94,6 +94,8 @@ untagged test, against the Vite dev server); set to `1`, the only projects are `
 fails closed unless `baseURL` serves a production build, not the dev server) and `prod-build` (only the tagged tests, service
 workers blocked). In CI the tagged tests run in the dedicated `e2e-prod-build` job (build, `vite preview`, same backend setup),
 not in a shard leg. `npm run check:e2e-prod-build-projects` keeps the partition honest; locally run `npm run e2e:prod-build`.
+Current users: the burst test in `hel1631-draft-mode.spec.ts`, `hel1632-live-output.spec.ts`, and all three tests in
+`hel1683-regex-main-thread.spec.ts` (HEL-1816: the 100 ms long-task bound is asserted on the production build, not the dev server).
 
 **Running it inside a concertino lane (HEL-1699).** The preview must serve on the lane's `DEV_PORT` (so the backend's CORS
 origin `http://localhost:$DEV_PORT` matches), and the lane's dev server holds that port, so stop the lane's servers first.
@@ -204,6 +206,13 @@ environment or `backend/.env` exactly like `support/historySeed.ts`; nothing abo
   user); it then deletes the rows the users own that would block the delete and the users themselves, and
   asserts the deleted count. It never uses a pattern, name or time-window predicate and reads only its own
   run directory. `npm run check:e2e-user-cleanup-core:selftest` proves the refusals.
+- Once the delete has committed, teardown also removes the users' conversation folders from the uploads root
+  (`support/userCleanupRun.cjs`). A folder that cannot be removed is counted, never thrown mid-way: the registry
+  directory is removed anyway (it would otherwise name users that no longer exist, and a re-run's exact-match
+  check would refuse it) and teardown then fails with a count-only message (no id, no path). The recovery for a
+  leftover folder is `scripts/prune-orphan-conversation-folders.mjs` (dry run by default), which finds folders
+  whose user is in no database; it reads `DB_USER`/`DB_PASSWORD` from the environment like the e2e helpers. A
+  delete that did not commit keeps the registry directory, as before.
 - A run that is killed before teardown (SIGKILL, CI timeout) leaves its `.e2e-user-registry/<runId>/*.jsonl`
   on disk: the exact ids to delete by hand with the same builder. Do not sweep other runs' directories
   automatically - a concurrently running run in the same worktree owns its own. Residue from before this

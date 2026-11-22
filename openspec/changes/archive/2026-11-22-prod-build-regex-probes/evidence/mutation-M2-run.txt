@@ -1,0 +1,139 @@
+
+> helio@0.7.4 e2e:prod-build
+> node scripts/e2e-prod-build.mjs e2e/hel1683-regex-main-thread.spec.ts --workers=2
+
+
+> helio-frontend@0.0.0 build
+> vite build
+
+vite v8.1.6 building client environment for production...
+[2Ktransforming...✓ 4068 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/manifest.webmanifest                                0.38 kB
+dist/app.html                                            5.37 kB │ gzip:   1.92 kB
+dist/index.html                                         17.26 kB │ gzip:   4.24 kB
+dist/assets/uc-fantasy-dark-CDeW3qOm.jpg               178.19 kB
+dist/assets/uc-oss-dark-C0n2duuH.jpg                   184.19 kB
+dist/assets/uc-revenue-dark-nrVFqN8P.jpg               188.07 kB
+dist/assets/uc-fantasy-light-CT017RJb.jpg              188.61 kB
+dist/assets/uc-oss-light-C-W_Q0Dp.jpg                  195.55 kB
+dist/assets/uc-revenue-light-BDfoH59V.jpg              198.30 kB
+dist/assets/uc-helio-dark-DjRt38vm.jpg                 201.49 kB
+dist/assets/uc-launch-dark-3jhXF-2p.jpg                204.25 kB
+dist/assets/uc-helio-light-BGK0VfZF.jpg                214.35 kB
+dist/assets/uc-launch-light-B_5Uh8xT.jpg               215.96 kB
+dist/assets/uc-news-dark-DSQaHFXR.jpg                  250.74 kB
+dist/assets/uc-news-light-DHoOj6cT.jpg                 257.22 kB
+dist/assets/PageHeader-C1sVIwME.css                      0.68 kB │ gzip:   0.31 kB
+dist/assets/CombinedProposalReviewPage-DklaEMf1.css      1.72 kB │ gzip:   0.48 kB
+dist/assets/MarkdownPanel-DDBX7Do1.css                   2.52 kB │ gzip:   0.78 kB
+dist/assets/ProposalReviewPage-BCUKAU3W.css              2.88 kB │ gzip:   0.78 kB
+dist/assets/AdminUsagePage-DlLjrOzY.css                  4.11 kB │ gzip:   0.92 kB
+dist/assets/PipelineProposalSummary-CVjArNkC.css         4.30 kB │ gzip:   0.98 kB
+dist/assets/dashboardsSlice-N9m98x7W.css                 6.19 kB │ gzip:   1.41 kB
+dist/assets/PageStatus-B3SpJWzO.css                      8.11 kB │ gzip:   1.76 kB
+dist/assets/tapTarget-BbNEP0Rw.css                      10.05 kB │ gzip:   2.71 kB
+dist/assets/index-BdTbs1q6.css                          10.05 kB │ gzip:   2.44 kB
+dist/assets/laneLayout-2ESVy4z-.css                     19.36 kB │ gzip:   3.72 kB
+dist/assets/app-BnUs0vEz.css                           305.03 kB │ gzip:  37.88 kB
+dist/assets/csrfHeader-B9i70Bza.js                       0.07 kB │ gzip:   0.09 kB
+dist/assets/prefersReducedMotion-C5Ij2xek.js             0.09 kB │ gzip:   0.10 kB
+dist/assets/columns-3-Dcm-VTiQ.js                        0.28 kB │ gzip:   0.23 kB
+dist/assets/authoringService-CizHhCrZ.js                 0.64 kB │ gzip:   0.40 kB
+dist/assets/tapTarget-D5ptwzVm.js                        0.69 kB │ gzip:   0.39 kB
+dist/assets/combinedProposalsSlice-eaQkU7T0.js           0.93 kB │ gzip:   0.51 kB
+dist/assets/InsightMarkdownView--64Uh-Cb.js              1.43 kB │ gzip:   0.78 kB
+dist/assets/PipelineProposalReviewPage-B41Ynzst.js       2.42 kB │ gzip:   1.15 kB
+dist/assets/chartAppearance-B7MODOn_.js                  3.55 kB │ gzip:   1.55 kB
+dist/assets/CombinedProposalReviewPage-CoNocglZ.js       4.02 kB │ gzip:   1.53 kB
+dist/assets/workbox-window.prod.es5-Bd17z0YL.js          5.65 kB │ gzip:   2.20 kB
+dist/assets/ProposalReviewPage-Bqjzdxwn.js               6.16 kB │ gzip:   2.28 kB
+dist/assets/index-D47_aCx6.js                            6.83 kB │ gzip:   3.00 kB
+dist/assets/histogramBins-DYuWYygk.js                    7.23 kB │ gzip:   3.10 kB
+dist/assets/jsx-runtime-w9AVxzFL.js                      8.87 kB │ gzip:   3.38 kB
+dist/assets/ThemeProvider-R8MGY7t2.js                    9.70 kB │ gzip:   3.65 kB
+dist/assets/PipelineProposalSummary-CE1Fmiqu.js          9.71 kB │ gzip:   2.91 kB
+dist/assets/AdminUsagePage-B4b1_FXQ.js                  12.18 kB │ gzip:   4.00 kB
+dist/assets/PageHeader-D872Lbc5.js                      12.39 kB │ gzip:   4.58 kB
+dist/assets/git-branch-WlUJtIQO.js                      13.96 kB │ gzip:   3.35 kB
+dist/assets/ChartPanel-BY2vvn0l.js                      20.90 kB │ gzip:   7.46 kB
+dist/assets/MarkdownPanel-B1y4b4B8.js                   38.90 kB │ gzip:  11.78 kB
+dist/assets/dashboardsSlice-ZplD0nmW.js                 47.53 kB │ gzip:  17.10 kB
+dist/assets/laneLayout-BknlvfVw.js                     104.73 kB │ gzip:  29.70 kB
+dist/assets/PageStatus-B1cYHFgb.js                     108.04 kB │ gzip:  38.91 kB
+dist/assets/lib-TC4-paXL.js                            115.17 kB │ gzip:  34.80 kB
+dist/assets/useChartEntranceMotion-CSmy2lrY.js         651.30 kB │ gzip: 218.39 kB
+dist/assets/app-BQLYgVF9.js                          1,327.94 kB │ gzip: 382.33 kB
+
+✓ built in 390ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+PWA v1.3.0
+mode      generateSW
+precache  53 entries (2861.85 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-acf3c99e.js
+  ➜  Local:   http://localhost:7248/
+  ➜  Network: use --host to expose
+
+Running 4 tests using 1 worker
+
+  ✓  1 [prod-build-guard] › e2e/prod-build.guard.ts:7:5 › baseURL serves a production build, not the Vite dev server (30ms)
+[HEL-1300 e2e] throwaway user: hel1683-regex-1795339881384-1163@example.test
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+[HEL-1683 e2e] probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/ed055bfe-6e84-43fa-b56f-8f577428d5af/draft-preview; frames: none >= 30 ms; api: POST /api/pipelines/ed055bfe-6e84-43fa-b56f-8f577428d5af/draft-preview@1068ms
+[HEL-1683 e2e] overrun longest long task: 0.0 ms; frames: none >= 30 ms; api: POST /api/pipelines/ed055bfe-6e84-43fa-b56f-8f577428d5af/draft-preview@2402ms
+  ✓  2 [prod-build] › e2e/hel1683-regex-main-thread.spec.ts:237:7 › HEL-1683 client regex main-thread guard (live) › a catastrophic extractRegex pattern in a draft never blocks the main thread for more than 100 ms @prod-build (9.9s)
+[HEL-1300 e2e] throwaway user: hel1683-regex-long-1795339890858-34527@example.test
+[HEL-1697 e2e] long-cell probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/2c04424a-e88b-4483-8450-7fc6adc30def/draft-preview
+[HEL-1697 e2e] long-cell server outcome: time-budget error
+  ✓  3 [prod-build] › e2e/hel1683-regex-main-thread.spec.ts:345:7 › HEL-1683 client regex main-thread guard (live) › a single-quantifier pattern over long cells is declined to the server and never blocks the main thread @prod-build (5.9s)
+[HEL-1300 e2e] throwaway user: hel1683-regex-anchored-1795339896806-64475@example.test
+[HEL-1807 e2e] anchored longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/59d19f33-a180-43ff-82f1-61e159184849/draft-preview
+  ✘  4 [prod-build] › e2e/hel1683-regex-main-thread.spec.ts:400:7 › HEL-1683 client regex main-thread guard (live) › a start-anchored pattern over long cells is evaluated on the client without blocking the main thread @prod-build (4.0s)
+userCleanup: removed 0 of 3 conversation folders
+[HEL-1301 e2e] deleted 3 recorded throwaway user(s)
+
+
+  1) [prod-build] › e2e/hel1683-regex-main-thread.spec.ts:400:7 › HEL-1683 client regex main-thread guard (live) › a start-anchored pattern over long cells is evaluated on the client without blocking the main thread @prod-build 
+
+    Error: the anchored pattern is client-evaluated (no draft-preview request): POST /api/pipelines/59d19f33-a180-43ff-82f1-61e159184849/draft-preview
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoEqual[2m([22m[32mexpected[39m[2m) // deep equality[22m
+
+    [32m- Expected  - 1[39m
+    [31m+ Received  + 3[39m
+
+    [32m- Array [][39m
+    [31m+ Array [[39m
+    [31m+   "POST /api/pipelines/59d19f33-a180-43ff-82f1-61e159184849/draft-preview",[39m
+    [31m+ ][39m
+
+      437 |         requests.filter((r) => r.includes("/draft-preview")),
+      438 |         `the anchored pattern is client-evaluated (no draft-preview request): ${requests.join(", ")}`,
+    > 439 |       ).toEqual([]);
+          |         ^
+      440 |       expect(
+      441 |         reading.longest,
+      442 |         `anchored pattern ${ANCHORED_PATTERN}: longest main-thread task was ${reading.longest.toFixed(1)} ms, must be <= ${LONG_TASK_BOUND_MS} ms`,
+        at /home/matt/Development/helio/.claude/worktrees/task/prod-build-regex-probes/hel-1816/e2e/hel1683-regex-main-thread.spec.ts:439:9
+
+    Error Context: test-results/hel1683-regex-main-thread--69f69-ut-blocking-the-main-thread-prod-build/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1683-regex-main-thread--69f69-ut-blocking-the-main-thread-prod-build/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1683-regex-main-thread--69f69-ut-blocking-the-main-thread-prod-build/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [prod-build] › e2e/hel1683-regex-main-thread.spec.ts:400:7 › HEL-1683 client regex main-thread guard (live) › a start-anchored pattern over long cells is evaluated on the client without blocking the main thread @prod-build 
+  3 passed (20.8s)

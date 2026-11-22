@@ -1,0 +1,12 @@
+diff --git a/frontend/src/features/pipelines/evaluator/javaRegexCost.ts b/frontend/src/features/pipelines/evaluator/javaRegexCost.ts
+index d49b76fcf..91bcf4715 100644
+--- a/frontend/src/features/pipelines/evaluator/javaRegexCost.ts
++++ b/frontend/src/features/pipelines/evaluator/javaRegexCost.ts
+@@ -205,6 +205,6 @@ export function regexWorkModel(root: Item[][]): RegexWork {
+     m: Math.max(0, ...wides.filter((w) => w.hasNext).map((w) => paths * Math.max(1, w.tail))),
+     f: classFactor(widestClass(alts)),
+     chars: unionSets(sets),
+-    anchored: startAnchored(alts),
++    anchored: false,
+   };
+ }
