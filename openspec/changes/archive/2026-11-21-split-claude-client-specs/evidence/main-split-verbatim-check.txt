@@ -1,0 +1,14 @@
+Normalised (indent stripped, owner prefix and private[ai] widening undone) line multiset: baseline ClaudeClient.scala vs ClaudeClient+ClaudeRequestBuilder+ClaudeBlockCodec.
+Lines only in baseline (count):
+Lines only in after (count):
+  +2 package com.helio.infrastructure.ai
+  +2 import spray.json._
+  +1 private val requests = new ClaudeRequestBuilder(config)
+  +2 }
+  +1 /** The config-dependent request shaping `ClaudeClient` applies before a call: the pre-flight guardrails, the wire
+  +1 *  temperature, the per-hop tool list and the cache breakpoints. Pure: it logs nothing and holds no transport, so the
+  +1 *  client keeps every logging method (HEL-1803). */
+  +1 private final class ClaudeRequestBuilder(config: ClaudeConfig) {
+  +1 /** Pure conversions between the wire types and the domain types `ClaudeClient` exposes: no config and no logger
+  +1 *  (the one conversion that logs, `toContentBlock`, stays in `ClaudeClient`; HEL-1803). */
+  +1 private object ClaudeBlockCodec {

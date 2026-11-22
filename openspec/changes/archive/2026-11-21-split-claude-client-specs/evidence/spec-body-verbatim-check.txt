@@ -1,0 +1,89 @@
+Normalised (indent stripped, blank lines, imports and package lines ignored, 'private ' removed) line multiset: original spec vs the union of its split files + support file.
+
+=== ClaudeClientSpec ===
+lines only in ORIGINAL:
+  -1 class ClaudeClientSpec extends AnyWordSpec with Matchers with HelioRouteTest {
+lines only in SPLIT FILES (class/trait headers, doc comments, repeated subject strings, closing braces):
+  +2 "ClaudeClient.sendWithTools" should {
+  +1 *  `ClaudeClientFailureBudgetSpec` split out of it, HEL-1803): the config builder, the response and block builders and
+  +1 *  `ClaudeClientSpec`, HEL-1803). */
+  +1 *  `web_search` entry and its cross-hop budget, the cache breakpoints, and the system block. */
+  +1 *  error recovery, usage aggregation and the mid-loop guardrail. */
+  +1 *  the recording fake tool transport / executor. Moved verbatim apart from dropping `private`. */
+  +1 /** Fixtures shared by the `ClaudeClient` specs (`ClaudeClientSpec` and the `ClaudeClientTool*Spec` /
+  +1 /** The HEL-1637 failure budget, mid-loop input stop and hop ceiling of `ClaudeClient.sendWithTools` (split out of
+  +1 /** The outbound request `ClaudeClient.sendWithTools` builds (split out of `ClaudeClientSpec`, HEL-1803): the
+  +1 /** `ClaudeClient.sendWithTools` loop behaviour (split out of `ClaudeClientSpec`, HEL-1803): hop counting, executor
+  +1 class ClaudeClientFailureBudgetSpec extends AnyWordSpec with Matchers with HelioRouteTest with ClaudeClientTestSupport {
+  +1 class ClaudeClientSpec extends AnyWordSpec with Matchers with HelioRouteTest with ClaudeClientTestSupport {
+  +1 class ClaudeClientToolLoopSpec extends AnyWordSpec with Matchers with HelioRouteTest with ClaudeClientTestSupport {
+  +1 class ClaudeClientToolRequestSpec extends AnyWordSpec with Matchers with HelioRouteTest with ClaudeClientTestSupport {
+  +1 trait ClaudeClientTestSupport {
+  +6 }
+
+=== AssistantServiceSpec ===
+lines only in ORIGINAL:
+  -1 *  fake `ClaudeTransport` — mirrors `ClaudeClientSpec`'s own `FakeToolTransport` fixture style
+  -1 *  repository is a Mockito mock, never a real database connection — the same "fake transport
+  -1 *  throughout" discipline `ClaudeClientSpec`/`WorkspaceSearchServiceSpec` already establish. */
+  -1 class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardProposalProtocol with PipelineProposalProtocol {
+lines only in SPLIT FILES (class/trait headers, doc comments, repeated subject strings, closing braces):
+  +3 "converse" should {
+  +1 *  (split out of `AssistantServiceSpec`, HEL-1803). */
+  +1 *  HEL-1803): the transport fake, the service wiring, the proposal builders and the stubs. Moved verbatim apart from
+  +1 *  `AssistantService*Spec` siblings (HEL-1803). */
+  +1 *  `AssistantServiceSpec`, HEL-1803). */
+  +1 *  `AssistantServiceTestSupport`; the failure-budget, search/repair and prompt/history tests live in the
+  +1 *  dropping `private`. */
+  +1 *  fake `ClaudeTransport` -- mirrors `ClaudeClientSpec`'s own `FakeToolTransport` fixture style
+  +1 *  hop-cap-exhausted turn (split out of `AssistantServiceSpec`, HEL-1803). */
+  +1 *  repository is a Mockito mock, never a real database connection. Its fixtures live in
+  +1 /** Fixtures shared by the `AssistantService.converse` specs (`AssistantServiceSpec` and the three specs split out of it,
+  +1 /** `AssistantService.converse` `searchedWithNoResults` signalling and the repair of a dangling `tool_use` left by a
+  +1 /** `AssistantService.converse` hop ceiling, failure budget and mid-turn input stop (HEL-1637; split out of
+  +1 /** `AssistantService.converse` system prompt placement, `fullHistory`, transport errors and the always-on `web_search`
+  +1 class AssistantServiceFailureBudgetSpec extends AnyWordSpec with AssistantServiceTestSupport {
+  +1 class AssistantServicePromptHistorySpec extends AnyWordSpec with AssistantServiceTestSupport {
+  +1 class AssistantServiceSearchRepairSpec extends AnyWordSpec with AssistantServiceTestSupport {
+  +1 class AssistantServiceSpec extends AnyWordSpec with AssistantServiceTestSupport {
+  +1 trait AssistantServiceTestSupport extends Matchers with DashboardProposalProtocol with PipelineProposalProtocol {
+  +7 }
+
+=== AssistantConversationRoutesSpec ===
+lines only in ORIGINAL:
+  -1 *  `helio_app_test` role the app pool `SET ROLE`s into, NOT BYPASSRLS) so task 6.5's "second user
+  -1 *  app-layer-only scoping. */
+  -1 *  cannot converse with the first user's conversation" is a genuine Postgres RLS assertion, not
+  -1 *  composer ticket, tasks.md 6.3/6.3a/6.4/6.5). Business-logic depth for `AssistantService.converse`
+  -1 *  composes. Mirrors `AssistantConversationRepositorySpec`'s exact dual-pool RLS harness (a real
+  -1 *  in this suite either); this spec only exercises the HTTP + persistence wiring `converseFlow`
+  -1 *  itself is `AssistantServiceSpec`'s job (fake `ClaudeTransport`, zero real network calls anywhere
+  -1 /** HTTP-shell coverage for `POST /api/assistant-conversations/:id/converse` (HEL-665, reopened
+  -1 with BeforeAndAfterAll with TempDirectorySupport {
+lines only in SPLIT FILES (class/trait headers, doc comments, repeated subject strings, closing braces):
+  +1 *  Moved verbatim apart from dropping `private`. */
+  +1 *  `AssistantConversationRoutes*Spec` siblings (HEL-1803). Task 6.5's "second user cannot converse with the first
+  +1 *  `AssistantConversationRoutesFixture`, and the idempotency/turn-outcome and tier/budget tests in the two
+  +1 *  `AssistantConversationRoutesSpec`): the embedded Postgres with its dual-pool RLS harness (a real `helio_app_test`
+  +1 *  `AssistantConversationRoutesSpec`, HEL-1803). */
+  +1 *  count helpers. Each spec class starts its own instance in `beforeAll`, exactly as the original single class did.
+  +1 *  hop-cap-exhausted turn (split out of `AssistantConversationRoutesSpec`, HEL-1803). */
+  +1 *  is `AssistantServiceSpec`'s job (fake `ClaudeTransport`, zero real network calls anywhere in this suite either);
+  +1 *  reopened composer ticket, tasks.md 6.3/6.3a/6.4/6.5). Business-logic depth for `AssistantService.converse` itself
+  +1 *  role the app pool `SET ROLE`s into, NOT BYPASSRLS), the service wiring, the fake transports and the route and
+  +1 *  this spec only exercises the HTTP + persistence wiring `converseFlow` composes. Its fixture lives in
+  +1 *  user's conversation" is a genuine Postgres RLS assertion, not app-layer-only scoping. */
+  +1 /** HTTP-shell coverage for `POST /api/assistant-conversations/:id/converse` persistence and error mapping (HEL-665,
+  +1 /** HTTP-shell coverage for the converse route's idempotency key, turn-outcome signals and the second call after a
+  +1 /** HTTP-shell coverage for the converse route's tier gating (HEL-703) and per-turn budgets (HEL-1637) (split out of
+  +1 /** The DB-backed fixture shared by the `AssistantConversationRoutes*Spec` classes (HEL-1803; split out of
+  +1 class AssistantConversationRoutesTierSpec
+  +1 class AssistantConversationRoutesTurnSpec
+  +2 extends AnyWordSpec
+  +1 this: Suite with HelioRouteTest with JsonProtocols =>
+  +1 trait AssistantConversationRoutesFixture extends BeforeAndAfterAll with TempDirectorySupport {
+  +3 with AssistantConversationRoutesFixture {
+  +2 with HelioRouteTest
+  +2 with JsonProtocols
+  +2 with Matchers
+  +3 }

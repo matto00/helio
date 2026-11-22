@@ -1,0 +1,66 @@
+import re
+p='ClaudeClient.scala'
+L=open(p).read().split('\n')
+def r(a,b): return L[a-1:b]   # inclusive 1-based
+# builder pieces
+b=[]
+b+=r(184,185); b.append('')
+b+=r(295,321); b.append('')
+b+=r(323,338); b.append('')
+b+=r(340,366); b.append('')
+b+=r(368,375); b.append('')
+b+=r(398,406); b.append('')
+b+=r(408,414); b.append('')
+b+=r(416,432)
+c=[]
+c+=r(203,210); c.append('')
+c+=r(239,245); c.append('')
+c+=r(247,248); c.append('')
+c+=r(276,293); c.append('')
+c+=r(377,396); c.append('')
+c+=r(434,454)
+bt='\n'.join(b); ct='\n'.join(c)
+# visibility
+for n in ['requestedId','prepareHop','guardrailRejectTool','guardrailReject','toApiRequest']:
+    bt=bt.replace('  private def %s('%n,'  private[ai] def %s('%n)
+for n in ['noAnswer','addUsage','extractText','toApiContentBlock','flattenForEstimate','toClaudeResponse']:
+    ct=ct.replace('  private def %s('%n,'  private[ai] def %s('%n)
+# owner prefix in builder
+bt=bt.replace('m.content.map(toApiContentBlock)','m.content.map(ClaudeBlockCodec.toApiContentBlock)')
+bt=bt.replace('flattenForEstimate(history)','ClaudeBlockCodec.flattenForEstimate(history)')
+# codec internal: toClaudeResponse uses noAnswer (same object) fine
+hdr_b='''package com.helio.infrastructure.ai
+
+import spray.json._
+
+/** The config-dependent request shaping `ClaudeClient` applies before a call: the pre-flight guardrails, the wire
+ *  temperature, the per-hop tool list and the cache breakpoints. Pure: it logs nothing and holds no transport, so the
+ *  client keeps every logging method (HEL-1803). */
+private[ai] final class ClaudeRequestBuilder(config: ClaudeConfig) {
+
+'''
+hdr_c='''package com.helio.infrastructure.ai
+
+import spray.json._
+
+/** Pure conversions between the wire types and the domain types `ClaudeClient` exposes: no config and no logger
+ *  (the one conversion that logs, `toContentBlock`, stays in `ClaudeClient`; HEL-1803). */
+private[ai] object ClaudeBlockCodec {
+
+'''
+open('ClaudeRequestBuilder.scala','w').write(hdr_b+bt+'\n}\n')
+open('ClaudeBlockCodec.scala','w').write(hdr_c+ct+'\n}\n')
+# client: keep ranges
+k=r(1,182)+['']+r(187,201)+['']+r(212,237)+['']+r(250,274)+['}','']
+kt='\n'.join(k)
+kt=kt.replace('  private val log = LoggerFactory.getLogger(getClass)\n','  private val log = LoggerFactory.getLogger(getClass)\n\n  private val requests = new ClaudeRequestBuilder(config)\n')
+kt=kt.replace('guardrailReject(request)','requests.guardrailReject(request)')
+kt=kt.replace('toApiRequest(request,','requests.toApiRequest(request,')
+kt=kt.replace('toClaudeResponse(apiResponse)','ClaudeBlockCodec.toClaudeResponse(apiResponse)')
+kt=kt.replace('= prepareHop(','= requests.prepareHop(')
+kt=kt.replace('guardrailRejectTool(','requests.guardrailRejectTool(')
+kt=kt.replace('logHop(requestedId(','logHop(requests.requestedId(')
+kt=kt.replace('= addUsage(','= ClaudeBlockCodec.addUsage(')
+kt=kt.replace('noAnswer(apiResponse)','ClaudeBlockCodec.noAnswer(apiResponse)')
+kt=kt.replace('extractText(blocks)','ClaudeBlockCodec.extractText(blocks)')
+open(p,'w').write(kt)

@@ -1,0 +1,35 @@
+import re
+def j(x): return '\n'.join(x)
+def unpriv(lines):
+    out=[]
+    for l in lines:
+        for k in ('def ','class ','val ','implicit val ','object '):
+            if l.startswith('  private '+k): l='  '+l[len('  private '):]
+        out.append(l)
+    return out
+def trim_imports(imports, body):
+    """imports: list of import lines (may be blank-separated groups). keep only used names."""
+    out=[]
+    for l in imports:
+        m=re.match(r'^import (.+)\.\{(.+)\}$',l)
+        if m:
+            names=[n.strip() for n in m.group(2).split(',')]
+            keep=[]
+            for n in names:
+                local=n.split('=>')[-1].strip()
+                if local in ('_','DurationInt') or re.search(r'(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])'%re.escape(local),body): keep.append(n)
+            if not keep: continue
+            out.append('import %s.{%s}'%(m.group(1),', '.join(keep)) if len(keep)>1 or '=>' in keep[0] else 'import %s.%s'%(m.group(1),keep[0]))
+            continue
+        m=re.match(r'^import (.+)\.([A-Za-z0-9_]+)$',l)
+        if m:
+            if m.group(2) in ('_','DurationInt') or re.search(r'(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])'%re.escape(m.group(2)),body): out.append(l)
+            continue
+        out.append(l)  # wildcard or blank
+    # collapse blank runs and strip leading/trailing groups
+    res=[]
+    for l in out:
+        if l=='' and (not res or res[-1]==''): continue
+        res.append(l)
+    while res and res[-1]=='': res.pop()
+    return res

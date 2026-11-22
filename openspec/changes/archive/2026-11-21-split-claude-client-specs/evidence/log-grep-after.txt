@@ -1,0 +1,23 @@
+# log-call sites (pattern: grep -nP '(?<![A-Za-z])log\.'; the plain 'log\.' also matches 'ClaudeModelCatalog.isCatalogId', which is not a logger call)
+## BEFORE: ClaudeClient.scala
+52:              log.warn(s"Claude API request failed with status $status")
+55:              log.error("Claude API request failed", e)
+118:                log.warn(s"Claude API tool-use request failed with status $status")
+121:                log.error("Claude API tool-use request failed", e)
+192:    log.info(
+199:      log.warn(s"Claude responded with model=$actual for a request pinned to $requested (request-id=${response.requestId.getOrElse("none")})")
+235:        log.warn(s"Tool execution failed for '${toolUse.name}' (toolUseId=${toolUse.id}); recovering as an isError tool_result", e)
+272:      log.warn(s"Preserving an unmodeled Claude content block of type '$other' verbatim")
+## AFTER: ClaudeClient.scala
+54:              log.warn(s"Claude API request failed with status $status")
+57:              log.error("Claude API request failed", e)
+120:                log.warn(s"Claude API tool-use request failed with status $status")
+123:                log.error("Claude API tool-use request failed", e)
+191:    log.info(
+198:      log.warn(s"Claude responded with model=$actual for a request pinned to $requested (request-id=${response.requestId.getOrElse("none")})")
+225:        log.warn(s"Tool execution failed for '${toolUse.name}' (toolUseId=${toolUse.id}); recovering as an isError tool_result", e)
+251:      log.warn(s"Preserving an unmodeled Claude content block of type '$other' verbatim")
+## AFTER: ClaudeRequestBuilder.scala + ClaudeBlockCodec.scala (logger calls / LoggerFactory; must be none)
+none
+## text+order diff of the logging statements (empty = identical)
+identical

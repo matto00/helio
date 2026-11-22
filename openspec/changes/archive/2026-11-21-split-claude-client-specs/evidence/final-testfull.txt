@@ -1,0 +1,17 @@
+Final full sbt testFull, same exact-partition shards, HELIO_TEST_SHARD_COUNT=8 (same COUNT as baseline), on 5121c915b. Every shard exited 0, All tests passed.
+Wall (sbt real): s0 123s s1 167s s2 196s s3 164s s4 156s s5 144s s6 262s s7 265s (all under 600 s).
+
+shard 0/8: tests=190 suites_completed=20 suites_aborted=0 | Tests: succeeded 190, failed 0, canceled 1, ignored 0, pending 0 | run 1 minute, 58 seconds.
+shard 1/8: tests=2048 suites_completed=105 suites_aborted=0 | Tests: succeeded 2048, failed 0, canceled 0, ignored 0, pending 0 | run 2 minutes, 41 seconds.
+shard 2/8: tests=1200 suites_completed=106 suites_aborted=0 | Tests: succeeded 1200, failed 0, canceled 0, ignored 0, pending 0 | run 3 minutes, 12 seconds.
+shard 3/8: tests=1452 suites_completed=106 suites_aborted=0 | Tests: succeeded 1452, failed 0, canceled 0, ignored 0, pending 0 | run 2 minutes, 39 seconds.
+shard 4/8: tests=1082 suites_completed=108 suites_aborted=0 | Tests: succeeded 1082, failed 0, canceled 3, ignored 0, pending 0 | run 2 minutes, 32 seconds.
+shard 5/8: tests=1579 suites_completed=108 suites_aborted=0 | Tests: succeeded 1579, failed 0, canceled 0, ignored 0, pending 0 | run 2 minutes, 20 seconds.
+shard 6/8: tests=1243 suites_completed=107 suites_aborted=0 | Tests: succeeded 1243, failed 0, canceled 0, ignored 0, pending 0 | run 4 minutes, 18 seconds.
+shard 7/8: tests=1484 suites_completed=107 suites_aborted=0 | Tests: succeeded 1484, failed 0, canceled 1, ignored 0, pending 0 | run 4 minutes, 20 seconds.
+SUM: tests=10278 suites_completed=767
+
+BASELINE SUM (evidence/baseline-testfull.txt): tests=10278 suites_completed=759
+FINAL    SUM: tests=10278 suites_completed=767 (+8 = the eight new spec classes; per-shard membership differs because new classes take median weight, only the sums are compared)
+canceled: baseline 1+1+3 = 5 (shards 0,3,4); final 1+3+1 = 5 (shards 0,4,7): the same five tests, canceled by their own assumptions
+EQUAL: 10278 == 10278

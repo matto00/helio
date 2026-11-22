@@ -1,0 +1,83 @@
+L=open('/home/matt/Development/helio/.concertino/scratch/HEL-1803/ClaudeClientSpec.before.scala').read().split('\n')
+def r(a,b): return L[a-1:b]
+def j(x): return '\n'.join(x)
+def unpriv(lines):
+    out=[]
+    for l in lines:
+        for k in ('private def ','private class ','private val '):
+            if l.startswith('  '+k): l='  '+l[2+len('private '):]
+        out.append(l)
+    return out
+
+support = ['''package com.helio.infrastructure.ai
+
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
+import spray.json._
+
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
+
+/** Fixtures shared by the `ClaudeClient` specs (`ClaudeClientSpec` and the `ClaudeClientTool*Spec` /
+ *  `ClaudeClientFailureBudgetSpec` split out of it, HEL-1803): the config builder, the response and block builders and
+ *  the recording fake tool transport / executor. Moved verbatim apart from dropping `private`. */
+trait ClaudeClientTestSupport {
+''']
+support += unpriv(r(30,30)) + [''] + unpriv(r(32,40)) + ['']
+support += unpriv(r(242,314)) + ['}','']
+
+def spec(name, doc, imports, body, extra_before=None, with_mat=False):
+    h=['package com.helio.infrastructure.ai','']+imports+['', doc, 'class %s extends AnyWordSpec with Matchers with HelioRouteTest with ClaudeClientTestSupport {'%name,'']
+    return j(h)+'\n'+j(body)+'\n}\n'
+
+std_imp=['import com.helio.testkit.HelioRouteTest','import org.scalatest.matchers.should.Matchers','import org.scalatest.wordspec.AnyWordSpec','import spray.json._','','import java.util.concurrent.atomic.AtomicInteger','import scala.concurrent.{ExecutionContext, Future}']
+SW=['  "ClaudeClient.sendWithTools" should {','']
+loop_body = SW + r(318,476) + [''] + r(690,718) + [''] + r(720,736)[:-1] + ['  }']
+# r(720,735) test ends at 735; line 736 blank
+loop_body = SW + r(318,476) + [''] + r(674,718) + [''] + r(720,735) + ['  }']
+req_body = SW + r(478,597) + [''] + r(599,672) + [''] + r(737,768) + ['  }']
+fb_body = SW + r(770,926) + ['  }']
+
+loop = spec('ClaudeClientToolLoopSpec',
+ '/** `ClaudeClient.sendWithTools` loop behaviour (split out of `ClaudeClientSpec`, HEL-1803): hop counting, executor\n *  error recovery, usage aggregation and the mid-loop guardrail. */',
+ ['import com.helio.testkit.HelioRouteTest','import org.scalatest.matchers.should.Matchers','import org.scalatest.wordspec.AnyWordSpec','import spray.json._','','import scala.concurrent.{ExecutionContext, Future}'], loop_body)
+req = spec('ClaudeClientToolRequestSpec',
+ '/** The outbound request `ClaudeClient.sendWithTools` builds (split out of `ClaudeClientSpec`, HEL-1803): the\n *  `web_search` entry and its cross-hop budget, the cache breakpoints, and the system block. */',
+ ['import com.helio.testkit.HelioRouteTest','import org.scalatest.matchers.should.Matchers','import org.scalatest.wordspec.AnyWordSpec','import spray.json._','','import scala.concurrent.Future'], req_body)
+fb = spec('ClaudeClientFailureBudgetSpec',
+ '/** The HEL-1637 failure budget, mid-loop input stop and hop ceiling of `ClaudeClient.sendWithTools` (split out of\n *  `ClaudeClientSpec`, HEL-1803). */',
+ ['import com.helio.testkit.HelioRouteTest','import org.scalatest.matchers.should.Matchers','import org.scalatest.wordspec.AnyWordSpec','import spray.json._','','import java.util.concurrent.atomic.AtomicInteger','import scala.concurrent.{ExecutionContext, Future}'], fb_body)
+
+# base spec
+base = r(1,20)  # imports
+base_imports = '''package com.helio.infrastructure.ai
+
+import ch.qos.logback.classic.{Logger => LogbackLogger}
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
+import org.apache.pekko.NotUsed
+import com.helio.testkit.HelioRouteTest
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.slf4j.LoggerFactory
+
+import java.util.concurrent.atomic.AtomicInteger
+import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
+'''
+base_body = r(21,29)+r(41,239)
+base_body[5]  # noop
+b = base_imports+'\n'+j(base_body).replace('class ClaudeClientSpec extends AnyWordSpec with Matchers with HelioRouteTest {','class ClaudeClientSpec extends AnyWordSpec with Matchers with HelioRouteTest with ClaudeClientTestSupport {')+'\n}\n'
+d='/home/matt/Development/helio/.claude/worktrees/task/split-claude-client-specs/HEL-1803/backend/src/test/scala/com/helio/infrastructure/ai/'
+import re
+fix=lambda t: re.sub(r'\n{3,}','\n\n',t)
+open(d+'ClaudeClientTestSupport.scala','w').write(fix(j(support)))
+open(d+'ClaudeClientToolLoopSpec.scala','w').write(fix(loop))
+open(d+'ClaudeClientToolRequestSpec.scala','w').write(fix(req))
+open(d+'ClaudeClientFailureBudgetSpec.scala','w').write(fix(fb))
+open(d+'ClaudeClientSpec.scala','w').write(fix(b))
