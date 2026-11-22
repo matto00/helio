@@ -52,7 +52,8 @@ import { assertTypeStyleActive, seedTypeStyle, typeStyleUnderTest } from "./type
 // 2.7/5.2a), test.setTimeout(360_000) headroom. The cells in THIS file's parts run at 1440x900 (fine pointer): no
 // state-background declaration was viewport-gated when they were written. HEL-1649: that stopped being true with the
 // redesign (phone shell, mobile pipeline, 1100px tweaks), so the layouts that exist only at 1100 / 768 / 390 px are
-// measured by `state-surface-contrast-guard-narrow.spec.ts` (see support/state-surface-contrast-guard-narrow.ts for
+// measured by `state-surface-contrast-guard-narrow-1100-768.spec.ts` and
+// `state-surface-contrast-guard-narrow-390.spec.ts` (see support/state-surface-contrast-guard-narrow.ts for
 // the width matrix, the fine-pointer reasoning and the scope note).
 //
 // evaluation-1.md CR1 — corrected in place. The chrome (command bar +
@@ -524,6 +525,18 @@ export const DASH_NAME = "HEL-866 Guard Dashboard";
 export const SECOND_DASH_NAME = "HEL-866 Guard Dashboard B";
 export const PIPELINE_NAME = "HEL-866 Guard Pipeline";
 export const SOURCE_NAME = "HEL-866 Guard Source";
+
+/** Accessible name of the spine card's source-sample refresh button. */
+export const sampleRefreshName = () => `Refresh sample of ${SOURCE_NAME}`;
+
+/** HEL-1806: waits until the spine card's refresh button is visible AND enabled (web-first, never a sleep). It is
+ *  absent until access resolves and disabled while the sample loads, and the stamp skips disabled elements. Shared
+ *  by the 1440 cell and the narrow cells so the two cannot drift. */
+export async function awaitSampleRefreshReady(page: Page) {
+  const refresh = page.getByRole("button", { name: sampleRefreshName() });
+  await expect(refresh).toBeVisible();
+  await expect(refresh).toBeEnabled();
+}
 // HEL-1805: the no-auth REST connector seeded for the `/connectors` cells only. The `.invalid` TLD (RFC 6761) never
 // resolves, so creating or listing it makes no outbound call, and the guard never clicks "Test connection".
 export const CONNECTOR_NAME = "HEL-866 Guard Connector";
@@ -919,6 +932,9 @@ export function registerRouteCells(routeKeys: readonly RouteKey[]) {
           await seeded(page.locator("main"), PIPELINE_NAME);
         } else if (routeKey === "pipeline-detail") {
           await seeded(page.locator("main"), PIPELINE_NAME);
+          // HEL-1806: the spine card's refresh button is absent until access resolves and disabled while the
+          // sample loads (the stamp skips disabled elements), so wait for it before anything is stamped.
+          await awaitSampleRefreshReady(page);
         } else if (routeKey === "/settings") {
           await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
           // async-loaded audit-log table (see newCell); HEL-1336's shared readiness helper.
@@ -976,6 +992,20 @@ export function registerRouteCells(routeKeys: readonly RouteKey[]) {
           MAX_ELEMENTS_PER_VIEW,
           CHROME_EXCLUDE,
         );
+        if (routeKey === "pipeline-detail") {
+          // HEL-1806: the refresh button's hover/focus must have been PROBED (sampled), not merely present.
+          const refresh = page.getByRole("button", { name: sampleRefreshName() });
+          await expect(refresh, "refresh button is present exactly once").toHaveCount(1);
+          const refreshId = await refresh.getAttribute(DOC_ID_ATTR);
+          expect(refreshId, `"${sampleRefreshName()}" was stamped`).not.toBeNull();
+          expect(
+            mainSampledDocIds.has(refreshId ?? ""),
+            `"${sampleRefreshName()}" was not among the elements probed in view "${viewName}" at 1440px`,
+          ).toBe(true);
+          console.log(
+            `[HEL-1806 guard] "${sampleRefreshName()}" probed at 1440px (${theme}) in view "${viewName}" (doc id ${refreshId})`,
+          );
+        }
         if (routeKey === "/connectors") {
           await assertConnectorControlsCovered(page, mainSampledDocIds, 1440, viewName);
         }

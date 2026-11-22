@@ -1,0 +1,125 @@
+
+Running 8 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel866-guard-1795318256834-70486@example.test
+[HEL-1300 e2e] throwaway user: hel866-guard-1795318256836-69669@example.test
+[HEL-866 guard] view "/settings:sidebar-rail" (dark): 0 visible interactive element(s), sampled 0
+[HEL-866 guard] view "/settings:sidebar-rail" (light): 0 visible interactive element(s), sampled 0
+[HEL-866 guard] view "/settings" (dark): 33 visible interactive element(s), sampled 24
+[HEL-866 guard] view "/settings" (light): 33 visible interactive element(s), sampled 24
+[HEL-866 guard] elements probed: 48, resolved=48, unresolved=0, pass=8, fail=6, advisory=34 — 29% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] 6 reviewed exemption(s) applied (see the isExempt comment above):
+  [dark] /settings :: button "" aria="Orange" [accent-picker__swatch] (#0) (hover)
+  [dark] /settings :: button "" aria="Red" [accent-picker__swatch] (#1) (hover)
+  [dark] /settings :: button "" aria="Pink" [accent-picker__swatch] (#2) (hover)
+  [dark] /settings :: button "" aria="Blue" [accent-picker__swatch] (#4) (hover)
+  [dark] /settings :: button "" aria="Cyan" [accent-picker__swatch] (#5) (hover)
+  [dark] /settings :: button "" aria="Green" [accent-picker__swatch] (#6) (hover)
+[HEL-866 guard] cell "/settings(dark)" unresolvedFraction=0.000
+  ✓  2 [dev] › e2e/support/state-surface-contrast-guard.ts:892:11 › HEL-866 state-surface contrast guard › /settings: every interactive state background differs measurably from its resolved backdrop (dark) (15.4s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795318271528-70918@example.test
+[HEL-866 guard] elements probed: 48, resolved=48, unresolved=0, pass=8, fail=6, advisory=34 — 29% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] 6 reviewed exemption(s) applied (see the isExempt comment above):
+  [light] /settings :: button "" aria="Orange" [accent-picker__swatch] (#0) (hover)
+  [light] /settings :: button "" aria="Red" [accent-picker__swatch] (#1) (hover)
+  [light] /settings :: button "" aria="Pink" [accent-picker__swatch] (#2) (hover)
+  [light] /settings :: button "" aria="Blue" [accent-picker__swatch] (#4) (hover)
+  [light] /settings :: button "" aria="Cyan" [accent-picker__swatch] (#5) (hover)
+  [light] /settings :: button "" aria="Green" [accent-picker__swatch] (#6) (hover)
+[HEL-866 guard] cell "/settings(light)" unresolvedFraction=0.000
+  ✓  1 [dev] › e2e/support/state-surface-contrast-guard.ts:892:11 › HEL-866 state-surface contrast guard › /settings: every interactive state background differs measurably from its resolved backdrop (light) (15.8s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795318272001-68402@example.test
+[M3 probe] refresh count=1 disabled-at-stamp=true
+[HEL-866 guard] view "/pipelines/:id:sidebar-rail" (dark): 5 visible interactive element(s), sampled 5
+[M3 probe] refresh count=1 disabled-at-stamp=true
+[HEL-866 guard] view "/pipelines/:id:sidebar-rail" (light): 5 visible interactive element(s), sampled 5
+[HEL-866 guard] view "/pipelines/:id" (dark): 18 visible interactive element(s), sampled 18
+[HEL-866 guard] view "/pipelines/:id" (light): 18 visible interactive element(s), sampled 18
+  ✘  3 [dev] › e2e/support/state-surface-contrast-guard.ts:892:11 › HEL-866 state-surface contrast guard › pipeline-detail: every interactive state background differs measurably from its resolved backdrop (dark) (15.3s)
+  ✘  4 [dev] › e2e/support/state-surface-contrast-guard.ts:892:11 › HEL-866 state-surface contrast guard › pipeline-detail: every interactive state background differs measurably from its resolved backdrop (light) (15.0s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795318288017-56212@example.test
+[HEL-1300 e2e] throwaway user: hel866-guard-1795318288103-67411@example.test
+[HEL-866 guard] view "/sources:sidebar-rail" (dark): 4 visible interactive element(s), sampled 4
+[HEL-866 guard] view "/sources:sidebar-rail" (light): 4 visible interactive element(s), sampled 4
+[HEL-866 guard] view "/sources" (dark): 9 visible interactive element(s), sampled 9
+[HEL-866 guard] view "/sources" (light): 9 visible interactive element(s), sampled 9
+[HEL-866 guard] elements probed: 26, resolved=26, unresolved=0, pass=6, fail=0, advisory=20 — 23% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] cell "/sources(dark)" unresolvedFraction=0.000
+  ✓  5 [dev] › e2e/support/state-surface-contrast-guard.ts:892:11 › HEL-866 state-surface contrast guard › /sources: every interactive state background differs measurably from its resolved backdrop (dark) (8.5s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795318295961-78250@example.test
+[HEL-866 guard] elements probed: 26, resolved=26, unresolved=0, pass=6, fail=0, advisory=20 — 23% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] cell "/sources(light)" unresolvedFraction=0.000
+  ✓  6 [dev] › e2e/support/state-surface-contrast-guard.ts:892:11 › HEL-866 state-surface contrast guard › /sources: every interactive state background differs measurably from its resolved backdrop (light) (8.5s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1795318296096-27813@example.test
+[HEL-866 guard] view "/pipelines:sidebar-rail" (dark): 4 visible interactive element(s), sampled 4
+[HEL-866 guard] view "/pipelines:sidebar-rail" (light): 4 visible interactive element(s), sampled 4
+[HEL-866 guard] view "/pipelines" (dark): 11 visible interactive element(s), sampled 11
+[HEL-866 guard] view "/pipelines" (light): 11 visible interactive element(s), sampled 11
+[HEL-866 guard] elements probed: 30, resolved=30, unresolved=0, pass=7, fail=0, advisory=23 — 23% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] cell "/pipelines(dark)" unresolvedFraction=0.000
+  ✓  7 [dev] › e2e/support/state-surface-contrast-guard.ts:892:11 › HEL-866 state-surface contrast guard › /pipelines: every interactive state background differs measurably from its resolved backdrop (dark) (9.3s)
+[HEL-866 guard] elements probed: 30, resolved=30, unresolved=0, pass=7, fail=0, advisory=23 — 23% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] cell "/pipelines(light)" unresolvedFraction=0.000
+  ✓  8 [dev] › e2e/support/state-surface-contrast-guard.ts:892:11 › HEL-866 state-surface contrast guard › /pipelines: every interactive state background differs measurably from its resolved backdrop (light) (9.3s)
+userCleanup: removed 0 of 8 conversation folders
+[HEL-1301 e2e] deleted 8 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/support/state-surface-contrast-guard.ts:892:11 › HEL-866 state-surface contrast guard › pipeline-detail: every interactive state background differs measurably from its resolved backdrop (dark) 
+
+    Error: "Refresh sample of HEL-866 Guard Source" was stamped
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mnot[2m.[22mtoBeNull[2m()[22m
+
+    Received: [31mnull[39m
+
+      1009 |           await expect(refresh, "refresh button is present exactly once").toHaveCount(1);
+      1010 |           const refreshId = await refresh.getAttribute(DOC_ID_ATTR);
+    > 1011 |           expect(refreshId, `"${sampleRefreshName()}" was stamped`).not.toBeNull();
+           |                                                                         ^
+      1012 |           expect(
+      1013 |             mainSampledDocIds.has(refreshId ?? ""),
+      1014 |             `"${sampleRefreshName()}" was not among the elements probed in view "${viewName}" at 1440px`,
+        at /home/matt/Development/helio/.claude/worktrees/task/contrast-guard-readiness-tidy/HEL-1806/e2e/support/state-surface-contrast-guard.ts:1011:73
+
+    Error Context: test-results/state-surface-contrast-gua-ff3d9-its-resolved-backdrop-dark--dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/state-surface-contrast-gua-ff3d9-its-resolved-backdrop-dark--dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/state-surface-contrast-gua-ff3d9-its-resolved-backdrop-dark--dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [dev] › e2e/support/state-surface-contrast-guard.ts:892:11 › HEL-866 state-surface contrast guard › pipeline-detail: every interactive state background differs measurably from its resolved backdrop (light) 
+
+    Error: "Refresh sample of HEL-866 Guard Source" was stamped
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mnot[2m.[22mtoBeNull[2m()[22m
+
+    Received: [31mnull[39m
+
+      1009 |           await expect(refresh, "refresh button is present exactly once").toHaveCount(1);
+      1010 |           const refreshId = await refresh.getAttribute(DOC_ID_ATTR);
+    > 1011 |           expect(refreshId, `"${sampleRefreshName()}" was stamped`).not.toBeNull();
+           |                                                                         ^
+      1012 |           expect(
+      1013 |             mainSampledDocIds.has(refreshId ?? ""),
+      1014 |             `"${sampleRefreshName()}" was not among the elements probed in view "${viewName}" at 1440px`,
+        at /home/matt/Development/helio/.claude/worktrees/task/contrast-guard-readiness-tidy/HEL-1806/e2e/support/state-surface-contrast-guard.ts:1011:73
+
+    Error Context: test-results/state-surface-contrast-gua-16ece-ts-resolved-backdrop-light--dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/state-surface-contrast-gua-16ece-ts-resolved-backdrop-light--dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/state-surface-contrast-gua-16ece-ts-resolved-backdrop-light--dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [dev] › e2e/support/state-surface-contrast-guard.ts:892:11 › HEL-866 state-surface contrast guard › pipeline-detail: every interactive state background differs measurably from its resolved backdrop (dark) 
+    [dev] › e2e/support/state-surface-contrast-guard.ts:892:11 › HEL-866 state-surface contrast guard › pipeline-detail: every interactive state background differs measurably from its resolved backdrop (light) 
+  6 passed (50.0s)

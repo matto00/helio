@@ -3,6 +3,7 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 import {
   assertConnectorControlsCovered,
   assertPartitioned,
+  awaitSampleRefreshReady,
   CONNECTOR_NAME,
   CHROME_EXCLUDE,
   collectCandidates,
@@ -55,6 +56,20 @@ export const NARROW_WIDTHS: readonly NarrowWidth[] = [
     routes: ["pipeline-detail", "/dashboards", "/home", "/connectors"],
   },
 ];
+
+/** HEL-1806: selects matrix entries by width VALUE, in the order named, so reordering `NARROW_WIDTHS` can never
+ *  change what a part file covers. Throws naming any width that is absent from, or duplicated in, the matrix. */
+export function narrowWidths(...values: number[]): NarrowWidth[] {
+  return values.map((value) => {
+    const matches = NARROW_WIDTHS.filter((entry) => entry.width === value);
+    if (matches.length !== 1) {
+      throw new Error(
+        `narrowWidths: width ${value}px must appear exactly once in NARROW_WIDTHS, found ${matches.length}`,
+      );
+    }
+    return matches[0];
+  });
+}
 
 const PHONE_MAX_WIDTH = 768;
 
@@ -191,9 +206,7 @@ async function awaitReady(page: Page, routeKey: RouteKey, phone: boolean) {
     await seeded(page.locator("main"), PIPELINE_NAME);
     if (phone) await expect(page.locator(".pipeline-detail-page--mobile")).toBeVisible();
     // Absent until access resolves, disabled while the sample loads (and the stamp skips disabled elements).
-    const refresh = page.getByRole("button", { name: `Refresh sample of ${SOURCE_NAME}` });
-    await expect(refresh).toBeVisible();
-    await expect(refresh).toBeEnabled();
+    await awaitSampleRefreshReady(page);
   } else if (routeKey === "/connectors") {
     await seeded(page.locator("main"), CONNECTOR_NAME);
   } else {

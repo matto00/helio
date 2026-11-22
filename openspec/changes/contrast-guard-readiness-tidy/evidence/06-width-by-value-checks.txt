@@ -1,0 +1,29 @@
+== titles before/after (line numbers stripped), per part ==
+IDENTICAL titles: 1100-768
+IDENTICAL titles: 390
+== reorder NARROW_WIDTHS to 390, 768, 1100 ==
+export const NARROW_WIDTHS: readonly NarrowWidth[] = [
+  {
+    width: 390,
+    height: 844,
+    routes: ["pipeline-detail", "/dashboards", "/home", "/connectors"],
+  },
+  {
+    width: 768,
+    height: 1024,
+    routes: ["pipeline-detail", "/dashboards", "/home", "/connectors"],
+  },
+  { width: 1100, height: 900, routes: ["/home", "/connectors"] },
+];
+reordered matrix: part 1100-768 lists IDENTICAL titles (Total: 12 tests in 1 file)
+reordered matrix: part 390 lists IDENTICAL titles (Total: 8 tests in 1 file)
+== name width 1101 ==
+[playwright.config] DEV_PORT is unset — defaulting to 5173. In a linked worktree this may measure the WRONG server; pass DEV_PORT explicitly (see scripts/concertino/start-servers.sh, CON-165).
+
+Error: narrowWidths: width 1101px must appear exactly once in NARROW_WIDTHS, found 0
+
+   at support/state-surface-contrast-guard-narrow.ts:66
+
+  64 |     const matches = NARROW_WIDTHS.filter((entry) => entry.width === value);
+  65 |     if (matches.length !== 1) {
+exit 1
