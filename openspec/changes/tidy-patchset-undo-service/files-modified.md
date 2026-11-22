@@ -1,0 +1,11 @@
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoService.scala` — update/delete restorers moved out (426 -> 232 lines); `restorePipelineStepCreate` and `countPlacementsForStep` removed (step create-undo is now the plain `restoreCreateUndo` shape, no `resultingState`); dataSource create arm extracted to `deleteCreatedDataSource`; imports pruned
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoRestorers.scala` — new (199 lines): the update and delete restorers moved verbatim, plus shared `missingPriorState`/`restoreFailed` in its companion
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyService.scala` — `ConcurrentHashMap` of created datasets replaced by an immutable map threaded through `loop`; capture-failure warning now names roots
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoBoundPanels.scala` — `doomedOutputIds` arrows aligned
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoLaterChildren.scala` — `describeRoot` comment corrected (data sources have no sharing: only the owner-only `data_sources_owner` policy, V35, and no grant table)
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetUndoLaneSpec.scala` — `removedPlacementCount` assertion became `resultingState shouldBe None`; stale cascade comment corrected
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetUndoRoutesSpec.scala` — route-level seam test: no `resultingState` key and the body validates against the undo response schema
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetUndoInlineDatasetLaterWorkSpec.scala` — two guard tests (form panel on an inline root; inline roots the create made are excused)
+- `openspec/changes/tidy-patchset-undo-service/evidence/*.txt` — baseline, after-split, after-tidy, red, green, guard and final records
+
+Notes: `PipelineStepRepository.deleteInternal` (line ~1027) still documents its `Option[Int]` as `removedPlacementCount`; it is a removed-STEP count, internal, and left alone (non-goal). Removing the count reads also removes one failure path (`listByPipelineInternal` / `countByOutputIdsInternal` inside the undo arm); `PanelRepository.countByOutputIdsInternal` stays (`OutputService` uses it).

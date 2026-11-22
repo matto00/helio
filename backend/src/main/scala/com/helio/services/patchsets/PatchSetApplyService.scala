@@ -22,7 +22,6 @@ import spray.json.{JsValue, JsonParser}
 
 import java.time.Instant
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
@@ -131,17 +130,20 @@ final class PatchSetApplyService(
       resolved: Vector[ResolvedEdit],
       user: AuthenticatedUser
   ): Future[Either[ServiceError, PatchSetApplyResponse]] = {
-    // HEL-1796: what each `dataSource` create made, keyed by edit index (written once per edit, read at journaling).
-    val createdDatasets = new ConcurrentHashMap[Int, JournaledCreatedDataset]()
     def loop(
         remaining: Vector[ResolvedEdit],
         applied: Vector[(ResolvedEdit, EditOutcome)],
         rawConfigs: Map[Int, JsValue],
         createdByRef: Map[String, String],
-        children: Map[Int, JournaledCreatedChildren]
-    ): Future[Either[(ServiceError, Vector[(ResolvedEdit, EditOutcome)]), (Vector[(ResolvedEdit, EditOutcome)], Map[Int, JsValue], Map[Int, JournaledCreatedChildren])]] =
+        children: Map[Int, JournaledCreatedChildren],
+        // HEL-1796: what each `dataSource` create made, keyed by edit index (read at journaling).
+        createdDatasets: Map[Int, JournaledCreatedDataset]
+    ): Future[Either[
+      (ServiceError, Vector[(ResolvedEdit, EditOutcome)]),
+      (Vector[(ResolvedEdit, EditOutcome)], Map[Int, JsValue], Map[Int, JournaledCreatedChildren], Map[Int, JournaledCreatedDataset])
+    ]] =
       remaining.headOption match {
-        case None => Future.successful(Right((applied, rawConfigs, children)))
+        case None => Future.successful(Right((applied, rawConfigs, children, createdDatasets)))
         case Some(declared) =>
           // HEL-1639 D2: a panel create bound by `$ref` gets the real id of the Output an earlier edit just created.
           PatchSetRefs.substitute(declared, createdByRef) match {
@@ -155,22 +157,22 @@ final class PatchSetApplyService(
                     childrenOpt  <- captureCreatedChildren(edit, outcome)
                     datasetOpt   <- captureCreatedDataset(edit, outcome, user)
                     next <- {
-                      datasetOpt.foreach(d => createdDatasets.put(edit.index, d))
+                      val nextDatasets   = datasetOpt.fold(createdDatasets)(d => createdDatasets + (edit.index -> d))
                       val nextChildren   = childrenOpt.fold(children)(c => children + (edit.index -> c))
                       val nextRawConfigs = rawConfigOpt.fold(rawConfigs)(json => rawConfigs + (edit.index -> json))
                       val nextCreated = (edit.ref, edit.action, outcome.newId) match {
                         case (Some(ref), _: ResolvedAction.OutputCreate, Some(id)) => createdByRef + (ref -> id)
                         case _                                                      => createdByRef
                       }
-                      loop(remaining.tail, applied :+ (edit -> outcome), nextRawConfigs, nextCreated, nextChildren)
+                      loop(remaining.tail, applied :+ (edit -> outcome), nextRawConfigs, nextCreated, nextChildren, nextDatasets)
                     }
                   } yield next
               }
           }
       }
 
-    loop(resolved, Vector.empty, Map.empty, Map.empty, Map.empty).flatMap {
-      case Right((appliedAll, rawConfigs, children)) =>
+    loop(resolved, Vector.empty, Map.empty, Map.empty, Map.empty, Map.empty).flatMap {
+      case Right((appliedAll, rawConfigs, children, createdDatasets)) =>
         // HEL-1639 D2: created Outputs are backfilled only now that the whole set has applied, so a rolled-back set
         // never triggers one.
         if (services.outputService != null)
@@ -216,7 +218,7 @@ final class PatchSetApplyService(
           roots   <- pipelineRepo.listRootDataSourceIdsInternal(pid)
         } yield Option(JournaledCreatedChildren(steps.map(_.id.value), outputs.map(_.id.value), Some(roots.map(_._1.value))))
         read.recover { case NonFatal(ex) =>
-          log.warn(s"edit ${edit.index}: could not record the steps and Outputs the pipeline create made: ${ex.getClass.getSimpleName}")
+          log.warn(s"edit ${edit.index}: could not record the steps, Outputs and roots the pipeline create made: ${ex.getClass.getSimpleName}")
           None
         }
       case _ => Future.successful(None)
@@ -271,7 +273,7 @@ final class PatchSetApplyService(
       appliedAll: Vector[(ResolvedEdit, EditOutcome)],
       rawConfigs: Map[Int, JsValue],
       children: Map[Int, JournaledCreatedChildren],
-      createdDatasets: ConcurrentHashMap[Int, JournaledCreatedDataset],
+      createdDatasets: Map[Int, JournaledCreatedDataset],
       user: AuthenticatedUser
   ): Future[String] =
     Future.traverse(appliedAll) { case (edit, outcome) =>
@@ -286,7 +288,7 @@ final class PatchSetApplyService(
           rawResultingConfig = rawConfigs.get(edit.index),
           inlineSources      = inline,
           createdChildren    = children.get(edit.index),
-          createdDataset     = Option(createdDatasets.get(edit.index))
+          createdDataset     = createdDatasets.get(edit.index)
         )
       }
     }.flatMap { journaledEdits =>

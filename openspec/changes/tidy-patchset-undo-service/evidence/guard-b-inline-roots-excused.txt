@@ -1,0 +1,25 @@
+GUARD (b): inline roots the pipeline create made are excused (HEL-1811). Spec: PatchSetUndoInlineDatasetLaterWorkSpec
+Existing excusal tests in PatchSetUndoLaterAlertRulesSpec ('excuse the roots the create itself made (several)', 'excuse the journaled rootIds regardless of timestamps') use {"sourceId":...} roots only (verified by reading the spec); none uses an inline root.
+PatchSetUndoInlineDatasetLaterWorkSpec 'succeed, removing the pipeline...when nothing changed (guard)' (already existed) also reddens under this mutation, as design round-2 note 1 said; the new test asserts the blocker set directly over 3 inline roots with appliedAt = epoch, so the created_at fallback excuses none.
+-- PASS on current code
+[info] - should excuse the inline roots the pipeline create itself made, by journaled id and not by timestamp (guard)
+[info] Total number of tests run: 16
+[info] Tests: succeeded 16, failed 0, canceled 0, ignored 0, pending 0
+EXIT=0
+
+-- MUTATION: 'case Some(ids) => ids.contains(r.id.value)' replaced by 'case Some(ids) => false' in PatchSetUndoLaterChildren.rootExcused (reverted afterwards)
+[info] - should succeed, removing the pipeline, the source and its rows, when nothing changed (guard) *** FAILED ***
+[info]   false was not equal to true (PatchSetUndoInlineDatasetLaterWorkSpec.scala:207)
+[info] - should keep a source another pipeline also uses (HEL-1493 option B) and succeed, rows and all (guard) *** FAILED ***
+[info] - should keep a source a form panel binds, with its appended row, and succeed (guard) *** FAILED ***
+[info] - should excuse the inline roots the pipeline create itself made, by journaled id and not by timestamp (guard) *** FAILED ***
+[info]   Vector(PipelineRoot(PipelineRootId("1fc0ce08-63be-45ac-9105-a4d92940d7cf"), PipelineId("17f88c14-2a6c-4e9e-a25f-edd6dc5ac235"), DataSourceId("0902deae-2845-4997-a946-875c49fc8eff"), 2, 2026-11-21T23:39:27.619792Z), PipelineRoot(PipelineRootId("7e0fce7
+[info] - should keep a source only a pipeline the undoing user cannot see uses, and succeed *** FAILED ***
+[info] - should undo a non-dataset inline root whose updated_at moved, and the pipeline *** FAILED ***
+[info]   false was not equal to true (PatchSetUndoInlineDatasetLaterWorkSpec.scala:344)
+[info] - should fail the edit with a count-only phrase, deleting nothing, when a row lands after the Phase-1 check *** FAILED ***
+[info] - should not fail the edit when the source gained another user before the re-check: it is kept, as HEL-1493 says *** FAILED ***
+[info] Total number of tests run: 16
+[info] Tests: succeeded 8, failed 8, canceled 0, ignored 0, pending 0
+[info] *** 8 TESTS FAILED ***
+EXIT=1

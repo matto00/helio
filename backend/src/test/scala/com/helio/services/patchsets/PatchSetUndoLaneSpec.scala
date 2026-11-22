@@ -81,9 +81,9 @@ class PatchSetUndoLaneSpec extends PatchSetUndoServiceFixture {
       restoredPanels.head.title shouldBe "Lane panel"
     }
 
-    // HEL-914 task 5.6: undoing an "add lane" (pipelineStep create) removes the step, its
-    // bound Output, AND that Output's placement (panel) atomically via the same cascade a real
-    // delete already relies on -- and reports the placement count.
+    // HEL-914 task 5.6, superseded by HEL-1720 and HEL-1795: undoing an "add lane" (pipelineStep create) is REFUSED while
+    // a panel or an Output the patch set did not create sits on the lane, and removes the step only once none does. It
+    // reports no placement count (HEL-1797): the outcome is the plain create-undo shape.
     "restore a pipelineStep create edit ('add lane') by refusing while a later-bound placement exists, then removing the step and its Output once the placement is gone" in {
       val sourceId = seedDatasetSource(userA, "Lane-create pipeline source")
       val pipeline = seedPipeline(userA, sourceId, "Lane-create pipeline")
@@ -135,7 +135,7 @@ class PatchSetUndoLaneSpec extends PatchSetUndoServiceFixture {
         case Left(err) => fail(s"expected success, got $err")
       }
       undoResponse.edits.head.status shouldBe "restored"
-      undoResponse.edits.head.resultingState.map(_.asJsObject.fields("removedPlacementCount")) shouldBe Some(JsNumber(0))
+      undoResponse.edits.head.resultingState shouldBe None
 
       await(pipelineStepRepo.findByIdInternal(PipelineStepId(createdStepId))) shouldBe None
       await(outputRepo.findByIdInternal(output.id)) shouldBe None

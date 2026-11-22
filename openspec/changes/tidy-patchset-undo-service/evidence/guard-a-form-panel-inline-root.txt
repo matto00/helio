@@ -1,0 +1,13 @@
+GUARD (a): form panel bound to an inline root (HEL-1796). Spec: PatchSetUndoInlineDatasetLaterWorkSpec
+-- PASS on current code
+[info] - should keep a source a form panel binds, with its appended row, and succeed (guard)
+[info] Total number of tests run: 15
+[info] Tests: succeeded 15, failed 0, canceled 0, ignored 0, pending 0
+EXIT=0
+
+-- MUTATION: ' || refs.panels.nonEmpty ||' replaced by ' ||' in PatchSetUndoDatasetLaterWork.inlineFindings (reverted afterwards; git diff on the file is empty)
+[info] - should keep a source a form panel binds, with its appended row, and succeed (guard) *** FAILED ***
+[info] Total number of tests run: 15
+[info] Tests: succeeded 14, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+EXIT=1

@@ -73,9 +73,9 @@ private[services] object PatchSetUndoBoundPanels {
    *  the panel check and the alert-rule check, so the sets never drift. Empty for every other arm. */
   def doomedOutputIds(edit: JournaledEdit, ctx: PatchSetUndoContext)(implicit ec: ExecutionContext): Future[Vector[String]] =
     (edit.targetKind, edit.newId) match {
-      case ("output", Some(id))                        => Future.successful(Vector(id))
-      case ("pipeline" | "pipelineStep", Some(_))       => doomedRows(edit, ctx).map(_.outputs.map(_.id.value))
-      case _                                            => Future.successful(Vector.empty)
+      case ("output", Some(id))                   => Future.successful(Vector(id))
+      case ("pipeline" | "pipelineStep", Some(_)) => doomedRows(edit, ctx).map(_.outputs.map(_.id.value))
+      case _                                      => Future.successful(Vector.empty)
     }
 
   /** The alert-rule row shape `OutputRepository.findAlertRuleDefinitionsInternal` returns: `(id, metric, condition, name,

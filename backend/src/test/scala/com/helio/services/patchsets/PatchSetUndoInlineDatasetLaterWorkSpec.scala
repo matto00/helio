@@ -17,6 +17,7 @@ import com.helio.infrastructure.persistence.pipelines.{OutputRepository, Pipelin
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.services.dashboards.DashboardService
+import com.helio.api.protocols.panels.CreatePanelRequest
 import com.helio.services.panels.PanelService
 import com.helio.services.pipelines.{OutputService, PipelineService}
 import com.helio.services.sources.{DataSourceService, SourceService}
@@ -270,6 +271,46 @@ class PatchSetUndoInlineDatasetLaterWorkSpec extends AssistantStandingsFixture {
       undone.edits.head.inlineSources.getOrElse(fail("no inline outcome")).head.result shouldBe "kept"
       pipelineExists(pid) shouldBe false
       rowCount(sid) shouldBe 4
+    }
+
+    // HEL-1797 guard (passes on current code; failable by dropping `refs.panels.nonEmpty` from `referenced` in
+    // `PatchSetUndoDatasetLaterWork.inlineFindings`): a FORM panel bound to an inline root is a reference, so the source is
+    // kept and the undo succeeds even though a row was appended (later work that would refuse an unreferenced source).
+    "keep a source a form panel binds, with its appended row, and succeed (guard)" in {
+      val r = applied(pipelineSet("Form-bound inline 1797", Vector(inlineRoot("Form-bound inline src 1797"))))
+      val pid = r.edits.head.newId.get
+      val sid = inlineIds(r.applicationId.get).head
+      val dashboardId = await(appDashboards.create(DashboardService.CreateDashboardInput(Some("Form-bound dashboard 1797")), owner))._1.id.value
+      val formConfig = JsObject(
+        "dataSourceId" -> JsString(sid),
+        "fields"       -> JsArray(JsObject("sourceField" -> JsString("value"), "control" -> JsString("number"), "required" -> JsBoolean(true))),
+        "submit"       -> JsObject("writeMode" -> JsString("append"))
+      )
+      await(appPanels.create(CreatePanelRequest(Some(dashboardId), Some("Form on inline 1797"), Some("form"), Some(formConfig)), owner)).getOrElse(fail("form create failed"))
+      append(sid)
+      val undone = await(appUndo.undo(PatchSetApplicationId(r.applicationId.get), owner)).getOrElse(fail("expected success"))
+      undone.edits.head.status shouldBe "restored"
+      undone.edits.head.inlineSources.getOrElse(fail("no inline outcome")).head.result shouldBe "kept"
+      pipelineExists(pid) shouldBe false
+      sourceExists(sid) shouldBe true
+      rowCount(sid) shouldBe 4
+    }
+
+    // HEL-1797 guard (passes on current code; failable by making the `Some(ids)` branch of `rootExcused` in
+    // `PatchSetUndoLaterChildren` excuse nothing). The existing HEL-1811 excusal specs use `sourceId` roots only. Here the
+    // roots are INLINE and journaled, and `appliedAt` is the epoch, so the `created_at <= appliedAt` fallback excuses none of
+    // them: only the journaled rootIds do. (`PatchSetUndoInlineDatasetLaterWorkSpec`'s clean-undo test also reddens under
+    // this mutation, but through the refusal path; this one asserts the blocker set directly, over several roots.)
+    "excuse the inline roots the pipeline create itself made, by journaled id and not by timestamp (guard)" in {
+      val r = applied(pipelineSet("Inline excuse 1797", Vector(inlineRoot("Excuse root A 1797"), inlineRoot("Excuse root B 1797"), inlineRoot("Excuse root C 1797"))))
+      val pid = r.edits.head.newId.get
+      val edit = journal(r.applicationId.get).head
+      edit.createdChildren.flatMap(_.rootIds).getOrElse(fail("rootIds not journaled")) should have size 3
+      val later = await(PatchSetUndoLaterChildren.blocking(edit, Vector(edit), Instant.EPOCH, owner, appUndo.context))
+      later.roots shouldBe empty
+      await(appUndo.undo(PatchSetApplicationId(r.applicationId.get), owner)).isRight shouldBe true
+      pipelineExists(pid) shouldBe false
+      inlineIds(r.applicationId.get).foreach(sourceExists(_) shouldBe false)
     }
 
     "keep a source only a pipeline the undoing user cannot see uses, and succeed" in {

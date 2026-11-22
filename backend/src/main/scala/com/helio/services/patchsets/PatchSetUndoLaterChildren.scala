@@ -115,8 +115,10 @@ private[services] object PatchSetUndoLaterChildren {
       for { o <- outputsMsg; s <- stepsMsg; a <- rulesMsg; r <- rootsMsg } yield Vector(o, s, a, scheduleMsg, r).flatten
     }
 
-  /** `root on data source "<name>"` when the undoing user owns the data source (`DataSourceRepository.findByIdOwned`, the
-   *  owner-scoped read; there is no sharing-aware by-id read), else `None` (counted, never named). */
+  /** `root on data source "<name>"` when the undoing user owns the data source, else `None` (counted, never named). Data
+   *  sources have no sharing: the only policy on `data_sources` is the owner-only `data_sources_owner` (V35) and no grant
+   *  table names one, so "owned" and "readable" are the same set and the owner-scoped `DataSourceRepository.findByIdOwned`
+   *  is the readable-source read. */
   private def describeRoot(id: String, roots: Vector[PipelineRoot], user: AuthenticatedUser, ctx: PatchSetUndoContext)(implicit
       ec: ExecutionContext
   ): Future[Option[String]] =
