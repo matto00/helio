@@ -1,0 +1,484 @@
+AnalyzeWithAiStepSpec	should accept a conforming response and append the declared columns, typed as declared, in declared order
+AnalyzeWithAiStepSpec	should accept a response wrapped in exactly one markdown code fence
+AnalyzeWithAiStepSpec	should fail with ai-error when the transport reports an API error
+AnalyzeWithAiStepSpec	should fail with ai-guardrail for an oversized input, making zero transport calls
+AnalyzeWithAiStepSpec	should fail with ai-quota-exceeded, naming the limit, the UTC reset, and the shared chat budget
+AnalyzeWithAiStepSpec	should fail with ai-unavailable when the context uses the default (unconfigured) AiStepClient
+AnalyzeWithAiStepSpec	should fail with field-missing when the input row lacks the configured inputField
+AnalyzeWithAiStepSpec	should fail with field-not-string when the input field is present but not a string
+AnalyzeWithAiStepSpec	should fail with response-extra-field when the response includes an undeclared key
+AnalyzeWithAiStepSpec	should fail with response-malformed-json for a valid object followed by trailing content
+AnalyzeWithAiStepSpec	should fail with response-malformed-json for unparseable JSON
+AnalyzeWithAiStepSpec	should fail with response-missing-field when a declared key is present but JSON null
+AnalyzeWithAiStepSpec	should fail with response-missing-field when the response omits a declared key
+AnalyzeWithAiStepSpec	should fail with response-not-object when the response is a JSON array
+AnalyzeWithAiStepSpec	should fail with response-wrong-type when a declared boolean key holds a string
+AnalyzeWithAiStepSpec	should fail with response-wrong-type when a declared float key holds a string
+AnalyzeWithAiStepSpec	should fail with response-wrong-type when a declared integer key holds a fractional number
+AnalyzeWithAiStepSpec	should fail with response-wrong-type when a declared string key holds a number
+AnalyzeWithAiStepSpec	should surface an analyzewithai failure through StepExecutionException carrying the named reason, and materialize no rows
+AnalyzeWithAiStepSpec	should surface a QuotaExceeded denial's message VERBATIM, never the generic 'step execution failed'
+AnalyzeWithAiStepSpec	should treat a CSV-loaded blank (null) input as empty text, not field-missing
+AskCitationLedgerSpec	should continue numbering after an earlier pack
+AskCitationLedgerSpec	should count compares like any other data
+AskCitationLedgerSpec	should hand out disjoint, contiguous ids
+AskCitationLedgerSpec	should record only the final pack's citations, never a trial pack
+AskCitationLedgerSpec	should refuse a call that would pass 12k estimated tokens, recording nothing for it
+AskCitationLedgerSpec	should refuse the 7th data call with the budget message
+AskDataServiceSpec	should answer over one Output and refuse any other id
+AskDataServiceSpec	should ask for 4096 output tokens on every hop, with no thinking or sampling field on the wire
+AskDataServiceSpec	should cite the day-14 point with ids disjoint from an earlier tool result
+AskDataServiceSpec	should drop a cited insight Output from reads, and give no pin when only it is cited
+AskDataServiceSpec	should give a dashboard-only viewer error results for off-board Outputs and payload rows, and no point ids
+AskDataServiceSpec	should give an editor a pin that creates an insight Output through the real create path
+AskDataServiceSpec	should give a pipeline grantee point ids and payload access, and offer the tool
+AskDataServiceSpec	should give a pipeline viewer, a dashboard-only viewer and a cross-pipeline answer no pin
+AskDataServiceSpec	should give two history calls disjoint ids that resolve to their own Output
+AskDataServiceSpec	should hold only read tools, no web search, and no sampling or forced-tool fields for any catalog model
+AskDataServiceSpec	should map a max_tokens corrective hop to Truncated, thinking-only and partial text alike
+AskDataServiceSpec	should map a partial-text max_tokens hop to Truncated even when the cut-off text would validate
+AskDataServiceSpec	should map a thinking-only max_tokens hop to Truncated, not a BadGateway
+AskDataServiceSpec	should omit the node (no guessed root id, no node step id) when there is no step and no root id (HEL-1775)
+AskDataServiceSpec	should refuse a dashboard-only viewer's payload read even when row-level security is bypassed
+AskDataServiceSpec	should refuse get_history_rows for an editor when the point belongs to another Output
+AskDataServiceSpec	should refuse the 7th data call in one response with the budget message
+AskDataServiceSpec	should retry once with the reasons, then accept a grounded answer
+AskDataServiceSpec	should return ASK_UNGROUNDED data after a second failure, without the answer text
+AskDataServiceSpec	should serve a filter through the second panel that offers the column, and refuse a column neither offers
+AskDataServiceSpec	should serve a stored payload to a pipeline grantee
+AskDataServiceSpec	should turn a call into an error once the binding panel is removed between hops
+AskDataServiceSpec	should turn a call into an error once the dashboard grant is revoked between hops
+AskDataServiceSpec	should use the Output's own root id, not the pipeline id, when it differs
+AskGranteeRlsSpec	should offer the payload tool and a pin to the owner (positive control: the same cited answer)
+AskGranteeRlsSpec	should read rows and history through the scope re-check, offer no payload tool and pin nothing
+AskGranteeRlsSpec	should refuse a scripted get_history_rows call with a real point id and never read the payload row
+AskGranteeRlsSpec	should run the app pool as a role that does not bypass row-level security
+AskReasonsSpec	should deduplicate repeated kinds and keep distinct kinds
+AskReasonsSpec	should map the budget reason and fall back to the generic phrase for an unknown one
+AskReasonsSpec	should name the kind of each validator failure, with the exact phrase
+AskReasonsSpec	should never emit a digit
+AssistantColumnLoopSpec	should feed back a column error naming the node's columns, then capture the lookup proposal
+AssistantConversationRoutesSpec	should a second user cannot converse with the first user's conversation -- not-found, no turns persisted (tasks.md 6.5, real Postgres RLS)
+AssistantConversationRoutesSpec	should persist EXACTLY the typed message (never the internal system prompt) as the first turn's content for a brand-new conversation
+AssistantConversationRoutesSpec	should persist the new turns on success -- a subsequent GET returns the identical transcript (tasks.md 6.3)
+AssistantConversationRoutesSpec	should return 502 saying Claude declined the request on a refusal, and persist nothing (HEL-1636)
+AssistantConversationRoutesSpec	should return 503 when assistantServiceOpt is None, while GET /assistant-conversations still works normally (tasks.md 6.4)
+AssistantConversationRoutesSpec	should return the mapped error status and persist nothing on a real Claude/transport failure (tasks.md 6.3a)
+AssistantConversationRoutesSpec	should send the system prompt in the wire system field on the second POST and never persist it (HEL-1718)
+AssistantConversationRoutesTierSpec	should a beta-tier user at the cap can still list conversations and read one (200)
+AssistantConversationRoutesTierSpec	should a beta-tier user under the cap converses normally, then gets 429 CHAT_LIMIT_REACHED once at the cap -- no model call, no turns persisted for the denied attempt
+AssistantConversationRoutesTierSpec	should an owner-tier user converses successfully with no cap, past the beta limit, and writes no assistant_daily_usage row
+AssistantConversationRoutesTierSpec	should charge a beta turn of 7 round trips exactly the model weight once
+AssistantConversationRoutesTierSpec	should deny a free-tier user 403 TIER_FORBIDDEN on every endpoint in the family, with nothing persisted
+AssistantConversationRoutesTierSpec	should refuse a first request over the input limit with nothing persisted, but keep the work of a turn that grows past it, after which every send is refused
+AssistantConversationRoutesTurnSpec	should a keyless converse behaves exactly as before -- no lastIdempotencyKey field on the response
+AssistantConversationRoutesTurnSpec	should an idempotencyKey longer than 128 characters is rejected with 400 and nothing is persisted
+AssistantConversationRoutesTurnSpec	should a second converse call succeeds, and its outbound request resolves the dangling tool_use in the immediately-following message
+AssistantConversationRoutesTurnSpec	should a second converse with the SAME key is a no-op replay -- 200, transcript unchanged, the underlying Claude transport invoked exactly once
+AssistantConversationRoutesTurnSpec	should GET and converse responses both carry lastIdempotencyKey once a keyed send has landed
+AssistantConversationRoutesTurnSpec	should GET never carries either signal, even right after a converse call that set them
+AssistantConversationRoutesTurnSpec	should surfaces searchedWithNoResults = true when the turn's find call comes back empty
+AssistantConversationRoutesTurnSpec	should surfaces stopReason failure_budget with a stopMessage when the turn spends 3 failed tool calls (HEL-1637)
+AssistantConversationServiceSpec	should a keyed append records the key on the returned record
+AssistantConversationServiceSpec	should a keyless append leaves a previously-set key in place
+AssistantConversationServiceSpec	should a matching-key append no-ops -- the transcript stays unchanged and the existing record is returned
+AssistantConversationServiceSpec	should an explicit PATCH-equivalent rename overrides the derived/default title permanently
+AssistantConversationServiceSpec	should an explicit title wins outright over a derivable first message
+AssistantConversationServiceSpec	should append persists the WHOLE rewritten transcript, readable back via get
+AssistantConversationServiceSpec	should appendTurn on a nonexistent conversation id returns NotFound, not an exception (tasks.md 6.9)
+AssistantConversationServiceSpec	should appendTurn on another user's conversation returns NotFound, not an exception (tasks.md 6.9)
+AssistantConversationServiceSpec	should applies both a rename and a pin in one call
+AssistantConversationServiceSpec	should defaults to "New conversation" when BOTH title and firstMessage are absent
+AssistantConversationServiceSpec	should defaults to "New conversation" when firstMessage is present but carries no Text block
+AssistantConversationServiceSpec	should derive the title from the first message's Text block when no explicit title is supplied
+AssistantConversationServiceSpec	should reflect pinned: true in a subsequent list call after PATCH-equivalent setPinned (tasks.md 6.2)
+AssistantConversationServiceSpec	should return at most 10 conversations, pinned-first then most-recent-first, for a user with more than 10 (tasks.md 6.4)
+AssistantConversationServiceSpec	should returns NotFound for an unknown conversation id
+AssistantConversationServiceSpec	should show the created conversation in a subsequent list, with updatedAt reflecting the append (tasks.md 6.1)
+AssistantConversationServiceSpec	should write via FileSystem.write, read back via FileSystem.read, deserialize, equal what was written
+AssistantModelSelectionRoutesSpec	should be a 400 on converse with no model call, no charge and nothing persisted
+AssistantModelSelectionRoutesSpec	should be a 400 on PATCH and leave the stored model unchanged
+AssistantModelSelectionRoutesSpec	should charge Haiku 1, Sonnet 4 and Opus 8
+AssistantModelSelectionRoutesSpec	should deny Opus but allow Haiku when 3 units are left, naming the model
+AssistantModelSelectionRoutesSpec	should fall to the user default, then the server default, when the stored model is no longer selectable
+AssistantModelSelectionRoutesSpec	should keep the catalog rules and weight of a catalog server default that was narrowed out of the picker
+AssistantModelSelectionRoutesSpec	should keep using the stored model on later turns that carry none
+AssistantModelSelectionRoutesSpec	should list the selectable models with weights, the server default and the caller's resolved default
+AssistantModelSelectionRoutesSpec	should narrow to the configured selectable set and refuse a free-tier caller
+AssistantModelSelectionRoutesSpec	should never count an owner
+AssistantModelSelectionRoutesSpec	should never reach the wire as a raw client string even when it is a prefix-valid-looking id
+AssistantModelSelectionRoutesSpec	should never take a client-supplied model: it is stripped on create and on /messages
+AssistantModelSelectionRoutesSpec	should persist nothing and charge nothing on an idempotent replay (skeptic note b)
+AssistantModelSelectionRoutesSpec	should record each turn's own model when the model changes between turns
+AssistantModelSelectionRoutesSpec	should send exactly that id, store it on the conversation and stamp the answer with the response model
+AssistantModelSelectionRoutesSpec	should send the server default with today's behaviour (no catalog rules) when it is not catalog-defined
+AssistantModelSelectionRoutesSpec	should start on the user's default and clear back to the server default
+AssistantModelSwitchSpec	should be detected by the fake itself: a request holding another model's thinking block gets a 400 (positive control)
+AssistantModelSwitchSpec	should never send claude-haiku-5-5's thinking to claude-haiku-5-5, and answer both turns with a tool call on each (claude-haiku-5-5 -> claude-haiku-5-5)
+AssistantModelSwitchSpec	should never send claude-haiku-5-5's thinking to claude-opus-5-5, and answer both turns with a tool call on each (claude-haiku-5-5 -> claude-opus-5-5)
+AssistantModelSwitchSpec	should never send claude-haiku-5-5's thinking to claude-sonnet-5-5, and answer both turns with a tool call on each (claude-haiku-5-5 -> claude-sonnet-5-5)
+AssistantModelSwitchSpec	should never send claude-opus-5-5's thinking to claude-haiku-5-5, and answer both turns with a tool call on each (claude-opus-5-5 -> claude-haiku-5-5)
+AssistantModelSwitchSpec	should never send claude-opus-5-5's thinking to claude-opus-5-5, and answer both turns with a tool call on each (claude-opus-5-5 -> claude-opus-5-5)
+AssistantModelSwitchSpec	should never send claude-opus-5-5's thinking to claude-sonnet-5-5, and answer both turns with a tool call on each (claude-opus-5-5 -> claude-sonnet-5-5)
+AssistantModelSwitchSpec	should never send claude-sonnet-5-5's thinking to claude-haiku-5-5, and answer both turns with a tool call on each (claude-sonnet-5-5 -> claude-haiku-5-5)
+AssistantModelSwitchSpec	should never send claude-sonnet-5-5's thinking to claude-opus-5-5, and answer both turns with a tool call on each (claude-sonnet-5-5 -> claude-opus-5-5)
+AssistantModelSwitchSpec	should never send claude-sonnet-5-5's thinking to claude-sonnet-5-5, and answer both turns with a tool call on each (claude-sonnet-5-5 -> claude-sonnet-5-5)
+AssistantPipelineReadsSpec	should be unchanged: assemble's JSON carries none of the get_resource-only fields
+AssistantPipelineReadsSpec	should find a dashboard named Standings from the long query the model actually sent (taxonomy 9)
+AssistantPipelineReadsSpec	should link a dashboard's panel to its Output and pipeline, and an Output to its pipeline and node
+AssistantPipelineReadsSpec	should name the pipeline to its owner and to a grantee, and to nobody else, including after the share is withdrawn
+AssistantPipelineReadsSpec	should rank a resource matching more keywords above one matching fewer, and still return nothing for a query matching nothing
+AssistantPipelineReadsSpec	should return a populated laneTree, every node with its config, parent, root and the schema AFTER it, and the Outputs (taxonomy 4)
+AssistantProposeErrorsSpec	should accept a complete lookup + compute proposal built from the transcript's real columns
+AssistantProposeErrorsSpec	should give the Output-as-root hint to a pipeline grantee who can read the Output, and only to them
+AssistantProposeErrorsSpec	should keep the root-shape error for sourceId plus type clear
+AssistantProposeErrorsSpec	should not reveal another tenant's Output: an Output the caller cannot read is just an unknown data source
+AssistantProposeErrorsSpec	should reject an aggregate with no aggregations and a select with no fields
+AssistantProposeErrorsSpec	should reject an empty lookup config naming the missing keys (taxonomy 3)
+AssistantProposeErrorsSpec	should reject an unknown step type (passthrough) listing only the valid, authorable ones
+AssistantProposeErrorsSpec	should reject the invented compute grammars the model tried
+AssistantProposeErrorsSpec	should still validate a proposal that reuses an existing dashboard's name (it proposes a NEW dashboard, which the tool description now says)
+AssistantProposeErrorsSpec	should tell the model an Output id is not a data source and name the pipeline to extend (taxonomy 5)
+AssistantServiceFailureBudgetSpec	should complete after 2 failures then a final answer and report both counts (HEL-1637)
+AssistantServiceFailureBudgetSpec	should complete a turn of 6 successful round trips followed by a final answer (HEL-1637)
+AssistantServiceFailureBudgetSpec	should count only this turn's failed calls, never the synthetic results that repair a previous turn's dangling tool_use (HEL-1637)
+AssistantServiceFailureBudgetSpec	should make a third failure on round trip 12 a failure_budget stop, not hop_ceiling (HEL-1637)
+AssistantServiceFailureBudgetSpec	should report an unreachable source after 3 test_connection ok:false results, never raw JSON (HEL-1637)
+AssistantServiceFailureBudgetSpec	should report hop_ceiling with its message and keep the dangling tool_use at the 12 round-trip ceiling (HEL-1637)
+AssistantServiceFailureBudgetSpec	should send alternating roles ending with a user turn on the next turn after a failure-budget stop (HEL-1637)
+AssistantServiceFailureBudgetSpec	should stop after 3 failed tool calls interleaved with successes with a plain-language message (HEL-1637)
+AssistantServiceFailureBudgetSpec	should stop mid-turn on the input limit keeping the work so far, while a first-request overrun is still refused (HEL-1637)
+AssistantServiceFailureBudgetSpec	should use the proposal wording when a proposal was captured before the budget ran out (HEL-1637)
+AssistantServiceFailureBudgetSpec	should word the stop by the failed tools: proposals and workspace reads (HEL-1637)
+AssistantServicePromptHistorySpec	should never leak AssistantSystemPrompt.text into fullHistory's first turn for an empty-history call, while the outbound request to Claude is unaffected
+AssistantServicePromptHistorySpec	should populate fullHistory even when the hop budget is exhausted
+AssistantServicePromptHistorySpec	should populate fullHistory with the new user turn and Claude's final response, in order
+AssistantServicePromptHistorySpec	should send the system prompt for a legacy conversation whose turn 1 is the plain user message (HEL-1718)
+AssistantServicePromptHistorySpec	should send the system prompt in the system field on turn 2, identical to turn 1, never in any message (HEL-1718)
+AssistantServicePromptHistorySpec	should send the system prompt on every hop of a multi-hop turn (HEL-1718)
+AssistantServicePromptHistorySpec	should set webSearch = true on every outbound request, regardless of message content
+AssistantServicePromptHistorySpec	should still enforce the existing test_connection requirement for a REST-source proposal after a preceding web_search call
+AssistantServicePromptHistorySpec	should yield Left(claudeError) for a real transport/API failure, never a fabricated result
+AssistantServiceSearchRepairSpec	should not set searchedWithNoResults for a find call with results
+AssistantServiceSearchRepairSpec	should not set searchedWithNoResults for a hop-budget-exhausted outcome
+AssistantServiceSearchRepairSpec	should not set searchedWithNoResults for a turn with no find call at all
+AssistantServiceSearchRepairSpec	should repair a dangling tool_use left by a prior hop-cap-exhausted turn before continuing the conversation
+AssistantServiceSearchRepairSpec	should repair MULTIPLE dangling tool_use blocks left by a prior hop-cap-exhausted turn before continuing the conversation
+AssistantServiceSearchRepairSpec	should set searchedWithNoResults for a zero-result find followed by a plain final answer
+AssistantServiceSpec	should capture exactly one proposal when a single hop contains two successful propose_* calls
+AssistantServiceSpec	should carry the executor's propose-call counters on a failure-budget-exhausted outcome (HEL-1637)
+AssistantServiceSpec	should contain exactly the 7 expected tools, including test_connection, none apply-shaped
+AssistantServiceSpec	should produce a dashboard proposal from a scripted find + propose_dashboard sequence
+AssistantServiceSpec	should produce a pipeline proposal from a scripted empty find + propose_pipeline sequence
+AssistantServiceSpec	should produce proposal = None for a find/get_resource-only sequence with a final text-only response
+AssistantServiceSpec	should record only the eventual success when an earlier propose_dashboard attempt is rejected
+AssistantServiceSpec	should resolve a hop-budget-exhausted result for a 13-tool_use-attempt sequence (ceiling 12, HEL-1637)
+AssistantSystemPromptSpec	should contain a worked-examples/shaping-guidance section
+AssistantSystemPromptSpec	should cover pipeline source existing-vs-inline branch exclusivity
+AssistantSystemPromptSpec	should cover the propose_combined "$pipelineOutput" sentinel
+AssistantSystemPromptSpec	should cover the propose_patch_set target/op/patch shape and target.id requirement
+AssistantSystemPromptSpec	should describes roots as a non-empty array with per-root branch exclusivity, never a singular source object
+AssistantSystemPromptSpec	should document the test_connection tool
+AssistantSystemPromptSpec	should does not offer DataType as a propose_patch_set edit target
+AssistantSystemPromptSpec	should keeps the "dataType" wire-value hint alongside the renamed find/get_resource prose
+AssistantSystemPromptSpec	should names target.parentId as required for a propose_patch_set create targeting a child kind
+AssistantSystemPromptSpec	should never mentions deleted panel kinds or retired Metrics/DataType resource ids
+AssistantSystemPromptSpec	should requires attachAsTail: true for a pipelineStep create to add a lane, not a trunk insertion
+AssistantSystemPromptSpec	should requires test_connection for EVERY inline root, not only the first
+AssistantSystemPromptSpec	should retargets the worked propose_dashboard example to the output panel kind
+AssistantSystemPromptSpec	should show well-formed propose_dashboard call structure via a mini-transcript
+AssistantSystemPromptSpec	should state explicitly that example ids are placeholders and real ids must come from find/get_resource
+AssistantSystemPromptSpec	should state the hard rule that an inline rest_api/sql source must be verified before finalizing
+AssistantSystemPromptSpec	should state the hop ceiling and the failure budget the loop enforces
+AssistantTelemetrySpec	should a failed converse call (real Claude/transport failure) emits NO assistant_tool_loop_outcome line
+AssistantTelemetrySpec	should a failure-budget-stopped turn's telemetry line carries failedToolCalls, hopsUsed and stopReason (HEL-1637)
+AssistantTelemetrySpec	should a malformed propose_dashboard call is counted as a decode failure, and neither its input payload nor its error text ever reach the log line
+AssistantTelemetrySpec	should a multi-hop turn's telemetry line shows a nonzero, correctly-aggregated cacheReadInputTokens
+AssistantTelemetrySpec	should a turn with 2 failed calls then a final answer records failedToolCalls 2 and stopReason final (HEL-1637)
+AssistantTelemetrySpec	should a zero-tool-call turn emits an assistant_tool_loop_outcome line with the correct fields and trace id
+AssistantThinkingSeamSpec	should fail with NoAnswer(end_turn) when the end_turn is blank and no proposal was captured
+AssistantThinkingSeamSpec	should hold for a fresh, a continued and a dangling-tool_use history
+AssistantThinkingSeamSpec	should return the refusal as Left(NoAnswer) so nothing is persisted
+AssistantThinkingSeamSpec	should save no empty assistant text and send no empty text or thinking block on the next turn
+AssistantThinkingSeamSpec	should strip the unknown block from the persisted turns and keep only the text
+AssistantThinkingSeamSpec	should succeed, persist the proposal's tool_use and tool_result, and leave no empty message in the next request
+AssistantToolExecutorSpec	should discard a model-emitted fingerprint before previewing and capture the stripped patch set
+AssistantToolExecutorSpec	should dispatch a rest_api call to sourceService.testRest and return ok = false (e.g. DNS failure) as a normal Right
+AssistantToolExecutorSpec	should dispatch a rest_api call to sourceService.testRest and return ok = true on success
+AssistantToolExecutorSpec	should dispatch a sql call to sourceService.testSql and return ok = false as a normal Right
+AssistantToolExecutorSpec	should dispatch a sql call to sourceService.testSql and return the TestConnectionResponse JSON on success
+AssistantToolExecutorSpec	should increment proposeAttempts and proposeDecodeFailures (not proposeValidationFailures) for unparseable input
+AssistantToolExecutorSpec	should increment proposeAttempts and proposeValidationFailures (not proposeDecodeFailures) when validate rejects a decodable proposal
+AssistantToolExecutorSpec	should let propose_combined proceed to validate after a prior test_connection success for the identical sql config
+AssistantToolExecutorSpec	should let propose_pipeline proceed to validate after a prior test_connection success for the identical rest_api config
+AssistantToolExecutorSpec	should let propose_pipeline proceed to validate for an inline csv source with no test_connection call
+AssistantToolExecutorSpec	should let propose_pipeline proceed to validate for an inline static source with no test_connection call
+AssistantToolExecutorSpec	should let propose_pipeline proceed to validate for a sourceId-referenced source with no test_connection call
+AssistantToolExecutorSpec	should mint a UUID proposalId, return it in the tool result and capture the same id
+AssistantToolExecutorSpec	should nest detail and panelCapabilities as distinct keys for a DataType, both columns arrays intact
+AssistantToolExecutorSpec	should persist the tool result as a tool_result block whose string content carries the minted proposalId
+AssistantToolExecutorSpec	should reject propose_combined for an untested inline rest_api pipeline.roots entry, never reaching combinedProposalService
+AssistantToolExecutorSpec	should reject propose_pipeline for an untested inline rest_api source, never reaching validate's success path
+AssistantToolExecutorSpec	should reject propose_pipeline for an untested inline sql source the same way
+AssistantToolExecutorSpec	should reject propose_pipeline whose Output maps a column absent at its node, naming the available columns, capturing nothing (HEL-1638)
+AssistantToolExecutorSpec	should replace a model-written proposalId, including one that is not a UUID, without failing the proposal
+AssistantToolExecutorSpec	should return Left for a missing id
+AssistantToolExecutorSpec	should return Left for an unknown tool name
+AssistantToolExecutorSpec	should return Left for an unrecognized type without touching sourceService
+AssistantToolExecutorSpec	should return Left for unparseable input without touching the combined proposal service
+AssistantToolExecutorSpec	should return Left for unparseable input without touching the patch-set preview service
+AssistantToolExecutorSpec	should return Left for unparseable input without touching the proposal service
+AssistantToolExecutorSpec	should return Left for unparseable input without touching the proposal service
+AssistantToolExecutorSpec	should return Left, not throw, for an unparseable resourceType
+AssistantToolExecutorSpec	should stay at zero across find and get_resource calls
+AssistantToolExecutorSpec	should still reject propose_pipeline after a test_connection call that returned ok = false
+AssistantToolExecutorSpec	should still reject propose_pipeline when the config was edited after a successful test_connection call
+AssistantToolExecutorSpec	should validate, capture the proposal on success, and echo it back as the tool_result
+AuthoringTelemetrySpec	should accepts 'accepted' and emits a correlated telemetry line, for an id it never looks up (never touches apply-proposal's persistence)
+AuthoringTelemetrySpec	should accepts 'rejected' and emits a correlated telemetry line
+AuthoringTelemetrySpec	should a missing/foreign conversationId (outside the 4 defined kinds) renders the pre-existing bare ErrorResponse shape, no kind field
+AuthoringTelemetrySpec	should a successful call emits a generated-outcome telemetry line with panelCount/modelId/tokens and the trace id
+AuthoringTelemetrySpec	should a successful streaming call emits a generated-outcome telemetry line and the terminal Result event carries authoringRequestId
+AuthoringTelemetrySpec	should BudgetExceeded: response body carries kind=BudgetExceeded, telemetry line carries kind, zero transport invocations
+AuthoringTelemetrySpec	should EmptyWorkspace: response body carries kind=EmptyWorkspace, telemetry line carries kind, zero transport invocations
+AuthoringTelemetrySpec	should EmptyWorkspace: the terminal authoring-error SSE event carries kind=EmptyWorkspace, telemetry line carries kind
+AuthoringTelemetrySpec	should InvalidProposal: response body carries kind=InvalidProposal, telemetry line carries kind
+AuthoringTelemetrySpec	should is mounted even when the authoring service is unavailable (never gated on serviceOpt, telemetry-only)
+AuthoringTelemetrySpec	should ModelFailure: response body carries kind=ModelFailure, telemetry line carries kind + trace id, never the API key
+AuthoringTelemetrySpec	should ModelFailure: the terminal authoring-error SSE event carries kind=ModelFailure, telemetry line carries kind + trace id
+AuthoringTelemetrySpec	should rejects an invalid outcome value with 400
+ClaudeAiStepClientSpec	should deny a request carrying no owner with ZERO model calls and WITHOUT consulting the gate
+ClaudeAiStepClientSpec	should deny with QuotaExceeded(limit) and issue ZERO transport calls when the gate denies
+ClaudeAiStepClientSpec	should fail the step with Api(0, <refusal message>) when the model refuses, writing no output
+ClaudeAiStepClientSpec	should permit and reach the transport when the gate allows
+ClaudeAiStepClientSpec	should return a QuotaExceeded distinct from Unavailable/Guardrail/Api/Transport
+ClaudeClientFailureBudgetSpec	should complete when 2 failures are followed by success and a final answer (HEL-1637)
+ClaudeClientFailureBudgetSpec	should count the system prompt in the guardrail: messages alone fit, messages plus system do not
+ClaudeClientFailureBudgetSpec	should execute 12 round trips and leave the 13th tool_use unexecuted at maxHops 12 (HEL-1637)
+ClaudeClientFailureBudgetSpec	should leave behaviour unchanged when failureBudget is None (HEL-1637)
+ClaudeClientFailureBudgetSpec	should not count once-per-response rejections as failures (HEL-1637)
+ClaudeClientFailureBudgetSpec	should omit web_search after webSearchMaxUses across more than 4 round trips (HEL-1637)
+ClaudeClientFailureBudgetSpec	should return every parallel result of the round trip that spends the budget (HEL-1637)
+ClaudeClientFailureBudgetSpec	should stop after the round trip with the 3rd failed call, with no further transport call (HEL-1637)
+ClaudeClientFailureBudgetSpec	should stop mid-loop on the input limit with stopOnInputBudget, but still refuse hop 1 with zero transport calls (HEL-1637)
+ClaudeClientOncePerResponseSpec	should leave every call running when no tool is named (the default for every other caller)
+ClaudeClientOncePerResponseSpec	should run a corrected propose in the NEXT response after the first one failed
+ClaudeClientOncePerResponseSpec	should run only the first of four propose_pipeline calls in one response and reject the other three
+ClaudeClientOncePerResponseSpec	should treat different propose tools in one response as sharing one slot, in block order, and never reject a find
+ClaudeClientSpec	should clamp an over-ceiling requested maxTokens down to the ceiling rather than rejecting
+ClaudeClientSpec	should default maxTokens/temperature from config when the request doesn't override them
+ClaudeClientSpec	should delegate to the transport and pass through emitted events when under budget
+ClaudeClientSpec	should expose usage from the API response, not the pre-flight estimate
+ClaudeClientSpec	should map any other transport failure to Left(ClaudeError.TransportFailure)
+ClaudeClientSpec	should map a transport ClaudeApiException to Left(ClaudeError.ApiError)
+ClaudeClientSpec	should mark the first message with a cache breakpoint
+ClaudeClientSpec	should never log the configured API key, even when the transport call fails
+ClaudeClientSpec	should not fail when marking an empty message list (guarded on non-empty)
+ClaudeClientSpec	should proceed normally when the estimated input is at or below the budget
+ClaudeClientSpec	should reject over-input-budget requests with a single GuardrailExceeded error event and zero transport invocations
+ClaudeClientSpec	should reject over-input-budget requests with GuardrailExceeded and zero transport invocations
+ClaudeClientSpec	should wire model/max-tokens/temperature/messages through to the transport request
+ClaudeClientToolLoopSpec	should aggregate cache-read and cache-creation input tokens across hops into the FinalResponse
+ClaudeClientToolLoopSpec	should feed a Left executor result back as an isError tool_result and continue the loop to FinalResponse
+ClaudeClientToolLoopSpec	should hard-cap at maxHops: a 4th tool_use attempt terminates gracefully, not a 5th transport call
+ClaudeClientToolLoopSpec	should invoke the executor exactly once on a single tool_use round trip, then resolve FinalResponse
+ClaudeClientToolLoopSpec	should not fail when tools and history are both empty (guarded on non-empty)
+ClaudeClientToolLoopSpec	should recover a FAILED inner Future from the executor as an isError tool_result and continue the loop to FinalResponse
+ClaudeClientToolLoopSpec	should recover a THROWN executor exception as an isError tool_result and continue the loop to FinalResponse
+ClaudeClientToolLoopSpec	should reject a mid-loop guardrail breach with Failed(GuardrailExceeded) and no transport call for that hop
+ClaudeClientToolLoopSpec	should resolve FinalResponse (not HopBudgetExhausted) when exactly maxHops tool_use round trips are followed by a final response
+ClaudeClientToolLoopSpec	should resolve FinalResponse with zero executor invocations when the first response has no tool_use
+ClaudeClientToolLoopSpec	should sum usage across hops into the FinalResponse
+ClaudeClientToolRequestSpec	should add the web_search server-tool entry alongside custom tools when webSearch = true
+ClaudeClientToolRequestSpec	should drop the web_search tool from a later hop's outbound request once the cross-hop budget is exhausted
+ClaudeClientToolRequestSpec	should invoke the executor exactly once when a hop contains both a web_search server-tool pair and a client tool_use block
+ClaudeClientToolRequestSpec	should mark the last custom tool -- not the appended WebSearch entry -- when webSearch = true
+ClaudeClientToolRequestSpec	should mark the last tools element and the first message's last content block with a cache breakpoint
+ClaudeClientToolRequestSpec	should not add the web_search tool to the outbound request when webSearch = false (default)
+ClaudeClientToolRequestSpec	should produce a different tools-array byte sequence on the hop after web_search first fires
+ClaudeClientToolRequestSpec	should resolve FinalResponse with zero executor invocations when a hop contains only a web_search server-tool pair
+ClaudeClientToolRequestSpec	should send no system key when the request has no system, or a blank one
+ClaudeClientToolRequestSpec	should send the same marked system block on every hop and never put it in a message
+ClaudeConfigSpec	should default maxOutputTokens=4096 and maxInputTokens=100000 when unset
+ClaudeConfigSpec	should default model to claude-opus-4-8 when CLAUDE_MODEL is unset
+ClaudeConfigSpec	should default temperature to 1.0 when CLAUDE_TEMPERATURE is unset
+ClaudeConfigSpec	should default webSearchMaxUses to 3 when CLAUDE_WEB_SEARCH_MAX_USES is unset
+ClaudeConfigSpec	should never render the configured apiKey value
+ClaudeConfigSpec	should override maxOutputTokens and maxInputTokens independently when set
+ClaudeConfigSpec	should override model when CLAUDE_MODEL is set
+ClaudeConfigSpec	should override temperature when CLAUDE_TEMPERATURE is set
+ClaudeConfigSpec	should override webSearchMaxUses when CLAUDE_WEB_SEARCH_MAX_USES is set
+ClaudeConfigSpec	should return Left naming ANTHROPIC_API_KEY when the variable is blank
+ClaudeConfigSpec	should return Left naming ANTHROPIC_API_KEY when the variable is unset
+ClaudeConfigSpec	should return Right(config) with apiKey set from a non-blank ANTHROPIC_API_KEY
+ClaudeConfigSpec	should WARN once for a claude-haiku-5 model with a non-default CLAUDE_TEMPERATURE, and not for 1.0
+ClaudeInsightClientSpec	should carry a system prompt, no tools, no web search and at most 400 output tokens
+ClaudeInsightClientSpec	should carry the usage and model of a response that ran out of tokens on thinking, so the failure can be costed
+ClaudeInsightClientSpec	should map a refusal to NoAnswer
+ClaudeInsightClientSpec	should map a transport API error
+ClaudeInsightClientSpec	should map text, usage and the shared model id
+ClaudeInsightClientSpec	should name claude-haiku-5-5 and carry none of the forbidden request params
+ClaudeInsightClientSpec	should name claude-opus-5-5 and carry none of the forbidden request params
+ClaudeInsightClientSpec	should name claude-sonnet-5-5 and carry none of the forbidden request params
+ClaudeInsightClientSpec	should never exceed 4096 even when asked for more
+ClaudeInsightClientSpec	should report the model the API response names
+ClaudeInsightClientSpec	should send max_tokens 4096 for an insight render's own request
+ClaudeInsightClientSpec	should use the server default when absent, and report it as the model
+ClaudeModelCatalogSpec	should fall back to all three when unset, empty or naming no catalog id
+ClaudeModelCatalogSpec	should keep the default for a malformed entry, a weight below 1, a non-number and an unknown id
+ClaudeModelCatalogSpec	should keep the rules, label and weight of a narrowed-out model that the catalog still defines
+ClaudeModelCatalogSpec	should narrow the selectable set, in catalog order, without ever adding an id
+ClaudeModelCatalogSpec	should override the weight of a named model and leave the others
+ClaudeModelCatalogSpec	should price every selectable id in InsightPriceTable.Default
+ClaudeModelCatalogSpec	should select exactly the three owner-ruled ids in picker order with weights 1, 4 and 8
+ClaudeModelCatalogSpec	should weigh a model it does not define as 1 and give it no spec
+ClaudeModelRequestSpec	should apply the rules to a catalog server default carried only by config.model, with no per-request model
+ClaudeModelRequestSpec	should be decoded from the wire body
+ClaudeModelRequestSpec	should keep today's HEL-1636 temperature rule for a model the catalog does not define
+ClaudeModelRequestSpec	should ride the final outcome and log one correlated INFO line (request-id, ids, stop_reason, block types only)
+ClaudeModelRequestSpec	should send claude-haiku-5-5 as the wire model and no sampling, thinking-budget or forced-tool field, even with an explicit temperature (claude-haiku-5-5)
+ClaudeModelRequestSpec	should send claude-opus-5-5 as the wire model and no sampling, thinking-budget or forced-tool field, even with an explicit temperature (claude-opus-5-5)
+ClaudeModelRequestSpec	should send claude-sonnet-5-5 as the wire model and no sampling, thinking-budget or forced-tool field, even with an explicit temperature (claude-sonnet-5-5)
+ClaudeModelRequestSpec	should send the catalog id and no temperature
+ClaudeModelRequestSpec	should WARN once, naming only the two ids, when the response model differs from the pinned one
+ClaudeNoAnswerAndStripSpec	should be omitted from send and tool requests at the default and sent when different
+ClaudeNoAnswerAndStripSpec	should drop hop 1's thinking when a web search shrinks the tool list, keep its other blocks
+ClaudeNoAnswerAndStripSpec	should fail a refusal
+ClaudeNoAnswerAndStripSpec	should fail a refusal with the stop_details category
+ClaudeNoAnswerAndStripSpec	should fail a response with no text, whatever the stop reason
+ClaudeNoAnswerAndStripSpec	should fail a thinking-only max_tokens response
+ClaudeNoAnswerAndStripSpec	should keep a later thinking block byte-exact after the strip point and never resend the stripped one
+ClaudeNoAnswerAndStripSpec	should keep an empty end_turn after a tool hop as a successful empty final response
+ClaudeNoAnswerAndStripSpec	should keep hop 1's thinking byte-exact on hop 2 when no search happened
+ClaudeNoAnswerAndStripSpec	should serialise no empty message and merge the user neighbours
+ClaudeProtocolSpec	should append cache_control to a marked text block
+ClaudeProtocolSpec	should append cache_control to a marked tool
+ClaudeProtocolSpec	should append cache_control to a marked tool_result block (the shape seedHistory's first turn can carry)
+ClaudeProtocolSpec	should default cache counters to zero when absent from the response, without failing to parse
+ClaudeProtocolSpec	should emit all four counters on write, including zero-valued cache counters
+ClaudeProtocolSpec	should emit a top-level system array of text blocks, preserving cache_control, when present
+ClaudeProtocolSpec	should emit no system key when the request carries no system blocks (byte-identical to before HEL-1718)
+ClaudeProtocolSpec	should not include cache_control when unmarked (byte-identical to pre-cache-support shape)
+ClaudeProtocolSpec	should not include cache_control when unmarked, for a text block (byte-identical to pre-cache-support shape)
+ClaudeProtocolSpec	should parse cache counters when present in the response
+ClaudeProtocolSpec	should serialize a cache-marked message's content as a one-element text block array carrying cache_control
+ClaudeProtocolSpec	should serialize an unmarked message with content as a plain string (byte-identical to pre-cache-support shape)
+ClaudeRoutesChatGateSpec	should 400 without charging on a malformed body
+ClaudeRoutesChatGateSpec	should 503 without charging a beta user when the service is unavailable
+ClaudeRoutesChatGateSpec	should be counted on the shared counter and get 429 with limit on the (limit+1)th call, across both routes
+ClaudeRoutesChatGateSpec	should charge an admitted ?stream=true request at admission, without the body being read
+ClaudeRoutesChatGateSpec	should fail closed with 503 (zero transport calls) when the service exists but ChatAccessService is absent
+ClaudeRoutesChatGateSpec	should get 403 on refinements, with zero transport calls
+ClaudeRoutesChatGateSpec	should get 403 on streaming authoring, with zero transport calls
+ClaudeRoutesChatGateSpec	should get 403 TIER_FORBIDDEN on buffered authoring, with zero transport calls
+ClaudeRoutesChatGateSpec	should have a refinement call counted (limit 1 then 429)
+ClaudeRoutesChatGateSpec	should never be counted or capped on either route
+ClaudeRoutesChatGateSpec	should not charge a replayed converse idempotency key
+ClaudeRoutesChatGateSpec	should not charge the outcome or conversation-read sub-routes
+ClaudeRoutesChatGateSpec	should share the cap with assistant converse in both directions
+ClaudeRoutesChatGateSpec	should wait for an un-awaited async Claude call to reach the transport
+ClaudeStreamAssemblySpec	should concatenate text-delta payloads, in order, into the full response text
+ClaudeStreamAssemblySpec	should expose message_start, message_delta usage, and message_stop as typed events
+ClaudeStreamAssemblySpec	should parse correctly when a frame is split across two chunks that don't align on a line boundary
+ClaudeStreamAssemblySpec	should parse correctly when a frame is split into many arbitrarily small chunks
+ClaudeStreamAssemblySpec	should surface a mid-stream connection drop as a trailing error event, then complete (never hang, never fail unhandled)
+ClaudeStreamAssemblySpec	should surface an error frame as a typed error event rather than a silent drop
+ClaudeStreamAssemblySpec	should surface a ping frame as a typed Ping event
+ClaudeThinkingRoundTripSpec	should drop a legacy assistant turn that holds only an empty text block, merging its user neighbours
+ClaudeThinkingRoundTripSpec	should never serialise an empty text block from legacy Text("") history
+ClaudeThinkingRoundTripSpec	should never turn an unknown block type into an empty text block, and send it back verbatim in-loop
+ClaudeThinkingRoundTripSpec	should send hop 1's thinking, redacted_thinking and tool_use back unchanged on hop 2
+ClaudeThinkingWireSpec	should keep an empty thinking string and its signature exactly, and write them back
+ClaudeThinkingWireSpec	should keep an unknown block whole, with no text, and write it back verbatim
+ClaudeThinkingWireSpec	should keep redacted_thinking data exactly
+ClaudeThinkingWireSpec	should log the status and request-id only, never the key or a body
+ClaudeThinkingWireSpec	should parse stop_details and treat null as absent
+ClaudeThinkingWireSpec	should round-trip thinking, redacted_thinking and opaque blocks
+CredentialSurfaceEnumerationSpec	should currently match ZERO files for the token 'credential'
+CredentialSurfaceEnumerationSpec	should match exactly the nineteen allow-listed files, each for its documented reason
+CredentialSurfaceEnumerationSpec	should send every step config through SecretRedaction before it reaches the model
+DashboardAuthoringRoutesSpec	should degrade to a clean 503 when the service is unavailable (missing ANTHROPIC_API_KEY), not a route-registration failure
+DashboardAuthoringRoutesSpec	should degrade to a clean 503 when the service is unavailable, not a route-registration failure
+DashboardAuthoringRoutesSpec	should return 200 with a proposal for a well-wired buffered call
+DashboardAuthoringRoutesSpec	should return 200 with the display-only view for a conversation the caller owns
+DashboardAuthoringRoutesSpec	should return 404 for an unknown conversation id
+DashboardAuthoringRoutesSpec	should return a text/event-stream response for ?stream=true, wired correctly
+DashboardAuthoringRoutesSpec	should the response body carries an additive conversationId alongside proposal/warnings
+DashboardAuthoringServiceSpec	should a continued turn's Claude request carries only the plain follow-up text, never re-embedded grounding
+DashboardAuthoringServiceSpec	should a conversationId owned by a different user is rejected as NotFound, never continued
+DashboardAuthoringServiceSpec	should a missing conversationId is rejected as NotFound, with zero transport invocations
+DashboardAuthoringServiceSpec	should an exhausted conversation rejects its next turn with 422 before any Claude call
+DashboardAuthoringServiceSpec	should a refinement conversationId passed to authoring continuation is rejected as NotFound, and leaves its latestPatchSet completely unchanged
+DashboardAuthoringServiceSpec	should a second turn with conversationId edits the first turn's proposal, re-validated, and the persisted turn count increases
+DashboardAuthoringServiceSpec	should authorStreaming with conversationId continues the conversation and the terminal Result event carries the same conversationId
+DashboardAuthoringServiceSpec	should emit a Status(repairing) event and end with exactly one terminal Result event when the first attempt needs repair
+DashboardAuthoringServiceSpec	should end a stream with blank text in a fail event and make no repair send
+DashboardAuthoringServiceSpec	should end with exactly one terminal Error event when the repair attempt also fails, never a third attempt
+DashboardAuthoringServiceSpec	should fail with 422 after two invalid attempts, never a third
+DashboardAuthoringServiceSpec	should forward text deltas as Progress events, ending in exactly one terminal Result event
+DashboardAuthoringServiceSpec	should getConversation returns displayTurns/latestProposal for the owner and never leaks to a different user
+DashboardAuthoringServiceSpec	should history-budget trimming: the transport only ever sees the trimmed subset, never the dropped oldest pair
+DashboardAuthoringServiceSpec	should make no transport call when the stream is cancelled before grounding completes (first turn)
+DashboardAuthoringServiceSpec	should make no transport call when the stream is cancelled before the conversation loads (continued turn)
+DashboardAuthoringServiceSpec	should map a mid-stream ApiError to a single terminal Error event carrying the same message the buffered path maps to
+DashboardAuthoringServiceSpec	should map a mid-stream TransportFailure to a single terminal Error event carrying the same message the buffered path maps to
+DashboardAuthoringServiceSpec	should map a refusal to 502 Bad Gateway naming the refusal
+DashboardAuthoringServiceSpec	should map a transport ApiError to 502 Bad Gateway
+DashboardAuthoringServiceSpec	should map a transport-level failure (TransportFailure) to 502 Bad Gateway
+DashboardAuthoringServiceSpec	should map ClaudeClient's own GuardrailExceeded rejection to 422, with zero transport invocations
+DashboardAuthoringServiceSpec	should map ClaudeClient's own GuardrailExceeded rejection to a single terminal Error event, with zero transport invocations
+DashboardAuthoringServiceSpec	should pass a valid first-attempt proposal through unchanged (1 invocation)
+DashboardAuthoringServiceSpec	should reject a binding to a nonexistent Output identically to DashboardProposalService.apply's own rejection
+DashboardAuthoringServiceSpec	should repair an invalid first attempt and succeed on the second (exactly 2 invocations)
+DashboardAuthoringServiceSpec	should short-circuit to 422 for an empty workspace, with zero transport invocations
+DashboardAuthoringServiceSpec	should short-circuit to a single terminal Error event for an empty workspace, with zero transport invocations
+DashboardAuthoringServiceSpec	should still deliver the terminal Result with exactly one transport call when the client reads the stream (continued turn, gated)
+DashboardAuthoringServiceSpec	should still deliver the terminal Result with exactly one transport call when the client reads the stream (first turn, gated)
+GenerateTextStepSpec	should fail with ai-error when the transport fails at the network/transport level
+GenerateTextStepSpec	should fail with ai-error when the transport reports an API status error
+GenerateTextStepSpec	should fail with ai-guardrail for an oversized input, making zero transport calls
+GenerateTextStepSpec	should fail with ai-quota-exceeded, naming the limit, the UTC reset, and the shared chat budget
+GenerateTextStepSpec	should fail with ai-unavailable when the context uses the default (unconfigured) AiStepClient
+GenerateTextStepSpec	should fail with field-missing when the input row lacks the configured inputField
+GenerateTextStepSpec	should fail with field-not-string when the input field holds a number
+GenerateTextStepSpec	should fail with response-empty for an empty response, and does not write outputField
+GenerateTextStepSpec	should fail with response-empty for a whitespace-only response
+GenerateTextStepSpec	should issue exactly one call per row, in input order, with each row's own text
+GenerateTextStepSpec	should issue no call for row 3 when the call for row 2 of 3 fails
+GenerateTextStepSpec	should make zero calls and yield zero rows for an empty input
+GenerateTextStepSpec	should overwrite a colliding input column named by outputField
+GenerateTextStepSpec	should surface a generatetext failure through StepExecutionException carrying the named reason, and materialize no rows
+GenerateTextStepSpec	should surface a QuotaExceeded denial's message VERBATIM, never the generic 'step execution failed'
+GenerateTextStepSpec	should treat a CSV-loaded blank (null) input as empty text, not field-missing
+GenerateTextStepSpec	should write the model's response text into outputField, passing other fields through
+HttpClaudeTransportSpec	should carry cache_control on the last tools element and the first message's last content block only, when marked
+HttpClaudeTransportSpec	should carry model/max_tokens/temperature through, with no stream field
+HttpClaudeTransportSpec	should carry the first-message block-array cache_control marker when marked
+HttpClaudeTransportSpec	should leave an unmarked request's JSON unchanged (plain string content, no cache_control anywhere)
+HttpClaudeTransportSpec	should serialize a plain text block the same way send/stream already do
+HttpClaudeTransportSpec	should serialize a server_tool_use block with id/name/input
+HttpClaudeTransportSpec	should serialize a tool_result block with tool_use_id/content/is_error
+HttpClaudeTransportSpec	should serialize a tool_use block with id/name/input
+HttpClaudeTransportSpec	should serialize a WebSearch entry alongside a custom tool with type/name/max_uses
+HttpClaudeTransportSpec	should serialize a web_search_tool_result block with tool_use_id/content, never lossily stringified
+HttpClaudeTransportSpec	should serialize the tools list with name/description/input_schema
+PipelineRunServiceAiStepClientWiringSpec	should an explicitly-configured client reaches the execution context -- a run instead fails ai-error, proving the configured client (not the default) was called
+PipelineRunServiceAiStepClientWiringSpec	should defaults to AiStepClient.Unavailable when the param is omitted -- a run fails ai-unavailable
+PipelineRunServiceAiStepClientWiringSpec	should for a SCHEDULED run triggered by an editor grantee, the AI request still carries the pipeline owner
+PipelineRunServiceAiStepClientWiringSpec	should the AI request carries the pipeline owner's id
+RefinementRoutesSpec	should a second call with conversationId continues the SAME conversation
+RefinementRoutesSpec	should degrade to a clean 503 when the service is unavailable (missing ANTHROPIC_API_KEY/DbContext), not a route-registration failure
+RefinementRoutesSpec	should return 200 with a PatchSet + conversationId for a well-wired buffered call
+RefinementRoutesSpec	should return 404 for a target dashboard id that doesn't exist
+RefinementRoutesSpec	should stamp the validating preview's fingerprint on the returned and stored patch set, replacing a model-invented one (HEL-1458)
+RefinementRoutesSpec	should strip a model-invented fingerprint from a create edit instead of failing (HEL-1458)
+RefinementServiceSpec	should a second turn with conversationId continues the SAME conversation, and the persisted turn count increases
+RefinementServiceSpec	should fail with 422 after two invalid attempts, never a third
+RefinementServiceSpec	should ground Claude in the dashboard's real current panels and return a preview-clean, persisted PatchSet
+RefinementServiceSpec	should ground Claude in the pipeline's real current steps and return a preview-clean PatchSet
+RefinementServiceSpec	should map a refusal to a 502 naming the refusal
+RefinementServiceSpec	should mint a server-side proposalId, store the same one, and replace one the model wrote (HEL-1522)
+RefinementServiceSpec	should reject a dashboard target owned by a different, non-sharing user before any Claude call
+RefinementServiceSpec	should reject an authoring conversationId passed to refinement continuation as NotFound, and leaves its latestProposal completely unchanged
+RefinementServiceSpec	should reject a nonexistent dashboard target before any Claude call
+RefinementServiceSpec	should repair a first attempt that fails PatchSetPreviewService.preview (nonexistent target id) and succeed on the second

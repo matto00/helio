@@ -1,0 +1,45 @@
+import sys,re
+sys.path.insert(0,'/home/matt/Development/helio/.concertino/scratch/HEL-1803')
+from common import *
+L=open('/home/matt/Development/helio/.concertino/scratch/HEL-1803/AssistantServiceSpec.before.scala').read().split('\n')
+def r(a,b): return L[a-1:b]
+imports=r(3,36)
+d='/home/matt/Development/helio/.claude/worktrees/task/split-claude-client-specs/HEL-1803/backend/src/test/scala/com/helio/services/assistant/'
+def fix(t): return re.sub(r'\n{3,}','\n\n',t)
+def write(name, doc, cls_decl, body, extra_imports=()):
+    body_t=j(body)
+    imps=trim_imports(imports+list(extra_imports), body_t+cls_decl)
+    t='package com.helio.services.assistant\n\n'+j(imps)+'\n\n'+doc+'\n'+cls_decl+' {\n\n'+body_t+'\n}\n'
+    open(d+name+'.scala','w').write(fix(t))
+
+# support
+sup_body = unpriv(r(46,46)) + [''] + unpriv(r(48,48)) + [''] + unpriv(r(50,181))
+sup_body = [l.replace('  private implicit val ec','  implicit val ec') for l in sup_body]
+sup_t=j(sup_body)
+imps=trim_imports(imports, sup_t+'trait AssistantServiceTestSupport extends Matchers with DashboardProposalProtocol with PipelineProposalProtocol')
+doc='''/** Fixtures shared by the `AssistantService.converse` specs (`AssistantServiceSpec` and the three specs split out of it,
+ *  HEL-1803): the transport fake, the service wiring, the proposal builders and the stubs. Moved verbatim apart from
+ *  dropping `private`. */'''
+open(d+'AssistantServiceTestSupport.scala','w').write(fix('package com.helio.services.assistant\n\n'+j(imps)+'\n\n'+doc+'\ntrait AssistantServiceTestSupport extends Matchers with DashboardProposalProtocol with PipelineProposalProtocol {\n\n'+sup_t+'\n}\n'))
+
+CL='class %s extends AnyWordSpec with AssistantServiceTestSupport'
+CV=['  "converse" should {','']
+write('AssistantServiceFailureBudgetSpec',
+ '/** `AssistantService.converse` hop ceiling, failure budget and mid-turn input stop (HEL-1637; split out of\n *  `AssistantServiceSpec`, HEL-1803). */',
+ CL%'AssistantServiceFailureBudgetSpec', CV+r(299,503)+['  }'])
+write('AssistantServiceSearchRepairSpec',
+ '/** `AssistantService.converse` `searchedWithNoResults` signalling and the repair of a dangling `tool_use` left by a\n *  hop-cap-exhausted turn (split out of `AssistantServiceSpec`, HEL-1803). */',
+ CL%'AssistantServiceSearchRepairSpec', CV+r(528,693)+['  }'])
+write('AssistantServicePromptHistorySpec',
+ '/** `AssistantService.converse` system prompt placement, `fullHistory`, transport errors and the always-on `web_search`\n *  (split out of `AssistantServiceSpec`, HEL-1803). */',
+ CL%'AssistantServicePromptHistorySpec', CV+r(695,845)+['']+r(868,936)+['  }'])
+main_body = CV+r(185,276)+['']+r(278,297)+['']+r(505,526)+['']+r(846,866)+['  }','']+r(938,956)
+write('AssistantServiceSpec',
+ '''/** Coverage for `AssistantService.converse` (HEL-662 tasks.md 6.3-6.8, 6.12) against a hand-written
+ *  fake `ClaudeTransport` -- mirrors `ClaudeClientSpec`'s own `FakeToolTransport` fixture style
+ *  exactly. Zero real network calls anywhere in this suite (task 6.10): every test builds its
+ *  `AssistantService` over a `FakeToolTransport`, never `HttpClaudeTransport`, and every underlying
+ *  repository is a Mockito mock, never a real database connection. Its fixtures live in
+ *  `AssistantServiceTestSupport`; the failure-budget, search/repair and prompt/history tests live in the
+ *  `AssistantService*Spec` siblings (HEL-1803). */''',
+ CL%'AssistantServiceSpec', main_body)

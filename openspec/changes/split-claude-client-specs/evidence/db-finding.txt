@@ -1,0 +1,12 @@
+DB finding (HEL-1803): NO lane DB is needed; none was created.
+
+Evidence:
+- backend/build.sbt:154 `Test / envVars := DevEnv.testEnv`; backend/project/DevEnv.scala `testEnv` holds only
+  CONNECTOR_MASTER_KEY and CONNECTOR_MASTER_KEY_ID, and `deniedTestKeys` lists DATABASE_URL (and DB_PASSWORD)
+  as keys that must never reach a forked test JVM.
+- Specs that need Postgres start their own EmbeddedPostgres (io.zonky embedded-postgres 2.0.7, build.sbt:294) in beforeAll.
+- AssistantStandingsFixture.scala:48 documents "the test JVM has no DATABASE_URL".
+- Probe: `SBT_OPTS=-J-Xmx3g nice -n 19 sbt "testOnly com.helio.api.routes.assistant.AssistantConversationRoutesSpec"`
+  (the DB-backed spec in scope) with no DATABASE_URL exported: exit 0,
+  "Total number of tests run: 21 / Suites: completed 1 / Tests: succeeded 21, failed 0", 79 s.
+  The log shows EmbeddedPostgres starting and stopping its own postmaster.

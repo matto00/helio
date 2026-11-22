@@ -1,0 +1,3 @@
+after main split: per-suite counts and sorted-name diff vs baseline
+per-suite counts identical (39 suites, 484 tests; sbt: A=198 B=144 C=142)
+sorted full-name lists identical (empty diff)

@@ -1,0 +1,35 @@
+import sys,re
+sys.path.insert(0,'/home/matt/Development/helio/.concertino/scratch/HEL-1803')
+from common import *
+L=open('/home/matt/Development/helio/.concertino/scratch/HEL-1803/AssistantConversationRoutesSpec.before.scala').read().split('\n')
+def r(a,b): return L[a-1:b]
+imports=r(3,49)
+d='/home/matt/Development/helio/.claude/worktrees/task/split-claude-client-specs/HEL-1803/backend/src/test/scala/com/helio/api/routes/assistant/'
+def fix(t): return re.sub(r'\n{3,}','\n\n',t)
+PK='package com.helio.api.routes.assistant\n\n'
+sup=[re.sub(r'^  private ','  ',l) for l in r(66,291)]
+sup_t=j(sup)
+decl='trait AssistantConversationRoutesFixture extends BeforeAndAfterAll with TempDirectorySupport {\n  this: Suite with HelioRouteTest with JsonProtocols =>'
+imps=trim_imports(imports+['import org.scalatest.Suite'], sup_t+decl)
+doc='''/** The DB-backed fixture shared by the `AssistantConversationRoutes*Spec` classes (HEL-1803; split out of
+ *  `AssistantConversationRoutesSpec`): the embedded Postgres with its dual-pool RLS harness (a real `helio_app_test`
+ *  role the app pool `SET ROLE`s into, NOT BYPASSRLS), the service wiring, the fake transports and the route and
+ *  count helpers. Each spec class starts its own instance in `beforeAll`, exactly as the original single class did.
+ *  Moved verbatim apart from dropping `private`. */'''
+open(d+'AssistantConversationRoutesFixture.scala','w').write(fix(PK+j(imps)+'\n\n'+doc+'\n'+decl+'\n\n'+sup_t+'\n}\n'))
+def write(name, doc, body):
+    cls='class %s\n    extends AnyWordSpec\n    with Matchers\n    with HelioRouteTest\n    with JsonProtocols\n    with AssistantConversationRoutesFixture'%name
+    bt=j(body)
+    imps=trim_imports(imports, bt+cls)
+    open(d+name+'.scala','w').write(fix(PK+j(imps)+'\n\n'+doc+'\n'+cls+' {\n\n'+bt+'\n}\n'))
+write('AssistantConversationRoutesSpec','''/** HTTP-shell coverage for `POST /api/assistant-conversations/:id/converse` persistence and error mapping (HEL-665,
+ *  reopened composer ticket, tasks.md 6.3/6.3a/6.4/6.5). Business-logic depth for `AssistantService.converse` itself
+ *  is `AssistantServiceSpec`'s job (fake `ClaudeTransport`, zero real network calls anywhere in this suite either);
+ *  this spec only exercises the HTTP + persistence wiring `converseFlow` composes. Its fixture lives in
+ *  `AssistantConversationRoutesFixture`, and the idempotency/turn-outcome and tier/budget tests in the two
+ *  `AssistantConversationRoutes*Spec` siblings (HEL-1803). Task 6.5's "second user cannot converse with the first
+ *  user's conversation" is a genuine Postgres RLS assertion, not app-layer-only scoping. */''', r(293,428)+['}'][:0])
+write('AssistantConversationRoutesTurnSpec','''/** HTTP-shell coverage for the converse route's idempotency key, turn-outcome signals and the second call after a
+ *  hop-cap-exhausted turn (split out of `AssistantConversationRoutesSpec`, HEL-1803). */''', r(430,607))
+write('AssistantConversationRoutesTierSpec','''/** HTTP-shell coverage for the converse route's tier gating (HEL-703) and per-turn budgets (HEL-1637) (split out of
+ *  `AssistantConversationRoutesSpec`, HEL-1803). */''', r(609,764))

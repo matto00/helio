@@ -1,0 +1,25 @@
+== sorted full test names (suite column dropped): baseline vs after spec split ==
+EMPTY DIFF: identical multiset of 484 full test names
+
+== per-name occurrence counts identical (sort | uniq -c diff) ==
+identical
+
+== redistribution table (suite: baseline -> after), only suites that changed or are new ==
+AssistantConversationRoutesSpec                    21 ->    7
+AssistantConversationRoutesTierSpec                 0 ->    6
+AssistantConversationRoutesTurnSpec                 0 ->    8
+AssistantServiceFailureBudgetSpec                   0 ->   11
+AssistantServicePromptHistorySpec                   0 ->    9
+AssistantServiceSearchRepairSpec                    0 ->    6
+AssistantServiceSpec                               34 ->    8
+ClaudeClientFailureBudgetSpec                       0 ->    9
+ClaudeClientSpec                                   43 ->   13
+ClaudeClientToolLoopSpec                            0 ->   11
+ClaudeClientToolRequestSpec                         0 ->   10
+
+totals: baseline 484 after 484
+
+== per-origin check: split origin total == sum of its new parts ==
+ClaudeClientSpec: baseline 43, after (sum of parts) 43
+AssistantServiceSpec: baseline 34, after (sum of parts) 34
+AssistantConversationRoutesSpec: baseline 21, after (sum of parts) 21

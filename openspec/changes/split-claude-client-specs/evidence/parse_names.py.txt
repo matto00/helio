@@ -1,0 +1,32 @@
+"""Parse ScalaTest default-reporter output into per-suite sorted full test names.
+usage: parse_names.py out1 out2 ... > names.txt ; lines: SUITE<TAB>FULLNAME ; counts via sort|uniq"""
+import re, sys
+suite_re = re.compile(r'^\[info\] (\w+):$')
+for path in sys.argv[1:]:
+    suite = None
+    stack = []  # (indent, text)
+    for raw in open(path, encoding='utf-8', errors='replace'):
+        line = raw.rstrip('\n')
+        if line.startswith('[info] Run completed'):
+            suite = None
+        if not line.startswith('[info] '):
+            continue
+        body = line[len('[info] '):]
+        m = suite_re.match(line)
+        if m and m.group(1).endswith(('Spec', 'Test', 'Suite')) :
+            suite = m.group(1); stack = []; continue
+        if suite is None:
+            continue
+        indent = len(body) - len(body.lstrip(' '))
+        text = body.strip()
+        if not text:
+            continue
+        if text.startswith('- '):
+            title = text[2:]
+            while stack and stack[-1][0] >= indent:
+                stack.pop()
+            print(suite + '\t' + ' '.join([t for _, t in stack] + [title]))
+        else:
+            while stack and stack[-1][0] >= indent:
+                stack.pop()
+            stack.append((indent, text))

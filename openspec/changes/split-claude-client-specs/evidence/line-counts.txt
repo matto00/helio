@@ -1,0 +1,21 @@
+wc -l of every touched or new file (after, at HEAD of the split)
+   254 backend/src/main/scala/com/helio/infrastructure/ai/ClaudeClient.scala
+   130 backend/src/main/scala/com/helio/infrastructure/ai/ClaudeRequestBuilder.scala
+    90 backend/src/main/scala/com/helio/infrastructure/ai/ClaudeBlockCodec.scala
+   225 backend/src/test/scala/com/helio/infrastructure/ai/ClaudeClientSpec.scala
+   239 backend/src/test/scala/com/helio/infrastructure/ai/ClaudeClientToolLoopSpec.scala
+   245 backend/src/test/scala/com/helio/infrastructure/ai/ClaudeClientToolRequestSpec.scala
+   175 backend/src/test/scala/com/helio/infrastructure/ai/ClaudeClientFailureBudgetSpec.scala
+   103 backend/src/test/scala/com/helio/infrastructure/ai/ClaudeClientTestSupport.scala
+   206 backend/src/test/scala/com/helio/services/assistant/AssistantServiceSpec.scala
+   230 backend/src/test/scala/com/helio/services/assistant/AssistantServiceFailureBudgetSpec.scala
+   187 backend/src/test/scala/com/helio/services/assistant/AssistantServiceSearchRepairSpec.scala
+   246 backend/src/test/scala/com/helio/services/assistant/AssistantServicePromptHistorySpec.scala
+   173 backend/src/test/scala/com/helio/services/assistant/AssistantServiceTestSupport.scala
+   172 backend/src/test/scala/com/helio/api/routes/assistant/AssistantConversationRoutesSpec.scala
+   210 backend/src/test/scala/com/helio/api/routes/assistant/AssistantConversationRoutesTurnSpec.scala
+   189 backend/src/test/scala/com/helio/api/routes/assistant/AssistantConversationRoutesTierSpec.scala
+   280 backend/src/test/scala/com/helio/api/routes/assistant/AssistantConversationRoutesFixture.scala
+  3354 total
+
+before: ClaudeClient.scala 455, ClaudeClientSpec 928, AssistantServiceSpec 957, AssistantConversationRoutesSpec 765

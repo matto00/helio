@@ -1,0 +1,13 @@
+Baseline full sbt testFull, exact-partition shards (C1), HELIO_TEST_SHARD_COUNT=8, indices 0..7, on c26ce6c27 + evidence only.
+Env: SBT_OPTS=-J-Xmx3g, nice -n 19, no DATABASE_URL (EmbeddedPostgres). Every shard exited 0 with 'All tests passed'.
+Wall (sbt 'real'): s0 103s s1 164s s2 331s s3 174s s4 174s s5 179s s6 222s s7 201s (all under 600 s).
+
+shard 0/8: tests=182 suites_completed=19 suites_aborted=0 | Tests: succeeded 182, failed 0, canceled 1, ignored 0, pending 0 | run 1 minute, 38 seconds.
+shard 1/8: tests=2305 suites_completed=104 suites_aborted=0 | Tests: succeeded 2305, failed 0, canceled 0, ignored 0, pending 0 | run 2 minutes, 39 seconds.
+shard 2/8: tests=1447 suites_completed=105 suites_aborted=0 | Tests: succeeded 1447, failed 0, canceled 0, ignored 0, pending 0 | run 5 minutes, 27 seconds.
+shard 3/8: tests=1159 suites_completed=105 suites_aborted=0 | Tests: succeeded 1159, failed 0, canceled 1, ignored 0, pending 0 | run 2 minutes, 50 seconds.
+shard 4/8: tests=995 suites_completed=106 suites_aborted=0 | Tests: succeeded 995, failed 0, canceled 3, ignored 0, pending 0 | run 2 minutes, 50 seconds.
+shard 5/8: tests=1516 suites_completed=107 suites_aborted=0 | Tests: succeeded 1516, failed 0, canceled 0, ignored 0, pending 0 | run 2 minutes, 55 seconds.
+shard 6/8: tests=1311 suites_completed=106 suites_aborted=0 | Tests: succeeded 1311, failed 0, canceled 0, ignored 0, pending 0 | run 3 minutes, 36 seconds.
+shard 7/8: tests=1363 suites_completed=107 suites_aborted=0 | Tests: succeeded 1363, failed 0, canceled 0, ignored 0, pending 0 | run 3 minutes, 16 seconds.
+SUM: tests=10278 suites_completed=759
