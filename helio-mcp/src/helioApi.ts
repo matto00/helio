@@ -54,6 +54,7 @@ import type {
   PipelineRunRecordResponse,
   PipelineScheduleResponse,
   PipelineShapeCatalogEntryResponse,
+  PipelineContextAnalyzeResponse,
   PipelineContextDetailsResponse,
   PipelineStepResponse,
   PipelineSummaryResponse,
@@ -900,6 +901,12 @@ export class HelioApi {
    *  each with its steps and latest-run assertion summary, in ONE request. 404 on an older server. */
   getPipelineContextDetails(): Promise<PipelineContextDetailsResponse> {
     return this.http.get<PipelineContextDetailsResponse>("/api/pipelines/context-details");
+  }
+
+  /** `GET /api/pipelines/context-analyze` (HEL-1625) -- every pipeline `listPipelines` returns, each with the
+   *  `steps` and `warnings` its `GET /api/pipelines/:id/analyze` returns, in ONE request. 404 on an older server. */
+  getPipelineContextAnalyze(): Promise<PipelineContextAnalyzeResponse> {
+    return this.http.get<PipelineContextAnalyzeResponse>("/api/pipelines/context-analyze");
   }
 
   /** `GET /api/pipelines/:id/steps` -- the pipeline's steps (each with `parentStepId`/`rootId`). */

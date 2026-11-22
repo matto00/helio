@@ -1,0 +1,12 @@
+# sbt Test/compile with PipelineContextAnalyzeQueryCountSpec (4.4), before implementation: findByIdsOwned/findByIdsInternal absent
+[error] /home/matt/Development/helio/.claude/worktrees/task/batch-pipeline-analyze-context/HEL-1625/backend/src/test/scala/com/helio/api/routes/pipelines/PipelineContextAnalyzeQueryCountSpec.scala:43:15: value findByIdsOwned is not a member of com.helio.infrastructure.persistence.sources.DataSourceRepository
+[error] did you mean findByIdOwned?
+[error]         super.findByIdsOwned(ids, user).map(m => new PoisonedMap(m))
+[error]               ^
+[error] /home/matt/Development/helio/.claude/worktrees/task/batch-pipeline-analyze-context/HEL-1625/backend/src/test/scala/com/helio/api/routes/pipelines/PipelineContextAnalyzeQueryCountSpec.scala:45:15: value findByIdsInternal is not a member of com.helio.infrastructure.persistence.sources.DataSourceRepository
+[error] did you mean findByIdInternal?
+[error]         super.findByIdsInternal(ids).map(m => new PoisonedMap(m))
+[error]               ^
+[error] two errors found
+[error] (Test / compileIncremental) Compilation failed
+[error] elapsed time: 3 s, cache 94%, 16 disk cache hits, 1 onsite task

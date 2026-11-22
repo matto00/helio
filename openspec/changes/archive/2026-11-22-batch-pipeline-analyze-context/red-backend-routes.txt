@@ -1,0 +1,23 @@
+# sbt testOnly PipelineAnalyzeUpsertGranteeGuardSpec PipelineContextAnalyzeRoutesSpec, BEFORE any implementation (C12)
+# 4.3b guard passes; the context-analyze spec is red (404: route absent; schema file absent)
+[info] GET /api/pipelines/:id/analyze on a pipeline with an owner-owned upsert target
+[info] - should report no validationError for the owner, an editor grantee and a viewer grantee
+[info] GET /api/pipelines/context-analyze
+[info] - should respond 401 without a credential, like GET /api/pipelines
+[info] - should return exactly the owner-scoped pipelines GET /api/pipelines lists, in the same order; an editor-granted pipeline is absent *** FAILED ***
+[info]   404 Not Found was not equal to 200 OK (ContextAnalyzeApiFixture.scala:66)
+[info] - should include a pipeline with zero steps as steps: [] and warnings: [] *** FAILED ***
+[info]   404 Not Found was not equal to 200 OK (ContextAnalyzeApiFixture.scala:66)
+[info] - should return steps and warnings equal to GET /:id/analyze for every case of a rich fixture *** FAILED ***
+[info]   404 Not Found was not equal to 200 OK (ContextAnalyzeApiFixture.scala:66)
+[info] - should produce a body that validates against the committed schema (seam guard, backend half) *** FAILED ***
+[info]   could not locate schemas/pipelines/pipeline-context-analyze-response.schema.json searching upward from /home/matt/Development/helio/.claude/worktrees/task/batch-pipeline-analyze-context/HEL-1625/backend (JsonSchemaValidation.scala:36)
+[info] - should never return another user's pipelines or steps to an editor or viewer grantee (non-BYPASSRLS pool), and leave their /analyze unchanged *** FAILED ***
+[info]   404 Not Found was not equal to 200 OK (ContextAnalyzeApiFixture.scala:66)
+[info] Suites: completed 2, aborted 0
+[info] Tests: succeeded 2, failed 5, canceled 0, ignored 0, pending 0
+[info] *** 5 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.pipelines.PipelineContextAnalyzeRoutesSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 9 s, cache 90%, 27 disk cache hits, 3 onsite tasks

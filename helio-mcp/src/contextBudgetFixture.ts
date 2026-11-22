@@ -26,6 +26,19 @@ export type ContextDetailsMode =
   /** serve it but omit the pipeline at index `MISSING_PIPELINE_INDEX` */
   | "missing-one";
 
+/** HEL-1625: how `GET /api/pipelines/context-analyze` answers. Like `ContextDetailsMode`, plus `malformed`. */
+export type ContextAnalyzeMode =
+  /** serve the batched read for every pipeline whose analysis succeeds (the fake omits `ANALYZE_FAILS_INDEX`, as the backend omits a pipeline whose analysis fails) */
+  | "serve"
+  /** older server: the route does not exist */
+  | "404"
+  /** the route fails with a non-404 status */
+  | "500"
+  /** serve it but also omit the pipeline at index `MISSING_PIPELINE_INDEX` */
+  | "missing-one"
+  /** a 200 whose body has no `items` array */
+  | "malformed";
+
 export const MISSING_PIPELINE_INDEX = 12;
 export const NEVER_RUN_INDEX = 4;
 export const ZERO_STEP_INDEX = 9;
@@ -36,8 +49,12 @@ export const DASHBOARD_ID = "d-1";
 
 const pid = (i: number): string => `p-${i}`;
 const branched = (i: number): boolean => i % 5 === 0;
-/** Output j=0 of every third pipeline is placed on the one dashboard. */
-const placed = (i: number, j: number): boolean => j === 0 && i % 3 === 0;
+/** Output j=0 of every third pipeline is placed on the one dashboard. `placedBelow` (HEL-1625) keeps the
+ *  placements of a larger fixture to the first pipelines, so Op and D stay fixed as P grows. */
+const placedWith =
+  (placedBelow: number) =>
+  (i: number, j: number): boolean =>
+    j === 0 && i % 3 === 0 && i < placedBelow;
 const outputId = (i: number, j: number): string => `o-${i * 10 + j}`;
 
 interface FixtureStep {
@@ -175,10 +192,18 @@ export function createFixture(
     omitPanelCount?: boolean;
     delayMs?: number;
     contextDetailsBody?: (items: unknown[]) => unknown;
+    /** HEL-1625: how the analyze batch answers (default `serve`). */
+    contextAnalyze?: ContextAnalyzeMode;
+    /** HEL-1625: replace the served `context-analyze` items (e.g. a mutated key). */
+    contextAnalyzeBody?: (items: unknown[]) => unknown;
     pipelines?: number;
+    /** HEL-1625: only pipelines below this index have a placed Output (default: all). */
+    placedBelow?: number;
   } = {},
 ): Fixture {
   const mode: ContextDetailsMode = opts.contextDetails ?? "serve";
+  const analyzeMode: ContextAnalyzeMode = opts.contextAnalyze ?? "serve";
+  const placed = placedWith(opts.placedBelow ?? Number.POSITIVE_INFINITY);
   const delayMs = opts.delayMs ?? 1;
   const P = opts.pipelines ?? PIPELINE_COUNT;
   const pipelines = Array.from({ length: P }, (_, i) => ({
@@ -272,6 +297,41 @@ export function createFixture(
     };
   });
 
+  /** `GET /api/pipelines/:id/analyze` for a pipeline whose analysis succeeds. */
+  const analyzeBodyFor = (i: number) => {
+    const steps = stepsFor(i).map((s, k) => ({
+      id: s.id,
+      position: s.position,
+      type: s.type,
+      config: s.config,
+      inputSchema: [],
+      outputSchema:
+        k % 2 === 0
+          ? [
+              { name: "amount", type: "float" },
+              { name: "label", type: "string" },
+            ]
+          : [{ name: "amount", type: "float" }],
+      validationError: i % 11 === 0 && k === 0 ? "bad config" : null,
+    }));
+    return {
+      id: pid(i),
+      name: `Pipeline ${i}`,
+      sourceSchemas: [],
+      steps,
+      costVerdict: { verdict: "ok" },
+      warnings: i % 13 === 0 && steps[0] ? [{ stepId: steps[0].id, code: "w", message: "hm" }] : [],
+    };
+  };
+  /** The batch item for pipeline `i`, built FROM its fake `/analyze` body so the two cannot drift. */
+  const analyzeItems = pipelines
+    .map((_, i) => i)
+    .filter((i) => i !== ANALYZE_FAILS_INDEX)
+    .map((i) => {
+      const body = analyzeBodyFor(i);
+      return { pipelineId: body.id, steps: body.steps, warnings: body.warnings };
+    });
+
   const byRoute: Record<string, number> = {};
   const paths: string[] = [];
   let total = 0;
@@ -344,6 +404,17 @@ export function createFixture(
       return json(200, opts.contextDetailsBody ? opts.contextDetailsBody(items) : { items });
     }
 
+    if (path === "/api/pipelines/context-analyze") {
+      if (analyzeMode === "404") return json(404, { message: "Not found" });
+      if (analyzeMode === "500") return json(500, { message: "boom" });
+      if (analyzeMode === "malformed") return json(200, { results: analyzeItems });
+      const items =
+        analyzeMode === "missing-one"
+          ? analyzeItems.filter((it) => it.pipelineId !== pid(MISSING_PIPELINE_INDEX))
+          : analyzeItems;
+      return json(200, opts.contextAnalyzeBody ? opts.contextAnalyzeBody(items) : { items });
+    }
+
     const pm = /^\/api\/pipelines\/(p-\d+)(?:\/(analyze|steps|run-history))?$/.exec(path);
     if (pm) {
       const i = Number(pm[1]!.slice(2));
@@ -352,30 +423,7 @@ export function createFixture(
       if (sub === "steps") return json(200, stepsFor(i));
       if (sub === "run-history") return json(200, historyFor(i));
       if (i === ANALYZE_FAILS_INDEX) return json(400, { message: "analyze exploded" });
-      const steps = stepsFor(i).map((s, k) => ({
-        id: s.id,
-        position: s.position,
-        type: s.type,
-        config: s.config,
-        inputSchema: [],
-        outputSchema:
-          k % 2 === 0
-            ? [
-                { name: "amount", type: "number" },
-                { name: "label", type: "string" },
-              ]
-            : [{ name: "amount", type: "number" }],
-        validationError: i % 11 === 0 && k === 0 ? "bad config" : null,
-      }));
-      return json(200, {
-        id: pid(i),
-        name: `Pipeline ${i}`,
-        sourceSchemas: [],
-        steps,
-        costVerdict: { verdict: "ok" },
-        warnings:
-          i % 13 === 0 && steps[0] ? [{ stepId: steps[0].id, code: "w", message: "hm" }] : [],
-      });
+      return json(200, analyzeBodyFor(i));
     }
     const om = /^\/api\/outputs\/(o-\d+)\/panels$/.exec(path);
     if (om) {

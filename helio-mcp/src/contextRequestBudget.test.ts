@@ -1,5 +1,5 @@
 /**
- * HEL-1619: `buildWorkspaceContext` request volume + concurrency on a 55-pipeline workspace, and
+ * HEL-1619 / HEL-1625: `buildWorkspaceContext` request volume + concurrency on a 55-pipeline workspace, and
  * the byte-identical-payload guarantee against goldens captured from the PRE-change code.
  *
  * Everything runs through the real `HelioHttpClient` + `HelioApi` against `createFixture`'s
@@ -27,6 +27,8 @@ const PLACED_OUTPUTS = 19;
 const DISTINCT_DASHBOARDS = 1;
 /** data-sources, dashboards, pipelines, pipeline-shapes, preferences, agent-memory, connectors, one outputs page. */
 const FIXED_REQUESTS = 8;
+/** Pipelines absent from the analyze batch: the fake omits only `ANALYZE_FAILS_INDEX` (a failed analysis). */
+const ABSENT_FROM_ANALYZE_BATCH = 1;
 const RATE_LIMIT = 120;
 /** The documented in-flight cap (context.ts `MAX_IN_FLIGHT`). */
 const MAX_IN_FLIGHT = 6;
@@ -41,14 +43,14 @@ async function run(
   return { fx, ctx, stats: fx.stats() };
 }
 
-describe("get_workspace_context request budget (HEL-1619)", () => {
-  it("sends exactly 84 requests on the 55-pipeline fixture when the batched read exists, within the 120/60s limit", async () => {
-    const { stats } = await run({ contextDetails: "serve" });
-    // 8 fixed + 1 context-details + 55 analyze + 19 placements + 1 dashboard snapshot
+describe("get_workspace_context request budget (HEL-1619, HEL-1625)", () => {
+  it("sends exactly 8 + 2 + Op + D + A = 31 requests on the 55-pipeline fixture when both batched reads exist", async () => {
+    const { stats } = await run({ contextDetails: "serve", contextAnalyze: "serve" });
+    // 8 fixed + context-details + context-analyze + 19 placements + 1 dashboard snapshot + 1 absent-pipeline analyze
     expect(stats.total).toBe(
-      FIXED_REQUESTS + 1 + PIPELINE_COUNT + PLACED_OUTPUTS + DISTINCT_DASHBOARDS,
+      FIXED_REQUESTS + 2 + PLACED_OUTPUTS + DISTINCT_DASHBOARDS + ABSENT_FROM_ANALYZE_BATCH,
     );
-    expect(stats.total).toBe(84);
+    expect(stats.total).toBe(31);
     expect(stats.total).toBeLessThanOrEqual(RATE_LIMIT);
   });
 
@@ -58,15 +60,46 @@ describe("get_workspace_context request budget (HEL-1619)", () => {
     expect(stats.paths.filter((p) => /\/run-history$/.test(p))).toEqual([]);
     expect(stats.paths.filter((p) => /^\/api\/pipelines\/p-\d+$/.test(p))).toEqual([]);
     expect(stats.byRoute["/api/outputs/:id/panels"]).toBe(PLACED_OUTPUTS);
-    expect(stats.byRoute["/api/pipelines/:id/analyze"]).toBe(PIPELINE_COUNT);
     expect(stats.byRoute["/api/pipelines/context-details"]).toBe(1);
+    expect(stats.byRoute["/api/pipelines/context-analyze"]).toBe(1);
   });
 
-  it("older server (404): falls back per pipeline and costs 194 requests -- still fewer than the 339 of the pre-change code", async () => {
-    const { stats } = await run({ contextDetails: "404" });
-    // 8 + 1 (the 404) + 55 analyze + 55 run-history + 55 steps + 19 placements + 1 snapshot
-    expect(stats.total).toBe(194);
-    expect(stats.total).toBeGreaterThan(RATE_LIMIT);
+  it("sends an analyze request only for the pipeline absent from the batch", async () => {
+    const { stats } = await run({ contextDetails: "serve", contextAnalyze: "serve" });
+    expect(stats.byRoute["/api/pipelines/:id/analyze"]).toBe(ABSENT_FROM_ANALYZE_BATCH);
+    expect(stats.paths.filter((p) => /\/analyze$/.test(p))).toEqual([
+      `/api/pipelines/p-${ANALYZE_FAILS_INDEX}/analyze`,
+    ]);
+  });
+
+  it("analyze batch answering 404: one more request than the HEL-1619 count of 84, one analyze per pipeline", async () => {
+    const { stats } = await run({ contextDetails: "serve", contextAnalyze: "404" });
+    expect(stats.total).toBe(85);
+    expect(stats.byRoute["/api/pipelines/:id/analyze"]).toBe(PIPELINE_COUNT);
+  });
+
+  it("is constant in P: 55 and 200 pipelines with the same placed Outputs, dashboards and absent pipelines send the same count", async () => {
+    const small = await run({ placedBelow: PIPELINE_COUNT });
+    const large = await run({ pipelines: 200, placedBelow: PIPELINE_COUNT });
+    expect(large.stats.total).toBe(small.stats.total);
+    expect(large.stats.total).toBe(31);
+    // no analyze request for any pipeline the batch returned
+    expect(large.stats.paths.filter((p) => /\/analyze$/.test(p))).toEqual([
+      `/api/pipelines/p-${ANALYZE_FAILS_INDEX}/analyze`,
+    ]);
+  });
+
+  it("200 pipelines (natural placements) send fewer than 120 requests; the same fixture without the analyze batch sends more", async () => {
+    const batched = await run({ pipelines: 200 });
+    expect(batched.stats.total).toBeLessThan(RATE_LIMIT);
+    const preChange = await run({ pipelines: 200, contextAnalyze: "404" });
+    expect(preChange.stats.total).toBeGreaterThan(RATE_LIMIT);
+  });
+
+  it("details 404 (older server) with the analyze batch served: falls back for steps and run-history only", async () => {
+    const { stats } = await run({ contextDetails: "404", contextAnalyze: "serve" });
+    // 8 + 1 (details 404) + 1 (analyze batch) + 1 absent analyze + 55 steps + 55 run-history + 19 placements + 1 snapshot
+    expect(stats.total).toBe(141);
     expect(stats.byRoute["/api/pipelines/:id/steps"]).toBe(PIPELINE_COUNT);
     expect(stats.byRoute["/api/pipelines/:id"]).toBeUndefined();
   });
@@ -79,7 +112,7 @@ describe("get_workspace_context request budget (HEL-1619)", () => {
     const { stats } = await run({ contextDetails: "serve", delayMs: 5 });
     expect(stats.peakInFlight).toBeLessThanOrEqual(MAX_IN_FLIGHT);
     expect(stats.peakInFlight).toBeGreaterThan(1);
-    const fallback = await run({ contextDetails: "404", delayMs: 5 });
+    const fallback = await run({ contextDetails: "404", contextAnalyze: "404", delayMs: 5 });
     expect(fallback.stats.peakInFlight).toBeLessThanOrEqual(MAX_IN_FLIGHT);
   });
 
@@ -102,6 +135,12 @@ describe("get_workspace_context payload is byte-identical to the pre-change gold
     ["500 fallback", { contextDetails: "500" }],
     ["batched read missing one pipeline", { contextDetails: "missing-one" }],
     ["batched read, panelCount absent", { contextDetails: "serve", omitPanelCount: true }],
+    // HEL-1625: every mode of the analyze batch yields the same golden
+    ["analyze batch 404", { contextAnalyze: "404" }],
+    ["analyze batch 500", { contextAnalyze: "500" }],
+    ["analyze batch missing one pipeline", { contextAnalyze: "missing-one" }],
+    ["analyze batch malformed", { contextAnalyze: "malformed" }],
+    ["both batched reads 404", { contextDetails: "404", contextAnalyze: "404" }],
   ];
   for (const [label, opts] of paths) {
     // Compact serialization on both sides: key order and every value must match (the golden file itself is
@@ -182,5 +221,56 @@ describe("get_workspace_context fallback visibility (HEL-1619 D10)", () => {
     });
     expect(writes.filter((w) => w.includes("context-details"))).toHaveLength(1);
     expect(stats.byRoute["/api/pipelines/:id/steps"]).toBe(PIPELINE_COUNT);
+  });
+});
+
+describe("get_workspace_context analyze-batch fallback (HEL-1625 D7)", () => {
+  let writes: string[];
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    writes = [];
+    spy = jest.spyOn(process.stderr, "write").mockImplementation(((chunk: string | Uint8Array) => {
+      writes.push(String(chunk));
+      return true;
+    }) as never);
+  });
+  afterEach(() => spy.mockRestore());
+  const lines = () => writes.filter((w) => w.includes("context-analyze"));
+
+  it("serve: exactly one stderr line (the pipeline whose analysis failed is absent), 'omitted 1 of 55'", async () => {
+    await run({ contextAnalyze: "serve" });
+    expect(lines()).toHaveLength(1);
+    expect(lines()[0]).toMatch(/^helio-mcp: .*context-analyze.*omitted 1 of 55.*\n$/);
+  });
+
+  it("404: no stderr line, one analyze per pipeline", async () => {
+    const { stats } = await run({ contextAnalyze: "404" });
+    expect(lines()).toEqual([]);
+    expect(stats.byRoute["/api/pipelines/:id/analyze"]).toBe(PIPELINE_COUNT);
+  });
+
+  it("500: one stderr line, one analyze per pipeline", async () => {
+    const { stats } = await run({ contextAnalyze: "500" });
+    expect(lines()).toHaveLength(1);
+    expect(lines()[0]).toMatch(/^helio-mcp: .*context-analyze.*\n$/);
+    expect(stats.byRoute["/api/pipelines/:id/analyze"]).toBe(PIPELINE_COUNT);
+  });
+
+  it("malformed body (no items array): one stderr line, one analyze per pipeline", async () => {
+    const { stats } = await run({ contextAnalyze: "malformed" });
+    expect(lines()).toHaveLength(1);
+    expect(stats.byRoute["/api/pipelines/:id/analyze"]).toBe(PIPELINE_COUNT);
+  });
+
+  it("missing-one: one stderr line 'omitted 2 of 55'; exactly the two absent pipelines are analyzed per pipeline", async () => {
+    const { stats } = await run({ contextAnalyze: "missing-one" });
+    expect(lines()).toHaveLength(1);
+    expect(lines()[0]).toMatch(/omitted 2 of 55/);
+    expect(stats.paths.filter((p) => /\/analyze$/.test(p)).sort()).toEqual(
+      [
+        `/api/pipelines/p-${ANALYZE_FAILS_INDEX}/analyze`,
+        `/api/pipelines/p-${MISSING_PIPELINE_INDEX}/analyze`,
+      ].sort(),
+    );
   });
 });

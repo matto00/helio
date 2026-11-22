@@ -545,6 +545,19 @@ export interface PipelineContextDetailsResponse {
   items: PipelineContextDetailsItemResponse[];
 }
 
+/** One item of `GET /api/pipelines/context-analyze` (HEL-1625): the `steps` and `warnings` of
+ *  `GET /api/pipelines/:id/analyze` for that pipeline, the same elements. A pipeline whose analysis could not
+ *  be produced is absent from the response. */
+export interface PipelineContextAnalyzeItemResponse {
+  pipelineId: string;
+  steps: PipelineAnalyzeResponse["steps"];
+  warnings: AnalyzeWarning[];
+}
+
+export interface PipelineContextAnalyzeResponse {
+  items: PipelineContextAnalyzeItemResponse[];
+}
+
 /** `GET /api/pipelines/:id/run-history` entry (HEL-581) — mirrors the
  *  backend's `PipelineRunRecord`, sorted most-recent-first (`startedAt
  *  DESC`). `completedAt`/`rowCount`/`errorLog`/`triggeredByTokenId` are

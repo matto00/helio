@@ -4,7 +4,7 @@ import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.services.sources.{DataSourceService, InlineSourceCleanup, SourceService}
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, DeletePipelineStepResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineRootSummaryResponse, PipelineStepConfigCodec, RemovePipelineRootResponse, PipelineStepResponse, PipelineSummaryResponse, ReorderPipelineStepsRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
-import com.helio.api.protocols.pipelines.{ExpressionValidationResponse, NodeCapabilitiesResponse}
+import com.helio.api.protocols.pipelines.{ExpressionValidationResponse, NodeCapabilitiesResponse, PipelineContextAnalyzeItem}
 import com.helio.api.protocols.pipelines.{PipelineAnalyzeConciseResponse, PipelineLaneTreeNode}
 import com.helio.domain.model.{AuthenticatedUser, DataSourceId, Output, PipelineId, PipelineRootId, PipelineStep, PipelineStepId}
 import com.helio.domain.engine.{InvalidGraph, LaneReferenceError}
@@ -76,6 +76,7 @@ final class PipelineService(
 
   private val support = new PipelineServiceSupport(pipelineStepRepo, dataSourceRepo, auditService)
   private val analyzeReads = new PipelineAnalyzeReads(pipelineRepo, pipelineStepRepo, dataSourceRepo, costInputGathering, support)
+  private val contextAnalyzeReads = new PipelineContextAnalyzeReads(pipelineRepo, pipelineStepRepo, dataSourceRepo, support)
   private val nodeReads = new PipelineNodeReads(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo, support)
   private val proposalAnalyze = new PipelineProposalAnalyze(dataSourceRepo, connector, sourceService, support)
   // HEL-1475: the one "delete what this call created" step for inline root sources (single-call create, addRoot, and
@@ -248,6 +249,12 @@ final class PipelineService(
       val rootIdOfStep = rootsByPipeline.getOrElse(id, Map.empty).map { case (k, v) => k.value -> v.value }
       id -> stepsByPipeline.getOrElse(id, Vector.empty).map(PipelineStepResponse.fromDomain(_, rootIdOfStep))
     })).recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+
+  /** HEL-1625: every pipeline `GET /api/pipelines` returns for the caller with the analyze `steps` and `warnings`
+   *  `analyze` returns for it, in a statement count independent of the number of pipelines. See
+   *  [[PipelineContextAnalyzeReads]]. */
+  def contextAnalyzeForOwner(user: AuthenticatedUser): Future[Either[ServiceError, Vector[PipelineContextAnalyzeItem]]] =
+    contextAnalyzeReads.contextAnalyzeForOwner(user)
 
   /** Step creation — requires Editor or Owner. Viewer grantees get 403. */
   def addStep(pipelineId: PipelineId, req: CreatePipelineStepRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineStepResponse]] =

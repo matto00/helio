@@ -61,6 +61,7 @@ function baseFakeApi(): Record<string, unknown> {
     listConnectorInstances: async () => [],
     // HEL-1619: an older server -- the per-pipeline reads below are what these tests exercise.
     getPipelineContextDetails: notFound,
+    getPipelineContextAnalyze: notFound,
   };
 }
 
@@ -861,6 +862,7 @@ function realisticFakeApi(f: RealisticFixture): HelioApi {
     },
     listPipelineSteps: async (id: string) => f.steps.get(id) ?? [],
     getPipelineContextDetails: notFound,
+    getPipelineContextAnalyze: notFound,
     getPipelineRunHistory: async () => [] as PipelineRunRecordResponse[],
     listAllOutputs: async (limit: number, offset: number) => {
       const slice = f.outputs.slice(offset, offset + limit);

@@ -1,0 +1,11 @@
+# 4.2 mutation: PipelineContextAnalyzeReads resolves roots with findByIdsInternal (not the caller-owned read); reverted
+[info] - should respond 401 without a credential, like GET /api/pipelines
+[info] - should return exactly the owner-scoped pipelines GET /api/pipelines lists, in the same order; an editor-granted pipeline is absent
+[info] - should include a pipeline with zero steps as steps: [] and warnings: []
+[info] - should return steps and warnings equal to GET /:id/analyze for every case of a rich fixture *** FAILED ***
+[info]   pipeline 'foreign-root': [{"config":{"fields":["order_id"]},"id":"34a81010-391b-4acd-974c-5814a4a36fcc","inputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"outputSchema":[{"name":"order_id","type":"string"}],"position":0,"type":"select"},{"config":{"fields":["order_id"]},"id":"9e62ac3f-9524-4220-b467-e16d94c227d9","inputS
+[info] - should produce a body that validates against the committed schema (seam guard, backend half)
+[info] - should never return another user's pipelines or steps to an editor or viewer grantee (non-BYPASSRLS pool), and leave their /analyze unchanged
+[info] Tests: succeeded 5, failed 1, canceled 0, ignored 0, pending 0
+[error] Failed tests:
+[error] 	com.helio.api.routes.pipelines.PipelineContextAnalyzeRoutesSpec
