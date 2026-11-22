@@ -200,6 +200,29 @@ class FormAndConversationObjectDrainSpec extends AnyWordSpec with Matchers with 
     }
   }
 
+  "a deleted user's conversation folder (HEL-1802)" should {
+    "be gone after the explicit child delete, the users delete and a drain pass, with the family directory kept" in {
+      val u = newUser(); val (id, key) = conversation(u)
+      Files.isDirectory(root.resolve(s"assistant-conversations/$u")) shouldBe true
+      sql(sqlu"DELETE FROM assistant_conversations WHERE owner_id = $u::uuid")
+      sql(sqlu"DELETE FROM users WHERE id = $u::uuid")
+      pass()
+      present(key) shouldBe false
+      Files.exists(root.resolve(s"assistant-conversations/$u")) shouldBe false
+      Files.isDirectory(root.resolve("assistant-conversations")) shouldBe true
+      id should not be empty
+    }
+
+    "keep the folder while another conversation of the user remains" in {
+      val u = newUser(); val (id1, k1) = conversation(u); val (_, k2) = conversation(u)
+      sql(sqlu"DELETE FROM assistant_conversations WHERE id = $id1")
+      pass()
+      present(k1) shouldBe false
+      present(k2) shouldBe true
+      Files.isDirectory(root.resolve(s"assistant-conversations/$u")) shouldBe true
+    }
+  }
+
   "the extended shared-key guard" should {
 
     "defer an image key still copied as a bare string into a dataset row, then delete it once that row goes" in {

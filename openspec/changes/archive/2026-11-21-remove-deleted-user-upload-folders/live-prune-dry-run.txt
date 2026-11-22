@@ -1,0 +1,5 @@
+# live dry run: temp root under scratch, lane DB helio_hel1802 (minimal users table: one present user 1111..., one absent 9999...)
+before: 333e0eb95323cd4a4f3d715ef8ea2fd25e25bf891fba4ca5f03331ca7ab371c7  -
+<root>/assistant-conversations/99999999-9999-4999-8999-999999999999
+orphans=1 kept=1 skipped=0 deleted=0 matchedPerDatabase=1
+after:  333e0eb95323cd4a4f3d715ef8ea2fd25e25bf891fba4ca5f03331ca7ab371c7  -

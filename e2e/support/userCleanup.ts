@@ -1,14 +1,15 @@
 import { appendFileSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
-import { psql } from "./db.cjs";
-import { buildUserDeleteSql, readRegistryDir } from "./userCleanupCore.cjs";
+import { readRegistryDir } from "./userCleanupCore.cjs";
+import { deleteUsersAndFolders } from "./userCleanupRun.cjs";
 
 // HEL-1301 — every e2e run deletes the throwaway users it registered, by exact recorded id.
 //
 // Setup (global) creates a fresh per-run directory and exports its path; every registration appends
 // the created user's `{id, email}` (from the 201 response body) to a per-process file in it; teardown
 // (global) reads ONLY that directory and deletes exactly those users in one transaction (the pure
-// builder is userCleanupCore.cjs, unit-tested by userCleanup.selftest.mjs). No HTTP route, service
+// builder is userCleanupCore.cjs, unit-tested by userCleanup.selftest.mjs; the delete-then-remove-folders step is
+// userCleanupRun.cjs, HEL-1802). No HTTP route, service
 // or migration exists for this: it is a test-harness DB path only.
 
 export const REGISTRY_ENV = "E2E_USER_REGISTRY_DIR";
@@ -75,7 +76,7 @@ export function deleteRecordedUsers(): number {
   const dir = process.env[REGISTRY_ENV];
   if (!dir) return 0;
   const records = readRegistryDir(dir);
-  if (records.length > 0) psql(buildUserDeleteSql(records), "userCleanup");
+  if (records.length > 0) deleteUsersAndFolders(records);
   rmSync(dir, { recursive: true, force: true });
   return records.length;
 }

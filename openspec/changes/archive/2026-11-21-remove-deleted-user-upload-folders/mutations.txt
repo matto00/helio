@@ -1,0 +1,48 @@
+=== M4 D2 post-commit ordering (folders removed before psql) ===
+  FAIL - run: psql commits before any folder is removed: rm,rm,psql
+  FAIL - run: a failed delete removes no folder: {"calls":["rm","rm","psql"],"removed":["/uploads-root/assistant-conversations/11111111-1111-4111-8111-111111111111","/uploads-root/assistant-conversations/22222222-2222-4222-8222-222222222222"],"logs":[],"result":{"threw":"aborted"}}
+52 passed, 2 failed
+exit=1
+=== M5 D3 dry-run default (always deletes) ===
+  FAIL - dry run counts kept, skipped and deleted=0: {"orphans":["33333333-3333-4333-8333-333333333333","44444444-4444-4444-8444-444444444444"],"kept":2,"skipped":3,"deleted":2,"matchedPerDatabase":[1,1]}
+  FAIL - dry run changes nothing on disk
+  FAIL - an unreadable database fails closed: throws and deletes nothing
+  FAIL - summary is counts only: orphans=2 kept=2 skipped=3 deleted=2 matchedPerDatabase=1,1
+  FAIL - delete removes exactly the orphans: {"orphans":[],"kept":2,"skipped":3,"deleted":0,"matchedPerDatabase":[1,1]}
+9 passed, 5 failed
+=== M6 D3 fail-closed DB (query failure treated as empty) ===
+  FAIL - an unreadable database fails closed: throws and deletes nothing
+  FAIL - delete removes exactly the orphans: {"orphans":[],"kept":1,"skipped":3,"deleted":0,"matchedPerDatabase":[1,0]}
+  FAIL - orphans are gone; present, second-db, skipped, symlink target and other families are intact
+  FAIL - CLI with an unreachable database exits non-zero, lists no orphan, deletes nothing: 0 /tmp/hel1802-prune-Eu5rxz/assistant-conversations/11111111-1111-4111-8111-111111111111
+10 passed, 4 failed
+=== M1 D1 prune removed (pruneEmptyDirectories call dropped) ===
+[info] - should be gone after the explicit child delete, the users delete and a drain pass, with the family directory kept *** FAILED ***
+[info] - should remove the emptied per-user folder but keep the family directory *** FAILED ***
+[info] - should clear an empty folder even when the object is already gone, and never remove the root *** FAILED ***
+[info] Tests: succeeded 42, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.infrastructure.storage.LocalFileSystemSpec
+[error] 	com.helio.services.sources.FormAndConversationObjectDrainSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 4 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+=== M2 D1 family bound removed (walk may delete the family dir) ===
+[info] - should remove the emptied per-user folder but keep the family directory *** FAILED ***
+[info] - should clear an empty folder even when the object is already gone, and never remove the root *** FAILED ***
+[info] - should be gone after the explicit child delete, the users delete and a drain pass, with the family directory kept *** FAILED ***
+[info] Tests: succeeded 42, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.infrastructure.storage.LocalFileSystemSpec
+[error] 	com.helio.services.sources.FormAndConversationObjectDrainSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 4 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+=== M3 D1a retry removed (single attempt) ===
+[info] - should let a write succeed when a prune removes its directory between mkdir and temp-file creation *** FAILED ***
+[info] Tests: succeeded 44, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.infrastructure.storage.LocalFileSystemSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 4 s, cache 90%, 27 disk cache hits, 3 onsite tasks

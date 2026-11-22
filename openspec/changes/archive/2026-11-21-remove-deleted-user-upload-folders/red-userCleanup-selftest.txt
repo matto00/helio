@@ -1,0 +1,56 @@
+  ok - empty input refused
+  ok - non-UUID id refused
+  ok - SQL-shaped id refused
+  ok - system user id refused
+  ok - duplicate id refused
+  ok - duplicate email refused
+  ok - quote in email refused
+  ok - backslash in email refused
+  ok - whitespace in email refused
+  ok - control char in email refused
+  ok - owner account refused
+  ok - real-domain account refused
+  ok - lookalike domain refused
+  ok - SQL carries both recorded ids
+  ok - SQL carries both recorded emails
+  ok - SQL has no UUID other than the recorded ids and the system-user exclusion
+  ok - SQL has no email literal other than the recorded ones and the owner exclusion
+  ok - SQL has no /\bLIKE\b/i predicate
+  ok - SQL has no /\bILIKE\b/i predicate
+  ok - SQL has no /\bSIMILAR\b/i predicate
+  ok - SQL has no /~/ predicate
+  ok - SQL has no /\bnow\s*\(/i predicate
+  ok - SQL has no /\binterval\b/i predicate
+  ok - SQL has no /\bcurrent_(date|timestamp)\b/i predicate
+  ok - SQL repeats the e2e-domain refusal
+  ok - SQL repeats the owner-account exclusion
+  ok - SQL repeats the system-user exclusion
+  ok - guard matches on exact id AND exact email
+  ok - SQL asserts the matched count equals the recorded count
+  ok - SQL asserts the deleted count equals the recorded count
+  ok - SQL locks the doomed rows FOR UPDATE
+  ok - SQL sets a lock_timeout
+  ok - SQL is one transaction
+  ok - user delete selects by id only
+  ok - every DELETE is scoped to the doomed set
+  ok - registry read returns both of this run's records
+  ok - a sibling run directory's id never reaches the SQL
+  ok - scrubSecrets removes the URL, user and password
+  ok - a forced psql failure throws
+  ok - the thrown message carries no URL, user or password
+  FAIL - root: home default when nothing is set
+  FAIL - root: .env-only HELIO_UPLOADS_ROOT is honoured
+  FAIL - root: process env overrides .env
+  FAIL - root: HELIO_UPLOADS_DIR is the fallback when ROOT is unset in both
+  FAIL - root: ROOT in .env beats DIR in process env (per-key merge, ROOT first)
+  FAIL - root: result is absolute and normalized
+  FAIL - folder paths: exactly assistant-conversations/<id> per validated record
+  FAIL - folder paths: an unvalidated id never reaches a path
+  FAIL - run: psql commits before any folder is removed
+  FAIL - run: removes exactly the built folders under the resolved root
+  FAIL - run: logs one numbers-only line
+  FAIL - run: a failed delete removes no folder: {"calls":[],"removed":[],"logs":[],"result":{"threw":"del is not a function"}}
+  FAIL - run: a symlinked folder is skipped, not followed
+  FAIL - run: the .env uploads root is used when the process env has none
+
+40 passed, 14 failed

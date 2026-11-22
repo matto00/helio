@@ -5,10 +5,14 @@
 //
 // Selection is by exact id only. The recorded email is a second equality check (never a selector).
 // There is no LIKE/ILIKE/regex/name/time-window predicate anywhere in the SQL this emits.
+//
+// HEL-1802 adds two pure helpers (no connection, no fs writes): `conversationFolderPaths` builds the exact
+// per-user conversation folder of each validated record, and `resolveUploadsRoot` resolves the uploads root the
+// way the dev backend does. The delete-then-remove step that uses them lives in userCleanupRun.cjs.
 
 // CommonJS for the same reason as db.cjs (loads from Playwright's TS and from plain node).
 const { readFileSync, readdirSync } = require("node:fs");
-const { join } = require("node:path");
+const { join, resolve } = require("node:path");
 
 const SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000001";
 /** The seeded owner/dev account literal `setUserTierForTest` already refuses. */
@@ -120,6 +124,22 @@ COMMIT;
 `;
 }
 
+/** The dev backend's uploads root: for `HELIO_UPLOADS_ROOT`, then `HELIO_UPLOADS_DIR`, a process-environment value
+ *  wins over the backend's `.env` value (`DevEnv.runEnv`); with neither, `<home>/.helio/uploads`. Absolute, normalized. */
+function resolveUploadsRoot(processEnv, dotEnv, homedir) {
+  for (const key of ["HELIO_UPLOADS_ROOT", "HELIO_UPLOADS_DIR"]) {
+    const value = processEnv?.[key] || dotEnv?.[key];
+    if (value) return resolve(value);
+  }
+  return resolve(join(homedir, ".helio", "uploads"));
+}
+
+/** `<root>/assistant-conversations/<id>` for each record; ids go through `validateRecords` first, so only a
+ *  well-formed UUID can ever reach a path. */
+function conversationFolderPaths(records, uploadsRoot) {
+  return validateRecords(records).map((r) => join(uploadsRoot, "assistant-conversations", r.id));
+}
+
 /** Reads ONLY `*.jsonl` files directly inside `dir` (one run's registry); never a sibling run dir. */
 function readRegistryDir(dir) {
   const records = [];
@@ -141,5 +161,7 @@ module.exports = {
   BLOCKING_OWNED_TABLES,
   validateRecords,
   buildUserDeleteSql,
+  resolveUploadsRoot,
+  conversationFolderPaths,
   readRegistryDir,
 };

@@ -21,8 +21,11 @@ import { createServer } from "../src/server.js";
 import { mintBootstrapPat, register } from "./isolatedAuth.js";
 
 const require = createRequire(import.meta.url);
-const { buildUserDeleteSql } = require("../../e2e/support/userCleanupCore.cjs") as {
-  buildUserDeleteSql: (records: { id: string; email: string }[]) => string;
+const { deleteUsersAndFolders } = require("../../e2e/support/userCleanupRun.cjs") as {
+  deleteUsersAndFolders: (
+    records: { id: string; email: string }[],
+    deps?: { label?: string },
+  ) => { removed: number; total: number };
 };
 const { psql } = require("../../e2e/support/db.cjs") as {
   psql: (sql: string, label?: string) => string[];
@@ -231,7 +234,7 @@ async function main(): Promise<void> {
 
     await Promise.all([client.close(), server.close()]);
   } finally {
-    psql(buildUserDeleteSql([record]), "seam userCleanup");
+    deleteUsersAndFolders([record], { label: "seam userCleanup" });
     const left = psql(`SELECT count(*) FROM users WHERE id = '${record.id}';`, "seam verify");
     check("throwaway user deleted by exact (id, email)", left[0] === "0", left);
   }

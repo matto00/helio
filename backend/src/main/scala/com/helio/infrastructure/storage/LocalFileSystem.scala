@@ -1,13 +1,16 @@
 package com.helio.infrastructure.storage
 
 import java.io.IOException
-import java.nio.file.{Files, Path, Paths, StandardCopyOption}
+import java.nio.file.{DirectoryNotEmptyException, Files, NoSuchFileException, Path, Paths, StandardCopyOption}
 import org.slf4j.LoggerFactory
+import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
 class LocalFileSystem(baseDir: Path)(implicit ec: ExecutionContext) extends FileSystem {
+
+  import LocalFileSystem.{log, StageAttempts}
 
   Files.createDirectories(baseDir)
 
@@ -27,8 +30,7 @@ class LocalFileSystem(baseDir: Path)(implicit ec: ExecutionContext) extends File
   def write(path: String, bytes: Array[Byte]): Future[Unit] = Future {
     blocking {
       val target = resolve(path)
-      Files.createDirectories(target.getParent)
-      val tmp = Files.createTempFile(target.getParent, "." + target.getFileName.toString + ".", ".tmp")
+      val tmp = stage(target)
       try {
         Files.write(tmp, bytes)
         Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
@@ -41,6 +43,32 @@ class LocalFileSystem(baseDir: Path)(implicit ec: ExecutionContext) extends File
     }
   }
 
+  /** Test seam (HEL-1802): called between the directory creation and the temp-file creation. No-op. */
+  private[storage] def beforeStage(dir: Path): Unit = ()
+
+  /** HEL-1802 D1a: `delete` prunes emptied directories, so a prune can remove `target`'s parent between the
+   *  `createDirectories` and the `createTempFile`. Retry the pair (bounded) on `NoSuchFileException` only; once the
+   *  temp file exists the directory is non-empty and cannot be pruned. */
+  private def stage(target: Path): Path = {
+    val parent = target.getParent
+    @tailrec
+    def attempt(n: Int): Path = {
+      val staged =
+        try {
+          Files.createDirectories(parent)
+          beforeStage(parent)
+          Right(Files.createTempFile(parent, "." + target.getFileName.toString + ".", ".tmp"))
+        } catch {
+          case e: NoSuchFileException if n < StageAttempts => Left(e)
+        }
+      staged match {
+        case Right(tmp) => tmp
+        case Left(_)    => attempt(n + 1)
+      }
+    }
+    attempt(1)
+  }
+
   def read(path: String): Future[Array[Byte]] = Future {
     blocking {
       Files.readAllBytes(resolve(path))
@@ -49,7 +77,9 @@ class LocalFileSystem(baseDir: Path)(implicit ec: ExecutionContext) extends File
 
   def delete(path: String): Future[Unit] = Future {
     blocking {
-      Files.deleteIfExists(resolve(path))
+      val target = resolve(path)
+      Files.deleteIfExists(target)
+      pruneEmptyDirectories(target)
       ()
     }
   }
@@ -90,13 +120,39 @@ class LocalFileSystem(baseDir: Path)(implicit ec: ExecutionContext) extends File
     }
   }
 
+  /** HEL-1802 D1: removes each directory the delete left empty, walking up from the object's directory and stopping
+   *  before the top-level family directory under `baseDir` (never the root, never a family directory). A directory
+   *  that still holds an entry, or one already gone, ends the walk; any other failure is logged by class and does not
+   *  fail the delete (the object is gone, which is what the drain dequeues on). A path outside `baseDir` is not walked. */
+  private def pruneEmptyDirectories(target: Path): Unit =
+    if (target.startsWith(baseDir) && baseDir.relativize(target).getNameCount >= 3) {
+      val family = baseDir.resolve(baseDir.relativize(target).getName(0))
+      @tailrec
+      def walk(dir: Path): Unit =
+        if (dir != family && dir.startsWith(family)) {
+          val emptied =
+            try { Files.delete(dir); true }
+            catch {
+              case _: DirectoryNotEmptyException | _: NoSuchFileException => false
+              case e: IOException =>
+                log.warn("Could not prune directory under the uploads root: {}", e.getClass.getSimpleName)
+                false
+            }
+          if (emptied) walk(dir.getParent)
+        }
+      walk(target.getParent)
+    }
+
   private def resolve(path: String): Path =
     baseDir.resolve(path).normalize()
 }
 
 object LocalFileSystem {
 
-  private val log = LoggerFactory.getLogger(getClass)
+  private[storage] val log = LoggerFactory.getLogger(getClass)
+
+  /** Bounded retries of the directory-create / temp-file pair in `write` (HEL-1802 D1a). */
+  private[storage] val StageAttempts = 3
 
   /** Resolves the uploads root deterministically regardless of JVM working directory.
     *
