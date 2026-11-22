@@ -62,3 +62,24 @@ changing which folders are removed; any product code change.
 - [The env-mutation helpers rely on reflection into `System.getenv()`] -> moved verbatim, same JVM fork settings.
 - [Teardown now throws after clearing the registry, failing the Playwright run] -> same loudness as today; only the
   registry state differs.
+
+## Gate-Chain Implications Checklist
+
+Both selftests this change edits (`e2e/support/userCleanup.selftest.mjs`,
+`scripts/prune-orphan-conversation-folders.selftest.mjs`) are already wired into `.husky/pre-commit`
+(`check:e2e-user-cleanup-core:selftest`, `check:prune-orphan-conversations:selftest`). The wiring is unchanged; only
+their case lists grew.
+
+- **What does it execute?** `node` on each selftest file. The userCleanup selftest calls the pure helpers with injected
+  fakes (no psql, no DB). The prune selftest also spawns `node scripts/prune-orphan-conversation-folders.mjs` with a fake
+  `psql` shell shim placed first on `PATH`, so no real database client or git command runs.
+- **What environment does it inherit, and from where?** The hook's environment (git's, including any `GIT_DIR` from a
+  linked worktree) passed through npm. The selftests read only `TMPDIR` (via `os.tmpdir()`), `PATH` and their own
+  `HEL1301_*`/`HEL1802_*` path overrides; the prune CLI child gets explicit sentinel `DB_USER`/`DB_PASSWORD` values,
+  never the caller's.
+- **Does it write anything outside its own sandbox?** Only `mkdtemp` directories under `os.tmpdir()` (registry dirs,
+  uploads roots, the shim dir and its marker file), each removed in a `finally`. Nothing in the repo, nothing in `~`.
+- **Does it behave differently from a linked worktree than from a main checkout?** No: neither selftest runs git or
+  resolves a path from the git environment; paths come from `import.meta.url` and `os.tmpdir()`.
+- **What happens on its first run?** The same as every run: it creates and removes its temp dirs and prints ok/FAIL
+  lines; there is no cache, state file or one-time setup.
