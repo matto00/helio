@@ -1,0 +1,19 @@
+  ✓   1 [dev] › e2e/hel1087-form-submit-path.spec.ts:97:7 › HEL-1087 form submit path (real backend) › API-bypass client-blocked payloads are rejected server-side, writing nothing (3.7s)
+  ✓   2 [dev] › e2e/hel1088-compact-counter-chrome.spec.ts:102:7 › HEL-1088 compact single-counter-field layout (real backend) › computed ARIA, keyboard operability, immediate submit landing on the bound source, and reje
+  ✓   3 [dev] › e2e/hel1087-form-submit-path.spec.ts:129:7 › HEL-1087 form submit path (real backend) › UI server rejection is announced, associates the invalid control, preserves input, and focuses it (5.6s)
+  ✓   4 [dev] › e2e/hel1090-form-panel-assembled-a11y.spec.ts:131:7 › HEL-1090 assembled form panel — keyboard + screen-reader audit (real backend) › tab order matches authored field order across every control type, keyb
+  ✓   5 [dev] › e2e/hel1087-form-submit-path.spec.ts:187:7 › HEL-1087 form submit path (real backend) › a transport failure announces, preserves input, and leaves focus on the submit button (5.5s)
+  ✓   6 [dev] › e2e/hel1090-form-panel-assembled-a11y.spec.ts:235:7 › HEL-1090 assembled form panel — keyboard + screen-reader audit (real backend) › focus stays on submit while pending, moves predictably on success, and
+  ✓   7 [dev] › e2e/hel1087-form-submit-path.spec.ts:227:7 › HEL-1087 form submit path (real backend) › a successful submit appends exactly one row to the bound source, none to another, and announces success (7.5s)
+  ✓   8 [dev] › e2e/hel1090-form-panel-assembled-a11y.spec.ts:310:7 › HEL-1090 assembled form panel — keyboard + screen-reader audit (real backend) › the panel exposes a computed role and accessible name in the dashboard
+  ✓   9 [dev] › e2e/hel1095-optimistic-pending-writing-panel-a11y.spec.ts:107:9 › HEL-1095 optimistic pending/rollback ARIA state (real backend) › aria-busy is true while pending and clears on reconciliation (dark theme)
+  ✓  10 [dev] › e2e/hel1090-form-panel-assembled-a11y.spec.ts:355:7 › HEL-1090 assembled form panel — keyboard + screen-reader audit (real backend) › an asynchronously-arriving server error is measured for live-region te
+  ✓  11 [dev] › e2e/hel1095-optimistic-pending-writing-panel-a11y.spec.ts:185:9 › HEL-1095 optimistic pending/rollback ARIA state (real backend) › rejected submit rolls back with an announced error, computed ARIA only (d
+  ✓  12 [dev] › e2e/hel1090-form-panel-assembled-a11y.spec.ts:411:7 › HEL-1090 assembled form panel — keyboard + screen-reader audit (real backend) › HEL-1158 re-measurement: submit-button fold position, same-frame re-an
+  ✓  13 [dev] › e2e/hel1095-optimistic-pending-writing-panel-a11y.spec.ts:107:9 › HEL-1095 optimistic pending/rollback ARIA state (real backend) › aria-busy is true while pending and clears on reconciliation (light theme
+  ✓  14 [dev] › e2e/hel1169-network-vs-rejection-reconcile-a11y.spec.ts:94:9 › HEL-1169 network-vs-rejection reconcile ARIA state (real backend) › a definite (400) rejection rolls back, marks the control invalid, and sur
+  ✓  15 [dev] › e2e/hel1095-optimistic-pending-writing-panel-a11y.spec.ts:185:9 › HEL-1095 optimistic pending/rollback ARIA state (real backend) › rejected submit rolls back with an announced error, computed ARIA only (l
+  ✓  16 [dev] › e2e/hel1169-network-vs-rejection-reconcile-a11y.spec.ts:154:9 › HEL-1169 network-vs-rejection reconcile ARIA state (real backend) › an indeterminate failure whose reconciliation also fails does not roll b
+  ✓  17 [dev] › e2e/hel1169-network-vs-rejection-reconcile-a11y.spec.ts:94:9 › HEL-1169 network-vs-rejection reconcile ARIA state (real backend) › a definite (400) rejection rolls back, marks the control invalid, and sur
+  ✓  18 [dev] › e2e/hel1169-network-vs-rejection-reconcile-a11y.spec.ts:154:9 › HEL-1169 network-vs-rejection reconcile ARIA state (real backend) › an indeterminate failure whose reconciliation also fails does not roll b
+  18 passed (1.0m)

@@ -1,0 +1,5 @@
+- `frontend/src/features/panels/ui/form/CounterControl.css` — empty alert/status regions leave flex flow (`position: absolute` on `:empty`), `position: relative` on the compact layout
+- `frontend/src/features/panels/ui/form/CounterControl.css.test.ts` — jest guard on the rule shape (labelled guard)
+- `e2e/hel1791-compact-counter-stack-height.spec.ts` — blank-space/regions-mounted geometry assertions; status+alert in-flow message test
+- `openspec/changes/collapse-empty-counter-live-regions/evidence/*` — red/green/mutation/regression/heights transcripts (.txt)
+- `openspec/changes/collapse-empty-counter-live-regions/tasks.md` — tasks ticked

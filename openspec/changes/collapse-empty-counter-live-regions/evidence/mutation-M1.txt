@@ -1,0 +1,13 @@
+M1: rule selector neutralised (:empty -> :not(*))
+  ✘  1 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:172:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light (2.4s)
+  ✘  2 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:172:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark (2.2s)
+  ✘  3 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:172:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light (2.3s)
+  ✘  4 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:172:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark (2.1s)
+  ✓  5 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:251:7 › HEL-1791 compact counter height in the panel stack › per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) (9.8s)
+  ✓  6 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:290:7 › HEL-1791 compact counter height in the panel stack › owner: a status message and an alert message render in flow in the same live regions (2.3s)
+    Error: owner light 390px: blank space below the last content (48px) is only the layout padding (16px)
+    Error: owner dark 390px: blank space below the last content (48px) is only the layout padding (16px)
+    Error: editor light 390px: blank space below the last content (48px) is only the layout padding (16px)
+    Error: editor dark 390px: blank space below the last content (48px) is only the layout padding (16px)
+  4 failed
+  2 passed (32.0s)

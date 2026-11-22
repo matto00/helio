@@ -1,0 +1,22 @@
+390px Output panel         before=  166.0 after=  166.0 delta=+0.0
+390px Text panel           before=  102.2 after=  102.2 delta=+0.0
+390px Markdown panel       before=  149.0 after=  149.0 delta=+0.0
+390px Image panel          before=  113.2 after=  113.2 delta=+0.0
+390px divider              before=   17.0 after=   17.0 delta=+0.0
+390px Multi-field form     before=  270.2 after=  270.2 delta=+0.0
+390px HEL1791 counter      before=  226.2 after=  194.2 delta=-32.0  <-- counter card (expected)
+768px Output panel         before=  166.0 after=  166.0 delta=+0.0
+768px Text panel           before=  102.2 after=  102.2 delta=+0.0
+768px Markdown panel       before=  149.0 after=  149.0 delta=+0.0
+768px Image panel          before=  113.2 after=  113.2 delta=+0.0
+768px divider              before=   17.0 after=   17.0 delta=+0.0
+768px Multi-field form     before=  270.2 after=  270.2 delta=+0.0
+768px HEL1791 counter      before=  226.2 after=  194.2 delta=-32.0  <-- counter card (expected)
+1100px Output panel         before=  178.0 after=  178.0 delta=+0.0
+1100px Text panel           before=  114.2 after=  114.2 delta=+0.0
+1100px Markdown panel       before=  161.0 after=  161.0 delta=+0.0
+1100px Image panel          before=  125.2 after=  125.2 delta=+0.0
+1100px divider              before=   17.0 after=   17.0 delta=+0.0
+1100px Multi-field form     before=  282.2 after=  282.2 delta=+0.0
+1100px HEL1791 counter      before=  238.2 after=  206.2 delta=-32.0  <-- counter card (expected)
+non-counter cards changed >0.5px: 0

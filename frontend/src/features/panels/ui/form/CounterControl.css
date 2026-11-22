@@ -39,6 +39,17 @@
   width: 100%;
   height: 100%;
   padding: var(--space-4);
+  /* Containing block for the empty live regions taken out of flow below. */
+  position: relative;
+}
+
+/* HEL-1804 — the always-mounted `role="alert"` / `role="status"` paragraphs are empty while idle, yet as flex items each
+   still claims one `gap` slot (2 x --space-4 of blank space under the counter). While empty they are taken out of flex
+   flow, keeping their box, role and live-region semantics (not `display: none` / `visibility: hidden`, which would drop
+   them from the accessibility tree and risk a missed announcement); once text arrives `:empty` stops matching and they
+   return to flow. */
+.form-panel-view__compact-counter > :is(.form-panel-view__alert, .form-panel-view__status):empty {
+  position: absolute;
 }
 
 .form-panel-view__compact-counter .counter-control__value {
