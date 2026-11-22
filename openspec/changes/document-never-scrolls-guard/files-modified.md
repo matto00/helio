@@ -1,0 +1,4 @@
+- `e2e/hel1585-document-never-scrolls.spec.ts` — the document-never-scrolls guard (17 routes x 2 viewports, wheel check, route-list check, error-selector probe)
+- `e2e/support/hel1585Seed.ts` — the seed helper (PAT-bucket seed), moved out of the spec
+- `openspec/changes/document-never-scrolls-guard/tasks.md` — tasks ticked
+- `openspec/changes/document-never-scrolls-guard/evidence/*` — red/green run output, two mutation runs, ci-cost, offenders (none)

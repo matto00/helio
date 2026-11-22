@@ -1,0 +1,35 @@
+HEL-1585 cycle 2: two consecutive green runs (unmodified product code). Run 1:
+
+Running 4 tests using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1585-1440-1795345371427-15740@example.test
+[HEL-1585 e2e] every authenticated route fits the viewport (1440x900): 74 /api requests, max 60s window 74 (limit 120, target <= 90), 0 x 429; top: 7 GET /api/outputs/:id/rows; 6 GET /api/outputs/:id/assertion-status; 4 GET /api/dashboards; 4 GET /api/data-sources; 4 GET /api/data-sources/:id/schema; 3 GET /api/dashboards/:id/panels; 3 GET /api/outputs/:id; 3 GET /api/pipelines/:id
+  ✓  1 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:380:9 › HEL-1585 document never scrolls at 1440x900 › every authenticated route fits the viewport (1440x900) (9.2s)
+[HEL-1300 e2e] throwaway user: hel1585-1280-1795345380241-84712@example.test
+[HEL-1585 e2e] every authenticated route fits the viewport (1280x800): 73 /api requests, max 60s window 73 (limit 120, target <= 90), 0 x 429; top: 6 GET /api/outputs/:id/rows; 6 GET /api/outputs/:id/assertion-status; 4 GET /api/dashboards; 4 GET /api/data-sources; 4 GET /api/data-sources/:id/schema; 3 GET /api/dashboards/:id/panels; 3 GET /api/outputs/:id; 3 GET /api/pipelines/:id
+  ✓  2 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:380:9 › HEL-1585 document never scrolls at 1280x800 › every authenticated route fits the viewport (1280x800) (8.3s)
+  ✓  3 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:390:7 › HEL-1585 guard preconditions › the route list covers every route inside ProtectedRoute (1ms)
+[HEL-1300 e2e] throwaway user: hel1585-errprobe-1795345388541-46484@example.test
+  ✓  4 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:400:7 › HEL-1585 guard preconditions › the error-state selector matches a real rendered error state (1.9s)
+userCleanup: removed 0 of 3 conversation folders
+[HEL-1301 e2e] deleted 3 recorded throwaway user(s)
+
+  4 passed (20.1s)
+
+Run 2:
+
+Running 4 tests using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1585-1440-1795345391891-32523@example.test
+[HEL-1585 e2e] every authenticated route fits the viewport (1440x900): 74 /api requests, max 60s window 74 (limit 120, target <= 90), 0 x 429; top: 7 GET /api/outputs/:id/rows; 6 GET /api/outputs/:id/assertion-status; 4 GET /api/dashboards; 4 GET /api/data-sources; 4 GET /api/data-sources/:id/schema; 3 GET /api/dashboards/:id/panels; 3 GET /api/outputs/:id; 3 GET /api/pipelines/:id
+  ✓  1 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:380:9 › HEL-1585 document never scrolls at 1440x900 › every authenticated route fits the viewport (1440x900) (8.8s)
+[HEL-1300 e2e] throwaway user: hel1585-1280-1795345400220-3437@example.test
+[HEL-1585 e2e] every authenticated route fits the viewport (1280x800): 72 /api requests, max 60s window 72 (limit 120, target <= 90), 0 x 429; top: 6 GET /api/outputs/:id/rows; 6 GET /api/outputs/:id/assertion-status; 4 GET /api/dashboards; 4 GET /api/data-sources; 4 GET /api/data-sources/:id/schema; 3 GET /api/dashboards/:id/panels; 3 GET /api/outputs/:id; 3 GET /api/pipelines/:id
+  ✓  2 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:380:9 › HEL-1585 document never scrolls at 1280x800 › every authenticated route fits the viewport (1280x800) (7.9s)
+  ✓  3 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:390:7 › HEL-1585 guard preconditions › the route list covers every route inside ProtectedRoute (1ms)
+[HEL-1300 e2e] throwaway user: hel1585-errprobe-1795345408090-21640@example.test
+  ✓  4 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:400:7 › HEL-1585 guard preconditions › the error-state selector matches a real rendered error state (1.9s)
+userCleanup: removed 0 of 3 conversation folders
+[HEL-1301 e2e] deleted 3 recorded throwaway user(s)
+
+  4 passed (19.1s)

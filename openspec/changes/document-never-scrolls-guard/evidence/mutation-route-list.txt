@@ -1,0 +1,52 @@
+HEL-1585 task 2.2 mutation (b): the /connectors entry removed from the spec's ROUTES list (temporary, restored). Expected RED from the AppRoutes check, naming /connectors.
+
+
+Running 4 tests using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1585-1440-1795342393079-54094@example.test
+[HEL-1585 e2e] every authenticated route fits the viewport (1440x900): 72 /api requests, max 60s window 72 (limit 120, target <= 90), 0 x 429; top: 7 GET /api/outputs/:id/rows; 6 GET /api/outputs/:id/assertion-status; 4 GET /api/dashboards; 4 GET /api/data-sources; 4 GET /api/data-sources/:id/schema; 3 GET /api/dashboards/:id/panels; 3 GET /api/outputs/:id; 3 GET /api/pipelines/:id
+  ✓  1 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:458:9 › HEL-1585 document never scrolls at 1440x900 › every authenticated route fits the viewport (1440x900) (7.0s)
+[HEL-1300 e2e] throwaway user: hel1585-1280-1795342399675-11919@example.test
+[HEL-1585 e2e] every authenticated route fits the viewport (1280x800): 72 /api requests, max 60s window 72 (limit 120, target <= 90), 0 x 429; top: 7 GET /api/outputs/:id/rows; 6 GET /api/outputs/:id/assertion-status; 4 GET /api/dashboards; 4 GET /api/data-sources; 4 GET /api/data-sources/:id/schema; 3 GET /api/dashboards/:id/panels; 3 GET /api/outputs/:id; 3 GET /api/pipelines/:id
+  ✓  2 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:458:9 › HEL-1585 document never scrolls at 1280x800 › every authenticated route fits the viewport (1280x800) (6.2s)
+  ✘  3 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:468:7 › HEL-1585 guard preconditions › the route list covers every route inside ProtectedRoute (3ms)
+[HEL-1300 e2e] throwaway user: hel1585-errprobe-1795342406650-54835@example.test
+  ✓  4 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:478:7 › HEL-1585 guard preconditions › the error-state selector matches a real rendered error state (2.3s)
+userCleanup: removed 0 of 3 conversation folders
+[HEL-1301 e2e] deleted 3 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/hel1585-document-never-scrolls.spec.ts:468:7 › HEL-1585 guard preconditions › the route list covers every route inside ProtectedRoute 
+
+    Error: authenticated routes the guard's route list does not cover
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "/connectors",
+    + ]
+
+      473 |       found.filter((p) => !covered.has(p)),
+      474 |       "authenticated routes the guard's route list does not cover",
+    > 475 |     ).toEqual([]);
+          |       ^
+      476 |   });
+      477 |
+      478 |   test("the error-state selector matches a real rendered error state", async ({
+        at /home/matt/Development/helio/.claude/worktrees/bug/document-never-scrolls-guard/HEL-1585/e2e/hel1585-document-never-scrolls.spec.ts:475:7
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1585-document-never-scr-c32f8-route-inside-ProtectedRoute-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1585-document-never-scr-c32f8-route-inside-ProtectedRoute-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [dev] › e2e/hel1585-document-never-scrolls.spec.ts:468:7 › HEL-1585 guard preconditions › the route list covers every route inside ProtectedRoute 
+  3 passed (16.5s)

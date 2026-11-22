@@ -1,0 +1,159 @@
+HEL-1585 cycle 2: mutation (a) re-run after the review changes (overflower skips .sr-only and absolute/fixed). Temporary, reverted. diff:
+diff --git a/frontend/src/app/App.css b/frontend/src/app/App.css
+index ea865d1ad..f775990a8 100644
+--- a/frontend/src/app/App.css
++++ b/frontend/src/app/App.css
+@@ -14,8 +14,8 @@
+      100dvh (second declaration wins where supported, dropped where not --
+      no @supports needed) bounds the shell to what's actually visible, so
+      scrolling stays confined to .app-content below and the bar never moves. */
+-  height: 100vh;
+-  height: 100dvh;
++  min-height: 100vh;
++  min-height: 100dvh;
+   width: 100%;
+   position: relative;
+   z-index: 1;
+
+
+Running 4 tests using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1585-1440-1795345411468-46656@example.test
+[HEL-1585 e2e] every authenticated route fits the viewport (1440x900): 74 /api requests, max 60s window 74 (limit 120, target <= 90), 0 x 429; top: 7 GET /api/outputs/:id/rows; 6 GET /api/outputs/:id/assertion-status; 4 GET /api/dashboards; 4 GET /api/data-sources; 4 GET /api/data-sources/:id/schema; 3 GET /api/dashboards/:id/panels; 3 GET /api/outputs/:id; 3 GET /api/pipelines/:id
+  ✘  1 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:380:9 › HEL-1585 document never scrolls at 1440x900 › every authenticated route fits the viewport (1440x900) (8.6s)
+[HEL-1300 e2e] throwaway user: hel1585-1280-1795345420556-88727@example.test
+[HEL-1585 e2e] every authenticated route fits the viewport (1280x800): 74 /api requests, max 60s window 74 (limit 120, target <= 90), 0 x 429; top: 7 GET /api/outputs/:id/rows; 6 GET /api/outputs/:id/assertion-status; 4 GET /api/dashboards; 4 GET /api/data-sources; 4 GET /api/data-sources/:id/schema; 3 GET /api/dashboards/:id/panels; 3 GET /api/outputs/:id; 3 GET /api/pipelines/:id
+  ✘  2 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:380:9 › HEL-1585 document never scrolls at 1280x800 › every authenticated route fits the viewport (1280x800) (8.5s)
+  ✓  3 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:390:7 › HEL-1585 guard preconditions › the route list covers every route inside ProtectedRoute (5ms)
+[HEL-1300 e2e] throwaway user: hel1585-errprobe-1795345429663-63053@example.test
+  ✓  4 [dev] › e2e/hel1585-document-never-scrolls.spec.ts:400:7 › HEL-1585 guard preconditions › the error-state selector matches a real rendered error state (2.4s)
+userCleanup: removed 0 of 3 conversation folders
+[HEL-1301 e2e] deleted 3 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/hel1585-document-never-scrolls.spec.ts:380:9 › HEL-1585 document never scrolls at 1440x900 › every authenticated route fits the viewport (1440x900) 
+
+    Error: pipeline detail (long steps): the spine content really overflows an inner region
+
+    expect(received).not.toBe(expected) // Object.is equality
+
+    Expected: not "none"
+
+      266 |         expect
+      267 |           .soft(region, `${route.label}: the spine content really overflows an inner region`)
+    > 268 |           .not.toBe("none");
+          |                ^
+      269 |         if (width === 1440 && region !== "none") wheel = await wheelOverSpine(page);
+      270 |       }
+      271 |       const m = await page.evaluate(() => ({
+        at /home/matt/Development/helio/.claude/worktrees/bug/document-never-scrolls-guard/HEL-1585/e2e/hel1585-document-never-scrolls.spec.ts:268:16
+        at runTour (/home/matt/Development/helio/.claude/worktrees/bug/document-never-scrolls-guard/HEL-1585/e2e/hel1585-document-never-scrolls.spec.ts:257:5)
+        at /home/matt/Development/helio/.claude/worktrees/bug/document-never-scrolls-guard/HEL-1585/e2e/hel1585-document-never-scrolls.spec.ts:384:7
+
+    Error: routes where the document scrolls at 1440x900
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 13
+
+    - Array []
+    + Array [
+    +   "dashboards (/dashboards): scrollHeight 1249 > innerHeight 900, scrollY 0, tallest: section.panel-list bottom=1249",
+    +   "dashboard detail (/dashboards/d3d34913-d9ef-48c7-a6b2-c4ed182d3190): scrollHeight 1249 > innerHeight 900, scrollY 0, tallest: section.panel-list bottom=1249",
+    +   "source detail (/sources/19359386-cd90-4009-aaae-232b69ac1aa8): scrollHeight 962 > innerHeight 900, scrollY 0, tallest: div.page-shell.sources-page bottom=962",
+    +   "pipelines (/pipelines): scrollHeight 1568 > innerHeight 900, scrollY 0, tallest: div.page-shell.pipelines-page bottom=1568",
+    +   "pipeline detail (long steps) (/pipelines/a607699c-41a1-4f29-9e90-c093fe8dd281): scrollHeight 2041 > innerHeight 900, scrollY 0, tallest: div.spine-body__live-output bottom=2041",
+    +   "settings (/settings): scrollHeight 7595 > innerHeight 900, scrollY 0, tallest: div.page-shell.settings-page bottom=7595",
+    +   "admin usage (/admin/usage): scrollHeight 7133 > innerHeight 900, scrollY 0, tallest: div.app-not-found bottom=948",
+    +   "proposal review (/proposals/review): scrollHeight 7493 > innerHeight 900, scrollY 0, tallest: null",
+    +   "patch-set review (/patch-sets/review): scrollHeight 7547 > innerHeight 900, scrollY 0, tallest: null",
+    +   "pipeline-proposal review (/pipeline-proposals/review): scrollHeight 7547 > innerHeight 900, scrollY 0, tallest: null",
+    +   "combined-proposal review (/combined-proposals/review): scrollHeight 7547 > innerHeight 900, scrollY 0, tallest: null",
+    + ]
+
+      302 |     ),
+      303 |     `routes where the document scrolls at ${width}x${height}`,
+    > 304 |   ).toEqual([]);
+          |     ^
+      305 |   if (width === 1440) {
+      306 |     expect(wheel, "wheel check ran").toMatchObject({
+      307 |       scrollY: 0,
+        at runTour (/home/matt/Development/helio/.claude/worktrees/bug/document-never-scrolls-guard/HEL-1585/e2e/hel1585-document-never-scrolls.spec.ts:304:5)
+        at /home/matt/Development/helio/.claude/worktrees/bug/document-never-scrolls-guard/HEL-1585/e2e/hel1585-document-never-scrolls.spec.ts:384:7
+
+    Error Context: test-results/hel1585-document-never-scr-cffcc-fits-the-viewport-1440x900--dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1585-document-never-scr-cffcc-fits-the-viewport-1440x900--dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1585-document-never-scr-cffcc-fits-the-viewport-1440x900--dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [dev] › e2e/hel1585-document-never-scrolls.spec.ts:380:9 › HEL-1585 document never scrolls at 1280x800 › every authenticated route fits the viewport (1280x800) 
+
+    Error: pipeline detail (long steps): the spine content really overflows an inner region
+
+    expect(received).not.toBe(expected) // Object.is equality
+
+    Expected: not "none"
+
+      266 |         expect
+      267 |           .soft(region, `${route.label}: the spine content really overflows an inner region`)
+    > 268 |           .not.toBe("none");
+          |                ^
+      269 |         if (width === 1440 && region !== "none") wheel = await wheelOverSpine(page);
+      270 |       }
+      271 |       const m = await page.evaluate(() => ({
+        at /home/matt/Development/helio/.claude/worktrees/bug/document-never-scrolls-guard/HEL-1585/e2e/hel1585-document-never-scrolls.spec.ts:268:16
+        at runTour (/home/matt/Development/helio/.claude/worktrees/bug/document-never-scrolls-guard/HEL-1585/e2e/hel1585-document-never-scrolls.spec.ts:257:5)
+        at /home/matt/Development/helio/.claude/worktrees/bug/document-never-scrolls-guard/HEL-1585/e2e/hel1585-document-never-scrolls.spec.ts:384:7
+
+    Error: routes where the document scrolls at 1280x800
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 13
+
+    - Array []
+    + Array [
+    +   "dashboards (/dashboards): scrollHeight 1249 > innerHeight 800, scrollY 0, tallest: section.panel-list bottom=1249",
+    +   "dashboard detail (/dashboards/9441443a-8be4-417b-b05b-b00a22eb5253): scrollHeight 1249 > innerHeight 800, scrollY 0, tallest: section.panel-list bottom=1249",
+    +   "source detail (/sources/7f3b5bee-721c-439f-bb84-bc1bb2dbf491): scrollHeight 962 > innerHeight 800, scrollY 0, tallest: div.page-shell.sources-page bottom=962",
+    +   "pipelines (/pipelines): scrollHeight 1568 > innerHeight 800, scrollY 0, tallest: div.page-shell.pipelines-page bottom=1568",
+    +   "pipeline detail (long steps) (/pipelines/dc5a97d8-3c1b-4125-b0f7-359f7d986587): scrollHeight 2041 > innerHeight 800, scrollY 0, tallest: div.spine-body__live-output bottom=2041",
+    +   "settings (/settings): scrollHeight 7595 > innerHeight 800, scrollY 0, tallest: div.page-shell.settings-page bottom=7595",
+    +   "admin usage (/admin/usage): scrollHeight 7285 > innerHeight 800, scrollY 0, tallest: div.app-not-found bottom=848",
+    +   "proposal review (/proposals/review): scrollHeight 7538 > innerHeight 800, scrollY 0, tallest: null",
+    +   "patch-set review (/patch-sets/review): scrollHeight 7547 > innerHeight 800, scrollY 0, tallest: null",
+    +   "pipeline-proposal review (/pipeline-proposals/review): scrollHeight 7547 > innerHeight 800, scrollY 0, tallest: null",
+    +   "combined-proposal review (/combined-proposals/review): scrollHeight 7547 > innerHeight 800, scrollY 0, tallest: null",
+    + ]
+
+      302 |     ),
+      303 |     `routes where the document scrolls at ${width}x${height}`,
+    > 304 |   ).toEqual([]);
+          |     ^
+      305 |   if (width === 1440) {
+      306 |     expect(wheel, "wheel check ran").toMatchObject({
+      307 |       scrollY: 0,
+        at runTour (/home/matt/Development/helio/.claude/worktrees/bug/document-never-scrolls-guard/HEL-1585/e2e/hel1585-document-never-scrolls.spec.ts:304:5)
+        at /home/matt/Development/helio/.claude/worktrees/bug/document-never-scrolls-guard/HEL-1585/e2e/hel1585-document-never-scrolls.spec.ts:384:7
+
+    Error Context: test-results/hel1585-document-never-scr-d58ce-fits-the-viewport-1280x800--dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1585-document-never-scr-d58ce-fits-the-viewport-1280x800--dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1585-document-never-scr-d58ce-fits-the-viewport-1280x800--dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [dev] › e2e/hel1585-document-never-scrolls.spec.ts:380:9 › HEL-1585 document never scrolls at 1440x900 › every authenticated route fits the viewport (1440x900) 
+    [dev] › e2e/hel1585-document-never-scrolls.spec.ts:380:9 › HEL-1585 document never scrolls at 1280x800 › every authenticated route fits the viewport (1280x800) 
+  2 passed (21.1s)

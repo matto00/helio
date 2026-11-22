@@ -1,0 +1,22 @@
+HEL-1585 guard CI cost (local, lane dev server, 2 workers cap; two consecutive green runs, identical):
+  1440x900 test wall time: 7.1 s / 7.0 s     /api requests counted: 74   maxWindow: 74 (target <= 90)   count429: 0
+  1280x800 test wall time: 6.3 s / 6.2 s     /api requests counted: 74   maxWindow: 74 (target <= 90)   count429: 0
+  seedRequests (PAT context, 38 calls = 1 source + 32 pipelines + 1 outputs GET + 1 dashboard + 3 panels), recorded only, not in the counted bucket.
+  Whole spec file (4 tests incl. route-list check and error-selector probe): 15.6-15.8 s.
+  Note: seeding through the session bucket measured maxWindow 109-110 (> 90), so the design D4a fallback (PAT-keyed seed, RateLimitDirective keys a cookie-less bearer request `pat:<tokenId>`) is used; minting the PAT (1 POST /api/tokens) is the one counted call.
+
+=== Amended (3b.1): 32 dashboards seeded, Dashboards context list asserted >= 30 (measured 32) ===
+Two consecutive green runs on unmodified main (no product change exists):
+  1440x900 wall time: 14.3 s / 11.3 s   counted /api: 72 / 74   maxWindow 72 / 74   count429 0 / 0
+  1280x800 wall time: 10.4 s / 10.3 s   counted /api: 74 / 72   maxWindow 74 / 72   count429 0 / 0
+  seedRequests: 69 (PAT bucket: 1 source + 32 pipelines + 1 outputs GET + 32 dashboards + 3 panels), recorded only.
+  Whole spec file: 28.1 s / 24.6 s.
+Mutation (a) re-run with the long Dashboards list: red, long /pipelines/:id named (evidence/mutation-shell-height-long-dashboards.txt).
+
+C12 deviation, stated honestly: the harness was iterated on unmodified main (seed shape, expression syntax, rate-limit bucket,
+soft preconditions) BEFORE the first committed run, so the committed red-run-main.txt is the first fully passing run, not a
+first-attempt red. No product code exists in this change; the guard has never been run against a fixed tree. Its failability
+is proven by the two mutations instead.
+
+=== Cycle 2 (seed moved to e2e/support/hel1585Seed.ts, spec 413 lines) ===
+Two green runs: 1440x900 ~9 s / ~8 s (maxWindow 74 / 74), 1280x800 ~8 s / ~7 s (maxWindow 73 / 72), count429 0; whole file 20.1 s / 19.1 s.
