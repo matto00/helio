@@ -21,7 +21,7 @@ import {
   getPanelAppearanceEditorFallback,
   getPanelTextEditorFallback,
 } from "../../../../theme/appearance";
-import type { Panel, PanelAppearance } from "../../types/panel";
+import type { Panel, PanelAppearancePatch } from "../../types/panel";
 import { PanelContent } from "../PanelContent";
 import { AppearanceEditor } from "../editors/AppearanceEditor";
 import { OutputControlsEditor } from "../editors/OutputControlsEditor";
@@ -88,6 +88,9 @@ export function PanelDetailModal({
     modalMode,
     setModalMode,
     initialTitle,
+    initialBackground,
+    initialColor,
+    initialTransparency,
     title,
     setTitle,
     background,
@@ -143,21 +146,29 @@ export function PanelDetailModal({
     setIsSaving(true);
 
     try {
-      // 1. Dispatch appearance (and title if changed) — synchronous accumulation
-      const appearancePayload: PanelAppearance = {
-        background,
-        color,
-        transparency: clampTransparency(transparency / 100),
+      // 1. Stage the title and ONLY the appearance keys the user changed (HEL-1615): re-sending an untouched value
+      //    could overwrite a concurrent API/MCP edit, and transparency is compared on the seeded whole-percent
+      //    integer so an untouched stored 0.555 is never rounded to 0.56. Nothing changed -> nothing staged.
+      const appearancePatch: PanelAppearancePatch = {
+        ...(background !== initialBackground ? { background } : {}),
+        ...(color !== initialColor ? { color } : {}),
+        ...(transparency !== initialTransparency
+          ? { transparency: clampTransparency(transparency / 100) }
+          : {}),
       };
-      dispatch(
-        accumulatePanelUpdate({
-          panelId: panel.id,
-          fields: {
-            appearance: appearancePayload,
-            ...(title !== initialTitle ? { title } : {}),
-          },
-        }),
-      );
+      const hasAppearanceChange = Object.keys(appearancePatch).length > 0;
+      const hasTitleChange = title !== initialTitle;
+      if (hasAppearanceChange || hasTitleChange) {
+        dispatch(
+          accumulatePanelUpdate({
+            panelId: panel.id,
+            fields: {
+              ...(hasAppearanceChange ? { appearance: appearancePatch } : {}),
+              ...(hasTitleChange ? { title } : {}),
+            },
+          }),
+        );
+      }
 
       // 2. Dispatch subtype-specific section via the active editor's ref
       //    (content-kind panels only — output-kind panels have none).

@@ -2022,6 +2022,70 @@ class ApiRoutesSpec
       }
     }
 
+    // HEL-1615 GUARD (not a red test: the probe found the server already merges). A batch item shaped like the panel
+    // detail modal's save -- title plus appearance WITHOUT `chart` -- keeps a stored chart, and a stored non-whole-percent
+    // transparency survives when the item omits it. Mutation that turns it red: make `PanelAppearance.applyPatchJson`
+    // replace instead of merge (drop the stored `chart` / default the omitted `transparency`).
+    "updateBatch with a title and a chart-less appearance keeps the stored chart and an omitted transparency (HEL-1615 guard)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      var panelId     = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("Modal Save Guard"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel"), Some("divider"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+      val storedChart = JsObject(
+        "seriesColors" -> JsArray(JsString("#010101")),
+        "legend"       -> JsObject("show" -> JsBoolean(true), "position" -> JsString("bottom")),
+        "tooltip"      -> JsObject("enabled" -> JsBoolean(true)),
+        "axisLabels" -> JsObject(
+          "x" -> JsObject("show" -> JsBoolean(true), "label" -> JsString("X")),
+          "y" -> JsObject("show" -> JsBoolean(true), "label" -> JsString("Y"))
+        ),
+        "chartType" -> JsString("pie")
+      )
+      val establish = UpdatePanelsBatchRequest(
+        fields = Vector("appearance"),
+        panels = Vector(
+          PanelBatchItem(
+            panelId,
+            None,
+            Some(
+              JsObject(
+                "chart"        -> storedChart,
+                "background"   -> JsString("#112233"),
+                "color"        -> JsString("#aabbcc"),
+                "transparency" -> JsNumber(0.555)
+              )
+            ),
+            None,
+            None
+          )
+        )
+      )
+      Post("/api/panels/updateBatch", establish) ~> routes() ~> check { status shouldBe StatusCodes.OK }
+
+      val modalSave = UpdatePanelsBatchRequest(
+        fields = Vector("title", "appearance"),
+        panels = Vector(
+          PanelBatchItem(panelId, Some("Renamed"), Some(JsObject("background" -> JsString("#445566"))), None, None)
+        )
+      )
+      Post("/api/panels/updateBatch", modalSave) ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val panel = responseAs[UpdatePanelsBatchResponse].panels.head
+        panel.title shouldBe "Renamed"
+        panel.appearance.background shouldBe "#445566"
+        panel.appearance.color shouldBe "#aabbcc"
+        panel.appearance.transparency shouldBe 0.555
+        panel.appearance.chart.flatMap(_.chartType) shouldBe Some("pie")
+        panel.appearance.chart.get.legend shouldBe ChartLegend(show = true, position = "bottom")
+      }
+    }
+
     "PATCH /api/panels/:id stores heatmap and histogram chart types and rejects an unknown one (HEL-1311)" in {
       cleanDb()
 

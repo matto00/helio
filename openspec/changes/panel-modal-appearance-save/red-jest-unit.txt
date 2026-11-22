@@ -1,0 +1,194 @@
+FAIL src/features/panels/state/panelsSlice.test.ts
+  ● panelsSlice accumulatePanelUpdate appearance merge (HEL-1615) › keeps the stored chart and untouched scalars in the item when a partial appearance is accumulated
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 25
+    + Received  +  0
+      Object {
+        "background": "#445566",
+    -   "chart": Object {
+    -     "axisLabels": Object {
+    -       "x": Object {
+    -         "label": "",
+    -         "show": true,
+    -       },
+    -       "y": Object {
+    -         "label": "",
+    -         "show": true,
+    -       },
+    -     },
+    -     "chartType": "pie",
+    -     "legend": Object {
+    -       "position": "top",
+    -       "show": true,
+    -     },
+    -     "seriesColors": Array [
+    -       "#111111",
+    -     ],
+    -     "tooltip": Object {
+    -       "enabled": true,
+    -     },
+    -   },
+    -   "color": "#aabbcc",
+    -   "transparency": 0.555,
+      }
+      1046 |       }),
+      1047 |     );
+    > 1048 |     expect(next.items[0].appearance).toEqual({
+           |                                      ^
+      1049 |       background: "#445566",
+      1050 |       color: "#aabbcc",
+      1051 |       transparency: 0.555,
+      at Object.<anonymous> (src/features/panels/state/panelsSlice.test.ts:1048:38)
+  ● panelsSlice accumulatePanelUpdate appearance merge (HEL-1615) › merges two partial appearance patches staged before a flush (pending carries the union)
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 1
+    + Received  + 0
+      Object {
+    -   "background": "#445566",
+        "color": "#ddeeff",
+      }
+      1070 |       }),
+      1071 |     );
+    > 1072 |     expect(second.pendingPanelUpdates["panel-1"].appearance).toEqual({
+           |                                                              ^
+      1073 |       background: "#445566",
+      1074 |       color: "#ddeeff",
+      1075 |     });
+      at Object.<anonymous> (src/features/panels/state/panelsSlice.test.ts:1072:62)
+  ● panelsSlice accumulatePanelUpdate appearance merge (HEL-1615) › clearSentPendingPanelUpdates still clears a merged pending entry that equals what was sent
+    expect(received).toEqual(expected) // deep equality
+    Expected: {"axisLabels": {"x": {"label": "", "show": true}, "y": {"label": "", "show": true}}, "chartType": "pie", "legend": {"position": "top", "show": true}, "seriesColors": ["#111111"], "tooltip": {"enabled": true}}
+    Received: undefined
+      1093 |     const cleared = panelsReducer(state, clearSentPendingPanelUpdates(sent));
+      1094 |     expect(cleared.pendingPanelUpdates).toEqual({});
+    > 1095 |     expect(cleared.items[0].appearance.chart).toEqual(storedChart);
+           |                                               ^
+      1096 |   });
+      1097 | });
+      1098 |
+      at Object.<anonymous> (src/features/panels/state/panelsSlice.test.ts:1095:47)
+FAIL src/features/panels/ui/detailModal/PanelDetailModal.appearanceSave.test.tsx
+  ● Console
+    console.error
+      A suspended resource finished loading inside a test, but the event was not wrapped in act(...).
+      When testing, code that resolves suspended data should be wrapped into act(...):
+      act(() => {
+        /* finish loading suspended data */
+      });
+      /* assert on the output */
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+      at pingSuspendedRoot (node_modules/react-dom/cjs/react-dom-client.development.js:20302:17)
+    console.error
+      A suspended resource finished loading inside a test, but the event was not wrapped in act(...).
+      When testing, code that resolves suspended data should be wrapped into act(...):
+      act(() => {
+        /* finish loading suspended data */
+      });
+      /* assert on the output */
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+      at pingSuspendedRoot (node_modules/react-dom/cjs/react-dom-client.development.js:20302:17)
+    console.error
+      A suspended resource finished loading inside a test, but the event was not wrapped in act(...).
+      When testing, code that resolves suspended data should be wrapped into act(...):
+      act(() => {
+        /* finish loading suspended data */
+      });
+      /* assert on the output */
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+      at pingSuspendedRoot (node_modules/react-dom/cjs/react-dom-client.development.js:20302:17)
+    console.error
+      A suspended resource finished loading inside a test, but the event was not wrapped in act(...).
+      When testing, code that resolves suspended data should be wrapped into act(...):
+      act(() => {
+        /* finish loading suspended data */
+      });
+      /* assert on the output */
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+      at pingSuspendedRoot (node_modules/react-dom/cjs/react-dom-client.development.js:20302:17)
+  ● PanelDetailModal appearance save preserves unedited fields (HEL-1615) › title-only save sends no appearance and keeps chart, colors and transparency 0.555 in client state
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 0
+    + Received  + 5
+      Object {
+    +   "appearance": Object {
+    +     "background": "#112233",
+    +     "color": "#aabbcc",
+    +     "transparency": 0.56,
+    +   },
+        "title": "Notes v2",
+      }
+      62 |
+      63 |     const state = store.getState().panels;
+    > 64 |     expect(state.pendingPanelUpdates["p1"]).toEqual({ title: "Notes v2" });
+         |                                             ^
+      65 |     expect(state.items[0].appearance).toEqual({
+      66 |       background: "#112233",
+      67 |       color: "#aabbcc",
+      at Object.<anonymous> (src/features/panels/ui/detailModal/PanelDetailModal.appearanceSave.test.tsx:64:45)
+  ● PanelDetailModal appearance save preserves unedited fields (HEL-1615) › background-only save sends only the background and keeps chart, color and transparency
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 0
+    + Received  + 2
+      Object {
+        "background": "#445566",
+    +   "color": "#aabbcc",
+    +   "transparency": 0.56,
+      }
+      79 |
+      80 |     const state = store.getState().panels;
+    > 81 |     expect(state.pendingPanelUpdates["p1"].appearance).toEqual({ background: "#445566" });
+         |                                                        ^
+      82 |     expect(state.items[0].appearance).toEqual({
+      83 |       background: "#445566",
+      84 |       color: "#aabbcc",
+      at Object.<anonymous> (src/features/panels/ui/detailModal/PanelDetailModal.appearanceSave.test.tsx:81:56)
+  ● PanelDetailModal appearance save preserves unedited fields (HEL-1615) › an edited transparency is sent as the new fraction
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 0
+    + Received  + 2
+      Object {
+    +   "background": "#112233",
+    +   "color": "#aabbcc",
+        "transparency": 0.4,
+      }
+      93 |     save();
+      94 |
+    > 95 |     expect(store.getState().panels.pendingPanelUpdates["p1"].appearance).toEqual({
+         |                                                                          ^
+      96 |       transparency: 0.4,
+      97 |     });
+      98 |   });
+      at Object.<anonymous> (src/features/panels/ui/detailModal/PanelDetailModal.appearanceSave.test.tsx:95:74)
+  ● PanelDetailModal appearance save preserves unedited fields (HEL-1615) › a save with nothing changed stages nothing
+    expect(received).toBeUndefined()
+    Received: {"appearance": {"background": "#112233", "color": "#aabbcc", "transparency": 0.56}}
+      102 |     save();
+      103 |
+    > 104 |     expect(store.getState().panels.pendingPanelUpdates["p1"]).toBeUndefined();
+          |                                                               ^
+      105 |   });
+      106 |
+      107 |   it("two partial saves before a flush are both staged", () => {
+      at Object.<anonymous> (src/features/panels/ui/detailModal/PanelDetailModal.appearanceSave.test.tsx:104:63)
+  ● PanelDetailModal appearance save preserves unedited fields (HEL-1615) › two partial saves before a flush are both staged
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 0
+    + Received  + 1
+      Object {
+        "background": "#445566",
+        "color": "#ddeeff",
+    +   "transparency": 0.56,
+      }
+      115 |     save();
+      116 |
+    > 117 |     expect(store.getState().panels.pendingPanelUpdates["p1"].appearance).toEqual({
+          |                                                                          ^
+      118 |       background: "#445566",
+      119 |       color: "#ddeeff",
+      120 |     });
+      at Object.<anonymous> (src/features/panels/ui/detailModal/PanelDetailModal.appearanceSave.test.tsx:117:74)
+Test Suites: 2 failed, 2 total
+Tests:       8 failed, 39 passed, 47 total
+Snapshots:   0 total
+Time:        4.853 s
+Ran all test suites matching src/features/panels/state/panelsSlice.test.ts|src/features/panels/ui/detailModal/PanelDetailModal.appearanceSave.test.tsx.

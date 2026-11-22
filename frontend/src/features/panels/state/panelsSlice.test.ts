@@ -3,6 +3,7 @@ import * as panelService from "../services/panelService";
 import {
   accumulatePanelUpdate,
   clearCrossFilter,
+  clearSentPendingPanelUpdates,
   clearPendingPanelUpdates,
   clearSelection,
   createPanel,
@@ -20,7 +21,7 @@ import {
 } from "./panelsSlice";
 import { dashboardsReducer, importDashboard } from "../../dashboards/state/dashboardsSlice";
 import { makeMarkdownPanel, makeOutputPanel } from "../../../test/panelFixtures";
-import type { OutputPanel } from "../types/panel";
+import type { OutputPanel, PanelAppearance } from "../types/panel";
 const defaultMeta = {
   createdBy: "system",
   createdAt: "2026-03-14T00:00:00Z",
@@ -1004,5 +1005,93 @@ describe("panelsSlice", () => {
       expect(store.getState().panels.status).toBe("loading");
       await dispatched;
     });
+  });
+});
+
+// HEL-1615 -- a modal save sends a PARTIAL appearance patch. The server merges it (HEL-362); the accumulator must
+// mirror that locally: keep every stored appearance key the patch omits (notably `chart`) in the panel item, and
+// merge the patch over the previously staged pending patch instead of replacing it.
+describe("panelsSlice accumulatePanelUpdate appearance merge (HEL-1615)", () => {
+  const storedChart = {
+    seriesColors: ["#111111"],
+    legend: { show: true, position: "top" as const },
+    tooltip: { enabled: true },
+    axisLabels: { x: { show: true, label: "" }, y: { show: true, label: "" } },
+    chartType: "pie" as const,
+  };
+  const chartPanel: OutputPanel = makeOutputPanel({
+    id: "panel-1",
+    dashboardId: "dashboard-1",
+    appearance: {
+      background: "#112233",
+      color: "#aabbcc",
+      transparency: 0.555,
+      chart: storedChart,
+    },
+  });
+  // The wire patch is partial; `PanelUpdateFields.appearance` is widened to Partial<PanelAppearance> by the fix. The
+  // cast keeps this file compiling against the unchanged (full-shape) type so the red run fails on behaviour.
+  const patch = (a: Partial<PanelAppearance>) => a as PanelAppearance;
+
+  function loaded() {
+    return panelsReducer(undefined, fetchPanels.fulfilled([chartPanel], "req", "dashboard-1"));
+  }
+
+  it("keeps the stored chart and untouched scalars in the item when a partial appearance is accumulated", () => {
+    const next = panelsReducer(
+      loaded(),
+      accumulatePanelUpdate({
+        panelId: "panel-1",
+        fields: { appearance: patch({ background: "#445566" }) },
+      }),
+    );
+    expect(next.items[0].appearance).toEqual({
+      background: "#445566",
+      color: "#aabbcc",
+      transparency: 0.555,
+      chart: storedChart,
+    });
+    expect(next.pendingPanelUpdates["panel-1"].appearance).toEqual({ background: "#445566" });
+  });
+
+  it("merges two partial appearance patches staged before a flush (pending carries the union)", () => {
+    const first = panelsReducer(
+      loaded(),
+      accumulatePanelUpdate({
+        panelId: "panel-1",
+        fields: { appearance: patch({ background: "#445566" }) },
+      }),
+    );
+    const second = panelsReducer(
+      first,
+      accumulatePanelUpdate({
+        panelId: "panel-1",
+        fields: { appearance: patch({ color: "#ddeeff" }) },
+      }),
+    );
+    expect(second.pendingPanelUpdates["panel-1"].appearance).toEqual({
+      background: "#445566",
+      color: "#ddeeff",
+    });
+    expect(second.items[0].appearance).toEqual({
+      background: "#445566",
+      color: "#ddeeff",
+      transparency: 0.555,
+      chart: storedChart,
+    });
+  });
+
+  it("clearSentPendingPanelUpdates still clears a merged pending entry that equals what was sent", () => {
+    let state = loaded();
+    for (const a of [{ background: "#445566" }, { color: "#ddeeff" }]) {
+      state = panelsReducer(
+        state,
+        accumulatePanelUpdate({ panelId: "panel-1", fields: { appearance: patch(a) } }),
+      );
+    }
+    const sent = JSON.parse(JSON.stringify(state.pendingPanelUpdates));
+    const cleared = panelsReducer(state, clearSentPendingPanelUpdates(sent));
+    expect(cleared.pendingPanelUpdates).toEqual({});
+    expect(cleared.items[0].appearance.chart).toEqual(storedChart);
   });
 });

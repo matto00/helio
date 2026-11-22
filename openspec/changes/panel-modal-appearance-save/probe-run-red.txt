@@ -1,0 +1,141 @@
+Running 1 test using 1 worker
+[1/1] [dev] › e2e/hel1615-panel-modal-appearance-save.spec.ts:157:5 › modal save preserves unedited appearance (server and client, before and after the flush)
+[dev] › e2e/hel1615-panel-modal-appearance-save.spec.ts:157:5 › modal save preserves unedited appearance (server and client, before and after the flush)
+[HEL-1615 e2e] created user cd1cad75-cb0c-4bf1-a8bb-fd6e667f40e2
+[HEL-1615 e2e] created source 9c55c285-ad96-4394-8d27-ad185340c7b1 pipeline 6ea368f6-0c5f-49b1-8c9f-fdf097c363a6 output 16a38b1f-1fce-45cf-9576-21216cd32baf dashboard 6f2c603a-5101-4380-b3d9-453f25a3c644
+[HEL-1615 probe] A before {"background":"#112233","chart":{"axisLabels":{"x":{"label":"","show":true},"y":{"label":"","show":true}},"chartType":"pie","legend":{"position":"top","show":true},"seriesColors":["#5470c6","#91cc75","#fac858","#ee6666","#73c0de","#3ba272","#fc8452","#9a60b4"],"tooltip":{"enabled":true}},"color":"#aabbcc","transparency":0.555}
+[HEL-1615 probe] A body {"fields":["title","appearance"],"panels":[{"id":"0b70591d-d392-45d2-a8ca-d2004c5e8d49","title":"HEL-1615 A api renamed","appearance":{"background":"#112233","color":"#aabbcc","transparency":0.56}}]}
+[HEL-1615 probe] A after {"background":"#112233","chart":{"axisLabels":{"x":{"label":"","show":true},"y":{"label":"","show":true}},"chartType":"pie","legend":{"position":"top","show":true},"seriesColors":["#5470c6","#91cc75","#fac858","#ee6666","#73c0de","#3ba272","#fc8452","#9a60b4"],"tooltip":{"enabled":true}},"color":"#aabbcc","transparency":0.56} title=HEL-1615 A api renamed
+[HEL-1615 probe] B client before {"appearance":{"background":"#112233","chart":{"axisLabels":{"x":{"label":"","show":true},"y":{"label":"","show":true}},"chartType":"pie","legend":{"position":"top","show":true},"seriesColors":["#5470c6","#91cc75","#fac858","#ee6666","#73c0de","#3ba272","#fc8452","#9a60b4"],"tooltip":{"enabled":true}},"color":"#aabbcc","transparency":0.555},"title":"HEL-1615 B title","pending":null}
+[HEL-1615 probe] B client AFTER SAVE, BEFORE FLUSH {"appearance":{"background":"#112233","color":"#aabbcc","transparency":0.56},"title":"HEL-1615 B renamed","pending":{"appearance":{"background":"#112233","color":"#aabbcc","transparency":0.56},"title":"HEL-1615 B renamed"}}
+[HEL-1615 probe] B rendered chart type before flush: bar
+[HEL-1615 probe] C client AFTER SAVE, BEFORE FLUSH {"appearance":{"background":"#445566","color":"#aabbcc","transparency":0.56},"title":"HEL-1615 C bg","pending":{"appearance":{"background":"#445566","color":"#aabbcc","transparency":0.56}}}
+[HEL-1615 probe] C rendered chart type before flush: bar
+[HEL-1615 probe] D client AFTER 2 SAVES, BEFORE FLUSH {"appearance":{"background":"#778899","color":"#ddeeff","transparency":0.56},"title":"HEL-1615 D two","pending":{"appearance":{"background":"#778899","color":"#ddeeff","transparency":0.56}}}
+[HEL-1615 probe] flushed batch body [{"fields":["appearance","title"],"panels":[{"id":"ce2e46ab-2142-4951-8348-b2d7eca323ab","title":"HEL-1615 B renamed","appearance":{"background":"#112233","color":"#aabbcc","transparency":0.56}},{"id":"d66baf47-c8ee-4646-8b3d-58afb7bc2e6b","appearance":{"background":"#445566","color":"#aabbcc","transparency":0.56}},{"id":"7aa9edb0-70b1-4957-bf50-a9ef68ae7457","appearance":{"background":"#778899","color":"#ddeeff","transparency":0.56}}]}]
+[HEL-1615 probe] B AFTER FLUSH server {"background":"#112233","chart":{"axisLabels":{"x":{"label":"","show":true},"y":{"label":"","show":true}},"chartType":"pie","legend":{"position":"top","show":true},"seriesColors":["#5470c6","#91cc75","#fac858","#ee6666","#73c0de","#3ba272","#fc8452","#9a60b4"],"tooltip":{"enabled":true}},"color":"#aabbcc","transparency":0.56} title=HEL-1615 B renamed
+[HEL-1615 probe] B AFTER FLUSH client {"background":"#112233","chart":{"axisLabels":{"x":{"label":"","show":true},"y":{"label":"","show":true}},"chartType":"pie","legend":{"position":"top","show":true},"seriesColors":["#5470c6","#91cc75","#fac858","#ee6666","#73c0de","#3ba272","#fc8452","#9a60b4"],"tooltip":{"enabled":true}},"color":"#aabbcc","transparency":0.56} rendered=pie
+[HEL-1615 probe] C AFTER FLUSH server {"background":"#445566","chart":{"axisLabels":{"x":{"label":"","show":true},"y":{"label":"","show":true}},"chartType":"pie","legend":{"position":"top","show":true},"seriesColors":["#5470c6","#91cc75","#fac858","#ee6666","#73c0de","#3ba272","#fc8452","#9a60b4"],"tooltip":{"enabled":true}},"color":"#aabbcc","transparency":0.56} title=HEL-1615 C bg
+[HEL-1615 probe] C AFTER FLUSH client {"background":"#445566","chart":{"axisLabels":{"x":{"label":"","show":true},"y":{"label":"","show":true}},"chartType":"pie","legend":{"position":"top","show":true},"seriesColors":["#5470c6","#91cc75","#fac858","#ee6666","#73c0de","#3ba272","#fc8452","#9a60b4"],"tooltip":{"enabled":true}},"color":"#aabbcc","transparency":0.56} rendered=pie
+[HEL-1615 probe] D AFTER FLUSH server {"background":"#778899","chart":{"axisLabels":{"x":{"label":"","show":true},"y":{"label":"","show":true}},"chartType":"pie","legend":{"position":"top","show":true},"seriesColors":["#5470c6","#91cc75","#fac858","#ee6666","#73c0de","#3ba272","#fc8452","#9a60b4"],"tooltip":{"enabled":true}},"color":"#ddeeff","transparency":0.56} title=HEL-1615 D two
+[HEL-1615 probe] D AFTER FLUSH client {"background":"#778899","chart":{"axisLabels":{"x":{"label":"","show":true},"y":{"label":"","show":true}},"chartType":"pie","legend":{"position":"top","show":true},"seriesColors":["#5470c6","#91cc75","#fac858","#ee6666","#73c0de","#3ba272","#fc8452","#9a60b4"],"tooltip":{"enabled":true}},"color":"#ddeeff","transparency":0.56} rendered=pie
+[HEL-1615 e2e] deleting dashboard 6f2c603a-5101-4380-b3d9-453f25a3c644 pipeline 6ea368f6-0c5f-49b1-8c9f-fdf097c363a6 source 9c55c285-ad96-4394-8d27-ad185340c7b1
+  1) [dev] › e2e/hel1615-panel-modal-appearance-save.spec.ts:157:5 › modal save preserves unedited appearance (server and client, before and after the flush) 
+    Error: B client keeps chart before flush
+    expect(received).toBe(expected) // Object.is equality
+    Expected: "pie"
+    Received: undefined
+      315 |       const type = await renderedType(cardOf("HEL-1615 B renamed"));
+      316 |       console.log(`[HEL-1615 probe] B rendered chart type before flush: ${type}`);
+    > 317 |       expect.soft(state.appearance?.chart?.chartType, "B client keeps chart before flush").toBe("pie");
+          |                                                                                            ^
+      318 |       expect.soft(state.appearance?.transparency, "B client keeps 0.555 before flush").toBe(0.555);
+      319 |       expect.soft(type, "B rendered type before flush").toBe("pie");
+      320 |     }
+        at /home/matt/Development/helio/.claude/worktrees/bug/panel-modal-appearance-probe/HEL-1615/e2e/hel1615-panel-modal-appearance-save.spec.ts:317:92
+    Error: B client keeps 0.555 before flush
+    expect(received).toBe(expected) // Object.is equality
+    Expected: 0.555
+    Received: 0.56
+      316 |       console.log(`[HEL-1615 probe] B rendered chart type before flush: ${type}`);
+      317 |       expect.soft(state.appearance?.chart?.chartType, "B client keeps chart before flush").toBe("pie");
+    > 318 |       expect.soft(state.appearance?.transparency, "B client keeps 0.555 before flush").toBe(0.555);
+          |                                                                                        ^
+      319 |       expect.soft(type, "B rendered type before flush").toBe("pie");
+      320 |     }
+      321 |     // C: background-only save.
+        at /home/matt/Development/helio/.claude/worktrees/bug/panel-modal-appearance-probe/HEL-1615/e2e/hel1615-panel-modal-appearance-save.spec.ts:318:88
+    Error: B rendered type before flush
+    expect(received).toBe(expected) // Object.is equality
+    Expected: "pie"
+    Received: "bar"
+      317 |       expect.soft(state.appearance?.chart?.chartType, "B client keeps chart before flush").toBe("pie");
+      318 |       expect.soft(state.appearance?.transparency, "B client keeps 0.555 before flush").toBe(0.555);
+    > 319 |       expect.soft(type, "B rendered type before flush").toBe("pie");
+          |                                                         ^
+      320 |     }
+      321 |     // C: background-only save.
+      322 |     {
+        at /home/matt/Development/helio/.claude/worktrees/bug/panel-modal-appearance-probe/HEL-1615/e2e/hel1615-panel-modal-appearance-save.spec.ts:319:57
+    Error: C client keeps chart before flush
+    expect(received).toBe(expected) // Object.is equality
+    Expected: "pie"
+    Received: undefined
+      331 |       const type = await renderedType(cardOf("HEL-1615 C bg"));
+      332 |       console.log(`[HEL-1615 probe] C rendered chart type before flush: ${type}`);
+    > 333 |       expect.soft(state.appearance?.chart?.chartType, "C client keeps chart before flush").toBe("pie");
+          |                                                                                            ^
+      334 |       expect.soft(state.appearance?.transparency, "C client keeps 0.555 before flush").toBe(0.555);
+      335 |       expect.soft(state.appearance?.background, "C client new background").toBe("#445566");
+      336 |       expect.soft(type, "C rendered type before flush").toBe("pie");
+        at /home/matt/Development/helio/.claude/worktrees/bug/panel-modal-appearance-probe/HEL-1615/e2e/hel1615-panel-modal-appearance-save.spec.ts:333:92
+    Error: C client keeps 0.555 before flush
+    expect(received).toBe(expected) // Object.is equality
+    Expected: 0.555
+    Received: 0.56
+      332 |       console.log(`[HEL-1615 probe] C rendered chart type before flush: ${type}`);
+      333 |       expect.soft(state.appearance?.chart?.chartType, "C client keeps chart before flush").toBe("pie");
+    > 334 |       expect.soft(state.appearance?.transparency, "C client keeps 0.555 before flush").toBe(0.555);
+          |                                                                                        ^
+      335 |       expect.soft(state.appearance?.background, "C client new background").toBe("#445566");
+      336 |       expect.soft(type, "C rendered type before flush").toBe("pie");
+      337 |     }
+        at /home/matt/Development/helio/.claude/worktrees/bug/panel-modal-appearance-probe/HEL-1615/e2e/hel1615-panel-modal-appearance-save.spec.ts:334:88
+    Error: C rendered type before flush
+    expect(received).toBe(expected) // Object.is equality
+    Expected: "pie"
+    Received: "bar"
+      334 |       expect.soft(state.appearance?.transparency, "C client keeps 0.555 before flush").toBe(0.555);
+      335 |       expect.soft(state.appearance?.background, "C client new background").toBe("#445566");
+    > 336 |       expect.soft(type, "C rendered type before flush").toBe("pie");
+          |                                                         ^
+      337 |     }
+      338 |     // D: two partial saves (background, then color) before a flush.
+      339 |     {
+        at /home/matt/Development/helio/.claude/worktrees/bug/panel-modal-appearance-probe/HEL-1615/e2e/hel1615-panel-modal-appearance-save.spec.ts:336:57
+    Error: B server transparency
+    expect(received).toBe(expected) // Object.is equality
+    Expected: 0.555
+    Received: 0.56
+      379 |       );
+      380 |       expect.soft(server.appearance.chart?.chartType, `${label} server chart`).toBe("pie");
+    > 381 |       expect.soft(server.appearance.transparency, `${label} server transparency`).toBe(0.555);
+          |                                                                                   ^
+      382 |       expect.soft(client.appearance?.chart?.chartType, `${label} client chart after flush`).toBe("pie");
+      383 |       expect.soft(type, `${label} rendered type after flush`).toBe("pie");
+      384 |       if (label === "B") {
+        at /home/matt/Development/helio/.claude/worktrees/bug/panel-modal-appearance-probe/HEL-1615/e2e/hel1615-panel-modal-appearance-save.spec.ts:381:83
+    Error: C server transparency
+    expect(received).toBe(expected) // Object.is equality
+    Expected: 0.555
+    Received: 0.56
+      379 |       );
+      380 |       expect.soft(server.appearance.chart?.chartType, `${label} server chart`).toBe("pie");
+    > 381 |       expect.soft(server.appearance.transparency, `${label} server transparency`).toBe(0.555);
+          |                                                                                   ^
+      382 |       expect.soft(client.appearance?.chart?.chartType, `${label} client chart after flush`).toBe("pie");
+      383 |       expect.soft(type, `${label} rendered type after flush`).toBe("pie");
+      384 |       if (label === "B") {
+        at /home/matt/Development/helio/.claude/worktrees/bug/panel-modal-appearance-probe/HEL-1615/e2e/hel1615-panel-modal-appearance-save.spec.ts:381:83
+    Error: D server transparency
+    expect(received).toBe(expected) // Object.is equality
+    Expected: 0.555
+    Received: 0.56
+      379 |       );
+      380 |       expect.soft(server.appearance.chart?.chartType, `${label} server chart`).toBe("pie");
+    > 381 |       expect.soft(server.appearance.transparency, `${label} server transparency`).toBe(0.555);
+          |                                                                                   ^
+      382 |       expect.soft(client.appearance?.chart?.chartType, `${label} client chart after flush`).toBe("pie");
+      383 |       expect.soft(type, `${label} rendered type after flush`).toBe("pie");
+      384 |       if (label === "B") {
+        at /home/matt/Development/helio/.claude/worktrees/bug/panel-modal-appearance-probe/HEL-1615/e2e/hel1615-panel-modal-appearance-save.spec.ts:381:83
+    Error Context: test-results/hel1615-panel-modal-appear-93ed0-before-and-after-the-flush--dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1615-panel-modal-appear-93ed0-before-and-after-the-flush--dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1615-panel-modal-appear-93ed0-before-and-after-the-flush--dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 1 recorded throwaway user(s)
+  1 failed
+    [dev] › e2e/hel1615-panel-modal-appearance-save.spec.ts:157:5 › modal save preserves unedited appearance (server and client, before and after the flush) 
