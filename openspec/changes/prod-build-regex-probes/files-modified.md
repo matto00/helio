@@ -1,0 +1,4 @@
+- `e2e/hel1683-regex-main-thread.spec.ts` — three tests tagged `@prod-build`; comments state the build they run on
+- `CONTRIBUTING.md` — names the new `@prod-build` users
+- `e2e/README.md` — names the current `@prod-build` users
+- `openspec/changes/prod-build-regex-probes/**` — change artifacts and evidence (lists, shard plans, baseline, runs, mutations, margin)

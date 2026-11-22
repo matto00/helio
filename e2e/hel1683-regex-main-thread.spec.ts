@@ -5,10 +5,12 @@ import { registerAndLogin } from "./support/auth";
 // HEL-1683: a catastrophic-backtracking user regex in a draft extractRegex step must never block the browser main thread.
 // Method: a `longtask` PerformanceObserver is installed before each pattern edit; the pattern is entered in ONE fill (not
 // typed), so every long task in the window is the evaluation of that single pattern. The control edit proves the client
-// evaluator ran in the window (no draft-preview request, client rows rendered) and bounds the dev-build noise; the probe edit
+// evaluator ran in the window (no draft-preview request, client rows rendered) and bounds the host noise; the probe edit
 // enters `^(.*.*.*.*.*.*.*.*x)` over 2 rows of "a"x28 + "!", which V8 backtracks catastrophically when the client
 // evaluates it, so the unmodified tree produces a finite long task far above the 100 ms bound (the server needs about
 // 0.37 s per such cell, see ROW_COUNT). The failing assertions report the measured duration, never a timeout.
+// HEL-1816: all three tests are `@prod-build` (HEL-1691): they run on the production build in the `e2e-prod-build` lane, not
+// the Vite dev server, whose React development-mode render cost in the input handler is not what users pay.
 
 const CSRF = { "X-Helio-Requested-With": "1" };
 const AUTH = { prefix: "hel1683", displayName: "HEL-1683", domain: "example.test" } as const;
@@ -232,213 +234,216 @@ test.describe("HEL-1683 client regex main-thread guard (live)", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
   test.setTimeout(120_000);
 
-  test("a catastrophic extractRegex pattern in a draft never blocks the main thread for more than 100 ms", async ({
-    page,
-    request,
-  }) => {
-    const creds = await registerAndLogin(page, request, { ...AUTH, label: "regex" });
-    expect(creds.email).toContain("hel1683");
-    const pipelineId = await seed(page);
-    const sample = page.waitForResponse((r) =>
-      SAMPLE_URL.test(new URL(r.url()).pathname + new URL(r.url()).search),
-    );
-    await page.goto(`/pipelines/${pipelineId}`);
-    await sample;
-    await expect(page.getByRole("region", { name: /^Rows after step 1/ })).toBeVisible();
-    await page.waitForLoadState("networkidle");
-    const pattern = page.getByRole("textbox", { name: "Pattern" });
-    await expect(pattern).toBeVisible();
-    const rows = page.getByRole("region", { name: /^Rows after step 1/ });
-    await applyDiagnosticThrottle(page);
+  test(
+    "a catastrophic extractRegex pattern in a draft never blocks the main thread for more than 100 ms",
+    { tag: "@prod-build" },
+    async ({ page, request }) => {
+      const creds = await registerAndLogin(page, request, { ...AUTH, label: "regex" });
+      expect(creds.email).toContain("hel1683");
+      const pipelineId = await seed(page);
+      const sample = page.waitForResponse((r) =>
+        SAMPLE_URL.test(new URL(r.url()).pathname + new URL(r.url()).search),
+      );
+      await page.goto(`/pipelines/${pipelineId}`);
+      await sample;
+      await expect(page.getByRole("region", { name: /^Rows after step 1/ })).toBeVisible();
+      await page.waitForLoadState("networkidle");
+      const pattern = page.getByRole("textbox", { name: "Pattern" });
+      await expect(pattern).toBeVisible();
+      const rows = page.getByRole("region", { name: /^Rows after step 1/ });
+      await applyDiagnosticThrottle(page);
 
-    // Control: a safe pattern is evaluated by the client, inside the same kind of window.
-    await startLongTaskWindow(page);
-    const controlApi = recordApi(page);
-    await pattern.fill(CONTROL_PATTERN);
-    await expect(page.getByText("Draft · unsaved changes")).toBeVisible();
-    await expect(rows.getByText("2 rows")).toBeVisible();
-    await expect(rows.getByText("a".repeat(28), { exact: true }).first()).toBeVisible();
-    await page.waitForTimeout(1500);
-    const controlRequests = controlApi.stop();
-    const control = await longestTask(page);
-    console.log(
-      `[HEL-1683 e2e] control longest long task: ${control.longest.toFixed(1)} ms (tasks: ${control.all.map((n) => n.toFixed(1)).join(", ")}); ${attribution(control, controlApi)}`,
-    );
-    expect(
-      controlRequests.filter((r) => r.includes("/draft-preview")),
-      `control must be client-evaluated (no draft-preview request): ${controlRequests.join(", ")}`,
-    ).toEqual([]);
-    expect(
-      control.longest,
-      `control (client-evaluated) longest task ${control.longest.toFixed(1)} ms must be <= ${LONG_TASK_BOUND_MS} ms; escalate, do not relax`,
-    ).toBeLessThanOrEqual(LONG_TASK_BOUND_MS);
-
-    // Probe: a catastrophic pattern over the same rows.
-    await startLongTaskWindow(page);
-    const probeApi = recordApi(page);
-    await pattern.fill(PROBE_PATTERN);
-    await page.waitForTimeout(3000);
-    const probeRequests = probeApi.stop();
-    const probe = await longestTask(page);
-    console.log(
-      `[HEL-1683 e2e] probe longest long task: ${probe.longest.toFixed(1)} ms (tasks: ${probe.all.map((n) => n.toFixed(1)).join(", ")}); requests: ${probeRequests.join(", ")}; ${attribution(probe, probeApi)}`,
-    );
-    expect(
-      probe.longest,
-      `probe pattern ${PROBE_PATTERN}: longest main-thread task was ${probe.longest.toFixed(1)} ms, must be <= ${LONG_TASK_BOUND_MS} ms (control ${control.longest.toFixed(1)} ms)`,
-    ).toBeLessThanOrEqual(LONG_TASK_BOUND_MS);
-
-    // Green only: the declined step is evaluated by the server draft preview.
-    expect(
-      probeRequests.filter((r) => r.includes("/draft-preview")).length,
-      `the declined step goes to the server: ${probeRequests.join(", ")}`,
-    ).toBeGreaterThan(0);
-    // Either exact server outcome proves the server evaluated the step; which one appears depends on runner speed (the
-    // engine needs ~0.3 s per probe cell against a 2 s per-step budget), so neither is assumed. If NEITHER appears this fails.
-    const live = page.getByLabel("Preview is live");
-    const budgetError = page
-      .getByText(/pattern '.*' exceeded the 2 s regex time budget for this step/)
-      .filter({ hasText: "^(.*.*.*.*.*.*.*.*x)" })
-      .first();
-    await expect(
-      live.or(budgetError).first(),
-      "the server's live result or its exact time-budget step error for the probe step",
-    ).toBeVisible({ timeout: 15_000 });
-    if (await live.isVisible()) {
+      // Control: a safe pattern is evaluated by the client, inside the same kind of window.
+      await startLongTaskWindow(page);
+      const controlApi = recordApi(page);
+      await pattern.fill(CONTROL_PATTERN);
+      await expect(page.getByText("Draft · unsaved changes")).toBeVisible();
       await expect(rows.getByText("2 rows")).toBeVisible();
-      // The probe pattern matches nothing, so the server's `out` cell is null (rendered "—") for both rows.
-      expect(await outColumnCells(rows), "the server's out cells for the probe pattern").toEqual([
-        NULL_CELL,
-        NULL_CELL,
-      ]);
-    }
+      await expect(rows.getByText("a".repeat(28), { exact: true }).first()).toBeVisible();
+      await page.waitForTimeout(1500);
+      const controlRequests = controlApi.stop();
+      const control = await longestTask(page);
+      console.log(
+        `[HEL-1683 e2e] control longest long task: ${control.longest.toFixed(1)} ms (tasks: ${control.all.map((n) => n.toFixed(1)).join(", ")}); ${attribution(control, controlApi)}`,
+      );
+      expect(
+        controlRequests.filter((r) => r.includes("/draft-preview")),
+        `control must be client-evaluated (no draft-preview request): ${controlRequests.join(", ")}`,
+      ).toEqual([]);
+      expect(
+        control.longest,
+        `control (client-evaluated) longest task ${control.longest.toFixed(1)} ms must be <= ${LONG_TASK_BOUND_MS} ms; escalate, do not relax`,
+      ).toBeLessThanOrEqual(LONG_TASK_BOUND_MS);
 
-    // Overrun: the server's time-budget step error is what the draft shows, and the main thread stays free meanwhile.
-    await startLongTaskWindow(page);
-    const overrunApi = recordApi(page);
-    await pattern.fill(OVERRUN_PATTERN);
-    await expect(
-      page
+      // Probe: a catastrophic pattern over the same rows.
+      await startLongTaskWindow(page);
+      const probeApi = recordApi(page);
+      await pattern.fill(PROBE_PATTERN);
+      await page.waitForTimeout(3000);
+      const probeRequests = probeApi.stop();
+      const probe = await longestTask(page);
+      console.log(
+        `[HEL-1683 e2e] probe longest long task: ${probe.longest.toFixed(1)} ms (tasks: ${probe.all.map((n) => n.toFixed(1)).join(", ")}); requests: ${probeRequests.join(", ")}; ${attribution(probe, probeApi)}`,
+      );
+      expect(
+        probe.longest,
+        `probe pattern ${PROBE_PATTERN}: longest main-thread task was ${probe.longest.toFixed(1)} ms, must be <= ${LONG_TASK_BOUND_MS} ms (control ${control.longest.toFixed(1)} ms)`,
+      ).toBeLessThanOrEqual(LONG_TASK_BOUND_MS);
+
+      // Green only: the declined step is evaluated by the server draft preview.
+      expect(
+        probeRequests.filter((r) => r.includes("/draft-preview")).length,
+        `the declined step goes to the server: ${probeRequests.join(", ")}`,
+      ).toBeGreaterThan(0);
+      // Either exact server outcome proves the server evaluated the step; which one appears depends on runner speed (the
+      // engine needs ~0.3 s per probe cell against a 2 s per-step budget), so neither is assumed. If NEITHER appears this fails.
+      const live = page.getByLabel("Preview is live");
+      const budgetError = page
         .getByText(/pattern '.*' exceeded the 2 s regex time budget for this step/)
-        .filter({ hasText: OVERRUN_PATTERN })
-        .first(),
-    ).toBeVisible({ timeout: 30_000 });
-    overrunApi.stop();
-    const overrun = await longestTask(page);
-    console.log(
-      `[HEL-1683 e2e] overrun longest long task: ${overrun.longest.toFixed(1)} ms; ${attribution(overrun, overrunApi)}`,
-    );
-    expect(
-      overrun.longest,
-      `overrun pattern ${OVERRUN_PATTERN}: longest main-thread task was ${overrun.longest.toFixed(1)} ms, must be <= ${LONG_TASK_BOUND_MS} ms`,
-    ).toBeLessThanOrEqual(LONG_TASK_BOUND_MS);
-  });
+        .filter({ hasText: "^(.*.*.*.*.*.*.*.*x)" })
+        .first();
+      await expect(
+        live.or(budgetError).first(),
+        "the server's live result or its exact time-budget step error for the probe step",
+      ).toBeVisible({ timeout: 15_000 });
+      if (await live.isVisible()) {
+        await expect(rows.getByText("2 rows")).toBeVisible();
+        // The probe pattern matches nothing, so the server's `out` cell is null (rendered "—") for both rows.
+        expect(await outColumnCells(rows), "the server's out cells for the probe pattern").toEqual([
+          NULL_CELL,
+          NULL_CELL,
+        ]);
+      }
+
+      // Overrun: the server's time-budget step error is what the draft shows, and the main thread stays free meanwhile.
+      await startLongTaskWindow(page);
+      const overrunApi = recordApi(page);
+      await pattern.fill(OVERRUN_PATTERN);
+      await expect(
+        page
+          .getByText(/pattern '.*' exceeded the 2 s regex time budget for this step/)
+          .filter({ hasText: OVERRUN_PATTERN })
+          .first(),
+      ).toBeVisible({ timeout: 30_000 });
+      overrunApi.stop();
+      const overrun = await longestTask(page);
+      console.log(
+        `[HEL-1683 e2e] overrun longest long task: ${overrun.longest.toFixed(1)} ms; ${attribution(overrun, overrunApi)}`,
+      );
+      expect(
+        overrun.longest,
+        `overrun pattern ${OVERRUN_PATTERN}: longest main-thread task was ${overrun.longest.toFixed(1)} ms, must be <= ${LONG_TASK_BOUND_MS} ms`,
+      ).toBeLessThanOrEqual(LONG_TASK_BOUND_MS);
+    },
+  );
 
   // HEL-1697: a single unbounded quantifier with a tail (`(a*)b`) is accepted by the allowlist but quadratic per cell (2.1 s
   // per 1,000 rows of 2,000 characters). This frame is LONG_ROWS x LONG_CELL_LENGTH = 12 x 10,000 (1.2e9 len^2 units, about
-  // 120 KB): with the decline disabled the Playwright harness measures one 1.1-1.3 s main-thread task (1147, 1259, 1349 ms), far over the 100 ms bound. The frame is deliberately small in total
-  // characters: the dev build pays per-character render and saved-step re-walk costs in the input handler, which a 1.2 MB frame
+  // 120 KB): with the decline disabled the Playwright harness measured one 1.1-1.3 s main-thread task on the dev build (1147, 1259, 1349 ms) and 561 ms on the production build (HEL-1816), both far over the 100 ms bound. The frame is deliberately small in total
+  // characters: the dev build paid per-character render and saved-step re-walk costs in the input handler (before HEL-1816 moved this test to the production build), which a 1.2 MB frame
   // (400 x 3,000) pushed to 138 ms on CI and 50 x 8,500 (425 KB) to 83 ms locally, while 12 x 10,000 stays at 0 ms.
-  test("a single-quantifier pattern over long cells is declined to the server and never blocks the main thread", async ({
-    page,
-    request,
-  }) => {
-    const creds = await registerAndLogin(page, request, { ...AUTH, label: "regex-long" });
-    expect(creds.email).toContain("hel1683");
-    const pipelineId = await seed(page, "a".repeat(LONG_CELL_LENGTH), LONG_ROWS);
-    const sample = page.waitForResponse((r) =>
-      SAMPLE_URL.test(new URL(r.url()).pathname + new URL(r.url()).search),
-    );
-    await page.goto(`/pipelines/${pipelineId}`);
-    await sample;
-    await expect(page.getByRole("region", { name: /^Rows after step 1/ })).toBeVisible();
-    await page.waitForLoadState("networkidle");
-    const pattern = page.getByRole("textbox", { name: "Pattern" });
-    await expect(pattern).toBeVisible();
+  test(
+    "a single-quantifier pattern over long cells is declined to the server and never blocks the main thread",
+    { tag: "@prod-build" },
+    async ({ page, request }) => {
+      const creds = await registerAndLogin(page, request, { ...AUTH, label: "regex-long" });
+      expect(creds.email).toContain("hel1683");
+      const pipelineId = await seed(page, "a".repeat(LONG_CELL_LENGTH), LONG_ROWS);
+      const sample = page.waitForResponse((r) =>
+        SAMPLE_URL.test(new URL(r.url()).pathname + new URL(r.url()).search),
+      );
+      await page.goto(`/pipelines/${pipelineId}`);
+      await sample;
+      await expect(page.getByRole("region", { name: /^Rows after step 1/ })).toBeVisible();
+      await page.waitForLoadState("networkidle");
+      const pattern = page.getByRole("textbox", { name: "Pattern" });
+      await expect(pattern).toBeVisible();
 
-    await startLongTaskWindow(page);
-    const api = recordApi(page);
-    await pattern.fill(LONG_PROBE_PATTERN);
-    await page.waitForTimeout(4000);
-    const requests = api.stop();
-    const probe = await longestTask(page);
-    console.log(
-      `[HEL-1697 e2e] long-cell probe longest long task: ${probe.longest.toFixed(1)} ms (tasks: ${probe.all.map((n) => n.toFixed(1)).join(", ")}); requests: ${requests.join(", ")}`,
-    );
-    expect(
-      probe.longest,
-      `long-cell pattern ${LONG_PROBE_PATTERN}: longest main-thread task was ${probe.longest.toFixed(1)} ms, must be <= ${LONG_TASK_BOUND_MS} ms`,
-    ).toBeLessThanOrEqual(LONG_TASK_BOUND_MS);
-    expect(
-      requests.filter((r) => r.includes("/draft-preview")).length,
-      `the declined step goes to the server: ${requests.join(", ")}`,
-    ).toBeGreaterThan(0);
-    // The server's outcome is what the step shows: its live rows, or its exact time-budget step error for this pattern
-    // (10,000-character cells may need longer than the engine's 2 s per-step budget, depending on runner speed). If NEITHER
-    // appears this fails.
-    const rows = page.getByRole("region", { name: /^Rows after step 1/ });
-    const live = page.getByLabel("Preview is live");
-    const budgetError = page
-      .getByText(/pattern '.*' exceeded the 2 s regex time budget for this step/)
-      .filter({ hasText: LONG_PROBE_PATTERN })
-      .first();
-    await expect(
-      live.or(budgetError).first(),
-      "the server's live result or its exact time-budget step error for the long-cell probe step",
-    ).toBeVisible({ timeout: 30_000 });
-    const branch = (await live.isVisible()) ? "live" : "time-budget error";
-    console.log(`[HEL-1697 e2e] long-cell server outcome: ${branch}`);
-    if (branch === "live") await expect(rows.getByText(`${LONG_ROWS} rows`)).toBeVisible();
-  });
+      await startLongTaskWindow(page);
+      const api = recordApi(page);
+      await pattern.fill(LONG_PROBE_PATTERN);
+      await page.waitForTimeout(4000);
+      const requests = api.stop();
+      const probe = await longestTask(page);
+      console.log(
+        `[HEL-1697 e2e] long-cell probe longest long task: ${probe.longest.toFixed(1)} ms (tasks: ${probe.all.map((n) => n.toFixed(1)).join(", ")}); requests: ${requests.join(", ")}`,
+      );
+      expect(
+        probe.longest,
+        `long-cell pattern ${LONG_PROBE_PATTERN}: longest main-thread task was ${probe.longest.toFixed(1)} ms, must be <= ${LONG_TASK_BOUND_MS} ms`,
+      ).toBeLessThanOrEqual(LONG_TASK_BOUND_MS);
+      expect(
+        requests.filter((r) => r.includes("/draft-preview")).length,
+        `the declined step goes to the server: ${requests.join(", ")}`,
+      ).toBeGreaterThan(0);
+      // The server's outcome is what the step shows: its live rows, or its exact time-budget step error for this pattern
+      // (10,000-character cells may need longer than the engine's 2 s per-step budget, depending on runner speed). If NEITHER
+      // appears this fails.
+      const rows = page.getByRole("region", { name: /^Rows after step 1/ });
+      const live = page.getByLabel("Preview is live");
+      const budgetError = page
+        .getByText(/pattern '.*' exceeded the 2 s regex time budget for this step/)
+        .filter({ hasText: LONG_PROBE_PATTERN })
+        .first();
+      await expect(
+        live.or(budgetError).first(),
+        "the server's live result or its exact time-budget step error for the long-cell probe step",
+      ).toBeVisible({ timeout: 30_000 });
+      const branch = (await live.isVisible()) ? "live" : "time-budget error";
+      console.log(`[HEL-1697 e2e] long-cell server outcome: ${branch}`);
+      if (branch === "live") await expect(rows.getByText(`${LONG_ROWS} rows`)).toBeVisible();
+    },
+  );
   // HEL-1807: `^(.*)$` is as quadratic as `(.*)$` when V8 may restart at every position, but it is anchored: V8 makes one
   // attempt per cell, and the cost model charges one attempt. Over the same 12 x 10,000 frame as the test above, the unrefined
   // model declines it (its per-position charge is about 2.4e9 units) and the refined one evaluates it on the client.
-  test("a start-anchored pattern over long cells is evaluated on the client without blocking the main thread", async ({
-    page,
-    request,
-  }) => {
-    const creds = await registerAndLogin(page, request, { ...AUTH, label: "regex-anchored" });
-    expect(creds.email).toContain("hel1683");
-    const longCell = "a".repeat(LONG_CELL_LENGTH);
-    const pipelineId = await seed(page, longCell, LONG_ROWS);
-    const sample = page.waitForResponse((r) =>
-      SAMPLE_URL.test(new URL(r.url()).pathname + new URL(r.url()).search),
-    );
-    await page.goto(`/pipelines/${pipelineId}`);
-    await sample;
-    await expect(page.getByRole("region", { name: /^Rows after step 1/ })).toBeVisible();
-    await page.waitForLoadState("networkidle");
-    const pattern = page.getByRole("textbox", { name: "Pattern" });
-    await expect(pattern).toBeVisible();
-    const rows = page.getByRole("region", { name: /^Rows after step 1/ });
+  test(
+    "a start-anchored pattern over long cells is evaluated on the client without blocking the main thread",
+    { tag: "@prod-build" },
+    async ({ page, request }) => {
+      const creds = await registerAndLogin(page, request, { ...AUTH, label: "regex-anchored" });
+      expect(creds.email).toContain("hel1683");
+      const longCell = "a".repeat(LONG_CELL_LENGTH);
+      const pipelineId = await seed(page, longCell, LONG_ROWS);
+      const sample = page.waitForResponse((r) =>
+        SAMPLE_URL.test(new URL(r.url()).pathname + new URL(r.url()).search),
+      );
+      await page.goto(`/pipelines/${pipelineId}`);
+      await sample;
+      await expect(page.getByRole("region", { name: /^Rows after step 1/ })).toBeVisible();
+      await page.waitForLoadState("networkidle");
+      const pattern = page.getByRole("textbox", { name: "Pattern" });
+      await expect(pattern).toBeVisible();
+      const rows = page.getByRole("region", { name: /^Rows after step 1/ });
 
-    await startLongTaskWindow(page);
-    const api = recordApi(page);
-    await pattern.fill(ANCHORED_PATTERN);
-    await expect(page.getByText("Draft · unsaved changes")).toBeVisible();
-    // The saved pattern matches nothing (out is empty), so the cells can only hold the cell text if a run of `^(.*)$` produced them.
-    await expect
-      .poll(async () => (await outColumnCells(rows)).filter((c) => c.startsWith("aaaa")).length, {
-        message: "the rows table shows the anchored pattern's out cells",
-        timeout: 15_000,
-      })
-      .toBe(LONG_ROWS);
-    await page.waitForTimeout(1500);
-    const requests = api.stop();
-    const reading = await longestTask(page);
-    console.log(
-      `[HEL-1807 e2e] anchored longest long task: ${reading.longest.toFixed(1)} ms (tasks: ${reading.all.map((n) => n.toFixed(1)).join(", ")}); requests: ${requests.join(", ")}`,
-    );
-    expect(
-      requests.filter((r) => r.includes("/draft-preview")),
-      `the anchored pattern is client-evaluated (no draft-preview request): ${requests.join(", ")}`,
-    ).toEqual([]);
-    expect(
-      reading.longest,
-      `anchored pattern ${ANCHORED_PATTERN}: longest main-thread task was ${reading.longest.toFixed(1)} ms, must be <= ${LONG_TASK_BOUND_MS} ms`,
-    ).toBeLessThanOrEqual(LONG_TASK_BOUND_MS);
-    expect(await outColumnCells(rows), "every out cell holds the whole cell").toEqual(
-      Array.from({ length: LONG_ROWS }, () => longCell),
-    );
-  });
+      await startLongTaskWindow(page);
+      const api = recordApi(page);
+      await pattern.fill(ANCHORED_PATTERN);
+      await expect(page.getByText("Draft · unsaved changes")).toBeVisible();
+      // The saved pattern matches nothing (out is empty), so the cells can only hold the cell text if a run of `^(.*)$` produced them.
+      await expect
+        .poll(async () => (await outColumnCells(rows)).filter((c) => c.startsWith("aaaa")).length, {
+          message: "the rows table shows the anchored pattern's out cells",
+          timeout: 15_000,
+        })
+        .toBe(LONG_ROWS);
+      await page.waitForTimeout(1500);
+      const requests = api.stop();
+      const reading = await longestTask(page);
+      console.log(
+        `[HEL-1807 e2e] anchored longest long task: ${reading.longest.toFixed(1)} ms (tasks: ${reading.all.map((n) => n.toFixed(1)).join(", ")}); requests: ${requests.join(", ")}`,
+      );
+      expect(
+        requests.filter((r) => r.includes("/draft-preview")),
+        `the anchored pattern is client-evaluated (no draft-preview request): ${requests.join(", ")}`,
+      ).toEqual([]);
+      expect(
+        reading.longest,
+        `anchored pattern ${ANCHORED_PATTERN}: longest main-thread task was ${reading.longest.toFixed(1)} ms, must be <= ${LONG_TASK_BOUND_MS} ms`,
+      ).toBeLessThanOrEqual(LONG_TASK_BOUND_MS);
+      expect(await outColumnCells(rows), "every out cell holds the whole cell").toEqual(
+        Array.from({ length: LONG_ROWS }, () => longCell),
+      );
+    },
+  );
 });

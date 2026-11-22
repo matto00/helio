@@ -332,7 +332,8 @@ set to `1`, the only projects are `prod-build-guard` (fails closed unless the se
 (only the tagged tests, service workers blocked). In CI the tagged tests run in the dedicated `e2e-prod-build` job, not in a shard
 leg. `npm run check:e2e-prod-build-projects` (and its `:selftest`) fails when a tagged test would run on the dev server or an
 untagged test in the prod-build job. The first user is the burst test in `e2e/hel1631-draft-mode.spec.ts` (cited by its title,
-"a burst of client-evaluable edits sends no request ..."); budgets are never relaxed by moving a test to the tag.
+"a burst of client-evaluable edits sends no request ..."); `e2e/hel1632-live-output.spec.ts` and the three main-thread
+probes in `e2e/hel1683-regex-main-thread.spec.ts` (HEL-1816) use it too; budgets are never relaxed by moving a test to the tag.
 
 Locally, `npm run e2e` runs the dev-server suite and `npm run e2e:prod-build` builds the frontend, serves it with `vite preview`
 on `DEV_PORT`, runs the tagged tests and stops its own preview server on every exit path. The port must be free: in a lane stop

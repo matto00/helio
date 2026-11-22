@@ -94,6 +94,8 @@ untagged test, against the Vite dev server); set to `1`, the only projects are `
 fails closed unless `baseURL` serves a production build, not the dev server) and `prod-build` (only the tagged tests, service
 workers blocked). In CI the tagged tests run in the dedicated `e2e-prod-build` job (build, `vite preview`, same backend setup),
 not in a shard leg. `npm run check:e2e-prod-build-projects` keeps the partition honest; locally run `npm run e2e:prod-build`.
+Current users: the burst test in `hel1631-draft-mode.spec.ts`, `hel1632-live-output.spec.ts`, and all three tests in
+`hel1683-regex-main-thread.spec.ts` (HEL-1816: the 100 ms long-task bound is asserted on the production build, not the dev server).
 
 **Running it inside a concertino lane (HEL-1699).** The preview must serve on the lane's `DEV_PORT` (so the backend's CORS
 origin `http://localhost:$DEV_PORT` matches), and the lane's dev server holds that port, so stop the lane's servers first.

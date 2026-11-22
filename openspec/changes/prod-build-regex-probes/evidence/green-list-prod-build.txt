@@ -1,0 +1,8 @@
+Listing tests:
+  [prod-build-guard] › prod-build.guard.ts:7:5 › baseURL serves a production build, not the Vite dev server
+  [prod-build] › hel1631-draft-mode.spec.ts:183:7 › HEL-1631 draft mode (live) › a burst of client-evaluable edits sends no request of any kind and updates counts and rows within 50 ms each (the first edit within 100 ms)
+  [prod-build] › hel1632-live-output.spec.ts:260:7 › HEL-1632 live Output column › the 10-edit burst with a chart Output on screen keeps the HEL-1631 latency budget; input to live-output update measured
+  [prod-build] › hel1683-regex-main-thread.spec.ts:237:7 › HEL-1683 client regex main-thread guard (live) › a catastrophic extractRegex pattern in a draft never blocks the main thread for more than 100 ms
+  [prod-build] › hel1683-regex-main-thread.spec.ts:345:7 › HEL-1683 client regex main-thread guard (live) › a single-quantifier pattern over long cells is declined to the server and never blocks the main thread
+  [prod-build] › hel1683-regex-main-thread.spec.ts:400:7 › HEL-1683 client regex main-thread guard (live) › a start-anchored pattern over long cells is evaluated on the client without blocking the main thread
+Total: 6 tests in 4 files

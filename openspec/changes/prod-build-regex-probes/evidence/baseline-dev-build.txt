@@ -1,0 +1,19 @@
+
+Running 3 tests using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1683-regex-1795338889874-29429@example.test
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+[HEL-1683 e2e] probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/680f18a7-9323-440e-a401-e58db37db5e4/draft-preview; frames: none >= 30 ms; api: POST /api/pipelines/680f18a7-9323-440e-a401-e58db37db5e4/draft-preview@1176ms
+[HEL-1683 e2e] overrun longest long task: 0.0 ms; frames: none >= 30 ms; api: POST /api/pipelines/680f18a7-9323-440e-a401-e58db37db5e4/draft-preview@2437ms
+  ✓  1 [dev] › e2e/hel1683-regex-main-thread.spec.ts:235:7 › HEL-1683 client regex main-thread guard (live) › a catastrophic extractRegex pattern in a draft never blocks the main thread for more than 100 ms (13.2s)
+[HEL-1300 e2e] throwaway user: hel1683-regex-long-1795338902664-37780@example.test
+[HEL-1697 e2e] long-cell probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/6edc47f7-f6b6-4065-9a1b-9a9edefac0e9/draft-preview
+[HEL-1697 e2e] long-cell server outcome: time-budget error
+  ✓  2 [dev] › e2e/hel1683-regex-main-thread.spec.ts:342:7 › HEL-1683 client regex main-thread guard (live) › a single-quantifier pattern over long cells is declined to the server and never blocks the main thread (8.0s)
+[HEL-1300 e2e] throwaway user: hel1683-regex-anchored-1795338910675-52910@example.test
+[HEL-1807 e2e] anchored longest long task: 0.0 ms (tasks: ); requests: 
+  ✓  3 [dev] › e2e/hel1683-regex-main-thread.spec.ts:396:7 › HEL-1683 client regex main-thread guard (live) › a start-anchored pattern over long cells is evaluated on the client without blocking the main thread (5.5s)
+userCleanup: removed 0 of 3 conversation folders
+[HEL-1301 e2e] deleted 3 recorded throwaway user(s)
+
+  3 passed (27.3s)
