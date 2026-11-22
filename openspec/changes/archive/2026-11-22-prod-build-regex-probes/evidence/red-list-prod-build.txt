@@ -1,0 +1,5 @@
+Listing tests:
+  [prod-build-guard] › prod-build.guard.ts:7:5 › baseURL serves a production build, not the Vite dev server
+  [prod-build] › hel1631-draft-mode.spec.ts:183:7 › HEL-1631 draft mode (live) › a burst of client-evaluable edits sends no request of any kind and updates counts and rows within 50 ms each (the first edit within 100 ms)
+  [prod-build] › hel1632-live-output.spec.ts:260:7 › HEL-1632 live Output column › the 10-edit burst with a chart Output on screen keeps the HEL-1631 latency budget; input to live-output update measured
+Total: 3 tests in 3 files
