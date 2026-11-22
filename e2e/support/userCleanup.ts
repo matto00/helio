@@ -1,7 +1,6 @@
-import { appendFileSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { appendFileSync, mkdirSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
-import { readRegistryDir } from "./userCleanupCore.cjs";
-import { deleteUsersAndFolders } from "./userCleanupRun.cjs";
+import { deleteRegistryRun } from "./userCleanupRun.cjs";
 
 // HEL-1301 — every e2e run deletes the throwaway users it registered, by exact recorded id.
 //
@@ -70,13 +69,9 @@ export async function recordRegisteredUser(
   return { id, email };
 }
 
-/** globalTeardown: deletes exactly this run's recorded users, then removes the registry directory.
- *  On failure the directory is left in place (the ids stay recoverable by exact value) and it throws. */
+/** globalTeardown: deletes exactly this run's recorded users, then removes the registry directory. A delete
+ *  that did not commit leaves the directory in place (the ids stay recoverable by exact value) and throws; once
+ *  the delete committed the directory is always removed, and a failed folder removal throws a count-only error. */
 export function deleteRecordedUsers(): number {
-  const dir = process.env[REGISTRY_ENV];
-  if (!dir) return 0;
-  const records = readRegistryDir(dir);
-  if (records.length > 0) deleteUsersAndFolders(records);
-  rmSync(dir, { recursive: true, force: true });
-  return records.length;
+  return deleteRegistryRun(process.env[REGISTRY_ENV]);
 }

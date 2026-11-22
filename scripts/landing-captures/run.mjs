@@ -119,7 +119,11 @@ async function cleanup(created, sessionRest) {
     );
   }
   const { deleteUsersAndFolders } = require("../../e2e/support/userCleanupRun.cjs");
-  deleteUsersAndFolders([created.user], { label: "landing-captures cleanup" });
+  const folders = deleteUsersAndFolders([created.user], { label: "landing-captures cleanup" });
+  if (folders.failed > 0) {
+    console.error(`landing-captures cleanup: ${folders.failed} conversation folders not removed`);
+    process.exitCode = 1;
+  }
   console.log(`deleted throwaway user ${created.user.id}`);
 }
 
