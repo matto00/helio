@@ -126,7 +126,7 @@ describe("regexInputCost decline", () => {
 });
 
 // HEL-1807 -- a pattern whose every alternative starts with `^` is charged for the one match attempt V8 makes per cell, never
-// more than the per-position charge (design D2). Calibration: openspec/changes/anchored-regex-cost-refinement/calibration.md.
+// more than the per-position charge (design D2). Calibration: openspec/changes/archive/2026-11-21-anchored-regex-cost-refinement/calibration.md.
 describe("regexInputCost start-anchored patterns", () => {
   it("evaluates ^(.*)$ over 1,000 rows of 500-character cells on the client, with the cell as its own match", () => {
     // A = 1, W = 3, m = 2: 1,000 x (4 + 500 x 3) = 1.504e6 (it was 1,000 x (500 + 500 x 3 + 2 x 500^2) = 5.0e8).
