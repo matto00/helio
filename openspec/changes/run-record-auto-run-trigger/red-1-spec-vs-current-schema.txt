@@ -1,0 +1,15 @@
+22:49:13.650 INFO  [com-helio-api-routes-pipelines-PipelineRunHistorySchemaSpec-pekko.actor.default-dispatcher-5] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] PipelineRunHistorySchemaSpec:
+[info] GET /pipelines/:id/run-history
+[info] - should write one record per trigger source, and the schema enum lists exactly those sources *** FAILED ***
+[info]   Set("manual", "scheduled", "external") was not equal to Set("manual", "scheduled", "external", "auto-run") (PipelineRunHistorySchemaSpec.scala:150)
+[info] - should omit the unset Option fields on the shapes it seeds (the sparse wire the schema must admit)
+[info] - should validate every record against pipeline-run-record.schema.json, naming the failing location *** FAILED ***
+[info]   schema violations by trigger source (networknt messages start with the JSON path): Map(auto-run -> Vector($.errorLog: is missing but it is required, $.triggerSource: does not have a value in the enumeration [manual, scheduled, external]), external -> Vector($.rowCount: is missing but it is required, $.errorLog: is missing but it is required, $.completedAt: is missing but it is required), scheduled -> Vector($.rowCount: is missing but it is required), manual -> Vector($.errorLog: is missing but it is required))
+[info]   Map("auto-run" -> Vector("$.errorLog: is missing but it is required", "$.triggerSource: does not have a value in the enumeration [manual, scheduled, external]"), "external" -> Vector("$.rowCount: is missing but it is required", "$.errorLog: is missing but it is required", "$.completedAt: is missing but it is required"), "scheduled" -> Vector("$.rowCount: is missing but it is required"), "manual" -> Vector("$.errorLog: is missing but it is required")) was not empty (PipelineRunHistorySchemaSpec.scala:166)
+[info] - should report a violation with its JSON path (the location the red assertions rely on)
+[info] - should match the shared fixture the web client reads
+22:49:15.962 INFO  [com-helio-api-routes-pipelines-PipelineRunHistorySchemaSpec-pekko.actor.default-dispatcher-5] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] Run completed in 3 seconds, 101 milliseconds.
+[info] Tests: succeeded 3, failed 2, canceled 0, ignored 0, pending 0
+[error] 	com.helio.api.routes.pipelines.PipelineRunHistorySchemaSpec

@@ -1,0 +1,15 @@
+22:59:05.607 INFO  [com-helio-api-routes-pipelines-PipelineRunHistorySchemaSpec-pekko.actor.default-dispatcher-5] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] PipelineRunHistorySchemaSpec:
+[info] GET /pipelines/:id/run-history
+[info] - should write one record per trigger source, and the schema enum lists exactly those sources *** FAILED ***
+[info]   Set("manual", "scheduled", "external") was not equal to Set("manual", "scheduled", "external", "auto-run") (PipelineRunHistorySchemaSpec.scala:151)
+[info] - should omit the unset Option fields on the shapes it seeds (the sparse wire the schema must admit)
+[info] - should validate every record against pipeline-run-record.schema.json, naming the failing location *** FAILED ***
+[info]   schema violations by trigger source (networknt messages start with the JSON path): Map(auto-run -> Vector($.triggerSource: does not have a value in the enumeration [manual, scheduled, external]))
+[info]   Map("auto-run" -> Vector("$.triggerSource: does not have a value in the enumeration [manual, scheduled, external]")) was not empty (PipelineRunHistorySchemaSpec.scala:167)
+[info] - should report a violation with its JSON path (the location the red assertions rely on)
+[info] - should match the shared fixture the web client reads
+22:59:07.845 INFO  [com-helio-api-routes-pipelines-PipelineRunHistorySchemaSpec-pekko.actor.default-dispatcher-6] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] Run completed in 2 seconds, 964 milliseconds.
+[info] Tests: succeeded 3, failed 2, canceled 0, ignored 0, pending 0
+[error] 	com.helio.api.routes.pipelines.PipelineRunHistorySchemaSpec

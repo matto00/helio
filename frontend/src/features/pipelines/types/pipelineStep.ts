@@ -794,6 +794,11 @@ export interface RunTruncationRecord {
   notice?: string | null;
 }
 
+/** Every value the backend writes as a run's trigger source (`TriggerSource` in `PipelineRunService.scala`); the run-record
+ *  schema's `triggerSource` enum lists the same four (held by `runHistory.contract.test.ts`). */
+export const TRIGGER_SOURCES = ["manual", "scheduled", "external", "auto-run"] as const;
+export type TriggerSource = (typeof TRIGGER_SOURCES)[number];
+
 export interface PipelineRunRecord {
   id: string;
   pipelineId: string;
@@ -802,7 +807,7 @@ export interface PipelineRunRecord {
   completedAt: string | null;
   rowCount: number | null;
   errorLog: string | null;
-  triggerSource: "manual" | "scheduled" | "external";
+  triggerSource: TriggerSource;
   assertions: AssertionSummary;
   // Absent means NOT RECORDED -- see `RunTruncationRecord`'s own doc.
   truncation?: RunTruncationRecord;

@@ -1,0 +1,37 @@
+FAIL src/features/pipelines/services/runHistory.contract.test.ts
+  ● Test suite failed to run
+
+    src/features/pipelines/services/runHistory.contract.test.ts:4:10 - error TS2305: Module '"../types/pipelineStep"' has no exported member 'TRIGGER_SOURCES'.
+
+    4 import { TRIGGER_SOURCES } from "../types/pipelineStep";
+               ~~~~~~~~~~~~~~~
+    src/features/pipelines/services/runHistory.contract.test.ts:42:32 - error TS2367: This comparison appears to be unintentional because the types '"manual" | "scheduled" | "external"' and '"auto-run"' have no overlap.
+
+    42     expect(records.find((r) => r.triggerSource === "auto-run")?.rowCount).toBe(3);
+                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+FAIL src/features/home/ui/TimelineMark.details.test.tsx
+  ● MarkDetails trigger label (HEL-1815) › labels auto-run as Auto-run
+
+    expect(element).toHaveTextContent()
+
+    Expected element to have text content:
+      3 rows · Auto-run
+    Received:
+      Pipesucceeded · 16:00 · 5s3 rows · auto-run
+
+      30 |       />,
+      31 |     );
+    > 32 |     expect(screen.getByRole("tooltip")).toHaveTextContent(`3 rows · ${label}`);
+         |                                         ^
+      33 |   });
+      34 | });
+      35 |
+
+      at src/features/home/ui/TimelineMark.details.test.tsx:32:41
+
+Test Suites: 2 failed, 2 total
+Tests:       1 failed, 3 passed, 4 total
+Snapshots:   0 total
+Time:        3.608 s
+Ran all test suites matching src/features/pipelines/services/runHistory.contract.test.ts|src/features/home/ui/TimelineMark.details.test.tsx.
