@@ -1,0 +1,25 @@
+# HEL-1807 cycle 2: red run of the staged tested-bound tests on the cycle-1 code (regexInputCost.test.ts, 3 workers); the surrogate test is a guard and passes
+
+FAIL src/features/pipelines/evaluator/regexInputCost.test.ts
+  ● regexInputCost start-anchored patterns › decision scan › skips the exact scan when the tested bound already fits (no tail, the first run covers the cell)
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 0
+    Received: 3998000
+
+      206 |         expect(workExceedsBudget(cells, work("^(\\d+)"))).toBe(false);
+      207 |       });
+    > 208 |       expect(reads).toBe(0);
+          |                     ^
+      209 |       expect(run("^(\\d+)", 1000, "1".repeat(3999))).toEqual(DECLINED);
+      210 |     });
+      211 |
+
+      at Object.<anonymous> (src/features/pipelines/evaluator/regexInputCost.test.ts:208:21)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 25 passed, 26 total
+Snapshots:   0 total
+Time:        4.72 s, estimated 5 s
+Ran all test suites matching src/features/pipelines/evaluator/regexInputCost.test.ts.

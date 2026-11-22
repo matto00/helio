@@ -3,6 +3,8 @@
 // REGEX_WORK_BUDGET (4.00e6 units) so that exactly one term of the cost formula decides it.
 
 import { clientEvaluable, evaluateStep, type RunContext } from "./evaluateStep";
+import { compileJavaRegex } from "./javaRegex";
+import { workExceedsBudget } from "./regexInputCost";
 import type { Frame } from "./value";
 
 const none: RunContext = { lane: () => undefined, source: () => undefined };
@@ -119,6 +121,106 @@ describe("regexInputCost decline", () => {
     it("measures UTF-16 units, not code points", () => {
       // 2,001 astral characters are 4,002 UTF-16 units: 4.002e6 over 1,000 rows (2.001e6 by code points).
       expect(run("(a+)", 1000, "\u{1f600}".repeat(2001))).toEqual(DECLINED);
+    });
+  });
+});
+
+// HEL-1807 -- a pattern whose every alternative starts with `^` is charged for the one match attempt V8 makes per cell, never
+// more than the per-position charge (design D2). Calibration: openspec/changes/anchored-regex-cost-refinement/calibration.md.
+describe("regexInputCost start-anchored patterns", () => {
+  it("evaluates ^(.*)$ over 1,000 rows of 500-character cells on the client, with the cell as its own match", () => {
+    // A = 1, W = 3, m = 2: 1,000 x (4 + 500 x 3) = 1.504e6 (it was 1,000 x (500 + 500 x 3 + 2 x 500^2) = 5.0e8).
+    const cell = "a".repeat(500);
+    const outcome = evaluateStep(step("^(.*)$"), frame(1000, cell), none);
+    expect(outcome.status).toBe("ok");
+    if (outcome.status !== "ok") return;
+    expect(outcome.rows).toHaveLength(1000);
+    expect(outcome.rows.every((r) => r.out === cell)).toBe(true);
+  });
+
+  it("charges R0 (the first run) per cell: ^(.*)x is client-side at 1,998 characters and declined at 2,000", () => {
+    // A = 1, W = 2, m = 1: 3 + 2 x len per cell, so 3.999e6 and 4.003e6 over 1,000 rows.
+    expect(run("^(.*)x", 1000, "a".repeat(1998))).toEqual(OK);
+    expect(run("^(.*)x", 1000, "a".repeat(2000))).toEqual(DECLINED);
+  });
+
+  it("keeps a partly anchored pattern at the per-position charge", () => {
+    // Only the first alternative is anchored: V8 tries `y` at every position, so the quadratic charge stands.
+    expect(run("^(.*)x|y", 1000, "a".repeat(500))).toEqual(DECLINED);
+    expect(run("(a)^b|(.*)x", 1000, "a".repeat(500))).toEqual(DECLINED);
+  });
+
+  it("never charges an anchored pattern more than the per-position charge", () => {
+    // ^(a{1000})b: the anchored form alone is 1,001 + 10 per 10-character cell (1.01e7 over 10,000 rows); the
+    // per-position charge is 10 + 10 x min(10, 1001) = 110 per cell (1.1e6), and the smaller of the two decides.
+    expect(run("^(a{1000})b", 10000, "a".repeat(10))).toEqual(OK);
+  });
+
+  it("charges only the constant for a cell that starts outside the pattern's characters", () => {
+    // R0 = 0: 3 per cell however long the cell is, where the per-position scan would charge 20,000 per cell.
+    expect(run("^(a*)b", 1000, "c" + "a".repeat(20000))).toEqual(OK);
+    expect(run("(a*)b", 1000, "c" + "a".repeat(20000))).toEqual(DECLINED);
+  });
+
+  it("still declines a lone-surrogate cell of an anchored pattern that costs too much", () => {
+    // 5,000 unpaired surrogates are 10,000 units of the one run: 3 + 2 x 10,000 per cell, 2.0e7 over 1,000 rows.
+    expect(run("^(.*)x", 1000, "\ud800".repeat(5000))).toEqual(DECLINED);
+  });
+
+  it("keeps multiline mode unreachable: an inline flag is unsafeRegex", () => {
+    // Guard, not a red test: V8 anchors `^` per line under `(?m)`, which the model does not charge.
+    expect(clientEvaluable(step("(?m)^(.*)$"), none)).toEqual({ ok: false, reason: "unsafeRegex" });
+  });
+
+  describe("decision scan", () => {
+    const work = (pattern: string) => {
+      const compiled = compileJavaRegex(pattern);
+      if (!compiled.ok) throw new Error(`${pattern} declined`);
+      return compiled.work;
+    };
+    const countReads = (fn: () => void): number => {
+      const spy = jest.spyOn(String.prototype, "codePointAt");
+      try {
+        fn();
+        return spy.mock.calls.length;
+      } finally {
+        spy.mockRestore();
+      }
+    };
+
+    it("reads only the first run of a cell whose anchored charge is already the smaller one", () => {
+      // ^(a*)b on `aaac` + 20,000 `a`: R0 = 3, charge 3 + 2 x 3 = 9 <= len, so nothing past the first character
+      // outside the pattern's characters is read.
+      const cells = Array.from({ length: 1000 }, () => "aaac" + "a".repeat(20000));
+      const reads = countReads(() => {
+        expect(workExceedsBudget(cells, work("^(a*)b"))).toBe(false);
+      });
+      expect(reads).toBeLessThanOrEqual(1000 * (3 + 1));
+    });
+
+    it("skips the exact scan when the tested bound already fits (no tail, the first run covers the cell)", () => {
+      // ^(\\d+) on 3,998 digits: A = 1, W = 1, m = 0, so 2 + 3,998 = 4,000 per cell, exactly the budget over 1,000 rows. The
+      // surrogate-free bound (2 x length) is twice that, but the tested bound equals the charge, so no cell is scanned.
+      const cells = Array.from({ length: 1000 }, () => "1".repeat(3998));
+      const reads = countReads(() => {
+        expect(workExceedsBudget(cells, work("^(\\d+)"))).toBe(false);
+      });
+      expect(reads).toBe(0);
+      expect(run("^(\\d+)", 1000, "1".repeat(3999))).toEqual(DECLINED);
+    });
+
+    it("doubles an unpaired surrogate in the tested bound and the exact charge", () => {
+      // ^(.+): 2 + 2 units per `\\ud800`; 1,999 of them are 4,000 per cell at the budget, 2,000 are over it (a guard: the model charged this before too).
+      expect(run("^(.+)", 1000, "\ud800".repeat(1999))).toEqual(OK);
+      expect(run("^(.+)", 1000, "\ud800".repeat(2000))).toEqual(DECLINED);
+    });
+
+    it("reads at most one character of a cell that starts outside the pattern's characters", () => {
+      const cells = Array.from({ length: 1000 }, () => "c" + "a".repeat(20000));
+      const reads = countReads(() => {
+        expect(workExceedsBudget(cells, work("^(a*)b"))).toBe(false);
+      });
+      expect(reads).toBeLessThanOrEqual(1000);
     });
   });
 });

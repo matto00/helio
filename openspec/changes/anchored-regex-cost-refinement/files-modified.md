@@ -1,0 +1,10 @@
+- `frontend/src/features/pipelines/evaluator/javaRegexCost.ts` — `startAnchored` on the flattened tree; `RegexWork.anchored`
+- `frontend/src/features/pipelines/evaluator/regexInputCost.ts` — anchored `cellWork` (one-pass first-run scan, min with per-position charge) and surrogate-free anchored `cellWorkBound`
+- `frontend/src/features/pipelines/evaluator/regexInputCost.test.ts` — AC test (`^(.*)$` 1,000 x 500 client-side), threshold, partly-anchored, min, scan-bound and `(?m)` guards
+- `frontend/src/features/pipelines/evaluator/regexWorkModel.test.ts` — `anchored` eligibility table
+- `frontend/src/features/pipelines/evaluator/regexCellWork.test.ts` — exact anchored charges and the anchored bound property test (incl. lone-surrogate cells)
+- `e2e/hel1683-regex-main-thread.spec.ts` — third test: anchored pattern over 12 x 10,000 cells is client-evaluated, no long task over 100 ms
+- `openspec/changes/anchored-regex-cost-refinement/` — calibration.md, calibrate-anchored.mjs, red-run.txt, red-run-e2e.txt, e2e-green-run.txt, mutations.txt, tasks.md ticks
+- `frontend/src/features/pipelines/evaluator/regexInputCost.ts` (cycle 2) — staged anchored bound in `workExceedsBudget` (surrogate-free, then tested, then exact scan); `regexInputCost.test.ts` — two tests (tested bound skips the scan; lone-surrogate guard)
+- `openspec/changes/anchored-regex-cost-refinement/` (cycle 2) — calibrate-anchored.mjs group G, calibration.md final-gate section, red-run-cycle2.txt, mutations M7, skeptic-final-1.md / evaluation-1.md as found
+- `openspec/changes/anchored-regex-cost-refinement/` (cycle 3) — calibrate-anchored.mjs group H (mixed lone-surrogate rows, per-stage loosest inputs), calibration.md corrected (Verdicts, Accepted risk, Change paragraph, headroom, lessons, process note), mutations.txt process note, skeptic-final-2.md; no source change
