@@ -1,5 +1,7 @@
+import { useRef } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 import {
   previewOutput,
   resetRunScopedState,
@@ -33,11 +35,14 @@ export function usePipelineRunStream({
   draftSaveInFlightRef,
   refreshRunHistoryAfterRun,
 }: UsePipelineRunStreamArgs) {
+  // HEL-1810: sign-out unmounts the pipeline page, so one mount belongs to one session.
+  const startEpoch = useRef(getSessionEpoch());
   const sseData = usePipelineRunEvents({
     pipelineId: id,
     active: sseActive,
     onTerminal: (event: RunStatusEventData) => {
       setSseActive(false);
+      if (getSessionEpoch() !== startEpoch.current) return;
       // HEL-878 (task 2.4): the SSE half of the single-reset-path unification --
       // covers a run that was already in flight when this page mounted (the
       // submitPipelineRun.pending reset in outputsSlice only fires for a run

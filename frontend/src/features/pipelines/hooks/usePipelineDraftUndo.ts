@@ -2,6 +2,7 @@ import { useCallback, useRef } from "react";
 import type { MutableRefObject } from "react";
 
 import type { useAppDispatch } from "../../../hooks/reduxHooks";
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
 import { undoPatchSet } from "../../patchSets/services/patchSetService";
 import type { useToast } from "../../toasts/hooks/useToast";
@@ -45,11 +46,15 @@ export function usePipelineDraftUndo({
       if (!id) return;
       // One undo per application: a second click (or a stale toast's) can only be refused by the server.
       if (undoneRef.current.has(applicationId)) return;
+      // HEL-1810: nothing after an await below runs under a session other than the one that asked for the undo.
+      const startEpoch = getSessionEpoch();
       try {
         await undoPatchSet(applicationId);
+        if (getSessionEpoch() !== startEpoch) return;
         undoneRef.current.add(applicationId);
         if (savedToastRef.current?.applicationId === applicationId) dismissSavedToast();
         const summary = await getPipelineWithDefinition(id);
+        if (getSessionEpoch() !== startEpoch) return;
         if (!mountedRef.current) return;
         if (summary.definition)
           adoptDefinition(id, { ...summary.definition, roots: summary.roots });

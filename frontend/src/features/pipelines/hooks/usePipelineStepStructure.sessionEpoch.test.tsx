@@ -24,7 +24,7 @@ const PAYLOAD = { kind: "table", name: "n", config: {} };
 const STEP = { id: "step-new" } as never;
 const OUTPUT = { id: "out-new" } as never;
 
-function setup() {
+function setup(setSteps: jest.Mock = jest.fn()) {
   return renderHook(
     () =>
       usePipelineStepStructure({
@@ -32,7 +32,7 @@ function setup() {
         dispatch: store.dispatch,
         roots: [],
         stepsRef: { current: [] },
-        setSteps: jest.fn(),
+        setSteps,
         setStepsInitialized: jest.fn(),
         pushToast: jest.fn() as never,
         pendingDraftMetaRef: { current: new Map() },
@@ -136,5 +136,32 @@ describe("handleAddOutputViaAggregateTail after sign-out", () => {
       await settled;
     });
     expect(deletePipelineStep).not.toHaveBeenCalled();
+  });
+});
+
+describe("handleAddOutputViaAggregateTail rollback in the same session", () => {
+  it("removes the orphaned step locally and deletes it when createOutput rejects", async () => {
+    jest.mocked(createPipelineStep).mockResolvedValue(STEP);
+    jest.mocked(getPipelineSteps).mockResolvedValue([]);
+    jest.mocked(createOutput).mockRejectedValue(new Error("create failed"));
+    jest.mocked(deletePipelineStep).mockResolvedValue(undefined as never);
+    const setSteps = jest.fn();
+    const { result } = setup(setSteps);
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await result.current
+        .handleAddOutputViaAggregateTail("p", AGG, PAYLOAD)
+        .catch((err: unknown) => err);
+      await flushPromises();
+    });
+    expect(outcome).toEqual(new Error("create failed"));
+    expect(deletePipelineStep).toHaveBeenCalledWith("step-new");
+    const filter = setSteps.mock.calls
+      .map(([arg]) => arg)
+      .filter(
+        (arg): arg is (prev: { id: string }[]) => { id: string }[] => typeof arg === "function",
+      )
+      .pop();
+    expect(filter?.([{ id: "step-new" }, { id: "keep" }])).toEqual([{ id: "keep" }]);
   });
 });

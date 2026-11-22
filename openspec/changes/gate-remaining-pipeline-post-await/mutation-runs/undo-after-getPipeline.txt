@@ -1,0 +1,27 @@
+MUTATION: undo-after-getPipeline in usePipelineDraftUndo.ts (replace occurrence 1)
+exit=1
+FAIL src/features/pipelines/hooks/usePipelineDraftUndo.sessionEpoch.test.tsx
+  ● undo › adopts, refetches and toasts nothing when the session ends during getPipelineWithDefinition
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "pipe-A", {"outputs": [], "roots": [], "steps": []}
+
+      110 |       await flushPromises();
+      111 |     });
+    > 112 |     expect(adoptDefinition).not.toHaveBeenCalled();
+          |                                 ^
+      113 |     expect(getPipelineById).not.toHaveBeenCalled();
+      114 |     expect(dispatch).not.toHaveBeenCalled();
+      115 |     expect(pushToast).not.toHaveBeenCalled();
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineDraftUndo.sessionEpoch.test.tsx:112:33)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 2 passed, 3 total
+Snapshots:   0 total
+Time:        3.59 s, estimated 4 s
+Ran all test suites matching src/features/pipelines/hooks/usePipelineDraftUndo.sessionEpoch.
