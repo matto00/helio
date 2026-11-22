@@ -1,0 +1,48 @@
+# HEL-1807 e2e anchored case on the pre-change model: fails because the declined step makes a draft-preview request
+# npx playwright test e2e/hel1683-regex-main-thread.spec.ts -g start-anchored --workers=1 (lane DB helio_hel1807, dev 7239, backend 10146)
+
+
+Running 1 test using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1683-regex-anchored-1795326273463-33321@example.test
+[HEL-1807 e2e] anchored longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/59b0a007-e500-4e0d-b9ef-1ba5ad925e76/draft-preview
+  ✘  1 [dev] › e2e/hel1683-regex-main-thread.spec.ts:396:7 › HEL-1683 client regex main-thread guard (live) › a start-anchored pattern over long cells is evaluated on the client without blocking the main thread (8.0s)
+userCleanup: removed 0 of 1 conversation folders
+[HEL-1301 e2e] deleted 1 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/hel1683-regex-main-thread.spec.ts:396:7 › HEL-1683 client regex main-thread guard (live) › a start-anchored pattern over long cells is evaluated on the client without blocking the main thread 
+
+    Error: the anchored pattern is client-evaluated (no draft-preview request): POST /api/pipelines/59b0a007-e500-4e0d-b9ef-1ba5ad925e76/draft-preview
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "POST /api/pipelines/59b0a007-e500-4e0d-b9ef-1ba5ad925e76/draft-preview",
+    + ]
+
+      433 |       requests.filter((r) => r.includes("/draft-preview")),
+      434 |       `the anchored pattern is client-evaluated (no draft-preview request): ${requests.join(", ")}`,
+    > 435 |     ).toEqual([]);
+          |       ^
+      436 |     expect(
+      437 |       reading.longest,
+      438 |       `anchored pattern ${ANCHORED_PATTERN}: longest main-thread task was ${reading.longest.toFixed(1)} ms, must be <= ${LONG_TASK_BOUND_MS} ms`,
+        at /home/matt/Development/helio/.claude/worktrees/feature/anchored-regex-cost-refinement/HEL-1807/e2e/hel1683-regex-main-thread.spec.ts:435:7
+
+    Error Context: test-results/hel1683-regex-main-thread--69f69-ut-blocking-the-main-thread-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1683-regex-main-thread--69f69-ut-blocking-the-main-thread-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1683-regex-main-thread--69f69-ut-blocking-the-main-thread-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [dev] › e2e/hel1683-regex-main-thread.spec.ts:396:7 › HEL-1683 client regex main-thread guard (live) › a start-anchored pattern over long cells is evaluated on the client without blocking the main thread 

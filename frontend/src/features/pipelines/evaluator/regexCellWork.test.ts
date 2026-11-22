@@ -83,3 +83,71 @@ describe("cellWorkBound", () => {
     expect(cellWorkBound("a\ud800", work)).toBe(4 + 4 * 1);
   });
 });
+
+// HEL-1807 -- start-anchored patterns: one attempt per cell, the smaller of the anchored and the per-position charge.
+describe("cellWork of a start-anchored pattern", () => {
+  it("charges f x (A x (1 + W) + R0 x (A + m)) for the first U-run R0", () => {
+    // ^(a*)b: A = 1, W = 2, m = 1. "aaab" is one run of 4: 3 + 4 x 2 = 11 (28 per position).
+    expect(cellWork("aaab", workOf("^(a*)b"))).toBe(11);
+    // "aa-aa": R0 = 2 (the second run is never tried): 3 + 2 x 2 = 7 (21 per position).
+    expect(cellWork("aa-aa", workOf("^(a*)b"))).toBe(7);
+  });
+
+  it("charges the constant for a cell whose first character is outside U", () => {
+    expect(cellWork("zzzz", workOf("^(a*)b"))).toBe(3);
+    expect(cellWork("zaaa", workOf("^(a*)b"))).toBe(3);
+  });
+
+  it("never exceeds the per-position charge of the same pattern", () => {
+    // ^(a{1000})b over `aaaa`: anchored 1,002 + 4, per position 4 + 4 x 4 = 20.
+    expect(cellWork("aaaa", workOf("^(a{1000})b"))).toBe(20);
+    expect(cellWork("", workOf("^(a{1000})b"))).toBe(0);
+  });
+
+  it("charges a partly anchored pattern per position, as without the anchor", () => {
+    expect(cellWork("aaab", workOf("^(a*)b|c"))).toBe(cellWork("aaab", workOf("(a*)b|c")));
+  });
+
+  it("counts an unpaired surrogate of the first run as two units", () => {
+    // ^(.*)x: A = 1, W = 2, m = 1. Three unpaired surrogates are one run of 6 units: 3 + 6 x 2 = 15 (9 at one unit each).
+    expect(cellWork("\ud800\ud800\ud800", workOf("^(.*)x"))).toBe(15);
+  });
+});
+
+describe("cellWorkBound of a start-anchored pattern", () => {
+  const cells = [
+    "",
+    "aaab",
+    "zzzz",
+    "aa-aa b",
+    "\ud800\ud800a",
+    "a\ude00",
+    "\ud83d\ude00a\ud83d\ude00",
+    "c" + "a".repeat(300),
+    "ab".repeat(300),
+    "1234.5-67 ABC-77 x".repeat(20),
+  ];
+  const patterns = [
+    "^(a*)b",
+    "^(.*)$",
+    "(^a*)b",
+    "^(\\d+\\.\\d+)",
+    "^(.{12})x",
+    "^(a+)",
+    "^(a{1000})b",
+    "^a*b|^c",
+  ];
+  it.each(patterns)("is an upper bound of cellWork for %s on every sample cell", (pattern) => {
+    const work = workOf(pattern);
+    for (const cell of cells)
+      expect(cellWorkBound(cell, work)).toBeGreaterThanOrEqual(cellWork(cell, work));
+  });
+
+  it("uses the surrogate-free length 2 x text.length, never testing the cell", () => {
+    // ^(a+): A = 1, W = 1, m = 0: L = 4 for two characters, min(4 + 4 x 1, 2 + 4) = 6, lone surrogate or not.
+    const work = workOf("^(a+)");
+    expect(cellWorkBound("aa", work)).toBe(6);
+    expect(cellWorkBound("a\ud800", work)).toBe(6);
+    expect(cellWorkBound("\ud83d\ude00", work)).toBe(6);
+  });
+});

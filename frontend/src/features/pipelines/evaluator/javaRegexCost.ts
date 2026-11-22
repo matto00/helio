@@ -150,6 +150,10 @@ const CLASS_FACTORS = [1.75, 2, 2] as const;
  * atoms and a wide atom's `min` included, at least 1), `m` the multiplier for a wide quantifier that has further items
  * after it (whose tail is re-run per give-back), `f` the class-width factor of the widest atom, and `chars` the union of
  * every atom's set (a start position outside it fails at once). Only meaningful for a pattern `isBacktrackBounded` accepted.
+ *
+ * HEL-1807 -- `anchored`: every top-level alternative starts with `^` (no multiline: `(?m)` is declined), so V8 makes one match
+ * attempt per cell, at position 0, and the cell is charged for that attempt alone (`regexInputCost.ts`). Calibrated in
+ * `openspec/changes/archive/2026-11-21-anchored-regex-cost-refinement/calibration.md`.
  */
 export interface RegexWork {
   A: number;
@@ -157,6 +161,20 @@ export interface RegexWork {
   m: number;
   f: number;
   chars: Ranges;
+  anchored: boolean;
+}
+
+/**
+ * Whether every alternative of the flattened tree starts with `^`, directly or through a group whose alternatives all do. An
+ * alternative with a consuming item before the `^` (`(a)^b`), with no item (`^a|`) or a `$` first is tried at every position.
+ */
+function startAnchored(alts: Item[][]): boolean {
+  return alts.every((seq) => {
+    const first = seq[0];
+    if (first === undefined) return false;
+    if (first.kind === "anchor") return !first.dollar;
+    return first.kind === "group" && startAnchored(first.alts);
+  });
 }
 
 function atomSets(alts: Item[][], out: Ranges[]): void {
@@ -187,5 +205,6 @@ export function regexWorkModel(root: Item[][]): RegexWork {
     m: Math.max(0, ...wides.filter((w) => w.hasNext).map((w) => paths * Math.max(1, w.tail))),
     f: classFactor(widestClass(alts)),
     chars: unionSets(sets),
+    anchored: startAnchored(alts),
   };
 }

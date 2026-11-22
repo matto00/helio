@@ -1,0 +1,42 @@
+# HEL-1807 e2e, full e2e/hel1683-regex-main-thread.spec.ts on the implementation (lane DB helio_hel1807, dev 7239, backend 10146, ANTHROPIC_API_KEY empty)
+
+
+Running 3 tests using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1683-regex-1795326912367-14741@example.test
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+[HEL-1683 e2e] probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/60b63f99-64f6-41c7-9ed7-8ab64b4fe619/draft-preview; frames: none >= 30 ms; api: POST /api/pipelines/60b63f99-64f6-41c7-9ed7-8ab64b4fe619/draft-preview@1128ms
+[HEL-1683 e2e] overrun longest long task: 0.0 ms; frames: none >= 30 ms; api: POST /api/pipelines/60b63f99-64f6-41c7-9ed7-8ab64b4fe619/draft-preview@2448ms
+  ✓  1 [dev] › e2e/hel1683-regex-main-thread.spec.ts:235:7 › HEL-1683 client regex main-thread guard (live) › a catastrophic extractRegex pattern in a draft never blocks the main thread for more than 100 ms (11.9s)
+[HEL-1300 e2e] throwaway user: hel1683-regex-long-1795326923802-50756@example.test
+[HEL-1697 e2e] long-cell probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/4da89c3c-c691-41c7-ab16-48b82052b37a/draft-preview
+[HEL-1697 e2e] long-cell server outcome: time-budget error
+  ✓  2 [dev] › e2e/hel1683-regex-main-thread.spec.ts:342:7 › HEL-1683 client regex main-thread guard (live) › a single-quantifier pattern over long cells is declined to the server and never blocks the main thread (8.1s)
+[HEL-1300 e2e] throwaway user: hel1683-regex-anchored-1795326931942-6476@example.test
+[HEL-1807 e2e] anchored longest long task: 0.0 ms (tasks: ); requests: 
+  ✓  3 [dev] › e2e/hel1683-regex-main-thread.spec.ts:396:7 › HEL-1683 client regex main-thread guard (live) › a start-anchored pattern over long cells is evaluated on the client without blocking the main thread (5.7s)
+userCleanup: removed 0 of 3 conversation folders
+[HEL-1301 e2e] deleted 3 recorded throwaway user(s)
+
+  3 passed (26.3s)
+
+# cycle 2 e2e rerun after the staged bound (full spec, 2 workers, lane DB, servers stopped after)
+
+Running 3 tests using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1683-regex-1795329552151-5749@example.test
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+[HEL-1683 e2e] probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/3edeaca8-60e3-4af3-930d-a1307aa35c8a/draft-preview; frames: none >= 30 ms; api: POST /api/pipelines/3edeaca8-60e3-4af3-930d-a1307aa35c8a/draft-preview@1143ms
+[HEL-1683 e2e] overrun longest long task: 0.0 ms; frames: none >= 30 ms; api: POST /api/pipelines/3edeaca8-60e3-4af3-930d-a1307aa35c8a/draft-preview@2431ms
+  ✓  1 [dev] › e2e/hel1683-regex-main-thread.spec.ts:235:7 › HEL-1683 client regex main-thread guard (live) › a catastrophic extractRegex pattern in a draft never blocks the main thread for more than 100 ms (13.0s)
+[HEL-1300 e2e] throwaway user: hel1683-regex-long-1795329564696-94293@example.test
+[HEL-1697 e2e] long-cell probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/557ed82f-7390-446a-8db1-630a62eefa94/draft-preview
+[HEL-1697 e2e] long-cell server outcome: time-budget error
+  ✓  2 [dev] › e2e/hel1683-regex-main-thread.spec.ts:342:7 › HEL-1683 client regex main-thread guard (live) › a single-quantifier pattern over long cells is declined to the server and never blocks the main thread (7.9s)
+[HEL-1300 e2e] throwaway user: hel1683-regex-anchored-1795329572614-51556@example.test
+[HEL-1807 e2e] anchored longest long task: 0.0 ms (tasks: ); requests: 
+  ✓  3 [dev] › e2e/hel1683-regex-main-thread.spec.ts:396:7 › HEL-1683 client regex main-thread guard (live) › a start-anchored pattern over long cells is evaluated on the client without blocking the main thread (5.3s)
+userCleanup: removed 0 of 3 conversation folders
+[HEL-1301 e2e] deleted 3 recorded throwaway user(s)
+
+  3 passed (26.8s)

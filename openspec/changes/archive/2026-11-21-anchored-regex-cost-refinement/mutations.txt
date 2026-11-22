@@ -1,0 +1,63 @@
+# HEL-1807 mutations (design D4): each applied to the committed implementation, the three regex test files run (3 workers), then reverted with git checkout
+# runner: .concertino scratch mutate.py; every mutation went red as listed (Tests: N failed).
+# Note: M2 in its first form (R0 -> 0 only where the first run ends inside the cell) was caught by the exact-value cellWork test only; the form below
+# also covers a first run that reaches the end of the cell, which the '^(.*)x' 1,998/2,000 threshold test needs.
+
+=== M1 eligibility forced false
+Tests:       14 failed, 54 passed, 68 total
+  RED cellWork of a start-anchored pattern › charges f x (A x (1 + W) + R0 x (A + m)) for the first U-run R0
+  RED cellWork of a start-anchored pattern › charges the constant for a cell whose first character is outside U
+  RED cellWork of a start-anchored pattern › counts an unpaired surrogate of the first run as two units
+  RED cellWorkBound of a start-anchored pattern › uses the surrogate-free length 2 x text.length, never testing the cell
+  RED regexInputCost start-anchored patterns › charges R0 (the first run) per cell: ^(.*)x is client-side at 1,998 characters and declined at 2,000
+  RED regexInputCost start-anchored patterns › charges only the constant for a cell that starts outside the pattern's characters
+  RED regexInputCost start-anchored patterns › decision scan › reads at most one character of a cell that starts outside the pattern's characters
+  RED regexInputCost start-anchored patterns › decision scan › reads only the first run of a cell whose anchored charge is already the smaller one
+  RED regexInputCost start-anchored patterns › evaluates ^(.*)$ over 1,000 rows of 500-character cells on the client, with the cell as its own match
+  RED regexWorkModel › ()^a has anchored=true
+  RED regexWorkModel › (^(a*)|^(c))b has anchored=true
+  RED regexWorkModel › (^a*)b has anchored=true
+  RED regexWorkModel › ^(.*)$ has anchored=true
+  RED regexWorkModel › ^a*b|^c has anchored=true
+=== M3 partly anchored treated as anchored (every -> some)
+Tests:       4 failed, 64 passed, 68 total
+  RED cellWork of a start-anchored pattern › charges a partly anchored pattern per position, as without the anchor
+  RED regexInputCost start-anchored patterns › keeps a partly anchored pattern at the per-position charge
+  RED regexWorkModel › ^(a*)b|(c) has anchored=false
+  RED regexWorkModel › ^a*b|c has anchored=false
+=== M2 R0 -> 0 (first run ending inside the cell and at its end)
+Tests:       4 failed, 64 passed, 68 total
+  RED cellWork of a start-anchored pattern › charges f x (A x (1 + W) + R0 x (A + m)) for the first U-run R0
+  RED cellWork of a start-anchored pattern › counts an unpaired surrogate of the first run as two units
+  RED regexInputCost start-anchored patterns › charges R0 (the first run) per cell: ^(.*)x is client-side at 1,998 characters and declined at 2,000
+  RED regexInputCost start-anchored patterns › still declines a lone-surrogate cell of an anchored pattern that costs too much
+=== M4 drop the min
+Tests:       10 failed, 58 passed, 68 total
+  RED cellWork of a start-anchored pattern › never exceeds the per-position charge of the same pattern
+  RED cellWorkBound of a start-anchored pattern › is an upper bound of cellWork for (^a*)b on every sample cell
+  RED cellWorkBound of a start-anchored pattern › is an upper bound of cellWork for ^(.*)$ on every sample cell
+  RED cellWorkBound of a start-anchored pattern › is an upper bound of cellWork for ^(.{12})x on every sample cell
+  RED cellWorkBound of a start-anchored pattern › is an upper bound of cellWork for ^(\d+\.\d+) on every sample cell
+  RED cellWorkBound of a start-anchored pattern › is an upper bound of cellWork for ^(a*)b on every sample cell
+  RED cellWorkBound of a start-anchored pattern › is an upper bound of cellWork for ^(a+) on every sample cell
+  RED cellWorkBound of a start-anchored pattern › is an upper bound of cellWork for ^(a{1000})b on every sample cell
+  RED cellWorkBound of a start-anchored pattern › is an upper bound of cellWork for ^a*b|^c on every sample cell
+  RED regexInputCost start-anchored patterns › never charges an anchored pattern more than the per-position charge
+=== M5 eligibility = any anchor in the sequence
+Tests:       2 failed, 66 passed, 68 total
+  RED regexWorkModel › (.*)^(x) has anchored=false
+  RED regexWorkModel › (a)^b has anchored=false
+=== M6 always run the full scan
+Tests:       2 failed, 66 passed, 68 total
+  RED regexInputCost start-anchored patterns › decision scan › reads at most one character of a cell that starts outside the pattern's characters
+  RED regexInputCost start-anchored patterns › decision scan › reads only the first run of a cell whose anchored charge is already the smaller one
+
+# Cycle 2 (final-gate round 1): staged tested bound
+# M7 drop the tested second bound (workExceedsBudget stage 2)
+=== M7 drop the tested second bound
+Tests:       1 failed, 69 passed, 70 total
+  RED regexInputCost start-anchored patterns › decision scan › skips the exact scan when the tested bound already fits (no tail, the first run covers the cell)
+
+# Process note (cycle 3): cycle 2 red output (red-run-cycle2.txt) was committed in the same commit as its fix, not before it. Cycle 3 changes no code.
+
+# Cycle 4: after the archive move, `nice -n 19 node calibrate-anchored.mjs F` was run from this directory and exited 0 (root now found by walking up to frontend/package.json).
