@@ -157,6 +157,29 @@ class DataSourceRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pipe
     ctx.withSystemContext(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))
 
+  /** HEL-1625: [[findByIdOwned]] for a set of ids in ONE statement -- the same user context and the same
+   *  `owner_id` predicate, so a source the caller does not own is simply absent (indistinguishable from unknown).
+   *  `ids` must be valid UUID strings (the column compares as uuid). Keyed by the id as stored. */
+  def findByIdsOwned(ids: Set[DataSourceId], user: AuthenticatedUser): Future[Map[DataSourceId, DataSource]] =
+    if (ids.isEmpty) Future.successful(Map.empty)
+    else {
+      val ownerUuid = UUID.fromString(user.id.value)
+      val idStrings = ids.map(_.value)
+      ctx.withUserContext(user.id.value)(
+        table.filter(r => r.id.inSet(idStrings) && r.ownerId === ownerUuid).result
+      ).map(_.map(rowToDomain).map(d => d.id -> d).toMap)
+    }
+
+  /** HEL-1625: [[findByIdInternal]] for a set of ids in ONE statement -- system context, no owner filter. Same
+   *  permitted callers as [[findByIdInternal]] (access to the pipeline that names these ids is already established). */
+  def findByIdsInternal(ids: Set[DataSourceId]): Future[Map[DataSourceId, DataSource]] =
+    if (ids.isEmpty) Future.successful(Map.empty)
+    else {
+      val idStrings = ids.map(_.value)
+      ctx.withSystemContext(table.filter(_.id.inSet(idStrings)).result)
+        .map(_.map(rowToDomain).map(d => d.id -> d).toMap)
+    }
+
   /** HEL-1206 design.md D2/D6 -- batched `id -> (name, canonical kind)` lookup for provenance: ONE
    *  query for any number of ids, projecting ONLY `id`/`name`/`source_type` so no `config`
    *  (credentials, connector ids, paths) is ever read on this path. An id that no longer exists is

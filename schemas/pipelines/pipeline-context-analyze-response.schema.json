@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/pipeline-context-analyze-response.schema.json",
+  "title": "PipelineContextAnalyzeResponse",
+  "description": "GET /api/pipelines/context-analyze response body (HEL-1625): at most one item per pipeline `GET /api/pipelines` returns for the same caller (owner-scoped, same order). Each item carries that pipeline's `steps` and `warnings`, equal to those of `GET /api/pipelines/:id/analyze` for the same pipeline and caller. A pipeline whose analysis could not be produced is omitted (the client analyzes it per pipeline). helio-mcp's `get_workspace_context` reads this instead of one analyze request per pipeline; `additionalProperties: false` so a renamed key fails validation on both the backend and the MCP test. Step schema fields reuse the analyze schema's SchemaField. `validationError` is omitted when absent (spray-json drops None); `null` is tolerated because helio-mcp's own type declares it. A warning's `code` is an opaque string here: the closed code list belongs to the analyze schema and the client never branches on it.",
+  "type": "object",
+  "$defs": {
+    "Step": {
+      "type": "object",
+      "required": ["id", "position", "type", "config", "inputSchema", "outputSchema"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "config": {
+          "type": "object"
+        },
+        "inputSchema": {
+          "type": "array",
+          "items": {
+            "$ref": "https://helio.local/schemas/pipelines/pipeline-analyze-response.schema.json#/$defs/SchemaField"
+          }
+        },
+        "outputSchema": {
+          "type": "array",
+          "items": {
+            "$ref": "https://helio.local/schemas/pipelines/pipeline-analyze-response.schema.json#/$defs/SchemaField"
+          }
+        },
+        "validationError": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Warning": {
+      "type": "object",
+      "required": ["stepId", "code", "message"],
+      "properties": {
+        "stepId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "PipelineContextAnalyzeItem": {
+      "type": "object",
+      "properties": {
+        "pipelineId": {
+          "type": "string"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Step"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Warning"
+          }
+        }
+      },
+      "required": ["pipelineId", "steps", "warnings"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PipelineContextAnalyzeItem"
+      }
+    }
+  },
+  "required": ["items"],
+  "additionalProperties": false
+}

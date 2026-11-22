@@ -15,9 +15,11 @@
  * aggregation if fan-out proves too chatty. Call budget (HEL-1619), P pipelines, Op Outputs with
  * panels, D distinct hosting dashboards: 8 fixed (sources, dashboards, pipelines, shapes,
  * preferences, memory, connectors, one outputs page) + 1 `GET /api/pipelines/context-details`
- * (every pipeline's steps and latest-run assertions at once) + P analyze + Op placements + D
- * dashboard exports. An older server answering 404 to the batched read costs P more (steps) and
- * P more (run-history) instead. At most `MAX_IN_FLIGHT` requests are in flight. Before HEL-1619
+ * (every pipeline's steps and latest-run assertions at once) + 1 `GET /api/pipelines/context-analyze`
+ * (HEL-1625: every pipeline's analyze steps and warnings at once) + A analyze (only the pipelines absent
+ * from that batch) + Op placements + D dashboard exports: 8 + 2 + Op + D + A, constant in P. An older
+ * server answering 404 to a batched read costs P more per read instead (steps and run-history for
+ * context-details, analyze for context-analyze). At most `MAX_IN_FLIGHT` requests are in flight. Before HEL-1619
  * it was 8 + 4P + (one per Output) + D with no cap: 339 requests, 220 in flight, on a
  * 55-pipeline / 110-Output workspace. See README "Context serializer" for the measured cost and
  * the escalation trigger.
@@ -37,6 +39,8 @@ import type {
   AssertionSummaryResponse,
   ConnectorSummary,
   OutputResponse,
+  PipelineAnalyzeResponse,
+  PipelineContextAnalyzeItemResponse,
   PipelineContextDetailsItemResponse,
   RowCountContractResponse,
 } from "./types.js";
@@ -272,6 +276,64 @@ function warnContextDetailsFallback(reason: string): void {
   process.stderr.write(
     `helio-mcp: GET /api/pipelines/context-details unusable (${reason}); reading each pipeline separately\n`,
   );
+}
+
+// ── Batched per-pipeline analyze (HEL-1625) ───────────────────────────────
+
+/** `GET /api/pipelines/context-analyze` keyed by pipeline id, or `null` when unavailable. Same contract as
+ *  [[fetchContextDetails]]: NEVER rejects, 404 silent, any other failure or a body without an `items` array writes
+ *  one stderr line naming the read. `null` makes every pipeline use `analyzePipeline`. */
+async function fetchContextAnalyze(
+  api: HelioApi,
+): Promise<Map<string, PipelineContextAnalyzeItemResponse> | null> {
+  try {
+    const response = await api.getPipelineContextAnalyze();
+    if (!Array.isArray((response as { items?: unknown } | undefined)?.items)) {
+      warnContextAnalyzeFallback("response has no items array");
+      return null;
+    }
+    return new Map(response.items.map((item) => [item.pipelineId, item]));
+  } catch (err) {
+    if (!(err instanceof HelioApiError && err.status === 404)) {
+      warnContextAnalyzeFallback(err instanceof Error ? err.message : String(err));
+    }
+    return null;
+  }
+}
+
+function warnContextAnalyzeFallback(reason: string): void {
+  process.stderr.write(
+    `helio-mcp: GET /api/pipelines/context-analyze unusable (${reason}); analyzing each pipeline separately\n`,
+  );
+}
+
+type AnalyzeInput = {
+  steps: PipelineAnalyzeResponse["steps"];
+  warnings?: PipelineAnalyzeResponse["warnings"];
+};
+
+/** The one step/warning mapping, fed by a batch item or by one pipeline's analyze body, so both paths produce the
+ *  same object. HEL-1414: the non-blocking warnings are grouped by step id (an older server may omit the field). */
+function mapAnalyzedSteps(analyzed: AnalyzeInput, concise: boolean) {
+  const warningsByStep = new Map<string, Array<{ code: string; message: string }>>();
+  for (const w of analyzed.warnings ?? []) {
+    const list = warningsByStep.get(w.stepId) ?? [];
+    list.push({ code: w.code, message: w.message });
+    warningsByStep.set(w.stepId, list);
+  }
+  return {
+    steps: analyzed.steps.map((step) => {
+      const outputColumns = step.outputSchema.map((f) => f.name);
+      const warnings = warningsByStep.get(step.id);
+      return {
+        position: step.position,
+        type: step.type,
+        ...(concise ? { outputColumnCount: outputColumns.length } : { outputColumns }),
+        validationError: step.validationError,
+        ...(warnings ? { warnings } : {}),
+      };
+    }),
+  };
 }
 
 export interface WorkspaceContextTruncation {
@@ -570,6 +632,8 @@ export async function buildWorkspaceContext(
   // HEL-1619: every pipeline's steps + latest-run assertions in one request, same pattern as
   // above (self-catching, started now, awaited after the fail-fast group); `null` = per-pipeline reads.
   const contextDetailsPromise = fetchContextDetails(api);
+  // HEL-1625: every pipeline's analyze steps + warnings in one request, same pattern.
+  const contextAnalyzePromise = fetchContextAnalyze(api);
 
   const [sourcesPage, dashboardsPage, pipelineSummaries, pipelineShapes] = await Promise.all([
     api.listDataSources(),
@@ -588,7 +652,15 @@ export async function buildWorkspaceContext(
     }
   }
 
-  // Fan out one analyze per pipeline for steps/output columns, plus -- only for a pipeline the
+  const contextAnalyze = await contextAnalyzePromise;
+  if (contextAnalyze) {
+    const absent = pipelineSummaries.filter((p) => !contextAnalyze.has(p.id)).length;
+    if (absent > 0) {
+      warnContextAnalyzeFallback(`omitted ${absent} of ${pipelineSummaries.length} pipelines`);
+    }
+  }
+
+  // Analyze per pipeline only for a pipeline the analyze batch did not cover; plus -- only for a pipeline the
   // batched read did not cover -- one run-history and one steps read.
   const pipelines = await Promise.all(
     pipelineSummaries.map(async (summary) => {
@@ -610,28 +682,8 @@ export async function buildWorkspaceContext(
       const [stepsResult, lastRunAssertions, laneTreeResult] = await Promise.all([
         (async () => {
           try {
-            const analyzed = await api.analyzePipeline(summary.id);
-            // HEL-1414: group the non-blocking analyze warnings by step id (an older server may
-            // omit the field entirely).
-            const warningsByStep = new Map<string, Array<{ code: string; message: string }>>();
-            for (const w of analyzed.warnings ?? []) {
-              const list = warningsByStep.get(w.stepId) ?? [];
-              list.push({ code: w.code, message: w.message });
-              warningsByStep.set(w.stepId, list);
-            }
-            return {
-              steps: analyzed.steps.map((step) => {
-                const outputColumns = step.outputSchema.map((f) => f.name);
-                const warnings = warningsByStep.get(step.id);
-                return {
-                  position: step.position,
-                  type: step.type,
-                  ...(concise ? { outputColumnCount: outputColumns.length } : { outputColumns }),
-                  validationError: step.validationError,
-                  ...(warnings ? { warnings } : {}),
-                };
-              }),
-            };
+            const batched = contextAnalyze?.get(summary.id);
+            return mapAnalyzedSteps(batched ?? (await api.analyzePipeline(summary.id)), concise);
           } catch (err) {
             return { steps: [], stepsError: (err as Error).message };
           }

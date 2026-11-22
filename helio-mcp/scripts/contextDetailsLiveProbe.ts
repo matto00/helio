@@ -1,11 +1,13 @@
 /**
- * HEL-1619 seam probe (design D10b, task 4.5): the REAL helio-mcp `HelioHttpClient` + `HelioApi` +
+ * HEL-1619 / HEL-1625 seam probe (design D10b, task 4.5): the REAL helio-mcp `HelioHttpClient` + `HelioApi` +
  * `buildWorkspaceContext` against a REAL backend that serves `GET /api/pipelines/context-details`.
  * Registers a throwaway user, seeds a multi-pipeline workspace over REST, builds the workspace context
  * and records the per-route request counts. It asserts:
- *   - zero `/api/pipelines/:id/steps` and zero `/api/pipelines/:id/run-history` requests (the MCP
- *     understood the real response; a silent fallback would send one of each per pipeline);
- *   - the payload equals the one the per-pipeline fallback produces from the same server.
+ *   - zero `/api/pipelines/:id/steps`, zero `/api/pipelines/:id/run-history` and (HEL-1625) zero
+ *     `/api/pipelines/:id/analyze` requests (the MCP understood both real responses; a silent fallback
+ *     would send one of each per pipeline);
+ *   - the payload equals the one the per-pipeline fallback (both batched reads forced to 404) produces
+ *     from the same server.
  *
  * Run (from helio-mcp/, backend already up):  npx tsx scripts/contextDetailsLiveProbe.ts <baseUrl> [pipelines]
  * The probe also fails if the build wrote a fallback warning to stderr, or if any `/api/outputs/:id/panels`
@@ -32,9 +34,9 @@ function countingFetch(counts: Map<string, number>, paths: string[]) {
 }
 
 async function main(): Promise<void> {
-  const email = `hel1619-probe-${Date.now()}@helio.test`;
+  const email = `hel1625-probe-${Date.now()}@helio.test`;
   const { cookie, userId } = await register(baseUrl, email, "probe-Passw0rd!x1");
-  const pat = await mintBootstrapPat(baseUrl, cookie, "hel1619");
+  const pat = await mintBootstrapPat(baseUrl, cookie, "hel1625");
   // The minted PAT is always revoked when the run ends (CONTRIBUTING, credential handling in delivery
   // evidence), pass or fail; a failed revocation fails the probe.
   try {
@@ -107,10 +109,12 @@ async function main(): Promise<void> {
     // Same server, per-pipeline fallback (the batched read forced to 404): the payload must match.
     const fallbackApi = new Proxy(new HelioApi(new HelioHttpClient(config, { warn: () => {} })), {
       get(target, prop, receiver) {
-        if (prop === "getPipelineContextDetails") {
+        if (prop === "getPipelineContextDetails" || prop === "getPipelineContextAnalyze") {
           return async () => {
             const { HelioApiError } = await import("../src/httpClient.js");
-            throw new HelioApiError(404, `${baseUrl}/api/pipelines/context-details`, "404");
+            const route =
+              prop === "getPipelineContextDetails" ? "context-details" : "context-analyze";
+            throw new HelioApiError(404, `${baseUrl}/api/pipelines/${route}`, "404");
           };
         }
         return Reflect.get(target, prop, receiver);
@@ -119,12 +123,34 @@ async function main(): Promise<void> {
     const fallback = await buildWorkspaceContext(fallbackApi, 50_000_000, false);
     process.stderr.write = realStderr;
 
+    // HEL-1625 measurements: the batched read alone, timed (median of 3) and sized, and one pipeline's analyze body.
+    const timed = async (path: string): Promise<{ ms: number; bytes: number }> => {
+      const t0 = performance.now();
+      const res = await fetch(`${baseUrl}${path}`, {
+        headers: { Authorization: `Bearer ${pat.token}` },
+      });
+      const text = await res.text();
+      return { ms: performance.now() - t0, bytes: Buffer.byteLength(text) };
+    };
+    const runs = [
+      await timed("/api/pipelines/context-analyze"),
+      await timed("/api/pipelines/context-analyze"),
+      await timed("/api/pipelines/context-analyze"),
+    ];
+    const median = runs.map((r) => r.ms).sort((a, b) => a - b)[1]!;
+    const onePipeline = await timed(`/api/pipelines/${pipelineIds[0]}/analyze`);
+
     const strip = (c: { generatedAt?: string }) => JSON.stringify({ ...c, generatedAt: undefined });
     const stepsReqs = paths.filter((p) => /\/api\/pipelines\/[^/]+\/steps$/.test(p)).length;
     const historyReqs = paths.filter((p) => /\/api\/pipelines\/[^/]+\/run-history$/.test(p)).length;
     const contextDetailsReqs = paths.filter((p) => p === "/api/pipelines/context-details").length;
+    const contextAnalyzeReqs = paths.filter((p) => p === "/api/pipelines/context-analyze").length;
+    const analyzeReqs = paths.filter((p) => /\/api\/pipelines\/[^/]+\/analyze$/.test(p)).length;
     const summaryReqs = paths.filter(
-      (p) => /^\/api\/pipelines\/[^/]+$/.test(p) && p !== "/api/pipelines/context-details",
+      (p) =>
+        /^\/api\/pipelines\/[^/]+$/.test(p) &&
+        p !== "/api/pipelines/context-details" &&
+        p !== "/api/pipelines/context-analyze",
     ).length;
     const panelsReqs = paths.filter((p) => /\/api\/outputs\/[^/]+\/panels$/.test(p)).length;
     const verdict = {
@@ -134,11 +160,16 @@ async function main(): Promise<void> {
       lanesWithSteps: batched.pipelines.filter((p) => p.laneTree.length > 0).length,
       requestsFor2Builds: [...counts.values()].reduce((a, b) => a + b, 0),
       contextDetailsReqs,
+      contextAnalyzeReqs,
+      analyzeReqs,
       stepsReqs,
       historyReqs,
       summaryReqs,
       panelsReqs,
       byRoute: Object.fromEntries([...counts].sort()),
+      contextAnalyzeMedianMs: Math.round(median),
+      contextAnalyzeBytes: runs[0]!.bytes,
+      onePipelineAnalyzeBytes: onePipeline.bytes,
       stderrWarnings: warnings,
       payloadEqualsPerPipelineFallback: strip(batched) === strip(fallback),
       conciseNonEmpty: batchedConcise.pipelines.length === PIPELINES,
@@ -148,6 +179,8 @@ async function main(): Promise<void> {
       verdict.pipelinesSeen === PIPELINES &&
       verdict.lanesWithSteps === PIPELINES &&
       contextDetailsReqs === 2 &&
+      contextAnalyzeReqs === 2 &&
+      analyzeReqs === 0 &&
       stepsReqs === 0 &&
       historyReqs === 0 &&
       summaryReqs === 0 &&

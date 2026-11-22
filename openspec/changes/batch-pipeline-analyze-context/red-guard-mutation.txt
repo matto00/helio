@@ -1,0 +1,10 @@
+# 4.3b mutation: PipelineAnalyzeReads.analyze upsertTargetProblems(allSteps, user.id) instead of pipeline.ownerId (reverted)
+[info] GET /api/pipelines/:id/analyze on a pipeline with an owner-owned upsert target
+[info] - should report no validationError for the owner, an editor grantee and a viewer grantee *** FAILED ***
+[info]   user 00000000-0000-0000-0000-0000000000b2: Some("Data source not found: 53e37d63-e9c0-49c4-bc17-41f98bc39f83") was not equal to None (PipelineAnalyzeUpsertGranteeGuardSpec.scala:31)
+[info] Tests: succeeded 0, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.pipelines.PipelineAnalyzeUpsertGranteeGuardSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 6 s, cache 93%, 27 disk cache hits, 2 onsite tasks

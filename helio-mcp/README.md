@@ -313,22 +313,26 @@ pipeline's `outputs` is then `[]` and `outputsError` carries the failure message
 from "no Outputs". A failure of the core fetches (sources, dashboards, pipelines, shapes) still fails the call with
 an `isError` rate-limit result.
 
-It is a **client-side fan-out** over existing endpoints, bounded (**HEL-1619**). Call budget, for `P` pipelines,
+It is a **client-side fan-out** over existing endpoints, bounded (**HEL-1619**, **HEL-1625**). Call budget, for `P` pipelines,
 `Op` Outputs that have at least one panel and `D` distinct dashboards hosting those panels:
 
 - **8 fixed** requests: data sources, dashboards, pipelines, pipeline shapes, preferences, agent memory, connectors,
   and one page of `GET /api/outputs`.
 - **+ 1** `GET /api/pipelines/context-details`: every pipeline's steps (for `laneTree`) and its latest run's
   assertion summary (`lastRunAssertions`) in one response.
-- **+ P** `GET /api/pipelines/:id/analyze` (steps' output columns; not batched, so the cost stays O(P)).
+- **+ 1** `GET /api/pipelines/context-analyze` (HEL-1625): every pipeline's analyze `steps` and `warnings` (steps'
+  output columns, `validationError`, warnings) in one response.
+- **+ A** `GET /api/pipelines/:id/analyze` for each pipeline the analyze batch omits (a pipeline whose analysis failed
+  on the server, or every pipeline when the batch is unavailable); normally 0 or a handful.
 - **+ Op** `GET /api/outputs/:id/panels`: an Output whose `GET /api/outputs` item reports `panelCount: 0` is not
   asked (its `placements` is `[]`); an item with no `panelCount` (older server) is asked.
 - **+ D** `GET /api/dashboards/:id/export` for each dashboard that hosts a placement (panel controls).
 
-Total `8 + 1 + P + Op + D`. Measured on the 55-pipeline / 110-Output / 19-placed / 1-dashboard fixture
-(`contextBudgetFixture.ts`, through the real `HelioHttpClient`): **84 requests, at most 6 in flight**, where the
-unbatched code sent **339 requests with 220 in flight**, past the default `RATE_LIMIT_REQUESTS_PER_WINDOW` of
-120 per 60 s. Every request goes through one per-call limiter (`MAX_IN_FLIGHT = 6`), fixed fetches included.
+Total `8 + 2 + Op + D + A`, **constant in P**. Measured on the 55-pipeline / 110-Output / 19-placed / 1-dashboard
+fixture (`contextBudgetFixture.ts`, through the real `HelioHttpClient`): **31 requests, at most 6 in flight**
+(A = 1: the fixture's one pipeline whose analysis fails), and the same 31 on a 200-pipeline fixture with the same
+placements. Before HEL-1625 it was 84 (`8 + 1 + P + Op + D`), and before HEL-1619 **339 requests with 220 in
+flight**, past the default `RATE_LIMIT_REQUESTS_PER_WINDOW` of 120 per 60 s. Every request goes through one per-call limiter (`MAX_IN_FLIGHT = 6`), fixed fetches included.
 
 The payload is byte-identical to the unbatched code's (`__golden__/` is the pre-change output on that fixture,
 asserted on every path below). If `GET /api/pipelines/context-details` is missing (an older server answers 404)
@@ -337,9 +341,12 @@ or fails, each pipeline is read as before (`run-history` and `GET /api/pipelines
 fallback other than a 404 writes one `helio-mcp: GET /api/pipelines/context-details unusable (...)` line to stderr,
 so a client/server shape mismatch is visible instead of silently costing about 3.5x the requests.
 
-**Still O(P):** `analyze` is one request per pipeline, so beyond roughly 100 pipelines one call exceeds 120 requests
-again. Batching `analyze` is the remaining step (a follow-up, not built). The consumer must also rebuild
-`helio-mcp/dist` (gitignored, not rebuilt by a merge) to get any of this.
+`GET /api/pipelines/context-analyze` follows the same rules: a 404 (an older server) is silent and every pipeline is
+analyzed as before (`8 + 2 + P + Op + D`, 85 on the fixture); a failure, a body without an `items` array, or omitted
+pipelines write one `helio-mcp: GET /api/pipelines/context-analyze unusable (...)` line, and exactly the omitted
+pipelines are analyzed per pipeline. The payload is the same on every path. The hosted MCP keeps the per-pipeline
+analyze until `deploy-mcp.sh` is run; the consumer must also rebuild `helio-mcp/dist` (gitignored, not rebuilt by a
+merge) to get any of this.
 
 For workspace-sized data (handfuls of each) this is comfortably fast. There is no more per-column sample-row/statistics fetch —
 that was the DataType/Metric enumeration (HEL-857's 220k-char overflow) that
@@ -347,7 +354,7 @@ no longer exists in this model; a 25-source/43-pipeline fixture
 (`context.test.ts`) verifies the result stays comfortably under the byte
 budget without a separate truncation strategy.
 
-**When to add a backend `/api/context`:** only if the remaining per-pipeline `analyze` calls become the bottleneck.
+**When to add a backend `/api/context`:** only if the remaining fixed and per-placement requests become the bottleneck.
 
 > **spray-json gotcha (load-bearing):** the backend omits `Option` fields that
 > are `None` from the JSON entirely. An Output attached directly to a

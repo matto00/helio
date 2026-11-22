@@ -1,7 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.domain.engine.PipelineAnalyzeService.AnalyzedStep
-import com.helio.domain.model.AuthenticatedUser
+import com.helio.domain.model.{AuthenticatedUser, DataSource, DataSourceId}
 import com.helio.domain.steps.{UpsertSourceConfig, UpsertSourceStep, UpsertTarget, UpsertTargetCheck}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 
@@ -19,21 +19,32 @@ private[pipelines] object UpsertTargetAnalysis {
    *  `upsertsource` step whose existing-source target is unknown, foreign or not a dataset. */
   def problems(steps: Seq[(String, String, String)], owner: AuthenticatedUser, repo: DataSourceRepository)(implicit
       ec: ExecutionContext
+  ): Future[Map[String, String]] =
+    problems(steps, (id: DataSourceId) => repo.findByIdOwned(id, owner))
+
+  /** [[problems]] with the target lookup supplied (HEL-1625): `resolve` MUST answer as the pipeline OWNER sees the
+   *  source (`findByIdOwned(_, owner)`), never as a calling grantee; the batched analyze read passes a map-backed one.
+   *  Classification text is [[UpsertTargetCheck.classify]], shared with step save and execution. */
+  def problems(steps: Seq[(String, String, String)], resolve: DataSourceId => Future[Option[DataSource]])(implicit
+      ec: ExecutionContext
   ): Future[Map[String, String]] = {
-    val targets = steps.collect {
-      case (stepId, op, raw) if op == UpsertSourceStep.Kind =>
-        Try(UpsertSourceConfig.decode(raw)).toOption.map(_.target).collect {
-          case UpsertTarget.ExistingSource(id) if id.trim.nonEmpty => stepId -> id
-        }
-    }.flatten
-    Future.traverse(targets) { case (stepId, targetId) =>
-      UpsertTargetCheck.checkExisting(targetId, owner, repo).map {
+    Future.traverse(targetIdsOf(steps)) { case (stepId, targetId) =>
+      resolve(DataSourceId(targetId)).map(UpsertTargetCheck.classify(targetId, _)).map {
         case UpsertTargetCheck.Writable         => None
         case UpsertTargetCheck.NotFound(msg)    => Some(stepId -> msg)
         case UpsertTargetCheck.NotWritable(msg) => Some(stepId -> msg)
       }
     }.map(_.flatten.toMap)
   }
+
+  /** `(stepId, rawTargetId)` of every `upsertsource` step with an existing-source target (the raw id, untrimmed). */
+  def targetIdsOf(steps: Seq[(String, String, String)]): Seq[(String, String)] =
+    steps.collect {
+      case (stepId, op, raw) if op == UpsertSourceStep.Kind =>
+        Try(UpsertSourceConfig.decode(raw)).toOption.map(_.target).collect {
+          case UpsertTarget.ExistingSource(id) if id.trim.nonEmpty => stepId -> id
+        }
+    }.flatten
 
   /** Keeps a step's own, earlier `validationError` when it already has one. */
   def overlay(projections: Map[String, AnalyzedStep], problems: Map[String, String]): Map[String, AnalyzedStep] =

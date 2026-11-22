@@ -1078,6 +1078,8 @@ final class ApiRoutes(
                   // HEL-1619: MUST precede PipelineRoutes -- its unconstrained PipelineIdSegment GET would
                   // otherwise swallow the literal "context-details" segment as a pipeline id.
                   new PipelineContextDetailsRoutes(pipelineService, pipelineRunService, authenticatedUser).routes,
+                  // HEL-1625: same shadowing reason as `context-details` above.
+                  new PipelineContextAnalyzeRoutes(pipelineService, authenticatedUser).routes,
                   // HEL-1630: `POST /api/pipelines/:id/draft-preview`; MUST precede PipelineRoutes for the same shadowing
                   // reason as above.
                   new DraftPreviewRoutes(draftPreviewService, authenticatedUser, draftPreviewRateLimitDirective, draftPreviewGate, draftPreviewConfig).routes,

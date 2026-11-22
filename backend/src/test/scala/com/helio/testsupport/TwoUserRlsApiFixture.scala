@@ -63,8 +63,12 @@ abstract class TwoUserRlsApiFixture
     cfg.setDataSource(embeddedDataSource); cfg.setMaximumPoolSize(size)
     val init = role.map(r => s"SET ROLE $r").toVector ++ applicationName.map(n => s"SET application_name = '$n'")
     if (init.nonEmpty) cfg.setConnectionInitSql(init.mkString("; "))
-    JdbcBackend.Database.forDataSource(new HikariDataSource(cfg), Some(size))
+    JdbcBackend.Database.forDataSource(wrapPool(role, new HikariDataSource(cfg)), Some(size))
   }
+
+  /** HEL-1625: a spec that counts JDBC statements overrides this to wrap a pool's outermost datasource
+   *  (`role` is the pool's SET ROLE, `None` = the superuser); the default is the pre-existing wiring. */
+  protected def wrapPool(role: Option[String], ds: DataSource): DataSource = ds
 
   protected val userA = "00000000-0000-0000-0000-0000000000b1"
   protected val userB = "00000000-0000-0000-0000-0000000000b2"

@@ -1,0 +1,248 @@
+# jest helio-mcp contextRequestBudget contextAnalyzeSeam helioApi.contextAnalyze, before implementation (goldens in all modes already pass on pre-change code)
+FAIL helio-mcp/src/helioApi.contextAnalyze.test.ts
+  ● Test suite failed to run
+
+    helio-mcp/src/helioApi.contextAnalyze.test.ts:23:28 - error TS2551: Property 'getPipelineContextAnalyze' does not exist on type 'HelioApi'. Did you mean 'getPipelineContextDetails'?
+
+    23     const body = await api.getPipelineContextAnalyze();
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+      helio-mcp/src/helioApi.ts:901:3
+        901   getPipelineContextDetails(): Promise<PipelineContextDetailsResponse> {
+              ~~~~~~~~~~~~~~~~~~~~~~~~~
+        'getPipelineContextDetails' is declared here.
+
+FAIL helio-mcp/src/contextAnalyzeSeam.test.ts
+  ● context-analyze seam: MCP fake body vs the committed schema (HEL-1625 D8) › the fake body every context test serves conforms to the committed schema
+
+    ENOENT: no such file or directory, open '/home/matt/Development/helio/.claude/worktrees/task/batch-pipeline-analyze-context/HEL-1625/schemas/pipelines/pipeline-context-analyze-response.schema.json'
+
+      21 | const SCHEMAS = join(__dirname, "..", "..", "schemas", "pipelines");
+      22 | const load = (file: string): object =>
+    > 23 |   JSON.parse(readFileSync(join(SCHEMAS, file), "utf8")) as object;
+         |                          ^
+      24 |
+      25 | function compile() {
+      26 |   const ajv = new Ajv2020({ allErrors: true, strict: false, validateFormats: false });
+
+      at load (helio-mcp/src/contextAnalyzeSeam.test.ts:23:26)
+      at compile (helio-mcp/src/contextAnalyzeSeam.test.ts:29:22)
+      at Object.<anonymous> (helio-mcp/src/contextAnalyzeSeam.test.ts:40:22)
+
+  ● context-analyze seam: MCP fake body vs the committed schema (HEL-1625 D8) › the schema rejects a renamed key, at the envelope, the item, the step and the warning level (the guard can fail)
+
+    ENOENT: no such file or directory, open '/home/matt/Development/helio/.claude/worktrees/task/batch-pipeline-analyze-context/HEL-1625/schemas/pipelines/pipeline-context-analyze-response.schema.json'
+
+      21 | const SCHEMAS = join(__dirname, "..", "..", "schemas", "pipelines");
+      22 | const load = (file: string): object =>
+    > 23 |   JSON.parse(readFileSync(join(SCHEMAS, file), "utf8")) as object;
+         |                          ^
+      24 |
+      25 | function compile() {
+      26 |   const ajv = new Ajv2020({ allErrors: true, strict: false, validateFormats: false });
+
+      at load (helio-mcp/src/contextAnalyzeSeam.test.ts:23:26)
+      at compile (helio-mcp/src/contextAnalyzeSeam.test.ts:29:22)
+      at Object.<anonymous> (helio-mcp/src/contextAnalyzeSeam.test.ts:65:22)
+
+helio-mcp: GET /api/pipelines/context-details unusable (500 500: boom); reading each pipeline separately
+helio-mcp: GET /api/pipelines/context-details unusable (500 500: boom); reading each pipeline separately
+helio-mcp: GET /api/pipelines/context-details unusable (omitted 1 of 55 pipelines); reading each pipeline separately
+helio-mcp: GET /api/pipelines/context-details unusable (omitted 1 of 55 pipelines); reading each pipeline separately
+FAIL helio-mcp/src/contextRequestBudget.test.ts (6.075 s)
+  ● get_workspace_context request budget (HEL-1619, HEL-1625) › sends exactly 8 + 2 + Op + D + A = 31 requests on the 55-pipeline fixture when both batched reads exist
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 31
+    Received: 84
+
+      48 |     const { stats } = await run({ contextDetails: "serve", contextAnalyze: "serve" });
+      49 |     // 8 fixed + context-details + context-analyze + 19 placements + 1 dashboard snapshot + 1 absent-pipeline analyze
+    > 50 |     expect(stats.total).toBe(
+         |                         ^
+      51 |       FIXED_REQUESTS + 2 + PLACED_OUTPUTS + DISTINCT_DASHBOARDS + ABSENT_FROM_ANALYZE_BATCH,
+      52 |     );
+      53 |     expect(stats.total).toBe(31);
+
+      at Object.<anonymous> (helio-mcp/src/contextRequestBudget.test.ts:50:25)
+
+  ● get_workspace_context request budget (HEL-1619, HEL-1625) › sends no per-pipeline /steps, /run-history or pipeline-summary request, and one placements request per PLACED Output only
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: undefined
+
+      62 |     expect(stats.byRoute["/api/outputs/:id/panels"]).toBe(PLACED_OUTPUTS);
+      63 |     expect(stats.byRoute["/api/pipelines/context-details"]).toBe(1);
+    > 64 |     expect(stats.byRoute["/api/pipelines/context-analyze"]).toBe(1);
+         |                                                             ^
+      65 |   });
+      66 |
+      67 |   it("sends an analyze request only for the pipeline absent from the batch", async () => {
+
+      at Object.<anonymous> (helio-mcp/src/contextRequestBudget.test.ts:64:61)
+
+  ● get_workspace_context request budget (HEL-1619, HEL-1625) › sends an analyze request only for the pipeline absent from the batch
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 55
+
+      67 |   it("sends an analyze request only for the pipeline absent from the batch", async () => {
+      68 |     const { stats } = await run({ contextDetails: "serve", contextAnalyze: "serve" });
+    > 69 |     expect(stats.byRoute["/api/pipelines/:id/analyze"]).toBe(ABSENT_FROM_ANALYZE_BATCH);
+         |                                                         ^
+      70 |     expect(stats.paths.filter((p) => /\/analyze$/.test(p))).toEqual([
+      71 |       `/api/pipelines/p-${ANALYZE_FAILS_INDEX}/analyze`,
+      72 |     ]);
+
+      at Object.<anonymous> (helio-mcp/src/contextRequestBudget.test.ts:69:57)
+
+  ● get_workspace_context request budget (HEL-1619, HEL-1625) › analyze batch answering 404: one more request than the HEL-1619 count of 84, one analyze per pipeline
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 85
+    Received: 84
+
+      75 |   it("analyze batch answering 404: one more request than the HEL-1619 count of 84, one analyze per pipeline", async () => {
+      76 |     const { stats } = await run({ contextDetails: "serve", contextAnalyze: "404" });
+    > 77 |     expect(stats.total).toBe(85);
+         |                         ^
+      78 |     expect(stats.byRoute["/api/pipelines/:id/analyze"]).toBe(PIPELINE_COUNT);
+      79 |   });
+      80 |
+
+      at Object.<anonymous> (helio-mcp/src/contextRequestBudget.test.ts:77:25)
+
+  ● get_workspace_context request budget (HEL-1619, HEL-1625) › is constant in P: 55 and 200 pipelines with the same placed Outputs, dashboards and absent pipelines send the same count
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 84
+    Received: 229
+
+      82 |     const small = await run({ placedBelow: PIPELINE_COUNT });
+      83 |     const large = await run({ pipelines: 200, placedBelow: PIPELINE_COUNT });
+    > 84 |     expect(large.stats.total).toBe(small.stats.total);
+         |                               ^
+      85 |     expect(large.stats.total).toBe(31);
+      86 |     // no analyze request for any pipeline the batch returned
+      87 |     expect(large.stats.paths.filter((p) => /\/analyze$/.test(p))).toEqual([
+
+      at Object.<anonymous> (helio-mcp/src/contextRequestBudget.test.ts:84:31)
+
+  ● get_workspace_context request budget (HEL-1619, HEL-1625) › 200 pipelines (natural placements) send fewer than 120 requests; the same fixture without the analyze batch sends more
+
+    expect(received).toBeLessThan(expected)
+
+    Expected: < 120
+    Received:   277
+
+      92 |   it("200 pipelines (natural placements) send fewer than 120 requests; the same fixture without the analyze batch sends more", async () => {
+      93 |     const batched = await run({ pipelines: 200 });
+    > 94 |     expect(batched.stats.total).toBeLessThan(RATE_LIMIT);
+         |                                 ^
+      95 |     const preChange = await run({ pipelines: 200, contextAnalyze: "404" });
+      96 |     expect(preChange.stats.total).toBeGreaterThan(RATE_LIMIT);
+      97 |   });
+
+      at Object.<anonymous> (helio-mcp/src/contextRequestBudget.test.ts:94:33)
+
+  ● get_workspace_context request budget (HEL-1619, HEL-1625) › details 404 (older server) with the analyze batch served: falls back for steps and run-history only
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 141
+    Received: 194
+
+      100 |     const { stats } = await run({ contextDetails: "404", contextAnalyze: "serve" });
+      101 |     // 8 + 1 (details 404) + 1 (analyze batch) + 1 absent analyze + 55 steps + 55 run-history + 19 placements + 1 snapshot
+    > 102 |     expect(stats.total).toBe(141);
+          |                         ^
+      103 |     expect(stats.byRoute["/api/pipelines/:id/steps"]).toBe(PIPELINE_COUNT);
+      104 |     expect(stats.byRoute["/api/pipelines/:id"]).toBeUndefined();
+      105 |   });
+
+      at Object.<anonymous> (helio-mcp/src/contextRequestBudget.test.ts:102:25)
+
+  ● get_workspace_context analyze-batch fallback (HEL-1625 D7) › serve: exactly one stderr line (the pipeline whose analysis failed is absent), 'omitted 1 of 55'
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 1
+    Received length: 0
+    Received array:  []
+
+      240 |   it("serve: exactly one stderr line (the pipeline whose analysis failed is absent), 'omitted 1 of 55'", async () => {
+      241 |     await run({ contextAnalyze: "serve" });
+    > 242 |     expect(lines()).toHaveLength(1);
+          |                     ^
+      243 |     expect(lines()[0]).toMatch(/^helio-mcp: .*context-analyze.*omitted 1 of 55.*\n$/);
+      244 |   });
+      245 |
+
+      at Object.<anonymous> (helio-mcp/src/contextRequestBudget.test.ts:242:21)
+
+  ● get_workspace_context analyze-batch fallback (HEL-1625 D7) › 500: one stderr line, one analyze per pipeline
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 1
+    Received length: 0
+    Received array:  []
+
+      252 |   it("500: one stderr line, one analyze per pipeline", async () => {
+      253 |     const { stats } = await run({ contextAnalyze: "500" });
+    > 254 |     expect(lines()).toHaveLength(1);
+          |                     ^
+      255 |     expect(lines()[0]).toMatch(/^helio-mcp: .*context-analyze.*\n$/);
+      256 |     expect(stats.byRoute["/api/pipelines/:id/analyze"]).toBe(PIPELINE_COUNT);
+      257 |   });
+
+      at Object.<anonymous> (helio-mcp/src/contextRequestBudget.test.ts:254:21)
+
+  ● get_workspace_context analyze-batch fallback (HEL-1625 D7) › malformed body (no items array): one stderr line, one analyze per pipeline
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 1
+    Received length: 0
+    Received array:  []
+
+      259 |   it("malformed body (no items array): one stderr line, one analyze per pipeline", async () => {
+      260 |     const { stats } = await run({ contextAnalyze: "malformed" });
+    > 261 |     expect(lines()).toHaveLength(1);
+          |                     ^
+      262 |     expect(stats.byRoute["/api/pipelines/:id/analyze"]).toBe(PIPELINE_COUNT);
+      263 |   });
+      264 |
+
+      at Object.<anonymous> (helio-mcp/src/contextRequestBudget.test.ts:261:21)
+
+  ● get_workspace_context analyze-batch fallback (HEL-1625 D7) › missing-one: one stderr line 'omitted 2 of 55'; exactly the two absent pipelines are analyzed per pipeline
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 1
+    Received length: 0
+    Received array:  []
+
+      265 |   it("missing-one: one stderr line 'omitted 2 of 55'; exactly the two absent pipelines are analyzed per pipeline", async () => {
+      266 |     const { stats } = await run({ contextAnalyze: "missing-one" });
+    > 267 |     expect(lines()).toHaveLength(1);
+          |                     ^
+      268 |     expect(lines()[0]).toMatch(/omitted 2 of 55/);
+      269 |     expect(stats.paths.filter((p) => /\/analyze$/.test(p)).sort()).toEqual(
+      270 |       [`/api/pipelines/p-${ANALYZE_FAILS_INDEX}/analyze`, `/api/pipelines/p-${MISSING_PIPELINE_INDEX}/analyze`].sort(),
+
+      at Object.<anonymous> (helio-mcp/src/contextRequestBudget.test.ts:267:21)
+
+Test Suites: 3 failed, 3 total
+Tests:       13 failed, 31 passed, 44 total
+Snapshots:   0 total
+Time:        6.433 s
+Ran all test suites matching helio-mcp/src/contextRequestBudget|helio-mcp/src/contextAnalyzeSeam|helio-mcp/src/helioApi.contextAnalyze.
