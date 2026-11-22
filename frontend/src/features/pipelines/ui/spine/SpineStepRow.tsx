@@ -6,7 +6,7 @@
 // number (DESIGN.md §0).
 
 import { ChevronRight, EyeOff, GripVertical, TriangleAlert } from "lucide-react";
-import type { DragEvent } from "react";
+import { memo, type DragEvent } from "react";
 
 import { ActionsMenu, type ActionsMenuItem } from "../../../../shared/chrome/ActionsMenu";
 import { StatusChip } from "../../../../shared/ui/index";
@@ -66,7 +66,7 @@ function draftAccessibleCount(draft: SpineRowDraft): string | null {
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
-interface SpineStepRowProps {
+export interface SpineStepRowProps {
   step: Step;
   /** 1-based number within the step's own lane. */
   number: number;
@@ -91,7 +91,7 @@ interface SpineStepRowProps {
   onSelect: (stepId: string) => void;
 }
 
-export function SpineStepRow({
+function SpineStepRowView({
   step,
   number,
   selected,
@@ -257,3 +257,85 @@ export function SpineStepRow({
     </div>
   );
 }
+
+function sameStep(a: Step, b: Step): boolean {
+  return (
+    a === b ||
+    (a.id === b.id &&
+      a.opType.id === b.opType.id &&
+      a.opType.label === b.opType.label &&
+      a.label === b.label &&
+      a.enabled === b.enabled &&
+      a.parentStepId === b.parentStepId &&
+      a.position === b.position &&
+      a.rootId === b.rootId &&
+      a.renderKey === b.renderKey &&
+      JSON.stringify(a.config) === JSON.stringify(b.config))
+  );
+}
+
+function sameDraft(a: SpineRowDraft | undefined, b: SpineRowDraft | undefined): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return false;
+  return (
+    a.status === b.status &&
+    a.count === b.count &&
+    a.baseCount === b.baseCount &&
+    a.sample === b.sample
+  );
+}
+
+function sameMenu(a: ActionsMenuItem[], b: ActionsMenuItem[]): boolean {
+  return (
+    a === b ||
+    (a.length === b.length &&
+      a.every(
+        (x, i) =>
+          x.label === b[i].label &&
+          x.ariaLabel === b[i].ariaLabel &&
+          x.disabled === b[i].disabled &&
+          x.danger === b[i].danger &&
+          x.reason === b[i].reason,
+      ))
+  );
+}
+
+type RowComparers = {
+  [K in keyof SpineStepRowProps]-?: (a: SpineStepRowProps[K], b: SpineStepRowProps[K]) => boolean;
+};
+
+const is = <T,>(a: T, b: T) => a === b;
+
+/** How each prop is compared. Typed over EVERY prop of the row, so a prop added later fails `tsc` here until someone decides how
+ *  it compares; `is` (identity) is the safe default. */
+const ROW_COMPARERS: RowComparers = {
+  step: sameStep,
+  number: is,
+  selected: is,
+  rowCount: is,
+  draft: sameDraft,
+  partial: is,
+  hasValidationError: is,
+  warningCount: is,
+  hasSaveError: is,
+  isCreating: is,
+  // The labels and flags are what shows; the click handlers inside are NOT compared: the lane hands the row identity-stable
+  // wrappers that call its latest closures (SpineLane), so a skipped row never acts on a stale one.
+  menuItems: sameMenu,
+  // Only the index and the presence are read at render; the handlers are the lane's stable wrappers too.
+  reorder: (a, b) => a?.index === b?.index && (a === undefined) === (b === undefined),
+  nodePath: is,
+  phone: is,
+  onSelect: is,
+};
+
+/**
+ * HEL-1809: memoised on what the row shows. A step edit re-renders the spine with a new `step` object, a new draft view and
+ * fresh menu and reorder objects for EVERY row; the row compares them by value, so only a row whose displayed content changed
+ * renders (see `ROW_COMPARERS`).
+ */
+export const SpineStepRow = memo(SpineStepRowView, (a, b) =>
+  (Object.keys(ROW_COMPARERS) as (keyof SpineStepRowProps)[]).every((k) =>
+    (ROW_COMPARERS[k] as (x: unknown, y: unknown) => boolean)(a[k], b[k]),
+  ),
+);

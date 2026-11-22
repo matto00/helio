@@ -6,6 +6,7 @@
 // The name is not an <h1>: the shell's sr-only <h1> stays the landmark name (DESIGN.md §9).
 
 import { FlaskConical } from "lucide-react";
+import { memo } from "react";
 import { Link } from "react-router-dom";
 
 import { ICON_SIZE } from "../../../../shared/ui/iconSize";
@@ -57,7 +58,8 @@ export interface SpineHeaderProps {
   draft: { hasDraft: boolean; saving: boolean; onDiscard: () => void; onSaveAndRun: () => void };
 }
 
-export function PipelineSpineHeader(props: SpineHeaderProps) {
+// HEL-1809: memoised; the layout keeps every prop's identity stable across an edit that does not touch the header.
+export const PipelineSpineHeader = memo(function PipelineSpineHeader(props: SpineHeaderProps) {
   const { pipelineName, outputName, editingName, updateStatus, isConfirmingCancel, schedule, run } =
     props;
   const runBusy = run.runStatus === "queued" || run.runStatus === "running";
@@ -260,4 +262,4 @@ export function PipelineSpineHeader(props: SpineHeaderProps) {
       </div>
     </header>
   );
-}
+});

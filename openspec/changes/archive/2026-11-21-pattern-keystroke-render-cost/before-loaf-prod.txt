@@ -1,0 +1,17 @@
+BEFORE: Long Animation Frame script time of the Pattern input handler (DIV#root.oninput), one fill per case. LoAF reports only frames >= 50 ms, so an empty list means the whole frame was under 50 ms. 1x runs of the 2-row fixture were all under 50 ms. Throttle by CDP Emulation.setCPUThrottlingRate.
+
+- prod-2x1-1x throttle=1x rows=2 cols=1 A-first-edit: handler script ms=[] frame ms=[]
+- prod-2x1-1x throttle=1x rows=2 cols=1 B-later-keystroke: handler script ms=[] frame ms=[]
+- prod-2x1-1x throttle=1x rows=2 cols=1 B2-later-keystroke: handler script ms=[] frame ms=[]
+- prod-2x1-4x throttle=4x rows=2 cols=1 A-first-edit: handler script ms=[] frame ms=[]
+- prod-2x1-4x throttle=4x rows=2 cols=1 B-later-keystroke: handler script ms=[] frame ms=[]
+- prod-2x1-4x throttle=4x rows=2 cols=1 B2-later-keystroke: handler script ms=[] frame ms=[]
+- prod-2x1-4x throttle=4x rows=2 cols=1 A-first-edit: handler script ms=[] frame ms=[]
+- prod-2x1-4x throttle=4x rows=2 cols=1 B-later-keystroke: handler script ms=[] frame ms=[]
+- prod-2x1-4x throttle=4x rows=2 cols=1 B2-later-keystroke: handler script ms=[] frame ms=[]
+- prod-1000x6-4x throttle=4x rows=1000 cols=6 A-first-edit: handler script ms=[55] frame ms=[63]
+- prod-1000x6-4x throttle=4x rows=1000 cols=6 B-later-keystroke: handler script ms=[] frame ms=[]
+- prod-1000x6-4x throttle=4x rows=1000 cols=6 B2-later-keystroke: handler script ms=[] frame ms=[]
+- prod-1000x6-4x throttle=4x rows=1000 cols=6 A-first-edit: handler script ms=[49] frame ms=[55]
+- prod-1000x6-4x throttle=4x rows=1000 cols=6 B-later-keystroke: handler script ms=[] frame ms=[]
+- prod-1000x6-4x throttle=4x rows=1000 cols=6 B2-later-keystroke: handler script ms=[] frame ms=[]

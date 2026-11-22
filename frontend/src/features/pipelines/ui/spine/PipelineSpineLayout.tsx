@@ -6,11 +6,12 @@
 // `usePipelineDetailPage()` (the same result the phone layout reads, so no handler is duplicated).
 
 import { GitBranch } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { EmptyState } from "../../../../shared/ui/EmptyState";
 import { PageStatus } from "../../../../shared/ui/PageStatus";
 import { useDisplayedOutputNodeIds } from "../../hooks/useDisplayedOutputNodeIds";
+import { useLatestCallback } from "../../hooks/useLatestCallback";
 import { usePipelineDraftPresentation } from "../../hooks/usePipelineDraftPresentation";
 import { useStepSaveSeam } from "../../hooks/useStepSaveSeam";
 import type { usePipelineDetailPage } from "../../hooks/usePipelineDetailPage";
@@ -116,6 +117,47 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
       ? page.runSourceTruncated
       : countsSource === "persisted" && currentPipeline?.lastRunTruncated === true;
 
+  // HEL-1809: the header is memoised, so every prop it takes must keep its identity across an edit that does not change it.
+  // The handlers close over fresh page state through `useLatestCallback`; `run` and `draft` are rebuilt only when a field changes.
+  const onSave = useLatestCallback(() => void page.handleSave());
+  const onEditSchedule = useLatestCallback(() => page.setScheduleOpen(true));
+  const onOpenShare = useLatestCallback(() => page.setShareOpen(true));
+  const onDryRun = useLatestCallback(() => void page.handleDryRun());
+  const onRun = useLatestCallback(() => void page.handleRunPipeline());
+  const onRemoveRoot = useLatestCallback((rootId: string) => void page.handleRemoveRoot(rootId));
+  const onSaveAndRun = useLatestCallback(() => void page.draftSave.saveAndRun());
+  const onlyRootSourceId = roots.length === 1 ? page.sourceByRootId[roots[0].id]?.id : undefined;
+  const onEditOnlySource = useLatestCallback(() => {
+    if (onlyRootSourceId !== undefined) page.handleEditSource(onlyRootSourceId);
+  });
+  const { sseData, runStatus, runError, runIsDry, runRowCount } = page;
+  const headerRun = useMemo(
+    () => ({
+      sseStatus: sseData.status,
+      sseRowCount: sseData.rowCount,
+      sseErrorLog: sseData.errorLog,
+      runStatus,
+      runError,
+      runIsDry,
+      runRowCount,
+    }),
+    [
+      sseData.status,
+      sseData.rowCount,
+      sseData.errorLog,
+      runStatus,
+      runError,
+      runIsDry,
+      runRowCount,
+    ],
+  );
+  const { hasDraft, discard } = page.draft;
+  const saving = page.draftSave.saving;
+  const headerDraft = useMemo(
+    () => ({ hasDraft, saving, onDiscard: discard, onSaveAndRun }),
+    [hasDraft, saving, discard, onSaveAndRun],
+  );
+
   if (currentPipeline === null) return null;
 
   // HEL-861/HEL-873: the live run's truncation notice wins; otherwise the persisted latest run's.
@@ -127,8 +169,6 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
     : showPersisted
       ? persistedNotice
       : null;
-
-  const onlyRootSource = roots.length === 1 ? page.sourceByRootId[roots[0].id] : undefined;
 
   function handleRemoveStep(stepId: string) {
     // Removing the selected step selects its predecessor (design.md D6) before the step goes away.
@@ -155,39 +195,26 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
           updateError={page.updateError}
           updateStatus={page.updateStatus}
           isConfirmingCancel={page.isConfirmingCancel}
-          onSave={() => void page.handleSave()}
+          onSave={onSave}
           onCancel={page.handleCancel}
           onConfirmDiscard={page.confirmCancelDiscard}
           onDismissConfirm={page.dismissCancelConfirm}
-          run={{
-            sseStatus: page.sseData.status,
-            sseRowCount: page.sseData.rowCount,
-            sseErrorLog: page.sseData.errorLog,
-            runStatus: page.runStatus,
-            runError: page.runError,
-            runIsDry: page.runIsDry,
-            runRowCount: page.runRowCount,
-          }}
+          run={headerRun}
           lastRunAt={currentPipeline.lastRunAt}
           lastRunRowCount={currentPipeline.lastRunRowCount}
           lastRunStatus={currentPipeline.lastRunStatus}
           lastRunTruncated={currentPipeline.lastRunTruncated ?? null}
           schedule={page.pipelineSchedule}
-          onEditSchedule={() => page.setScheduleOpen(true)}
+          onEditSchedule={onEditSchedule}
           onToggleScheduleEnabled={page.handleToggleScheduleEnabled}
           onOpenHistory={page.openRunHistory}
           isOwner={page.isOwner}
-          onOpenShare={() => page.setShareOpen(true)}
-          onEditOnlySource={onlyRootSource ? () => page.handleEditSource(onlyRootSource.id) : null}
-          onDryRun={() => void page.handleDryRun()}
-          onRun={() => void page.handleRunPipeline()}
+          onOpenShare={onOpenShare}
+          onEditOnlySource={onlyRootSourceId !== undefined ? onEditOnlySource : null}
+          onDryRun={onDryRun}
+          onRun={onRun}
           runRole={page.runRole}
-          draft={{
-            hasDraft: page.draft.hasDraft,
-            saving: page.draftSave.saving,
-            onDiscard: page.draft.discard,
-            onSaveAndRun: () => void page.draftSave.saveAndRun(),
-          }}
+          draft={headerDraft}
         />
         <div className="spine-notice-slot">
           <PipelineDraftNotices page={page} />
@@ -239,7 +266,7 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
                 creatingStepIds={page.creatingStepIds}
                 onSelectStep={selectStep}
                 onEditSource={page.handleEditSource}
-                onRemoveRoot={(rootId) => void page.handleRemoveRoot(rootId)}
+                onRemoveRoot={onRemoveRoot}
                 onAddOutput={page.handleAddOutput}
                 onOpenOutput={page.handleOpenOutput}
                 onOpenOutputHistory={page.handleOpenOutputHistory}

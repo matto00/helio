@@ -1,0 +1,8 @@
+EDIT: made samePageForDialogs return false (the page-level comparator never reports equal)
+MUTATION detail-dialogs-comparator (file src/features/pipelines/ui/PipelineDetailDialogs.tsx)
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 1
+    + Received  + 1
+    -   "detailDialogs": 0,
+    +   "detailDialogs": 3,
+Tests:       1 failed, 1 total

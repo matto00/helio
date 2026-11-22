@@ -1,0 +1,15 @@
+### run 1
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+  1 passed (14.1s)
+### run 2
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+  1 passed (12.7s)
+### run 3
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+  1 passed (12.7s)
+### run 4
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+  1 passed (12.6s)
+### run 5
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+  1 passed (12.6s)

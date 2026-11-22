@@ -1,0 +1,8 @@
+PRODUCTION build (vite build + vite preview) component renders per commit, 2-row fixture, 1x, no Output; before = tree before the fixes (instrumented build), after = tree at 3b82936d9 (instrumented build). Counts are per commit, exact (no StrictMode).
+
+BEFORE A-first-edit: commits=4 renders per commit=[47, 1, 1, 2] DataGrid node kept=False
+BEFORE B-later-keystroke: commits=2 renders per commit=[47, 2] DataGrid node kept=True
+BEFORE B2-later-keystroke: commits=3 renders per commit=[47, 1, 2] DataGrid node kept=True
+AFTER A-first-edit: commits=3 renders per commit=[47, 1, 2] DataGrid node kept=True
+AFTER B-later-keystroke: commits=2 renders per commit=[37, 2] DataGrid node kept=True
+AFTER B2-later-keystroke: commits=3 renders per commit=[37, 1, 2] DataGrid node kept=True

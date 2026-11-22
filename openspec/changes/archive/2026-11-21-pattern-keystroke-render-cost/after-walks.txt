@@ -1,0 +1,18 @@
+AFTER: saved vs draft walk counts (same counters and method as before-walks.txt; production build is exact, dev is x2 under StrictMode).
+
+## PROD build
+- prod-after-2x1-1x-renders A-first-edit: saved-walk factory runs=1, draft walks=1
+- prod-after-2x1-1x-renders B-later-keystroke: saved-walk factory runs=0, draft walks=1
+- prod-after-2x1-1x-renders B2-later-keystroke: saved-walk factory runs=0, draft walks=1
+- prod-after-2x1-4x A-first-edit: saved-walk factory runs=1, draft walks=1
+- prod-after-2x1-4x B-later-keystroke: saved-walk factory runs=0, draft walks=1
+- prod-after-2x1-4x B2-later-keystroke: saved-walk factory runs=0, draft walks=1
+- prod-after-1000x6-4x A-first-edit: saved-walk factory runs=1, draft walks=1
+- prod-after-1000x6-4x B-later-keystroke: saved-walk factory runs=0, draft walks=1
+- prod-after-1000x6-4x B2-later-keystroke: saved-walk factory runs=0, draft walks=1
+## DEV build, StrictMode x2
+- after-dev-render A-first-edit: saved-walk factory runs=2, draft walks=2
+- after-dev-render B-later-keystroke: saved-walk factory runs=0, draft walks=2
+- after-dev-render B2-later-keystroke: saved-walk factory runs=0, draft walks=2
+
+Reading: unchanged from before and as intended: 1 saved walk on the first edit of a pipeline with no Output (ruled out of scope to move to load; one walk across the whole first-edit keystroke, all its commits), 0 on every later keystroke, 1 draft walk per keystroke (prod). The saved-input-change re-walk and the draft-only-no-rewalk guard are in usePipelineDraftFrames.savedWalk.test.tsx.

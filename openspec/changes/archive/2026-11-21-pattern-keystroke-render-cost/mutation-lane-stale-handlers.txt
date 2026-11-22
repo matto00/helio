@@ -1,0 +1,8 @@
+EDIT: in SpineLane stableMenu, replaced the latest-render wrapper `onClick: wrap(...)` with the row-render closure `onClick: item.onClick`
+MUTATION lane-stale-handlers (file src/features/pipelines/ui/spine/SpineLane.tsx)
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+    Expected number of calls: 1
+    Received number of calls: 0
+    > 56 |     expect(second).toHaveBeenCalledTimes(1);
+      57 |     expect(first).not.toHaveBeenCalled();
+Tests:       1 failed, 1 total

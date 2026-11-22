@@ -35,6 +35,17 @@ const NO_EDGES: ScrollEdgeState = {
   overflowingY: false,
 };
 
+function sameEdges(a: ScrollEdgeState, b: ScrollEdgeState): boolean {
+  return (
+    a.left === b.left &&
+    a.right === b.right &&
+    a.overflowing === b.overflowing &&
+    a.top === b.top &&
+    a.bottom === b.bottom &&
+    a.overflowingY === b.overflowingY
+  );
+}
+
 /**
  * Tracks whether a scrollable container has more content off-screen to the
  * left/right (horizontal axis) and above/below (vertical axis), so callers can render a scroll-shadow
@@ -59,20 +70,26 @@ export function useScrollEdges<T extends HTMLElement>(): {
 } {
   const ref = useRef<T>(null);
   const [edges, setEdges] = useState<ScrollEdgeState>(NO_EDGES);
+  const last = useRef<ScrollEdgeState>(NO_EDGES);
 
   const measure = useCallback(() => {
     const el = ref.current;
     if (!el) return;
     const maxScrollLeft = el.scrollWidth - el.clientWidth;
     const maxScrollTop = el.scrollHeight - el.clientHeight;
-    setEdges({
+    const next: ScrollEdgeState = {
       left: el.scrollLeft > 1,
       right: maxScrollLeft - el.scrollLeft > 1,
       overflowing: maxScrollLeft > 1,
       top: el.scrollTop > 1,
       bottom: maxScrollTop - el.scrollTop > 1,
       overflowingY: maxScrollTop > 1,
-    });
+    };
+    // HEL-1809: a measure that finds the same edges sets no state, so the owner is not re-rendered for nothing. `last` is
+    // what `edges` holds (both start at NO_EDGES); the layout read above stays synchronous.
+    if (sameEdges(last.current, next)) return;
+    last.current = next;
+    setEdges(next);
   }, []);
 
   // Measure synchronously after paint so the shadow is correct on first

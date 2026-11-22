@@ -1,0 +1,17 @@
+AFTER (commit 3b82936d9 tree, no instrumentation), design D6 conditions: dev build, HEL1808_CPU_THROTTLE=4, 1 Playwright worker, n=5, fresh session per run, back-to-back, no other Playwright running. Same harness, fixture and reading as before-probe-control.txt.
+
+run  before LoAF handler  after LoAF handler | before Event Timing  after Event Timing
+1    61                  44                  | 62                  45
+2    55                  45                  | 55                  46
+3    54                  44                  | 55                  45
+4    52                  44                  | 53                  44
+5    54                  42                  | 55                  43
+
+LoAF handler script (DIV#root.oninput), case A: BEFORE median 54 ms, range 52-61; AFTER median 44 ms, range 42-45.
+Event Timing input processing, case A: BEFORE median 55 ms, range 53-62; AFTER median 45 ms, range 43-46.
+Ranges: before 52-61, after 42-45 for LoAF: the ranges do NOT overlap (every after run is below every before run). Event Timing: before 53-62, after 43-46: no overlap.
+AC2 (after-median below before-median): MET on both readings.
+
+Case B later keystroke, Event Timing input processing: BEFORE median 36 ms, range 33-38; AFTER median 28 ms, range 27-35.
+
+The HEL-1683 spec's own control window (unchanged, profile-harness/raw-after-hel1683-spec-n5.txt) at 4x, n=5 after: 4 runs logged no frame >= 30 ms, 1 run logged one 52 ms long task (LoAF 54 ms). Before: 0 of 5 runs logged any. That one 52 ms task is the spec's dev-build noise at 4x (it is far below its 100 ms bound); it is reported here, not hidden, and does not enter the median above because that reading is the harness's. All 5 after runs passed.

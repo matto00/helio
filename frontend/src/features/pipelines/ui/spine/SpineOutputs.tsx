@@ -4,6 +4,7 @@
 // from the pipeline's Outputs list response (no per-Output request, design.md D13).
 
 import { ChevronRight } from "lucide-react";
+import { memo } from "react";
 
 import { ActionsMenu } from "../../../../shared/chrome/ActionsMenu";
 import { ICON_SIZE } from "../../../../shared/ui/iconSize";
@@ -17,7 +18,7 @@ function kindLabel(kind: string): string {
   return kind.length === 0 ? kind : kind[0].toUpperCase() + kind.slice(1);
 }
 
-interface SpineOutputsProps {
+export interface SpineOutputsProps {
   variant?: "desktop" | "phone";
   outputs: Output[];
   steps: Step[];
@@ -31,7 +32,7 @@ interface SpineOutputsProps {
   editedOutputIds?: ReadonlySet<string>;
 }
 
-export function SpineOutputs({
+function SpineOutputsView({
   variant = "desktop",
   outputs,
   steps,
@@ -113,3 +114,61 @@ export function SpineOutputs({
     </section>
   );
 }
+
+function sameOutputs(a: Output[], b: Output[]): boolean {
+  return (
+    a === b ||
+    (a.length === b.length &&
+      a.every((o, i) => o === b[i] || JSON.stringify(o) === JSON.stringify(b[i])))
+  );
+}
+
+function sameIds(a: ReadonlySet<string> | undefined, b: ReadonlySet<string> | undefined): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined || a.size !== b.size) return false;
+  for (const id of a) if (!b.has(id)) return false;
+  return true;
+}
+
+/** What each card's "from ..." line says, the only thing `steps` and `laneGraph` feed. */
+function subtitlesOf({ outputs, steps, laneGraph }: SpineOutputsProps): (string | null)[] {
+  const labelById = new Map(steps.map((s) => [s.id, s.label]));
+  return outputs.map((o) =>
+    o.nodeStepId !== undefined ? laneOutputSubtitle(laneGraph, labelById, o.nodeStepId) : null,
+  );
+}
+
+type OutputsComparers = {
+  [K in keyof SpineOutputsProps]-?: (a: SpineOutputsProps[K], b: SpineOutputsProps[K]) => boolean;
+};
+
+const is = <T,>(a: T, b: T) => a === b;
+
+/** How each prop is compared. Typed over EVERY prop, so a prop added later fails `tsc` until someone decides how it compares. */
+const OUTPUTS_COMPARERS: OutputsComparers = {
+  variant: is,
+  outputs: sameOutputs,
+  // `steps` and `laneGraph` feed only each card's source line, so they are compared through `subtitlesOf` below, not here.
+  steps: () => true,
+  laneGraph: () => true,
+  onOpenOutput: is,
+  onOpenHistory: is,
+  onAddOutput: is,
+  blockedReason: is,
+  editedOutputIds: sameIds,
+};
+
+/**
+ * HEL-1809: memoised on what the section shows. A step edit hands it new `steps`/`laneGraph`/`outputs` objects every
+ * keystroke, but the cards read only the Outputs' content, the edited ids and each Output's source line, so those are compared
+ * by value; the callbacks are compared by identity (the owner keeps them stable).
+ */
+export const SpineOutputs = memo(SpineOutputsView, (a, b) => {
+  const same = (Object.keys(OUTPUTS_COMPARERS) as (keyof SpineOutputsProps)[]).every((k) =>
+    (OUTPUTS_COMPARERS[k] as (x: unknown, y: unknown) => boolean)(a[k], b[k]),
+  );
+  if (!same) return false;
+  const sa = subtitlesOf(a);
+  const sb = subtitlesOf(b);
+  return sa.every((x, i) => x === sb[i]);
+});

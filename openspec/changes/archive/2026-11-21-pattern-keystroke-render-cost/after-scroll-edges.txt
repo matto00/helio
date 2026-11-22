@@ -1,0 +1,13 @@
+AFTER: useScrollEdges inside the Pattern keystroke, fixture CSV 1,000 rows x 6 string columns (350 td shown), 4x. Log: edges:layoutRead=<ms>:unchanged=<edges equal to previous>:cells; 'mount' trigger no longer appears because the grid is not remounted.
+
+- dev after-dev-1000x6-4x A-first-edit: gridSurvived=True; edges:layoutRead=0.00ms:unchanged=true:cells=350
+- dev after-dev-1000x6-4x B-later-keystroke: gridSurvived=True; 
+- dev after-dev-1000x6-4x B2-later-keystroke: gridSurvived=True; edges:layoutRead=0.00ms:unchanged=true:cells=350
+- prod prod-after-1000x6-4x A-first-edit: gridSurvived=True; edges:layoutRead=0.00ms:unchanged=true:cells=350
+- prod prod-after-1000x6-4x B-later-keystroke: gridSurvived=True; 
+- prod prod-after-1000x6-4x B2-later-keystroke: gridSurvived=True; edges:layoutRead=0.00ms:unchanged=true:cells=350
+- prod prod-after-1000x6-4x A-first-edit: gridSurvived=True; edges:layoutRead=0.00ms:unchanged=true:cells=350
+- prod prod-after-1000x6-4x B-later-keystroke: gridSurvived=True; 
+- prod prod-after-1000x6-4x B2-later-keystroke: gridSurvived=True; edges:layoutRead=0.00ms:unchanged=true:cells=350
+
+BEFORE (before-scroll-edges.txt): first edit = mount measure 15.2-19.7 ms (prod) / 17.2 ms (dev), grid remounted. AFTER: first edit = 0.00 ms forced layout, grid node kept, edges unchanged so no state update.

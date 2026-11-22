@@ -3,6 +3,8 @@
 // as before) and "Remove from pipeline". Removing removes the ROOT from this pipeline, not the data
 // source, so it is not the Delete the owner ruling reserves for the overview rows (design.md D3).
 
+import { memo } from "react";
+
 import { ActionsMenu, type ActionsMenuItem } from "../../../../shared/chrome/ActionsMenu";
 import { labelForKind } from "../../../sources/utils/labelForKind";
 import type { DataSource } from "../../../sources/types/dataSource";
@@ -28,7 +30,8 @@ interface SpineSourceCardProps {
   onRemoveRoot: (rootId: string) => void;
 }
 
-export function SpineSourceCard({
+// HEL-1809: memoised; its props keep their identity across a step edit, so the card skips the edit's render.
+export const SpineSourceCard = memo(function SpineSourceCard({
   variant = "desktop",
   root,
   pipelineId,
@@ -100,4 +103,4 @@ export function SpineSourceCard({
       </div>
     </div>
   );
-}
+});

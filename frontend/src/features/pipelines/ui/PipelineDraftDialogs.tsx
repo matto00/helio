@@ -3,6 +3,8 @@
 // (steps, Outputs, bound panels and alert rules) and saves only on confirm; the leave guard asks before an in-app link drops
 // the draft.
 
+import { memo } from "react";
+
 import { Modal } from "../../../shared/ui/Modal";
 import { useDraftLeaveGuard } from "../hooks/useDraftLeaveGuard";
 import type { PipelinePageState } from "./spine/PipelineSpineLayout";
@@ -10,9 +12,27 @@ import "./PipelineDraftNotices.css";
 
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-export function PipelineDraftDialogs({ page }: { page: PipelinePageState }) {
-  const { cascade, confirmCascade, cancelCascade, saving } = page.draftSave;
-  const { hasDraft, discard } = page.draft;
+type DraftSave = PipelinePageState["draftSave"];
+
+/** What the dialogs read: the cascade confirmation and the leave guard. Narrow on purpose (HEL-1809): the page object and its
+ *  `draftSave`/`draft` change identity on every keystroke, these fields do not, so the host can skip an edit's render. */
+export interface PipelineDraftDialogsProps {
+  cascade: DraftSave["cascade"];
+  confirmCascade: DraftSave["confirmCascade"];
+  cancelCascade: DraftSave["cancelCascade"];
+  saving: DraftSave["saving"];
+  hasDraft: boolean;
+  discard: () => void;
+}
+
+export const PipelineDraftDialogs = memo(function PipelineDraftDialogs({
+  cascade,
+  confirmCascade,
+  cancelCascade,
+  saving,
+  hasDraft,
+  discard,
+}: PipelineDraftDialogsProps) {
   const { leaveRequested, confirmLeave, stay } = useDraftLeaveGuard(hasDraft, discard);
 
   return (
@@ -98,4 +118,4 @@ export function PipelineDraftDialogs({ page }: { page: PipelinePageState }) {
       )}
     </>
   );
-}
+});

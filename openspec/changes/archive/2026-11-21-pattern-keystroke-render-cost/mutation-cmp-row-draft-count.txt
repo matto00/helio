@@ -1,0 +1,3 @@
+EDIT: in sameDraft replaced `a.count === b.count &&` with `true &&`
+MUTATION cmp-row-draft-count (file src/features/pipelines/ui/spine/SpineStepRow.tsx)
+Tests:       1 failed, 22 passed, 23 total

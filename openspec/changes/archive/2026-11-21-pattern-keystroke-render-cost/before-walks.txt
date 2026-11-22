@@ -1,0 +1,25 @@
+BEFORE: saved vs draft walk counts per edit.
+Counters are measurement-only (profile-harness/instrumentation.patch.txt, never committed to source): a log line inside the baseWalk memo factory (saved) and inside walker.walk (draft). The dev build runs under React.StrictMode (main.tsx:113), which runs every memo factory twice in render: dev factory counts are 2x the real count (factor stated). The PRODUCTION build runs each once per committed render; counts below are exact.
+
+## PROD build (vite build + vite preview), exact
+- prod-2x1-1x A-first-edit: saved-walk factory runs=1, draft walks=1; log=['saved-walk-factory(run) changed=baseDefs', 'draft-walk']
+- prod-2x1-1x B-later-keystroke: saved-walk factory runs=0, draft walks=1; log=['draft-walk']
+- prod-2x1-1x B2-later-keystroke: saved-walk factory runs=0, draft walks=1; log=['draft-walk']
+- prod-2x1-4x A-first-edit: saved-walk factory runs=1, draft walks=1; log=['saved-walk-factory(run) changed=baseDefs', 'draft-walk']
+- prod-2x1-4x B-later-keystroke: saved-walk factory runs=0, draft walks=1; log=['draft-walk']
+- prod-2x1-4x B2-later-keystroke: saved-walk factory runs=0, draft walks=1; log=['draft-walk']
+- prod-1000x6-4x A-first-edit: saved-walk factory runs=1, draft walks=1; log=['saved-walk-factory(run) changed=baseDefs', 'draft-walk']
+- prod-1000x6-4x B-later-keystroke: saved-walk factory runs=0, draft walks=1; log=['draft-walk']
+- prod-1000x6-4x B2-later-keystroke: saved-walk factory runs=0, draft walks=1; log=['draft-walk']
+
+## DEV build, StrictMode x2
+- dev-render A-first-edit: saved-walk factory runs=2, draft walks=2; log=['saved-walk-factory(run) changed=baseDefs', 'saved-walk-factory(run) changed=', 'draft-walk', 'draft-walk']
+- dev-render B-later-keystroke: saved-walk factory runs=0, draft walks=2; log=['draft-walk', 'draft-walk']
+- dev-render B2-later-keystroke: saved-walk factory runs=0, draft walks=2; log=['draft-walk', 'draft-walk']
+
+## DEV build, pipeline WITH an Output, StrictMode x2
+- dev-output A-first-edit: saved-walk factory runs=0, draft walks=2; log=['draft-walk', 'draft-walk']
+- dev-output B-later-keystroke: saved-walk factory runs=0, draft walks=2; log=['draft-walk', 'draft-walk']
+- dev-output B2-later-keystroke: saved-walk factory runs=0, draft walks=2; log=['draft-walk', 'draft-walk']
+
+Reading: prod, case A (first edit, no Output): exactly 1 saved walk (baseDefs went null->defs because hasDraft turned walkBase on) + 1 draft walk. Case B: 0 saved walks + 1 draft walk. With an Output (needBase true): 0 saved walks on every keystroke, first edit included. The dev log's second saved-walk line in case A (changed=<empty>) is the StrictMode double invocation, not a second walk.

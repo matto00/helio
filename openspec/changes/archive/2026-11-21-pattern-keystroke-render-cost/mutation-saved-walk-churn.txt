@@ -1,0 +1,7 @@
+EDIT: added `draftSteps` to the baseDefs useMemo deps (`[baseSteps, walkBase, draftSteps]`), so a draft edit rebuilds the saved definitions and re-walks the saved steps
+MUTATION saved-walk-churn (file src/features/pipelines/hooks/usePipelineDraftFrames.ts)
+    expect(received).toBe(expected) // Object.is equality
+    Expected: 1
+    Received: 4
+    > 103 |     expect(savedWalks()).toBe(1);
+Tests:       1 failed, 1 passed, 2 total

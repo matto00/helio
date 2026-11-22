@@ -1,0 +1,6 @@
+MUTATION scrollEdges-bailout (file src/shared/ui/useScrollEdges.ts)
+    expect(received).toBe(expected) // Object.is equality
+    Expected: 2
+    Received: 3
+    > 50 |     expect(commits.n).toBe(afterMount);
+Tests:       1 failed, 1 passed, 2 total

@@ -1,0 +1,10 @@
+EDIT: removed the `memo(` wrapper from PipelineSpineHeader
+MUTATION header-unmemoised (file src/features/pipelines/ui/spine/PipelineSpineHeader.tsx)
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 2
+    + Received  + 2
+    -   "runStatus": 0,
+    -   "scheduleChip": 0,
+    +   "runStatus": 3,
+    +   "scheduleChip": 3,
+Tests:       1 failed, 1 total

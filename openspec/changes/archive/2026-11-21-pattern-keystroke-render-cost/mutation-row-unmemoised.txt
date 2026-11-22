@@ -1,0 +1,10 @@
+EDIT: in the SpineStepRow memo comparator, replaced the first clause `a.number === b.number &&` with `false &&`, so every row renders on every parent render
+MUTATION row-unmemoised (file src/features/pipelines/ui/spine/SpineStepRow.tsx)
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 2
+    + Received  + 2
+    -   "rowS2": 0,
+    -   "rowS3": 0,
+    +   "rowS2": 3,
+    +   "rowS3": 3,
+Tests:       1 failed, 1 total

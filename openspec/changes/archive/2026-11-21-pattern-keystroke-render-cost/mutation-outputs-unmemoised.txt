@@ -1,0 +1,8 @@
+EDIT: in the SpineOutputs memo comparator, replaced the first clause `a.variant !== b.variant ||` with `true ||`, so it never reports equal
+MUTATION outputs-unmemoised (file src/features/pipelines/ui/spine/SpineOutputs.tsx)
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 1
+    + Received  + 1
+    -   "outputs": 0,
+    +   "outputs": 3,
+Tests:       1 failed, 1 total

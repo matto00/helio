@@ -4,7 +4,7 @@
 // phone boundary (a window resize, a device rotation) therefore does not unmount an open dialog and lose its
 // state (a History scrubber position, a half-typed Output name). All state lives in `usePipelineDetailPage`.
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 
 import { useLatestCallback } from "../hooks/useLatestCallback";
 import { canRunFromUi } from "../hooks/usePipelineRunRole";
@@ -18,7 +18,36 @@ import { RunHistoryModal } from "./RunHistoryModal";
 
 type PipelinePageState = ReturnType<typeof usePipelineDetailPage>;
 
-export function PipelineDetailDialogs({ page }: { page: PipelinePageState }) {
+/** Page fields that change identity on every draft edit and that the closed dialogs do not read. `steps` is read only by the
+ *  Output sheet, so it counts again while that sheet is open; `draft` is read only for `hasDraft`. Any other field is compared
+ *  by identity, so a field this host starts reading later is never stale: it is not on this list. */
+function isEditVolatile(key: string): boolean {
+  return (
+    key === "steps" ||
+    key === "draft" ||
+    key === "draftOutputs" ||
+    key === "draftOutputEditedIds" ||
+    key === "laneGraph" ||
+    key === "draftSave"
+  );
+}
+
+function samePageForDialogs(prev: { page: PipelinePageState }, next: { page: PipelinePageState }) {
+  const a = prev.page;
+  const b = next.page;
+  if (a === b) return true;
+  if (a.draft.hasDraft !== b.draft.hasDraft) return false;
+  if (b.outputSheet !== null && a.steps !== b.steps) return false;
+  const keys = Object.keys(b) as (keyof PipelinePageState)[];
+  if (Object.keys(a).length !== keys.length) return false;
+  return keys.every((k) => isEditVolatile(k) || a[k] === b[k]);
+}
+
+export const PipelineDetailDialogs = memo(function PipelineDetailDialogs({
+  page,
+}: {
+  page: PipelinePageState;
+}) {
   const { id } = page;
   // Stable, so the memoised Share and Schedule dialogs (mounted while closed) skip a draft edit's render.
   const closeShare = useLatestCallback(() => page.setShareOpen(false));
@@ -108,4 +137,4 @@ export function PipelineDetailDialogs({ page }: { page: PipelinePageState }) {
       )}
     </>
   );
-}
+}, samePageForDialogs);

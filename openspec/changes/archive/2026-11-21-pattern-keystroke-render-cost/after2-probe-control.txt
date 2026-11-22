@@ -1,0 +1,20 @@
+CYCLE 2 (HEAD after CR1: narrowed re-render) -- appended; cycle-1 numbers in after-probe-control.txt are unchanged and still stand for that commit.
+
+Same D6 conditions (dev build, 4x, 1 worker, harness, case A, 2-row fixture). Host load average was about 5 during these runs (other lanes), so the runs are noisier than cycle 1.
+
+run  LoAF handler (blank = frame under 50 ms, no LoAF entry)  Event Timing input
+1    -                                                      41
+2    -                                                      39
+3    40                                                     41
+4    75                                                     76
+5    54                                                     55
+6    42                                                     43
+7    -                                                      39
+8    -                                                      41
+9    -                                                      40
+10   -                                                      39
+
+Event Timing input processing, n=10: median 41.0 ms, range 39-76; first 5: median 41 (range 39-76); last 5: median 40 (range 39-43).
+BEFORE (before-probe-control.txt, n=5): median 55, range 53-62. Cycle 1 after: median 45, range 43-46.
+Reading: the after-median (41 over the 10 runs) is below the before-median (55). The RANGES OVERLAP for the first 5 runs: two runs under host load read 76 and 55 ms (55 sits inside the before range); the other 8 runs read 39-43 ms, below every before run. The claim is limited to the medians plus the 8 quiet runs; 2 of 10 runs were disturbed by host load.
+LoAF handler script: only 4 of 10 runs produced a LoAF entry (40, 75, 54, 42 where present); the rest fell under the 50 ms reporting threshold, which is itself lower than the before runs (all 5 before runs produced one: 52-61).

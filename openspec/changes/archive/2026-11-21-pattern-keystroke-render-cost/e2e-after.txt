@@ -1,0 +1,5 @@
+  60 passed (3.7m)
+specs: hel1683-regex-main-thread hel1631-draft-mode hel1685-draft-polish hel1733-draft-outputs-shapes-{desktop,drafts,phone} hel1734-draft-roots; dev build, 1x, 2 workers, lane backend/DB
+
+cycle 2 (HEAD after CR1): 60 passed, same specs and conditions (dev build, 1x, 2 workers)
+cycle 3 (HEAD after comparator tests): 60 passed, same specs and conditions

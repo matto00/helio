@@ -1,0 +1,15 @@
+BEFORE: useScrollEdges attribution inside the Pattern keystroke.
+Fixture: CSV source of 1,000 rows x 6 string columns, extractRegex on column 'text'; the rows grid shows 50 rows (350 <td> counted). Same shape must be used after. 4x CPU throttle.
+Log format edges:<trigger>:layoutRead=<ms for scrollWidth/scrollHeight reads>:unchanged=<edges equal to previous>:cells.
+
+- dev-1000x6-4x A-first-edit: gridSurvived=False; edges:mount:layoutRead=17.20ms:unchanged=false:cells=350; edges:mount:layoutRead=0.00ms:unchanged=true:cells=350; edges:ro:layoutRead=0.00ms:unchanged=true:cells=350
+- dev-1000x6-4x B-later-keystroke: gridSurvived=True; 
+- dev-1000x6-4x B2-later-keystroke: gridSurvived=True; edges:ro:layoutRead=0.00ms:unchanged=true:cells=350
+- prod-1000x6-4x A-first-edit: gridSurvived=False; edges:mount:layoutRead=17.90ms:unchanged=false:cells=350; edges:ro:layoutRead=0.00ms:unchanged=true:cells=350
+- prod-1000x6-4x B-later-keystroke: gridSurvived=True; 
+- prod-1000x6-4x B2-later-keystroke: gridSurvived=True; edges:ro:layoutRead=0.00ms:unchanged=true:cells=350
+- prod-1000x6-4x A-first-edit: gridSurvived=False; edges:mount:layoutRead=15.60ms:unchanged=false:cells=350; edges:ro:layoutRead=0.00ms:unchanged=true:cells=350
+- prod-1000x6-4x B-later-keystroke: gridSurvived=True; 
+- prod-1000x6-4x B2-later-keystroke: gridSurvived=True; edges:ro:layoutRead=0.00ms:unchanged=true:cells=350
+
+Reading: the 15-18 ms is the forced layout of the layout-effect measure ('mount' trigger) of a freshly MOUNTED DataGrid on the first edit (case A): StepPreviewTable switches from its saved DataGrid branch to the draft branch, the element type at that position changes, and the grid remounts (gridSurvived=False). On a later keystroke (case B) the grid survives and no measure runs at all except an occasional ResizeObserver one that costs ~0 ms. Every measure calls setEdges with a fresh object, so even unchanged=true measures re-render the grid.

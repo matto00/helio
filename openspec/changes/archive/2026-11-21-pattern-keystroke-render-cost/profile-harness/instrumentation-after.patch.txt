@@ -1,0 +1,55 @@
+diff --git a/frontend/src/features/pipelines/hooks/usePipelineDraftFrames.ts b/frontend/src/features/pipelines/hooks/usePipelineDraftFrames.ts
+index b927427eb..0c14b9893 100644
+--- a/frontend/src/features/pipelines/hooks/usePipelineDraftFrames.ts
++++ b/frontend/src/features/pipelines/hooks/usePipelineDraftFrames.ts
+@@ -177,10 +177,12 @@ export function usePipelineDraftFrames({
+     () => (hasDraft ? toStepDefinitions(draftSteps) : null),
+     [draftSteps, hasDraft],
+   );
+-  const baseWalk = useMemo(
+-    () => (baseDefs === null ? null : evaluatePipeline(baseDefs, savedRootFrames, { sources })),
+-    [baseDefs, savedRootFrames, sources],
+-  );
++  const baseWalk = useMemo(() => {
++    (window as unknown as { __h1809?: { log: string[] } }).__h1809?.log.push(
++      `saved-walk-factory(${baseDefs === null ? "skip" : "run"})`,
++    );
++    return baseDefs === null ? null : evaluatePipeline(baseDefs, savedRootFrames, { sources });
++  }, [baseDefs, savedRootFrames, sources]);
+   const draftWalk = useMemo(
+     () => (draftDefs === null ? null : walker.walk(draftDefs, rootFrames, sources)),
+     [walker, draftDefs, rootFrames, sources],
+diff --git a/frontend/src/features/pipelines/state/draftEvaluation.ts b/frontend/src/features/pipelines/state/draftEvaluation.ts
+index e49a988d9..c3fb3adb0 100644
+--- a/frontend/src/features/pipelines/state/draftEvaluation.ts
++++ b/frontend/src/features/pipelines/state/draftEvaluation.ts
+@@ -78,6 +78,7 @@ export function createIncrementalWalker(): IncrementalWalker {
+     | undefined;
+   return {
+     walk(defs, rootFrames, sources) {
++      (window as unknown as { __h1809?: { log: string[] } }).__h1809?.log.push("draft-walk");
+       const reusable =
+         last !== undefined && last.rootFrames === rootFrames && last.sources === sources
+           ? singleEditedStep(last.defs, defs)
+diff --git a/frontend/src/shared/ui/useScrollEdges.ts b/frontend/src/shared/ui/useScrollEdges.ts
+index 4bc2a23b4..8035668a6 100644
+--- a/frontend/src/shared/ui/useScrollEdges.ts
++++ b/frontend/src/shared/ui/useScrollEdges.ts
+@@ -75,6 +75,7 @@ export function useScrollEdges<T extends HTMLElement>(): {
+   const measure = useCallback(() => {
+     const el = ref.current;
+     if (!el) return;
++    const __t0 = performance.now();
+     const maxScrollLeft = el.scrollWidth - el.clientWidth;
+     const maxScrollTop = el.scrollHeight - el.clientHeight;
+     const next: ScrollEdgeState = {
+@@ -87,6 +88,9 @@ export function useScrollEdges<T extends HTMLElement>(): {
+     };
+     // HEL-1809: a measure that finds the same edges sets no state, so the owner is not re-rendered for nothing. `last` is
+     // what `edges` holds (both start at NO_EDGES); the layout read above stays synchronous.
++    (window as unknown as { __h1809?: { log: string[] } }).__h1809?.log.push(
++      `edges:layoutRead=${(performance.now() - __t0).toFixed(2)}ms:unchanged=${sameEdges(last.current, next)}:cells=${el.querySelectorAll("td").length}`,
++    );
+     if (sameEdges(last.current, next)) return;
+     last.current = next;
+     setEdges(next);

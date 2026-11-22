@@ -1,0 +1,8 @@
+EDIT: changed the saved grid key from PREVIEW_GRID_KEY to "saved-grid", so the saved and draft grids are different children
+MUTATION grid-remount (file src/features/pipelines/ui/spine/StepPreviewTable.tsx)
+    expect(received).toBe(expected) // Object.is equality
+    - Expected  - 1
+    + Received  + 8
+    > 78 |     expect(container.querySelector("table")).toBe(saved);
+      79 |     expect(screen.getByText("3 rows")).toBeInTheDocument();
+Tests:       1 failed, 1 total
