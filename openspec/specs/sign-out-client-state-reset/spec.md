@@ -43,6 +43,20 @@ pipeline, step or Output ids.
 - **THEN** no further request carrying A's pipeline, step or Output id is issued and no state update for A's
   pipeline is dispatched
 
+#### Scenario: Pipeline-page draft create, shape apply, run end and undo stop after sign-out
+- **WHEN** user A, on a pipeline page, completes a draft AI step's config (its create is in flight and A edits
+  again), applies a shape, has a live run whose status stream ends, or undoes a save; the work awaits a response or
+  stream event; A signs out; and the response or terminal event arrives afterwards
+- **THEN** no further request carrying A's pipeline, step or Output id is issued (no edit flush, no next shape step or
+  Output create, no pipeline reload) and no action for A's pipeline (Output preview, run-history refresh, step or
+  Output replacement, pipeline fetch, toast) is dispatched
+
+#### Scenario: A failed aggregate-tail Output in the same session still rolls back
+- **WHEN** user A adds an Output as an aggregate tail, the aggregate step is created, the Output create fails, and A
+  is still signed in
+- **THEN** the orphaned aggregate step is deleted on the server and removed from the page, and the add reports a
+  failure
+
 ### Requirement: Device preferences survive sign-out
 Browser storage that records a preference of the device rather than data of a user SHALL be kept across
 sign-out. Every browser storage key that the sign-out reset keeps SHALL be listed by name with the reason
