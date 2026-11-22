@@ -1,0 +1,64 @@
+== baseline (main 4f57c5001 + evidence only) ==
+-- base1.out
+  AssistantColumnLoopSpec:                                               1
+  AssistantPipelineReadsSpec:                                            6
+  AssistantProposeErrorsSpec:                                            10
+  OutputRepositoryRequiredSpec:                                          5
+  PatchSetApplyFormCreateSpec:                                           7
+  PatchSetApplyOnceBookkeepingSpec:                                      2
+  PatchSetApplyOnceRoutesSpec:                                           8
+  PatchSetApplyServiceSpec:                                              50
+  PatchSetUndoRoutesSpec:                                                6
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Total number of tests run: 95
+[info] Suites: completed 9, aborted 0
+[info] Tests: succeeded 95, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+EXIT=0
+-- base2.out
+  PatchSetInlineRootRollbackSpec:                                        5
+  PatchSetInsightOutputSpec:                                             6
+  PatchSetOutputCreateSpec:                                              15
+  PatchSetRollbackLaneStepSpec:                                          1
+  PatchSetUndoBoundOutputPanelsSpec:                                     8
+  PatchSetUndoCombinedConnectorWiringSpec:                               4
+  PatchSetUndoDatasetLaterWorkSpec:                                      19
+  PatchSetUndoDeadOutputKeysSpec:                                        6
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Total number of tests run: 64
+[info] Suites: completed 8, aborted 0
+[info] Tests: succeeded 64, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+EXIT=0
+-- base3.out
+  PatchSetUndoGhostLayoutSpec:                                           5
+  PatchSetUndoInlineDatasetLaterWorkSpec:                                14
+  PatchSetUndoInlineSourceCleanupSpec:                                   17
+  PatchSetUndoInlineSourceSpec:                                          6
+  PatchSetUndoInlineSourceWireSpec:                                      4
+  PatchSetUndoInverseSpec:                                               6
+  PatchSetUndoLaneDescendantsSpec:                                       1
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Total number of tests run: 53
+[info] Suites: completed 7, aborted 0
+[info] Tests: succeeded 53, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+EXIT=0
+-- base4.out
+  DraftUndoPanelNamingSpec:                                              8
+  Hel914Ac1EndToEndSpec:                                                 1
+  PatchSetUndoLaneSpec:                                                  5
+  PatchSetUndoLaterAlertRulesSpec:                                       13
+  PatchSetUndoLaterOutputsSpec:                                          11
+  PatchSetUndoPanelDashboardSpec:                                        5
+  PatchSetUndoRefusalSpec:                                               5
+  PatchSetUndoRepoWiringSpec:                                            1
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Total number of tests run: 49
+[info] Suites: completed 8, aborted 0
+[info] Tests: succeeded 49, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+EXIT=0
+
+TOTAL tests: 261 (95+64+53+49), suites 32, all green, 4 shards
+Command per shard: DATABASE_URL=jdbc:postgresql://localhost:5432/helio_hel1797 nice -n 19 sbt -J-Xmx3g 'testOnly <classes in spec-set.txt shard>'

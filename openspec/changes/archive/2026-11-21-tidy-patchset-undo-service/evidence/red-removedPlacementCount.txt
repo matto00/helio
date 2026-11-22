@@ -1,0 +1,14 @@
+RED run on current code (after the test edits, before removing removedPlacementCount): PatchSetUndoRoutesSpec + PatchSetUndoLaneSpec
+The seam test fails on its 'no resultingState key' assertion (PatchSetUndoRoutesSpec.scala:219); the schema validation line after it is not reached, and the schema alone would not have gone red (it permits an absent resultingState).
+
+[info] - should answer a restored pipelineStep create-undo with no resultingState key, matching the undo response schema *** FAILED ***
+[info]   true was not equal to false (PatchSetUndoRoutesSpec.scala:219)
+[info] - should restore a pipelineStep create edit ('add lane') by refusing while a later-bound placement exists, then removing the step and its Output once the placement is gone *** FAILED ***
+[info]   Some({"removedPlacementCount":0}) was not equal to None (PatchSetUndoLaneSpec.scala:138)
+[info] Total number of tests run: 12
+[info] Tests: succeeded 10, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.patchsets.PatchSetUndoRoutesSpec
+[error] 	com.helio.services.patchsets.PatchSetUndoLaneSpec
+EXIT=1

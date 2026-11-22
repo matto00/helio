@@ -2,6 +2,7 @@ package com.helio.api.routes.patchsets
 
 import com.helio.testkit.HelioRouteTest
 import com.helio.testkit.TempDirectorySupport
+import com.helio.testsupport.JsonSchemaValidation
 
 import com.helio.api.routes.patchsets.PatchSetUndoRoutes
 import com.helio.api.protocols.dashboards.UpdateDashboardRequest
@@ -196,6 +197,28 @@ class PatchSetUndoRoutesSpec
         status shouldBe StatusCodes.Conflict
       }
       await(dashboardRepo.findByIdInternal(dashboard.id)).map(_.name) shouldBe Some("Changed independently")
+    }
+
+    // HEL-1797: a restored `pipelineStep` create-undo no longer reports a placement count; like every other restored
+    // create-undo it carries `resultingState` nowhere on the wire, and the body still validates against the undo schema.
+    "answer a restored pipelineStep create-undo with no resultingState key, matching the undo response schema" in {
+      val source = await(dataSourceServiceF.createStatic(
+        StaticDataSourceRequest("Route 1797 source", "static", Vector(StaticColumnPayload("value", "integer")), Vector(Vector(JsNumber(1)))), userA
+      )).getOrElse(fail("source create failed"))
+      val pipelinePatch = JsObject("name" -> JsString("Route 1797 pipeline"), "roots" -> JsArray(JsObject("sourceId" -> JsString(source.id.value))), "steps" -> JsArray(), "outputs" -> JsArray())
+      val pid = await(patchSetApplyService.apply(PatchSet(None, Vector(Edit(EditTarget("pipeline", None), "create", None, None, None, None, None, Some(pipelinePatch)))), userA))
+        .getOrElse(fail("pipeline apply refused")).edits.head.newId.getOrElse(fail("no pipeline id"))
+      val stepPatch = JsObject("type" -> JsString("limit"), "config" -> JsObject("count" -> JsNumber(1)))
+      val applicationId = applySuccessfully(Vector(Edit(EditTarget("pipelineStep", None, Some(pid)), "create", None, None, None, None, None, Some(stepPatch))), userA)
+
+      Post(s"/patch-sets/$applicationId/undo") ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+        val raw   = responseAs[String]
+        val edits = raw.parseJson.asJsObject.fields("edits").asInstanceOf[JsArray].elements
+        edits.map(_.asJsObject.fields("status")) shouldBe Vector(JsString("restored"))
+        edits.head.asJsObject.fields.contains("resultingState") shouldBe false
+        JsonSchemaValidation.validationErrors(JsonSchemaValidation.compile("patch-sets/patch-set-undo-response.schema.json"), raw) shouldBe empty
+      }
     }
 
     // HEL-1795: proves the REST path reaches the Output blocker (a 409 carrying its message), not PATCH_SET_STALE.
