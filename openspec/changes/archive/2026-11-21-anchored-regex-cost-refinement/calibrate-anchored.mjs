@@ -14,7 +14,13 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(here, "../../..");
+// The repo root is the nearest ancestor holding frontend/package.json, so the script survives the archive move.
+const root = (() => {
+  for (let dir = here; ; dir = path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, "frontend/package.json"))) return dir;
+    if (path.dirname(dir) === dir) throw new Error(`calibrate-anchored: no ancestor of ${here} contains frontend/package.json`);
+  }
+})();
 const out = process.argv[3] ?? "/home/matt/Development/helio/.concertino/scratch/HEL-1807/cal-js";
 const req = createRequire(path.join(root, "frontend/package.json"));
 const ts = req("typescript");

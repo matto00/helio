@@ -59,3 +59,5 @@ Tests:       1 failed, 69 passed, 70 total
   RED regexInputCost start-anchored patterns › decision scan › skips the exact scan when the tested bound already fits (no tail, the first run covers the cell)
 
 # Process note (cycle 3): cycle 2 red output (red-run-cycle2.txt) was committed in the same commit as its fix, not before it. Cycle 3 changes no code.
+
+# Cycle 4: after the archive move, `nice -n 19 node calibrate-anchored.mjs F` was run from this directory and exited 0 (root now found by walking up to frontend/package.json).

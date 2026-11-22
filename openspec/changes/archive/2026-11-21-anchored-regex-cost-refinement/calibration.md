@@ -1,6 +1,6 @@
 # HEL-1807 anchored regex cost calibration
 
-Script: `calibrate-anchored.mjs` in this directory (run `nice -n 19 node calibrate-anchored.mjs <A|B|C|D|E|F>`, one group per
+Script: `calibrate-anchored.mjs` in this directory (run `nice -n 19 node calibrate-anchored.mjs <A|B|C|D|E|F|G|H>`, one group per
 run, each under 30 s). Reference machine (Ryzen 5 7600X), node/V8, `nice -n 19`, one process at a time, best of 5 `RegExp.exec`
 passes (best of 2 above 0.8 s), distinct flat cells (a 4-digit suffix per row so no result cache applies). Cost comes from the
 real `compileJavaRegex(...).work` (`A W m f`) and the anchored charge of design D2; every pattern was confirmed accepted
