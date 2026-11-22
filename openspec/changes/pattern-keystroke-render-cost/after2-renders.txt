@@ -1,0 +1,13 @@
+CYCLE 2 AFTER: component renders per commit on one Pattern edit (React hook harness), 2-row, 1 step fixture. DEV (StrictMode) and PRODUCTION (vite preview) build. Before = cycle-0 trees (before-renders-dev.txt / after-renders-prod.txt), after = HEAD of cycle 2.
+
+DEV A-first-edit: renders per commit [42, 1, 2]; DataGrid node kept=True
+DEV B-later-keystroke: renders per commit [29, 2]; DataGrid node kept=True
+   rendered (commit 0): {"PipelineDetailPageContent": 1, "PipelineSpineLayout": 1, "PipelineDraftNotices": 1, "SpineStatusStrip": 1, "PipelineSpine": 1, "SpineLane": 1, "SpineStepRowView": 2, "GripVertical": 1, "memo/fwd": 3, "ActionsMenu": 1, "StepCardFocused": 1, "InlineError": 4, "StepOpEditor": 1, "StringOpsConfig": 1, "Select": 2, "ChevronDown": 2, "TextField": 2, "StepPreviewTable": 1, "DataGrid": 1, "LiveOutputColumn": 1}
+DEV B2-later-keystroke: renders per commit [29, 1, 2]; DataGrid node kept=True
+PROD A-first-edit: renders per commit [42, 1, 2]; DataGrid node kept=True
+PROD B-later-keystroke: renders per commit [29, 2]; DataGrid node kept=True
+   rendered (commit 0): {"FH": 1, "PB": 1, "oI": 1, "KI": 1, "HI": 1, "wI": 1, "yI": 2, "GripVertical": 1, "memo/fwd": 5, "$y": 1, "EB": 1, "xr": 4, "wB": 1, "Yo": 1, "D": 2, "ChevronDown": 2, "XL": 1, "nr": 1, "oz": 1}
+PROD B2-later-keystroke: renders per commit [29, 1, 2]; DataGrid node kept=True
+
+Later keystroke (case B), commit 0: BEFORE 47 -> cycle 1 37 -> cycle 2 29 renders. First edit (case A), commit 0: 47 -> 47 -> 42 (the header legitimately renders once on the first edit).
+Not rendered on a later keystroke any more: PipelineSpineHeader subtree, PipelineDetailDialogs, PipelineDraftDialogs, SpineSourceCard subtree, SpineOutputs, every unedited SpineStepRow (counted in jest with a 3-step, 1-Output fixture).

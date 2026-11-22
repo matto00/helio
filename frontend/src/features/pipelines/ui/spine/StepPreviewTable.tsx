@@ -91,6 +91,9 @@ interface StepPreviewTableProps {
   beforeFetch: () => Promise<void>;
 }
 
+/** The one key both preview grids carry (the saved rows and the draft rows), so React keeps the grid mounted across the switch. */
+const PREVIEW_GRID_KEY = "preview-grid";
+
 export function StepPreviewTable({
   pipelineId,
   step,
@@ -222,6 +225,7 @@ export function StepPreviewTable({
   } else if (isCreating || isDraft) {
     body = <p className="step-preview__note">Saving step… rows appear once it is saved.</p>;
   } else if (draftActive) {
+    // The grid carries `PREVIEW_GRID_KEY`, shared with the saved grid below, so it is the same child whichever branch shows it.
     body = (
       <>
         {view?.status === "notPreviewed" && <p className="step-preview__note">{view.message}</p>}
@@ -243,6 +247,7 @@ export function StepPreviewTable({
         )}
         {showsDraftGrid && (
           <DataGrid
+            key={PREVIEW_GRID_KEY}
             variant="preview"
             density="condensed"
             className={`step-preview__grid${caption === "stale" || caption === "updating" ? " step-preview__grid--stale" : ""}`}
@@ -274,15 +279,20 @@ export function StepPreviewTable({
       </div>
     );
   } else {
+    // HEL-1809: the same key as the draft grid above, inside the same kind of fragment, so the first edit, which switches the
+    // rows from the saved fetch to the draft frame, keeps this grid mounted (no rebuild, no fresh layout measurement).
     body = (
-      <DataGrid
-        variant="preview"
-        density="condensed"
-        className="step-preview__grid"
-        rows={previewRows}
-        columns={columns}
-        emptyText="No rows to preview."
-      />
+      <>
+        <DataGrid
+          key={PREVIEW_GRID_KEY}
+          variant="preview"
+          density="condensed"
+          className="step-preview__grid"
+          rows={previewRows}
+          columns={columns}
+          emptyText="No rows to preview."
+        />
+      </>
     );
   }
 

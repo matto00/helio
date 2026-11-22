@@ -1,0 +1,262 @@
+import { appendFileSync } from "node:fs";
+
+import { expect, test, type Page } from "@playwright/test";
+
+import { registerAndLogin } from "./support/auth";
+
+// HEL-1809 MEASUREMENT HARNESS (not a gate): profiles one Pattern edit on a no-Output pipeline (case A, first edit) and a
+// second edit (case B). Needs the instrumentation patch (instrumentation.patch) applied for the walk / edge logs.
+// Env: H1809_OUT (file to append JSON lines), H1809_ROWS, H1809_COLS, H1809_RENDERS=1 (React fiber render attribution),
+// HEL1808_CPU_THROTTLE (as the HEL-1683 spec), H1809_LABEL.
+const CSRF = { "X-Helio-Requested-With": "1" };
+const AUTH = { prefix: "hel1809", displayName: "HEL-1809", domain: "example.test" } as const;
+const SAMPLE_URL = /\/api\/data-sources\/[^/]+\/sample(\?.*)?$/;
+const ROWS = Number(process.env.H1809_ROWS ?? "2");
+const COLS = Number(process.env.H1809_COLS ?? "1");
+const RENDERS = process.env.H1809_RENDERS === "1";
+const OUT = process.env.H1809_OUT ?? "/dev/null";
+const LABEL = process.env.H1809_LABEL ?? "run";
+
+async function post<T>(page: Page, url: string, data: unknown): Promise<T> {
+  const res = await page.request.post(url, { data, headers: CSRF });
+  expect(res.status(), `${url} ${await res.text()}`).toBeLessThan(300);
+  return (await res.json()) as T;
+}
+
+async function seed(page: Page): Promise<string> {
+  const columns = Array.from({ length: COLS }, (_, i) => ({
+    name: i === 0 ? "text" : `c${i}`,
+    type: "string",
+  }));
+  const cell = (r: number, c: number): string => (c === 0 ? `${"a".repeat(28)}!` : `v${r}-${c}`);
+  let source: { id: string };
+  if (ROWS > 400) {
+    const csv =
+      columns.map((c) => c.name).join(",") + "\n" +
+      Array.from({ length: ROWS }, (_, r) => columns.map((_c, c) => cell(r, c)).join(",")).join("\n") + "\n";
+    const res = await page.request.post("/api/data-sources", {
+      multipart: { name: "hel1809-src", file: { name: "big.csv", mimeType: "text/csv", buffer: Buffer.from(csv) } },
+      headers: CSRF,
+    });
+    expect(res.status(), await res.text()).toBeLessThan(300);
+    source = (await res.json()) as { id: string };
+  } else {
+    source = await post<{ id: string }>(page, "/api/data-sources", {
+      name: "hel1809-src",
+      type: "static",
+      columns,
+      rows: Array.from({ length: ROWS }, (_, r) => columns.map((_c, c) => cell(r, c))),
+    });
+  }
+  const pipeline = await post<{ id: string }>(page, "/api/pipelines", {
+    name: "hel1809-pipe",
+    roots: [{ sourceId: source.id }],
+  });
+  await post(page, `/api/pipelines/${pipeline.id}/steps`, {
+    type: "stringops",
+    config: { operation: "extractRegex", field: "text", outputColumn: "out", pattern: "(x)" },
+  });
+  if (process.env.H1809_OUTPUT === "1") {
+    await post(page, `/api/pipelines/${pipeline.id}/outputs`, { kind: "table", name: "hel1809-out", config: {} });
+  }
+  await post(page, `/api/pipelines/${pipeline.id}/run`, {});
+  return pipeline.id;
+}
+
+test.use({ serviceWorkers: "block" });
+test("hel1809 profile", async ({ page, request }) => {
+  test.setTimeout(240_000);
+  await page.addInitScript((withHook: boolean) => {
+    const w = window as unknown as Record<string, unknown>;
+    const commits: Record<string, unknown>[] = [];
+    w.__h1809Commits = commits;
+    const hist: string[] = [];
+    {
+      const compose = (...fns: ((x: unknown) => unknown)[]) => (x: unknown) => fns.reduceRight((a, f) => f(a), x);
+      const logger = (createStore: (...a: unknown[]) => { getState: () => Record<string, unknown>; subscribe: (l: () => void) => void }) =>
+        (...a: unknown[]) => {
+          const store = createStore(...a);
+          let prev = store.getState();
+          store.subscribe(() => {
+            const next = store.getState();
+            const changed = Object.keys(next).filter((k) => next[k] !== prev[k]);
+            prev = next;
+            (w.__h1809Store = (w.__h1809Store as string[] | undefined) ?? []); (w.__h1809Store as string[]).push(`${w.__h1809Collect ? "C" : "-"}:${changed.join("+")}`);
+          });
+          return store;
+        };
+      w.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__ = () => (...enh: ((x: unknown) => unknown)[]) => compose(...enh, logger as never);
+    }
+    w.__h1809Hist = hist;
+    for (const m of ["pushState", "replaceState"] as const) {
+      const orig = history[m].bind(history);
+      history[m] = (st: unknown, t: string, url?: string | URL | null) => {
+        if (w.__h1809Collect) hist.push(`${m}:${String(url)}`);
+        return orig(st, t, url);
+      };
+    }
+    const nameOf = (f: { type: unknown; tag: number }): string => {
+      const t = f.type as { displayName?: string; name?: string; type?: unknown; render?: unknown } | null;
+      if (!t) return "?";
+      if (typeof t === "function") return (t as { displayName?: string; name?: string }).displayName || t.name || "anon";
+      const inner = t.type ?? t.render;
+      const n = t.displayName || (typeof inner === "function" ? (inner as { name: string }).name : "") || "memo/fwd";
+      return n;
+    };
+    if (withHook) w.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+      supportsFiber: true,
+      renderers: new Map(),
+      isDisabled: false,
+      inject(r: unknown) {
+        const id = (this.renderers as Map<number, unknown>).size + 1;
+        (this.renderers as Map<number, unknown>).set(id, r);
+        return id;
+      },
+      checkDCE() {},
+      onCommitFiberUnmount() {},
+      onPostCommitFiberRoot() {},
+      onCommitFiberRoot(_id: number, root: { current: unknown }) {
+        if (!w.__h1809Collect) return;
+        type Fib = {
+          tag: number; flags: number; type: unknown; child: Fib | null; sibling: Fib | null; alternate: Fib | null;
+          memoizedProps: Record<string, unknown> | null; memoizedState: unknown;
+        };
+        const rendered: Record<string, number> = {};
+        const why: Record<string, string> = {};
+        const roots: string[] = [];
+        const order: string[] = [];
+        const providers: string[] = [];
+        const hookDiff: string[] = [];
+        let fibers = 0;
+        // Only descend where the render phase produced new child fibers (child !== alternate.child): a subtree whose child
+        // pointer is unchanged was bailed out and its PerformedWork flags are STALE from an earlier commit.
+        const stack: { f: Fib; anc: boolean }[] = [{ f: root.current as Fib, anc: false }];
+        while (stack.length) {
+          const { f, anc } = stack.pop() as { f: Fib; anc: boolean };
+          fibers++;
+          let nextAnc = anc;
+          if ([0, 1, 11, 14, 15].includes(f.tag) && (f.flags & 1) === 1) {
+            const n = nameOf(f);
+            rendered[n] = (rendered[n] ?? 0) + 1;
+            if (order.length < 14) order.push(n);
+            const a = f.alternate;
+            if (!a) why[n] = why[n] ?? "mount";
+            else if (!(n in why)) {
+              const keys = new Set([...Object.keys(f.memoizedProps ?? {}), ...Object.keys(a.memoizedProps ?? {})]);
+              const changed = [...keys].filter((k) => (f.memoizedProps ?? {})[k] !== (a.memoizedProps ?? {})[k]);
+              why[n] = `props[${changed.join(",")}]`;
+            }
+            if (!anc) roots.push(`${n}${a ? "" : "(mount)"}`);
+            nextAnc = true;
+          }
+          if (!f.alternate || f.child !== f.alternate.child) {
+            const kids: Fib[] = [];
+            for (let c = f.child; c; c = c.sibling) kids.push(c);
+            for (let i = kids.length - 1; i >= 0; i--) stack.push({ f: kids[i], anc: nextAnc });
+          }
+        }
+        void providers; void hookDiff;
+        commits.push({ rendered, why, fibers, order, roots, providers, hookDiff });
+      },
+    };
+  }, RENDERS);
+
+  await registerAndLogin(page, request, { ...AUTH, label: "profile" });
+  const pipelineId = await seed(page);
+  const sample = page.waitForResponse((r) =>
+    SAMPLE_URL.test(new URL(r.url()).pathname + new URL(r.url()).search),
+  );
+  await page.goto(`/pipelines/${pipelineId}`);
+  await sample;
+  const rows = page.getByRole("region", { name: /^Rows after step 1/ });
+  await expect(rows).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  const pattern = page.getByRole("textbox", { name: "Pattern" });
+  await expect(pattern).toBeVisible();
+  await page.waitForTimeout(1000);
+
+  const raw = process.env.HEL1808_CPU_THROTTLE;
+  if (raw && raw !== "1") {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: Number(raw) });
+  }
+
+  const cases: [string, string][] = [
+    ["A-first-edit", "(a+)!"],
+    ["B-later-keystroke", "(a+)"],
+    ["B2-later-keystroke", "(a+)!!"],
+  ];
+  for (const [name, text] of cases) {
+    await page.evaluate((collect) => {
+      const w = window as unknown as Record<string, unknown> & { __h1809Commits: unknown[] };
+      w.__h1809 = { log: [] };
+      w.__h1809Commits.length = 0;
+      w.__h1809Collect = collect || true;
+      const mark = document.querySelector("[aria-label^='Rows after step 1'] table")?.parentElement;
+      if (mark) (mark as unknown as Record<string, unknown>).__h1809Mark = 1;
+      w.__h1809Loaf = [];
+      w.__h1809Ev = [];
+      (w.__h1809EvObs as PerformanceObserver | undefined)?.disconnect();
+      const eo = new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) {
+          const x = e as unknown as { name: string; processingStart: number; processingEnd: number; duration: number };
+          (w.__h1809Ev as unknown[]).push({ n: x.name, proc: x.processingEnd - x.processingStart, dur: x.duration });
+        }
+      });
+      eo.observe({ type: 'event', durationThreshold: 16, buffered: false });
+      w.__h1809EvObs = eo;
+      (w.__h1809LoafObs as PerformanceObserver | undefined)?.disconnect();
+      const obs = new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) {
+          const x = e as unknown as {
+            duration: number; startTime: number; renderStart: number; styleAndLayoutStart: number;
+            scripts: { invoker: string; sourceFunctionName: string; duration: number; forcedStyleAndLayoutDuration: number }[];
+          };
+          (w.__h1809Loaf as unknown[]).push({
+            dur: x.duration,
+            styleLayout: x.styleAndLayoutStart > 0 ? x.startTime + x.duration - x.styleAndLayoutStart : 0,
+            render: x.renderStart > 0 ? x.startTime + x.duration - x.renderStart : 0,
+            scripts: x.scripts.map((s) => ({ i: s.invoker, f: s.sourceFunctionName, d: s.duration, forced: s.forcedStyleAndLayoutDuration })),
+          });
+        }
+      });
+      obs.observe({ type: "long-animation-frame", buffered: false });
+      w.__h1809LoafObs = obs;
+    }, RENDERS);
+    await pattern.fill(text);
+    await expect(page.getByText("Draft · unsaved changes")).toBeVisible();
+    await page.waitForTimeout(1500);
+    const result = await page.evaluate(() => {
+      const w = window as unknown as Record<string, unknown> & {
+        __h1809: { log: string[] }; __h1809Commits: unknown[]; __h1809Loaf: unknown[]; __h1809LoafObs: PerformanceObserver;
+      };
+      w.__h1809Collect = false;
+      for (const e of (w.__h1809EvObs as PerformanceObserver).takeRecords()) void e;
+      for (const e of w.__h1809LoafObs.takeRecords()) void e;
+      const mark = document.querySelector("[aria-label^='Rows after step 1'] table")?.parentElement as unknown as Record<string, unknown> | null;
+      return {
+        log: w.__h1809.log,
+        commits: w.__h1809Commits,
+        loaf: w.__h1809Loaf as { dur: number; scripts: { i: string; d: number }[] }[],
+        hist: ((w as unknown as { __h1809Store?: string[] }).__h1809Store ?? ['NO-STORE-LOG']).splice(0),
+        ev: w.__h1809Ev as { n: string; proc: number; dur: number }[],
+        gridSurvived: mark ? mark.__h1809Mark === 1 : null,
+      };
+    });
+    const handler = result.loaf
+      .flatMap((f) => f.scripts)
+      .filter((s) => /oninput/.test(s.i))
+      .map((s) => s.d);
+    const rec = {
+      label: LABEL, case: name, throttle: raw ?? "1", rows: ROWS, cols: COLS,
+      handlerMs: handler.reduce((a, b) => a + b, 0), handlerEntries: handler.map((d) => Math.round(d)),
+      loafMs: result.loaf.map((f) => Math.round(f.dur)),
+      walkLog: result.log, commitCount: result.commits.length, commits: result.commits, gridSurvived: result.gridSurvived,
+      loafDetail: result.loaf,
+      hist: result.hist,
+      inputProcMs: result.ev.filter((e) => e.n === 'input').map((e) => Math.round(e.proc)),
+    };
+    appendFileSync(OUT, JSON.stringify(rec) + "\n");
+    console.log(`[H1809] ${LABEL} ${name} handler=${rec.handlerMs.toFixed(0)}ms inputProc=${JSON.stringify(rec.inputProcMs)} entries=${JSON.stringify(rec.handlerEntries)} loaf=${JSON.stringify(rec.loafMs)}`);
+  }
+});

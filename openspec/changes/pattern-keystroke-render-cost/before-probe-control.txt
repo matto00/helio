@@ -1,0 +1,16 @@
+BEFORE (unmodified tree, main 1f8e762b5 + evidence commit), design D6 conditions: dev build, HEL1808_CPU_THROTTLE=4, 1 Playwright worker, n=5, fresh session per run, back-to-back, no other Playwright running.
+
+Reading: control window (case A, first Pattern edit of a no-Output pipeline, one fill, 2-row fixture of e2e/hel1683-regex-main-thread.spec.ts) input handler (DIV#root.oninput) LoAF script duration, ms.
+Taken with the profile harness (profile-harness/hel1809-profile.spec.ts.txt, same seed and fill as the HEL-1683 spec, no React devtools hook installed), because the HEL-1683 spec's own control window logged "frames: none >= 30 ms" and "control longest long task: 0.0 ms" in all 5 runs at 4x (raw-before-hel1683-spec-n5.txt): there the handler fell under the 50 ms LoAF reporting threshold, so the spec itself yields no AC2 number. The harness waits 1 s after load before throttling; the spec does not. Event Timing "input" processing time is reported alongside as a cross-check.
+
+run  LoAF handler script  Event Timing input processing  frame
+1    61                   62                             67
+2    55                   55                             62
+3    54                   55                             59
+4    52                   53                             58
+5    54                   55                             60
+
+LoAF handler script: median 54 ms, range 52-61.
+Event Timing input processing: median 55 ms, range 53-62.
+Case B (later keystroke) for reference: handler below the 50 ms LoAF threshold in all 5 runs; Event Timing 33-38 ms (B), 34-39 ms (B2).
+Note: the harness reads the 'DIV#root.oninput' script after waiting 1 s for the page to settle before applying the throttle; the HEL-1683 spec applies it with no settle, so its own control-window handler is faster (under the 50 ms LoAF threshold at 4x). The 54 ms here is the harness's number, not the spec's.

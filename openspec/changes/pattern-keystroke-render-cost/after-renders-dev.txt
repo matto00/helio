@@ -1,0 +1,16 @@
+AFTER: per-commit React renders on one Pattern edit, same method and fixture as before-renders-dev.txt (dev build, StrictMode, 2 rows, 1x, no Output). raw: profile-harness/raw-after-ar.jsonl.txt
+
+- A-first-edit: 3 commits; DataGrid DOM node kept=True
+    commit 0: 47 component renders, 34 distinct; render roots=['PipelineDetailPageContent']
+      rendered: {"PipelineDetailPageContent": 1, "PipelineSpineLayout": 1, "PipelineSpineHeader": 1, "Link": 1, "StatusChip": 2, "SpineRunStatus": 1, "SpineLastRunMeta": 1, "SpineScheduleChip": 1, "CalendarClock": 1, "memo/fwd": 5, "ActionsMenu": 3, "PipelineDraftNotices": 1, "SpineStatusStrip": 1, "PipelineSpine": 1, "SpineSourceCard": 1, "SourceSampleLabelView": 1, "IconButton": 1, "RefreshCw": 1, "SpineLane": 1, "SpineStepRow": 1, "GripVertical": 1, "SpineOutputs": 1, "StepCardFocused": 1, "InlineError": 4, "StepOpEditor": 1, "StringOpsConfig": 1, "Select": 2, "ChevronDown": 2, "TextField": 2, "StepPreviewTable": 1, "DataGrid": 1, "LiveOutputColumn": 1, "PipelineDetailDialogs": 1, "PipelineDraftDialogs": 1}
+    commit 1: 1 component renders, 1 distinct; render roots=['DataGrid']
+    commit 2: 2 component renders, 2 distinct; render roots=['LiveOutputColumn']
+- B-later-keystroke: 2 commits; DataGrid DOM node kept=True
+    commit 0: 37 component renders, 27 distinct; render roots=['PipelineDetailPageContent']
+      rendered: {"PipelineDetailPageContent": 1, "PipelineSpineLayout": 1, "PipelineDraftNotices": 1, "SpineStatusStrip": 1, "PipelineSpine": 1, "SpineSourceCard": 1, "SourceSampleLabelView": 1, "IconButton": 1, "RefreshCw": 1, "memo/fwd": 4, "ActionsMenu": 2, "SpineLane": 1, "SpineStepRow": 1, "GripVertical": 1, "SpineOutputs": 1, "StepCardFocused": 1, "InlineError": 4, "StepOpEditor": 1, "StringOpsConfig": 1, "Select": 2, "ChevronDown": 2, "TextField": 2, "StepPreviewTable": 1, "DataGrid": 1, "LiveOutputColumn": 1, "PipelineDetailDialogs": 1, "PipelineDraftDialogs": 1}
+    commit 1: 2 component renders, 2 distinct; render roots=['LiveOutputColumn']
+- B2-later-keystroke: 3 commits; DataGrid DOM node kept=True
+    commit 0: 37 component renders, 27 distinct; render roots=['PipelineDetailPageContent']
+      rendered: {"PipelineDetailPageContent": 1, "PipelineSpineLayout": 1, "PipelineDraftNotices": 1, "SpineStatusStrip": 1, "PipelineSpine": 1, "SpineSourceCard": 1, "SourceSampleLabelView": 1, "IconButton": 1, "RefreshCw": 1, "memo/fwd": 4, "ActionsMenu": 2, "SpineLane": 1, "SpineStepRow": 1, "GripVertical": 1, "SpineOutputs": 1, "StepCardFocused": 1, "InlineError": 4, "StepOpEditor": 1, "StringOpsConfig": 1, "Select": 2, "ChevronDown": 2, "TextField": 2, "StepPreviewTable": 1, "DataGrid": 1, "LiveOutputColumn": 1, "PipelineDetailDialogs": 1, "PipelineDraftDialogs": 1}
+    commit 1: 1 component renders, 1 distinct; render roots=['DataGrid']
+    commit 2: 2 component renders, 2 distinct; render roots=['LiveOutputColumn']

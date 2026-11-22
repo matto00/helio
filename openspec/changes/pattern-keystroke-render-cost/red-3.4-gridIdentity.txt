@@ -1,0 +1,4 @@
+    - Expected  - 1
+    + Received  + 8
+    > 72 |     expect(container.querySelector("table")).toBe(saved);
+Tests:       1 failed, 1 total

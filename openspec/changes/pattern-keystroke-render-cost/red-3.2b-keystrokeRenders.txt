@@ -1,0 +1,15 @@
+    - Expected  - 6
+    + Received  + 6
+    -   "detailDialogs": 0,
+    -   "draftDialogs": 0,
+    -   "outputs": 0,
+    -   "rowS2": 0,
+    -   "rowS3": 0,
+    +   "detailDialogs": 3,
+    +   "draftDialogs": 3,
+    +   "outputs": 3,
+    +   "rowS2": 3,
+    +   "rowS3": 3,
+    -   "sourceCard": 0,
+    +   "sourceCard": 3,
+Tests:       1 failed, 1 total

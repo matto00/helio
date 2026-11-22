@@ -12,6 +12,8 @@
 import { GitBranch } from "lucide-react";
 import { useMemo } from "react";
 
+import { useLatestCallback } from "../../hooks/useLatestCallback";
+
 import { EmptyState } from "../../../../shared/ui/EmptyState";
 import type { DataSource } from "../../../sources/types/dataSource";
 import { nodePath } from "../../state/nodePath";
@@ -100,6 +102,8 @@ export function PipelineSpine({
   onOpenOutputHistory,
 }: PipelineSpineProps) {
   const phone = variant === "phone";
+  // Stable, so the memoised Outputs section is not re-rendered by a new closure on every edit.
+  const addOutput = useLatestCallback(() => onAddOutput());
   const { rootRef, reorder, menuItemsFor } = actions;
   const firstRootId = roots[0]?.id;
   const trunkOf = (rootId: string) =>
@@ -266,7 +270,7 @@ export function PipelineSpine({
         laneGraph={laneGraph}
         onOpenOutput={onOpenOutput}
         onOpenHistory={onOpenOutputHistory}
-        onAddOutput={() => onAddOutput()}
+        onAddOutput={addOutput}
         blockedReason={outputBlockedReason}
         editedOutputIds={editedOutputIds}
       />

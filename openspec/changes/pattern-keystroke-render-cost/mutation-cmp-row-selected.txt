@@ -1,0 +1,3 @@
+EDIT: in ROW_COMPARERS replaced `selected: is` with `selected: () => true` (selection no longer compared)
+MUTATION cmp-row-selected (file src/features/pipelines/ui/spine/SpineStepRow.tsx)
+Tests:       1 failed, 22 passed, 23 total

@@ -1,0 +1,3 @@
+EDIT: in sameMenu replaced `x.disabled === b[i].disabled &&` with `true &&`
+MUTATION cmp-row-menu-disabled (file src/features/pipelines/ui/spine/SpineStepRow.tsx)
+Tests:       1 failed, 22 passed, 23 total

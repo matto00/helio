@@ -1,0 +1,3 @@
+EDIT: deleted the line `if (b.outputSheet !== null && a.steps !== b.steps) return false;` (an open sheet no longer re-renders on new steps)
+MUTATION cmp-dialogs-open-sheet-steps (file src/features/pipelines/ui/PipelineDetailDialogs.tsx)
+Tests:       1 failed, 3 passed, 4 total

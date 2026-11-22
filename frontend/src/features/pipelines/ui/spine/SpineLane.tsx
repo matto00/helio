@@ -4,12 +4,13 @@
 // mono label "Lane <n> · from <parent step number and label>" (owner ruling "sub-spine + label": never
 // accent). Rows in any lane are selectable exactly like trunk rows; only trunk rows reorder.
 
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import type { ReactNode } from "react";
 
 import type { ActionsMenuItem } from "../../../../shared/chrome/ActionsMenu";
 import type { Lane, LaneGraph } from "../../state/stepTree";
 import { childLanesOf, laneRenderKey, stepRenderKey } from "../../state/stepTree";
+import { useLatestCallback } from "../../hooks/useLatestCallback";
 import type { Step } from "../../types/step";
 import { SpineStepRow } from "./SpineStepRow";
 import type { SpineRowDraft, SpineRowReorder } from "./SpineStepRow";
@@ -44,8 +45,64 @@ interface SpineLaneProps {
   label: ReactNode | null;
 }
 
+/** What a row's click and drag handlers call: this render's menu items and reorder wiring for the step. */
+interface RowLive {
+  menuItems: ActionsMenuItem[];
+  reorder: SpineRowReorder | undefined;
+}
+
 export function SpineLane({ lane, context, label }: SpineLaneProps) {
   const { laneGraph } = context;
+  // HEL-1809: rows are memoised (see SpineStepRow), so the handlers they hold must never be a stale closure. Each row gets
+  // identity-stable wrappers, cached here per step, that call whatever this lane built in ITS latest render.
+  const live = new Map<string, RowLive>(
+    lane.steps.map((step, index) => [
+      step.id,
+      {
+        menuItems: context.menuItemsFor(step, lane, index),
+        reorder: context.reorderFor(lane, index),
+      },
+    ]),
+  );
+  const latest = useLatestCallback(() => live);
+  const [wrappers] = useState(() => new Map<string, () => void>());
+  // Drop wrappers of steps that left this lane, so the cache cannot grow over a long session.
+  const stepIds = new Set(lane.steps.map((x) => x.id));
+  for (const key of wrappers.keys())
+    if (!stepIds.has(key.slice(0, key.indexOf("|")))) wrappers.delete(key);
+  const wrap = (key: string, call: (row: RowLive, args: unknown[]) => void) => {
+    let fn = wrappers.get(key);
+    if (fn === undefined) {
+      const stepId = key.slice(0, key.indexOf("|"));
+      fn = ((...args: unknown[]) => {
+        const row = latest().get(stepId);
+        if (row !== undefined) call(row, args);
+      }) as () => void;
+      wrappers.set(key, fn);
+    }
+    return fn;
+  };
+  const stableMenu = (stepId: string, items: ActionsMenuItem[]): ActionsMenuItem[] =>
+    items.map((item, i) => ({
+      ...item,
+      onClick: wrap(`${stepId}|m${i}`, (row) => row.menuItems[i]?.onClick()),
+    }));
+  const stableReorder = (stepId: string, r: SpineRowReorder | undefined) =>
+    r === undefined
+      ? undefined
+      : ({
+          index: r.index,
+          onDragStart: wrap(`${stepId}|ds`, (row, a) =>
+            row.reorder?.onDragStart(...(a as Parameters<SpineRowReorder["onDragStart"]>)),
+          ),
+          onDragEnd: wrap(`${stepId}|de`, (row) => row.reorder?.onDragEnd()),
+          onDragOver: wrap(`${stepId}|do`, (row, a) =>
+            row.reorder?.onDragOver(...(a as Parameters<SpineRowReorder["onDragOver"]>)),
+          ),
+          onDrop: wrap(`${stepId}|dr`, (row, a) =>
+            row.reorder?.onDrop(...(a as Parameters<SpineRowReorder["onDrop"]>)),
+          ),
+        } as SpineRowReorder);
   return (
     <div
       className={`spine-lane${label !== null ? " spine-lane--sub" : ""}`}
@@ -56,6 +113,7 @@ export function SpineLane({ lane, context, label }: SpineLaneProps) {
       <ol className="spine-lane__steps">
         {lane.steps.map((step, index) => {
           const childLanes = childLanesOf(laneGraph, step.id);
+          const { menuItems, reorder } = live.get(step.id) as RowLive;
           return (
             <Fragment key={stepRenderKey(step)}>
               {context.dropIndicatorAt(lane, index) && (
@@ -73,8 +131,8 @@ export function SpineLane({ lane, context, label }: SpineLaneProps) {
                   warningCount={context.warningCountFor(step.id)}
                   hasSaveError={context.stepSaveErrors[step.id] !== undefined}
                   isCreating={context.creatingStepIds.has(step.id)}
-                  menuItems={context.menuItemsFor(step, lane, index)}
-                  reorder={context.reorderFor(lane, index)}
+                  menuItems={stableMenu(step.id, menuItems)}
+                  reorder={stableReorder(step.id, reorder)}
                   nodePath={context.nodePathByStepId[step.id]}
                   phone={context.phone}
                   onSelect={context.onSelectStep}

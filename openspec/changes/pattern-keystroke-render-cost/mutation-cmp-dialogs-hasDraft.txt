@@ -1,0 +1,3 @@
+EDIT: deleted the line `if (a.draft.hasDraft !== b.draft.hasDraft) return false;`
+MUTATION cmp-dialogs-hasDraft (file src/features/pipelines/ui/PipelineDetailDialogs.tsx)
+Tests:       1 failed, 3 passed, 4 total

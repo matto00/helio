@@ -1,0 +1,8 @@
+EDIT: removed the `memo(` wrapper from PipelineDraftDialogs
+MUTATION draft-dialogs-unmemoised (file src/features/pipelines/ui/PipelineDraftDialogs.tsx)
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 1
+    + Received  + 1
+    -   "draftDialogs": 0,
+    +   "draftDialogs": 3,
+Tests:       1 failed, 1 total

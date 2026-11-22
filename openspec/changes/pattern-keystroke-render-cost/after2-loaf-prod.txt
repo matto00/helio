@@ -1,0 +1,16 @@
+CYCLE 2 AFTER, production build (vite preview), 4x: Event Timing input processing of the Pattern input handler.
+
+- prod-after2-2x1-4x rows=2 A-first-edit: LoAF ms=[] Event Timing ms=[15]
+- prod-after2-2x1-4x rows=2 B-later-keystroke: LoAF ms=[] Event Timing ms=[7]
+- prod-after2-2x1-4x rows=2 B2-later-keystroke: LoAF ms=[] Event Timing ms=[6]
+- prod-after2-2x1-4x rows=2 A-first-edit: LoAF ms=[] Event Timing ms=[15]
+- prod-after2-2x1-4x rows=2 B-later-keystroke: LoAF ms=[] Event Timing ms=[7]
+- prod-after2-2x1-4x rows=2 B2-later-keystroke: LoAF ms=[] Event Timing ms=[8]
+- prod-after2-1000x6-4x rows=1000 A-first-edit: LoAF ms=[] Event Timing ms=[30]
+- prod-after2-1000x6-4x rows=1000 B-later-keystroke: LoAF ms=[] Event Timing ms=[11]
+- prod-after2-1000x6-4x rows=1000 B2-later-keystroke: LoAF ms=[] Event Timing ms=[13]
+- prod-after2-1000x6-4x rows=1000 A-first-edit: LoAF ms=[39] Event Timing ms=[40]
+- prod-after2-1000x6-4x rows=1000 B-later-keystroke: LoAF ms=[] Event Timing ms=[14]
+- prod-after2-1000x6-4x rows=1000 B2-later-keystroke: LoAF ms=[] Event Timing ms=[21]
+
+First edit (A), prod, 4x: 2 rows 28/24 (before) -> 16/16 (cycle 1) -> 15/15 (cycle 2); 1,000 x 6: 47/55 -> 33/38 -> 30/40.

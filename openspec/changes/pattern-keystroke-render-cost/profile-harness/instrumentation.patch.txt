@@ -1,0 +1,110 @@
+diff --git a/frontend/src/features/pipelines/hooks/usePipelineDraftFrames.ts b/frontend/src/features/pipelines/hooks/usePipelineDraftFrames.ts
+index b927427eb..06ebc418c 100644
+--- a/frontend/src/features/pipelines/hooks/usePipelineDraftFrames.ts
++++ b/frontend/src/features/pipelines/hooks/usePipelineDraftFrames.ts
+@@ -1,4 +1,4 @@
+-import { useMemo } from "react";
++import { useMemo, useRef } from "react";
+ 
+ import { useAppSelector } from "../../../hooks/reduxHooks";
+ import type { DataSource } from "../../sources/types/dataSource";
+@@ -177,10 +177,16 @@ export function usePipelineDraftFrames({
+     () => (hasDraft ? toStepDefinitions(draftSteps) : null),
+     [draftSteps, hasDraft],
+   );
+-  const baseWalk = useMemo(
+-    () => (baseDefs === null ? null : evaluatePipeline(baseDefs, savedRootFrames, { sources })),
+-    [baseDefs, savedRootFrames, sources],
+-  );
++  const __prev = useRef<Record<string, unknown>>({});
++  const baseWalk = useMemo(() => {
++    const w = window as unknown as { __h1809?: { log: string[] } };
++    const changed = (["baseDefs", "savedRootFrames", "sources"] as const).filter(
++      (k) => __prev.current[k] !== { baseDefs, savedRootFrames, sources }[k],
++    );
++    __prev.current = { baseDefs, savedRootFrames, sources };
++    w.__h1809?.log.push(`saved-walk-factory(${baseDefs === null ? "skip" : "run"}) changed=${changed.join("+")}`);
++    return baseDefs === null ? null : evaluatePipeline(baseDefs, savedRootFrames, { sources });
++  }, [baseDefs, savedRootFrames, sources]);
+   const draftWalk = useMemo(
+     () => (draftDefs === null ? null : walker.walk(draftDefs, rootFrames, sources)),
+     [walker, draftDefs, rootFrames, sources],
+diff --git a/frontend/src/features/pipelines/state/draftEvaluation.ts b/frontend/src/features/pipelines/state/draftEvaluation.ts
+index e49a988d9..c3fb3adb0 100644
+--- a/frontend/src/features/pipelines/state/draftEvaluation.ts
++++ b/frontend/src/features/pipelines/state/draftEvaluation.ts
+@@ -78,6 +78,7 @@ export function createIncrementalWalker(): IncrementalWalker {
+     | undefined;
+   return {
+     walk(defs, rootFrames, sources) {
++      (window as unknown as { __h1809?: { log: string[] } }).__h1809?.log.push("draft-walk");
+       const reusable =
+         last !== undefined && last.rootFrames === rootFrames && last.sources === sources
+           ? singleEditedStep(last.defs, defs)
+diff --git a/frontend/src/shared/ui/useScrollEdges.ts b/frontend/src/shared/ui/useScrollEdges.ts
+index 20632e051..2995f2da0 100644
+--- a/frontend/src/shared/ui/useScrollEdges.ts
++++ b/frontend/src/shared/ui/useScrollEdges.ts
+@@ -60,42 +60,55 @@ export function useScrollEdges<T extends HTMLElement>(): {
+   const ref = useRef<T>(null);
+   const [edges, setEdges] = useState<ScrollEdgeState>(NO_EDGES);
+ 
++  const __trig = useRef("?");
++  const __last = useRef<ScrollEdgeState>(NO_EDGES);
+   const measure = useCallback(() => {
+     const el = ref.current;
+     if (!el) return;
++    const __t0 = performance.now();
+     const maxScrollLeft = el.scrollWidth - el.clientWidth;
+     const maxScrollTop = el.scrollHeight - el.clientHeight;
+-    setEdges({
++    const next = {
+       left: el.scrollLeft > 1,
+       right: maxScrollLeft - el.scrollLeft > 1,
+       overflowing: maxScrollLeft > 1,
+       top: el.scrollTop > 1,
+       bottom: maxScrollTop - el.scrollTop > 1,
+       overflowingY: maxScrollTop > 1,
+-    });
++    };
++    const __same = JSON.stringify(next) === JSON.stringify(__last.current);
++    __last.current = next;
++    const __t1 = performance.now();
++    setEdges(next);
++    (window as unknown as { __h1809?: { log: string[] } }).__h1809?.log.push(
++      `edges:${__trig.current}:layoutRead=${(__t1 - __t0).toFixed(2)}ms:unchanged=${__same}:cells=${el.querySelectorAll("td").length}`,
++    );
+   }, []);
+ 
+   // Measure synchronously after paint so the shadow is correct on first
+   // render (no flash of "no shadow" on an already-overflowing table).
+   useLayoutEffect(() => {
++    __trig.current = "mount";
+     measure();
+   }, [measure]);
+ 
+   useEffect(() => {
+     const el = ref.current;
+     if (!el) return;
+-    el.addEventListener("scroll", measure, { passive: true });
+-    window.addEventListener("resize", measure);
++    const onScroll = () => ((__trig.current = "scroll"), measure());
++    const onResize = () => ((__trig.current = "resize"), measure());
++    el.addEventListener("scroll", onScroll, { passive: true });
++    window.addEventListener("resize", onResize);
+     let observer: ResizeObserver | undefined;
+     // jsdom (Jest) has no ResizeObserver — feature-detect rather than crash.
+     if (typeof ResizeObserver !== "undefined") {
+-      observer = new ResizeObserver(measure);
++      observer = new ResizeObserver(() => ((__trig.current = "ro"), measure()));
+       observer.observe(el);
+       for (const child of Array.from(el.children)) observer.observe(child);
+     }
+     return () => {
+-      el.removeEventListener("scroll", measure);
+-      window.removeEventListener("resize", measure);
++      el.removeEventListener("scroll", onScroll);
++      window.removeEventListener("resize", onResize);
+       observer?.disconnect();
+     };
+   }, [measure]);

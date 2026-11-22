@@ -1,0 +1,5 @@
+    Expected: 5
+    Received: 8
+    > 167 |     expect(counts.runStatus).toBe(header.runStatus);
+      168 |     expect(counts.scheduleChip).toBe(header.scheduleChip);
+Tests:       1 failed, 1 total

@@ -1,0 +1,8 @@
+EDIT: removed the `memo(` wrapper from SpineSourceCard (plain function component)
+MUTATION sourcecard-unmemoised (file src/features/pipelines/ui/spine/SpineSourceCard.tsx)
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 1
+    + Received  + 1
+    -   "sourceCard": 0,
+    +   "sourceCard": 3,
+Tests:       1 failed, 1 total

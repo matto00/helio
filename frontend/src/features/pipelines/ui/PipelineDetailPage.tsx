@@ -12,6 +12,7 @@ import { PipelineSpineLayout } from "./spine/PipelineSpineLayout";
 
 import "./PipelineDetailPage.css";
 import { usePipelineDetailPage } from "../hooks/usePipelineDetailPage";
+import { useLatestCallback } from "../hooks/useLatestCallback";
 import { useStepDeepLink } from "../hooks/useStepDeepLink";
 
 // HEL-682 — this component is now a pure page shell: all state, effects, and
@@ -41,6 +42,10 @@ function PipelineDetailPageContent() {
   // HEL-1668 D1: the initial `?step=` is consumed once, at the first steps load, whichever layout is showing.
   const deepLink = useStepDeepLink(!page.stepsLoading && !page.stepsFailed, isPhoneShell);
   const { id, currentPipeline, currentPipelineStatus, currentPipelineError } = page;
+  // HEL-1809: the draft dialogs are memoised on narrow props, so their handlers keep one identity across edits.
+  const confirmCascade = useLatestCallback(() => page.draftSave.confirmCascade());
+  const cancelCascade = useLatestCallback(() => page.draftSave.cancelCascade());
+  const discardDraft = useLatestCallback(() => page.draft.discard());
 
   // ── Loading / Error guards ──
   // Show error if we have a known error and no pipeline data yet.
@@ -89,7 +94,14 @@ function PipelineDetailPageContent() {
         <PipelineSpineLayout page={page} />
       )}
       <PipelineDetailDialogs page={page} />
-      <PipelineDraftDialogs page={page} />
+      <PipelineDraftDialogs
+        cascade={page.draftSave.cascade}
+        confirmCascade={confirmCascade}
+        cancelCascade={cancelCascade}
+        saving={page.draftSave.saving}
+        hasDraft={page.draft.hasDraft}
+        discard={discardDraft}
+      />
     </>
   );
 }

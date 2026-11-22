@@ -1,0 +1,15 @@
+### run 1
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+  1 passed (12.7s)
+### run 2
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+  1 passed (12.7s)
+### run 3
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+  1 passed (12.6s)
+### run 4
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+  1 passed (12.5s)
+### run 5
+[HEL-1683 e2e] control longest long task: 52.0 ms (tasks: 52.0); frames: LoAF@46ms dur=54 block=4 render=2 styleLayout=0 scripts=[DIV#root.oninput|react-dom_client.js?v=cf7c2e00:dispatchDiscreteEvent|46]; api: none
+  1 passed (13.5s)
