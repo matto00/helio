@@ -199,6 +199,31 @@ test.describe("HEL-1791 compact counter height in the panel stack", () => {
             if (role === "editor") await expectInside(caption, card, `${at} caption`);
             else await expect(caption, `${at}: owner has no caption`).toHaveCount(0);
 
+            // HEL-1804: the empty alert/status regions must not claim a flex gap slot. The blank band between the last
+            // visible content and the bottom of the compact layout's border box is at most its own padding-bottom.
+            await expect(
+              card.locator(".form-panel-view__alert"),
+              `${at}: alert region mounted`,
+            ).toHaveAttribute("role", "alert");
+            await expect(
+              card.locator(".form-panel-view__status"),
+              `${at}: status region mounted`,
+            ).toHaveAttribute("role", "status");
+            const blank = await card.locator(".form-panel-view__compact-counter").evaluate((el) => {
+              const box = el.getBoundingClientRect();
+              const row =
+                el.querySelector(".counter-control__caption") ??
+                el.querySelector(".counter-control");
+              return {
+                below: box.bottom - (row as HTMLElement).getBoundingClientRect().bottom,
+                padding: parseFloat(getComputedStyle(el).paddingBottom),
+              };
+            });
+            expect(
+              blank.below,
+              `${at}: blank space below the last content (${blank.below}px) is only the layout padding (${blank.padding}px)`,
+            ).toBeLessThanOrEqual(blank.padding + 1);
+
             const scroll = await card.locator(".panel-content--form").evaluate((el) => ({
               scrollHeight: el.scrollHeight,
               clientHeight: el.clientHeight,
@@ -257,6 +282,81 @@ test.describe("HEL-1791 compact counter height in the panel stack", () => {
       expect(Object.keys(table[String(width)]).length, `${width}px: all seven cards measured`).toBe(
         7,
       );
+    }
+  });
+
+  // HEL-1804: a message must still render in the SAME always-mounted region, in flow below the content. Declared last
+  // (fullyParallel is false, so file order holds) and run on the existing counter panel.
+  test("owner: a status message and an alert message render in flow in the same live regions", async () => {
+    const page = await owner.context.newPage();
+    try {
+      await openStack(page, 390, "light");
+      const card = page
+        .locator(".mobile-panel-stack__item--form")
+        .filter({ has: page.getByRole("spinbutton", { name: "Widgets" }) });
+      await expect(card).toBeVisible();
+      const compact = card.locator(".form-panel-view__compact-counter");
+
+      async function expectRegionInFlow(sel: string, role: "status" | "alert", text: RegExp) {
+        const region = card.locator(sel);
+        const handle = await region.elementHandle();
+        expect(handle, `${role} region mounted before the step`).not.toBeNull();
+        return {
+          async verify(what: string) {
+            await expect(region, `${what}: text`).toHaveText(text);
+            await expect(region, `${what}: visible`).toBeVisible();
+            await expect(region, `${what}: role`).toHaveAttribute("role", role);
+            const r = await handle!.evaluate((el, parentSel) => {
+              const box = el.getBoundingClientRect();
+              const parent = (el.closest(parentSel) as HTMLElement).getBoundingClientRect();
+              const content = (
+                el.parentElement!.firstElementChild as HTMLElement
+              ).getBoundingClientRect();
+              return {
+                connected: el.isConnected,
+                position: getComputedStyle(el).position,
+                top: box.top,
+                bottom: box.bottom,
+                height: box.height,
+                contentBottom: content.bottom,
+                parentTop: parent.top,
+                parentBottom: parent.bottom,
+              };
+            }, ".form-panel-view__compact-counter");
+            expect(r.connected, `${what}: same element still attached`).toBe(true);
+            expect(r.position, `${what}: in flow`).toBe("static");
+            expect(r.height, `${what}: has height`).toBeGreaterThan(0);
+            expect(r.top, `${what}: below the content, no overlap`).toBeGreaterThanOrEqual(
+              r.contentBottom - 0.5,
+            );
+            expect(r.bottom, `${what}: inside the layout`).toBeLessThanOrEqual(
+              r.parentBottom + 0.5,
+            );
+          },
+        };
+      }
+
+      await expect(compact).toBeVisible();
+      const status = await expectRegionInFlow(
+        ".form-panel-view__status",
+        "status",
+        /The row was added\./,
+      );
+      await page.getByRole("button", { name: /increase widgets/i }).click();
+      await status.verify("status message");
+
+      await page.route(/\/api\/panels\/[^/]+\/submit$/, async (route) => {
+        await route.fulfill({
+          status: 400,
+          contentType: "application/json",
+          body: JSON.stringify({ message: "HEL1804 rejected step" }),
+        });
+      });
+      const alert = await expectRegionInFlow(".form-panel-view__alert", "alert", /\S/);
+      await page.getByRole("button", { name: /increase widgets/i }).click();
+      await alert.verify("alert message");
+    } finally {
+      await page.close();
     }
   });
 });

@@ -1,0 +1,10 @@
+M2: :empty dropped (regions always absolute)
+  ✓  1 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:172:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light (5.9s)
+  ✓  2 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:172:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark (5.1s)
+  ✓  3 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:172:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light (5.9s)
+  ✓  4 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:172:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark (5.7s)
+  ✓  5 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:251:7 › HEL-1791 compact counter height in the panel stack › per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) (10.0s)
+  ✘  6 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:290:7 › HEL-1791 compact counter height in the panel stack › owner: a status message and an alert message render in flow in the same live regions (1.9s)
+    Error: status message: in flow
+  1 failed
+  5 passed (37.3s)

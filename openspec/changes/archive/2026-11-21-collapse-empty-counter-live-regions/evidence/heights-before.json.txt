@@ -1,0 +1,29 @@
+{
+  "390": {
+    "Output panel": 166,
+    "Text panel": 102.2,
+    "Markdown panel": 149,
+    "Image panel": 113.2,
+    "divider": 17,
+    "Multi-field form": 270.2,
+    "HEL1791 counter": 226.2
+  },
+  "768": {
+    "Output panel": 166,
+    "Text panel": 102.2,
+    "Markdown panel": 149,
+    "Image panel": 113.2,
+    "divider": 17,
+    "Multi-field form": 270.2,
+    "HEL1791 counter": 226.2
+  },
+  "1100": {
+    "Output panel": 178,
+    "Text panel": 114.2,
+    "Markdown panel": 161,
+    "Image panel": 125.2,
+    "divider": 17,
+    "Multi-field form": 282.2,
+    "HEL1791 counter": 238.2
+  }
+}
