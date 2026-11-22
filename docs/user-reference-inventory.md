@@ -94,6 +94,11 @@ Each outcome below is pinned by `V119OwnerFkMigrationSpec` with an explicit lane
   deleted row's key and the scheduler tick drains the queue. Objects orphaned BEFORE that (V119's cleanup, earlier
   deletes) are not removed; the read-only measurement and the owner's procedure are in
   `openspec/changes/archive/2026-10-12-delete-blobs-with-rows/measurements.md`. Known gaps: `TRUNCATE` fires no row trigger.
+  Conversation transcripts live at `assistant-conversations/<userId>/<conversationId>.json`: the local backend now
+  removes the per-user folder when its last transcript is drained (HEL-1802; GCS has no directories), and the e2e
+  throwaway-user teardown removes the exact folder after the delete commits. Folders left by earlier deletes are
+  listed by `node scripts/prune-orphan-conversation-folders.mjs --uploads-root <abs> --database-url <url> [...]`
+  (pass every database whose users may own one; a dry run unless `--delete`). Production has no account deletion.
 
 These are follow-ups for HEL-1301's account-deletion design. V119 itself never reaches any of this on deploy: its guard
 aborts, before deleting anything, if a data source it would delete is still referenced.

@@ -1,0 +1,168 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.13.0.3)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/task/remove-deleted-user-upload-folders/HEL-1802/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/task/remove-deleted-user-upload-folders/HEL-1802/backend/)
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] FormAndConversationObjectDrainSpec:
+16:14:39,696 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+16:14:39,697 |-INFO in ch.qos.logback.classic.util.ContextInitializer@1f9c68bd - No custom configurators were discovered as a service.
+16:14:39,697 |-INFO in ch.qos.logback.classic.util.ContextInitializer@1f9c68bd - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+16:14:39,697 |-INFO in ch.qos.logback.classic.util.ContextInitializer@1f9c68bd - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+16:14:39,699 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+16:14:39,700 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/task/remove-deleted-user-upload-folders/HEL-1802/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+16:14:39,736 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+16:14:39,738 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@3b4bbbcc - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+16:14:39,738 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+16:14:39,745 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+16:14:39,746 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@3b4bbbcc - value "plain" substituted for "${LOG_APPENDER}"
+16:14:39,746 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+16:14:39,746 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+16:14:39,746 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+16:14:39,749 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+16:14:39,768 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+16:14:39,768 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+16:14:39,768 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+16:14:39,768 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@3b4bbbcc - value "INFO" substituted for "${LOG_LEVEL}"
+16:14:39,768 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+16:14:39,768 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@3b4bbbcc - value "plain" substituted for "${LOG_APPENDER}"
+16:14:39,768 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+16:14:39,768 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@38f39ef8 - End of configuration.
+16:14:39,769 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@791871e2 - Registering current configuration as safe fallback point
+16:14:39,771 |-INFO in ch.qos.logback.classic.util.ContextInitializer@1f9c68bd - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 72 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+16:14:39.790 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - Detected distribution: 'Arch'
+16:14:39.791 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - System specific postgres binaries found: 'postgres-linux-x86_64.txz'
+16:14:40.434 INFO  [pool-1-thread-1] org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:37181/postgres?user=postgres (PostgreSQL 14.10)
+16:14:40.489 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Schema history table "public"."flyway_schema_history" does not exist yet
+16:14:40.492 INFO  [pool-1-thread-1] o.f.core.internal.command.DbValidate - Successfully validated 142 migrations (execution time 00:00.038s)
+16:14:40.501 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Creating Schema History table "public"."flyway_schema_history" ...
+16:14:40.674 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "pipelines_select" for relation "pipelines" does not exist, skipping
+16:14:40.916 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1387_dropped_output_config_keys_deny_all" for relation "hel1387_dropped_output_config_keys" does not exist, skipping
+16:14:40.922 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1410_migrated_output_formats_deny_all" for relation "hel1410_migrated_output_formats" does not exist, skipping
+16:14:40.927 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned or ownerless data_sources rows (dataset_rows cascade)
+16:14:40.928 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned image_uploads rows
+16:14:40.943 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - +-----------------------------------+
+| hel1456_repair_ghost_layout_items |
++-----------------------------------+
+| 0                                 |
++-----------------------------------+
+
+[info] dataset-row form-upload keys
+[info] - should be removed by the drain after the row is deleted
+[info] - should be removed after the whole dataset source is deleted, and after a users cascade
+[info] - should be kept until the LAST row holding a shared key is deleted
+[info] - should remove only the replaced object when a row update swaps a file
+[info] - should survive a full-set replace that re-inserts the same key (delete + insert in one transaction)
+[info] conversation transcripts
+[info] - should be removed after the conversation row is deleted
+[info] a deleted user's conversation folder (HEL-1802)
+[info] - should be gone after the explicit child delete, the users delete and a drain pass, with the family directory kept *** FAILED ***
+[info]   true was not equal to false (FormAndConversationObjectDrainSpec.scala:211)
+[info] - should keep the folder while another conversation of the user remains
+[info] the extended shared-key guard
+[info] - should defer an image key still copied as a bare string into a dataset row, then delete it once that row goes
+[info] - should defer an image key copied as a binary-ref into a dataset row (non-form family) instead of dequeuing it
+[info] - should defer a transcript key copied into a dataset row, and delete it after that row is deleted
+[info] - should keep an image key held by a node snapshot until the snapshot no longer holds it
+[info] - should keep an image key held by a binary_refs row until that row is gone
+[info] - should keep an image key held by a node_payload_history row until that row is gone
+16:14:41.688 ERROR [scala-execution-context-global-45] c.h.s.s.StoredObjectDeletionService - Stored-object deletion pass failed: IllegalStateException
+[info] - should leave every claimed row queued, attempts unchanged, when the guard query itself fails
+[info] - should keep an image key named by an alert event value
+[info] - should dequeue (not defer) an image key a surviving image row still holds, and not count an attempt
+[info] - should treat an unrelated form key literal in a dataset row as no hold on a different key
+[info] new-style queue rows
+16:14:41.803 WARN  [scala-execution-context-global-65] c.h.s.s.StoredObjectDeletionService - Stored-object deletion failed for form-uploads/753667fe-e9cd-4754-a14d-dfc41486af27.pdf: IllegalStateException
+[info] - should back off on a failed storage delete by moving not_before, never touching claimed_at
+[info] - should honour the attempt cap
+[info] - should not be re-claimed while their lease is live, and be re-claimed once it expires
+[info] V128's own claim SQL (3.2a)
+16:14:41.929 WARN  [scala-execution-context-global-65] c.h.s.s.StoredObjectDeletionService - Stored-object deletion failed for form-uploads/e73b485d-ee73-4c00-803c-8b78bb121c5f.pdf: IllegalStateException
+[info] - should claim a legacy V128-trigger row (control) but none of the new-style rows, however far in the future it runs
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] LocalFileSystemSpec:
+[info] LocalFileSystem
+[info] - should round-trip write and read
+[info] - should return false for exists before write, true after
+[info] - should delete a file so exists returns false
+[info] - should list returns relative paths matching a prefix
+[info] - should list returns empty page for a non-existent prefix
+[info] - should list paginates correctly with pageSize smaller than total file count
+[info] - should list with a prefix that resolves to a regular file returns single name on first call and empty on cursor call
+[info] - should write creates intermediate parent directories
+[info] - should publishes via rename: a write to a read-only target file succeeds
+[info] - should requires write permission on the target directory: staging fails even though the target file itself is writable
+[info] - should leaves no .tmp residue in the target directory after a successful write
+[info] - should cleans up the temp file and leaves the original untouched when the atomic move fails
+[info] LocalFileSystem directory pruning (HEL-1802)
+[info] - should remove the emptied per-user folder but keep the family directory *** FAILED ***
+[info]   true was not equal to false (LocalFileSystemSpec.scala:284)
+[info] - should keep a folder that still holds a sibling object
+[info] - should keep a flat family directory after its last object is deleted
+[info] - should clear an empty folder even when the object is already gone, and never remove the root *** FAILED ***
+[info]   true was not equal to false (LocalFileSystemSpec.scala:311)
+[info] - should not walk a path that normalizes outside the root
+[info] - should let a write succeed when a prune removes its directory between mkdir and temp-file creation *** FAILED ***
+[info]   java.nio.file.NoSuchFileException: /tmp/helio-fs-race8415875444585710374/assistant-conversations/u3/.c.json.7271624721782574936.tmp
+[info]   at java.base/sun.nio.fs.UnixException.translateToIOException(UnixException.java:92)
+[info]   at java.base/sun.nio.fs.UnixException.rethrowAsIOException(UnixException.java:106)
+[info]   at java.base/sun.nio.fs.UnixException.rethrowAsIOException(UnixException.java:111)
+[info]   at java.base/sun.nio.fs.UnixFileSystemProvider.newByteChannel(UnixFileSystemProvider.java:261)
+[info]   at java.base/java.nio.file.Files.newByteChannel(Files.java:380)
+[info]   at java.base/java.nio.file.Files.createFile(Files.java:658)
+[info]   at java.base/java.nio.file.TempFileHelper.create(TempFileHelper.java:136)
+[info]   at java.base/java.nio.file.TempFileHelper.createTempFile(TempFileHelper.java:159)
+[info]   at java.base/java.nio.file.Files.createTempFile(Files.java:879)
+[info]   at com.helio.infrastructure.storage.LocalFileSystem.$anonfun$write$2(LocalFileSystem.scala:32)
+[info]   ...
+[info] LocalFileSystem.fromEnv
+16:14:42,532 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+16:14:42,533 |-INFO in ch.qos.logback.classic.util.ContextInitializer@30aa84dd - No custom configurators were discovered as a service.
+16:14:42,533 |-INFO in ch.qos.logback.classic.util.ContextInitializer@30aa84dd - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+16:14:42,533 |-INFO in ch.qos.logback.classic.util.ContextInitializer@30aa84dd - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+16:14:42,535 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+16:14:42,536 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/task/remove-deleted-user-upload-folders/HEL-1802/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+16:14:42,570 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+16:14:42,571 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@587c7f13 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+16:14:42,571 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+16:14:42,573 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+16:14:42,574 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@587c7f13 - value "plain" substituted for "${LOG_APPENDER}"
+16:14:42,574 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+16:14:42,574 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+16:14:42,574 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+16:14:42,577 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+16:14:42,592 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+16:14:42,592 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+16:14:42,592 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+16:14:42,592 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@587c7f13 - value "INFO" substituted for "${LOG_LEVEL}"
+16:14:42,592 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+16:14:42,592 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@587c7f13 - value "plain" substituted for "${LOG_APPENDER}"
+16:14:42,593 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+16:14:42,593 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@5db1227 - End of configuration.
+16:14:42,593 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@3a5dc32c - Registering current configuration as safe fallback point
+16:14:42,595 |-INFO in ch.qos.logback.classic.util.ContextInitializer@30aa84dd - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 60 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+16:14:42.598 INFO  [pool-1-thread-1-ScalaTest-running-LocalFileSystemSpec] c.h.i.storage.LocalFileSystem$ - Uploads root: /tmp/helio-from-env-abs11914719175691158052
+[info] - should use HELIO_UPLOADS_ROOT when set to an absolute path
+16:14:42.600 INFO  [pool-1-thread-1-ScalaTest-running-LocalFileSystemSpec] c.h.i.storage.LocalFileSystem$ - Uploads root: /home/matt/Development/helio/.claude/worktrees/task/remove-deleted-user-upload-folders/HEL-1802/backend/relative/path/test
+[info] - should resolve a relative HELIO_UPLOADS_ROOT to an absolute path
+16:14:42.603 INFO  [pool-1-thread-1-ScalaTest-running-LocalFileSystemSpec] c.h.i.storage.LocalFileSystem$ - Uploads root: /home/matt/.helio/uploads
+[info] - should default to ~/.helio/uploads when neither env var is set
+16:14:42.604 INFO  [pool-1-thread-1-ScalaTest-running-LocalFileSystemSpec] c.h.i.storage.LocalFileSystem$ - Uploads root: /tmp/helio-from-env-create510742718332093931/nested/subdir
+[info] - should create the directory tree when the path does not yet exist
+16:14:42.605 INFO  [pool-1-thread-1-ScalaTest-running-LocalFileSystemSpec] c.h.i.storage.LocalFileSystem$ - Uploads root: /tmp/helio-from-env-compat1946773189454467736
+[info] - should honour the backward-compat HELIO_UPLOADS_DIR alias
+[info] [hel1468-guard] ScalaTest summary: failed=4 aborted=0 unreadable=0
+[info] Run completed in 3 seconds, 556 milliseconds.
+[info] Total number of tests run: 45
+[info] Suites: completed 2, aborted 0
+[info] Tests: succeeded 41, failed 4, canceled 0, ignored 0, pending 0
+[info] *** 4 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.infrastructure.storage.LocalFileSystemSpec
+[error] 	com.helio.services.sources.FormAndConversationObjectDrainSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 4 s, cache 100%, 29 disk cache hits

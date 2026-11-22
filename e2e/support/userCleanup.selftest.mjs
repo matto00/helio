@@ -186,5 +186,137 @@ record(
   thrown,
 );
 
+// --- HEL-1802: conversation folder removal after the delete commits ---------------------------
+const { resolveUploadsRoot, conversationFolderPaths } = core;
+const runPath = process.env.HEL1802_RUN_PATH
+  ? resolve(process.env.HEL1802_RUN_PATH)
+  : join(here, "userCleanupRun.cjs");
+const runImported = await import(pathToFileURL(runPath).href).catch(() => ({}));
+const runMod = runImported.default ?? runImported;
+const HOME = "/home/someone";
+record(
+  "root: home default when nothing is set",
+  resolveUploadsRoot?.({}, {}, HOME) === "/home/someone/.helio/uploads",
+);
+record(
+  "root: .env-only HELIO_UPLOADS_ROOT is honoured",
+  resolveUploadsRoot?.({}, { HELIO_UPLOADS_ROOT: "/data/env-root" }, HOME) === "/data/env-root",
+);
+record(
+  "root: process env overrides .env",
+  resolveUploadsRoot?.(
+    { HELIO_UPLOADS_ROOT: "/data/proc" },
+    { HELIO_UPLOADS_ROOT: "/data/env-root" },
+    HOME,
+  ) === "/data/proc",
+);
+record(
+  "root: HELIO_UPLOADS_DIR is the fallback when ROOT is unset in both",
+  resolveUploadsRoot?.({}, { HELIO_UPLOADS_DIR: "/data/legacy" }, HOME) === "/data/legacy",
+);
+record(
+  "root: ROOT in .env beats DIR in process env (per-key merge, ROOT first)",
+  resolveUploadsRoot?.(
+    { HELIO_UPLOADS_DIR: "/data/legacy" },
+    { HELIO_UPLOADS_ROOT: "/data/env-root" },
+    HOME,
+  ) === "/data/env-root",
+);
+record(
+  "root: result is absolute and normalized",
+  resolveUploadsRoot?.({ HELIO_UPLOADS_ROOT: "/data/a/../b/" }, {}, HOME) === "/data/b",
+);
+record(
+  "folder paths: exactly assistant-conversations/<id> per validated record",
+  JSON.stringify(conversationFolderPaths?.([A, B], "/r")) ===
+    JSON.stringify([`/r/assistant-conversations/${A.id}`, `/r/assistant-conversations/${B.id}`]),
+);
+{
+  let threw = false;
+  try {
+    conversationFolderPaths?.([{ id: "../x", email: A.email }], "/r");
+  } catch {
+    threw = true;
+  }
+  record("folder paths: an unvalidated id never reaches a path", conversationFolderPaths && threw);
+}
+
+const del = runMod.deleteUsersAndFolders;
+function fakeRun(psqlImpl, opts = {}) {
+  const calls = [];
+  const removed = [];
+  const logs = [];
+  const result = (() => {
+    try {
+      return del([A, B], {
+        psql: (sql) => {
+          calls.push("psql");
+          return psqlImpl(sql);
+        },
+        dotEnv: opts.dotEnv ?? {},
+        processEnv: opts.processEnv ?? { HELIO_UPLOADS_ROOT: "/uploads-root" },
+        homedir: HOME,
+        isSymlink: opts.isSymlink ?? (() => false),
+        remove: (p) => {
+          calls.push("rm");
+          removed.push(p);
+        },
+        log: (m) => logs.push(m),
+      });
+    } catch (e) {
+      return { threw: String(e && e.message) };
+    }
+  })();
+  return { calls, removed, logs, result };
+}
+{
+  const ok = fakeRun(() => []);
+  record(
+    "run: psql commits before any folder is removed",
+    ok.calls.join(",") === "psql,rm,rm",
+    ok.calls.join(","),
+  );
+  record(
+    "run: removes exactly the built folders under the resolved root",
+    JSON.stringify(ok.removed) ===
+      JSON.stringify([
+        `/uploads-root/assistant-conversations/${A.id}`,
+        `/uploads-root/assistant-conversations/${B.id}`,
+      ]),
+    ok.removed.join(","),
+  );
+  record(
+    "run: logs one numbers-only line",
+    ok.logs.length === 1 &&
+      /removed \d+ of \d+ conversation folders/.test(ok.logs[0]) &&
+      !ok.logs[0].includes("/") &&
+      !ok.logs[0].includes(A.id),
+    ok.logs.join("|"),
+  );
+  const bad = fakeRun(() => {
+    throw new Error("aborted");
+  });
+  record(
+    "run: a failed delete removes no folder",
+    bad.removed.length === 0 && bad.result.threw === "aborted",
+    JSON.stringify(bad),
+  );
+  const link = fakeRun(() => [], { isSymlink: (p) => p.endsWith(A.id) });
+  record(
+    "run: a symlinked folder is skipped, not followed",
+    link.removed.length === 1 && link.removed[0].endsWith(B.id),
+    link.removed.join(","),
+  );
+  const envOnly = fakeRun(() => [], {
+    processEnv: {},
+    dotEnv: { HELIO_UPLOADS_ROOT: "/from-dotenv" },
+  });
+  record(
+    "run: the .env uploads root is used when the process env has none",
+    envOnly.removed[0] === `/from-dotenv/assistant-conversations/${A.id}`,
+    envOnly.removed.join(","),
+  );
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

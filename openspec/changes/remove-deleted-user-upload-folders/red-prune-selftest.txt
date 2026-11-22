@@ -1,0 +1,16 @@
+  FAIL - dry run lists exactly the two orphans
+  FAIL - dry run counts kept, skipped and deleted=0
+  FAIL - dry run reports how many users each database matched (counts only)
+  ok - dry run changes nothing on disk
+  FAIL - a user present only in the second database is not an orphan
+  ok - an unreadable database fails closed: throws and deletes nothing
+  FAIL - summary is counts only
+  FAIL - delete removes exactly the orphans
+  FAIL - orphans are gone; present, second-db, skipped, symlink target and other families are intact
+  FAIL - CLI requires --uploads-root
+  FAIL - CLI requires at least one --database-url
+  ok - CLI refuses a relative uploads root
+  ok - CLI with an unreachable database exits non-zero, lists no orphan, deletes nothing
+  ok - CLI never prints the connection string or password
+
+5 passed, 9 failed

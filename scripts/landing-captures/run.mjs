@@ -118,9 +118,8 @@ async function cleanup(created, sessionRest) {
       console.log(`  teardown ${tag}: ${e.message.slice(0, 120)}`),
     );
   }
-  const { psql } = require("../../e2e/support/db.cjs");
-  const { buildUserDeleteSql } = require("../../e2e/support/userCleanupCore.cjs");
-  psql(buildUserDeleteSql([created.user]), "landing-captures cleanup");
+  const { deleteUsersAndFolders } = require("../../e2e/support/userCleanupRun.cjs");
+  deleteUsersAndFolders([created.user], { label: "landing-captures cleanup" });
   console.log(`deleted throwaway user ${created.user.id}`);
 }
 

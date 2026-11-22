@@ -78,4 +78,9 @@ function psql(sql, label = "e2e db", connection = dbConnection()) {
   }
 }
 
-module.exports = { dbConnection, scrubSecrets, psql };
+/** The worktree's `backend/.env` as a key/value map (empty when absent). Values are for the caller to use, never to print. */
+function readBackendEnv() {
+  return readEnvFile(ENV_FILE);
+}
+
+module.exports = { dbConnection, scrubSecrets, psql, readBackendEnv };

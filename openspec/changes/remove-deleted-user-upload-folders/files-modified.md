@@ -1,0 +1,13 @@
+- `backend/src/main/scala/com/helio/infrastructure/storage/LocalFileSystem.scala` — delete prunes emptied dirs below the family dir (D1); write retries mkdir/createTempFile on NoSuchFileException (D1a); beforeStage test seam
+- `backend/src/test/scala/com/helio/infrastructure/storage/LocalFileSystemSpec.scala` — prune, sibling-kept, flat-family, outside-root and write-vs-prune race cases
+- `backend/src/test/scala/com/helio/services/sources/FormAndConversationObjectDrainSpec.scala` — deleted-user conversation folder drain integration cases
+- `e2e/support/userCleanupCore.cjs` — pure resolveUploadsRoot and conversationFolderPaths
+- `e2e/support/userCleanupRun.cjs` — new: psql delete first, then exact-folder removal, numbers-only log
+- `e2e/support/db.cjs` — readBackendEnv export (value never printed)
+- `e2e/support/userCleanup.ts`, `helio-mcp/scripts/layoutPreconditionSeam.ts`, `scripts/landing-captures/run.mjs` — callers go through deleteUsersAndFolders
+- `e2e/support/userCleanup.selftest.mjs` — root resolution, folder paths, ordering, failed-delete, symlink cases
+- `scripts/prune-orphan-conversation-folders.mjs` — new prune tool (dry run default, fail closed)
+- `scripts/prune-orphan-conversation-folders.selftest.mjs` — new prune tool (dry run default, fail closed) and its selftest
+- `package.json`, `.husky/pre-commit`, `.github/workflows/ci.yml` — prune selftest wiring
+- `docs/user-reference-inventory.md` — conversation-folder note and prune usage
+- `openspec/changes/remove-deleted-user-upload-folders/` — tasks, design checklist, red/mutation/live transcripts (.txt)
