@@ -1,0 +1,20 @@
+== MUTATION: revert per-folder catch
+  FAIL - run: a failing folder is counted, the other is still attempted, nothing escapes: {"calls":["psql","rm","rm"],"logs":[],"result":{"threw":"cannot remove /uploads-
+  FAIL - run: the log line carries the failed count and no path or id
+  FAIL - registry: a failed folder removal still removes the registry dir, then throws count-only: {"threw":"cannot remove /uploads-root/assistant-conversations/22222222-
+  FAIL - registry: a second run on the cleared dir returns 0 without calling psql: {"threw":"cannot remove /uploads-root/assistant-conversations/22222222-2222-4222-8222-2
+58 passed, 4 failed
+== MUTATION: drop rmSync before throw (rm after throw, i.e. never on failure)
+  FAIL - registry: a failed folder removal still removes the registry dir, then throws count-only: {"threw":"userCleanup: 1 of 2 conversation folders could not be removed
+  FAIL - registry: a second run on the cleared dir returns 0 without calling psql: {"threw":"userCleanup: 1 of 2 conversation folders could not be removed (the users were
+  FAIL - registry: a root-resolution failure counts all as failed and still clears the dir: {"threw":"userCleanup: 2 of 2 conversation folders could not be removed (the u
+  FAIL - registry: a clean run clears the dir and returns the record count: {"value":2}
+58 passed, 4 failed
+== MUTATION: drop PGPASSWORD mapping
+  FAIL - CLI maps DB_USER/DB_PASSWORD to PGUSER/PGPASSWORD for the psql it spawns: 0  seen=user=true pass=false
+17 passed, 1 failed
+== MUTATION: drop credential scrubbing
+18 passed, 0 failed
+== MUTATION (replaces the no-op one above; psql() already scrubs with the same list): drop DB_USER/DB_PASSWORD from the secrets list
+  FAIL - CLI failure output redacts DB_USER, DB_PASSWORD and the URL: prune-orphan-conversation-folders: prune: psql failed (is psql installed and the DB reachable?): FAT
+17 passed, 1 failed

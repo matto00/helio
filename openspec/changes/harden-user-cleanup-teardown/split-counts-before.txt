@@ -1,0 +1,26 @@
+LocalFileSystemSpec (single suite, before split): Tests: succeeded 23, failed 0
+user.home redirect proof: /home/matt/Development/helio/.concertino/scratch/HEL-1817/home-before/.helio/uploads exists (verified via ls -d)
+--- sorted test names ---
+- should cleans up the temp file and leaves the original untouched when the atomic move fails
+- should clear an empty folder even when the object is already gone, and never remove the root
+- should create the directory tree when the path does not yet exist
+- should default to ~/.helio/uploads when neither env var is set
+- should delete a file so exists returns false
+- should honour the backward-compat HELIO_UPLOADS_DIR alias
+- should keep a flat family directory after its last object is deleted
+- should keep a folder that still holds a sibling object
+- should leaves no .tmp residue in the target directory after a successful write
+- should let a write succeed when a prune removes its directory between mkdir and temp-file creation
+- should list paginates correctly with pageSize smaller than total file count
+- should list returns empty page for a non-existent prefix
+- should list returns relative paths matching a prefix
+- should list with a prefix that resolves to a regular file returns single name on first call and empty on cursor call
+- should not walk a path that normalizes outside the root
+- should publishes via rename: a write to a read-only target file succeeds
+- should remove the emptied per-user folder but keep the family directory
+- should requires write permission on the target directory: staging fails even though the target file itself is writable
+- should resolve a relative HELIO_UPLOADS_ROOT to an absolute path
+- should return false for exists before write, true after
+- should round-trip write and read
+- should use HELIO_UPLOADS_ROOT when set to an absolute path
+- should write creates intermediate parent directories

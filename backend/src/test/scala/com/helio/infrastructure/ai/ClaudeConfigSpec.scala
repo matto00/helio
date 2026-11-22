@@ -16,7 +16,7 @@ import scala.jdk.CollectionConverters._
  *  requirement + task 1.3).
  *
  *  Mutates the real process environment via reflection to exercise `sys.env` branches, mirroring
- *  the existing `withEnv`/`withoutEnv` pattern in `LocalFileSystemSpec`/`GcsFileSystemSpec`. Every
+ *  the existing `withEnv`/`withoutEnv` pattern in `LocalFileSystemFromEnvSpec`/`GcsFileSystemSpec`. Every
  *  mutation is restored in a `finally` block so no other spec observes a changed environment. */
 class ClaudeConfigSpec extends AnyWordSpec with Matchers {
 
@@ -135,7 +135,7 @@ class ClaudeConfigSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  // ---- env-mutation helpers (mirrors LocalFileSystemSpec/GcsFileSystemSpec) ----
+  // ---- env-mutation helpers (mirrors LocalFileSystemFromEnvSpec/GcsFileSystemSpec) ----
 
   private def withEnv(pairs: (String, String)*)(block: => Unit): Unit = {
     val saved = pairs.map { case (k, _) => k -> sys.env.get(k) }

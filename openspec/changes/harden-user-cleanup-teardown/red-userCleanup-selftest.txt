@@ -1,0 +1,64 @@
+  ok - empty input refused
+  ok - non-UUID id refused
+  ok - SQL-shaped id refused
+  ok - system user id refused
+  ok - duplicate id refused
+  ok - duplicate email refused
+  ok - quote in email refused
+  ok - backslash in email refused
+  ok - whitespace in email refused
+  ok - control char in email refused
+  ok - owner account refused
+  ok - real-domain account refused
+  ok - lookalike domain refused
+  ok - SQL carries both recorded ids
+  ok - SQL carries both recorded emails
+  ok - SQL has no UUID other than the recorded ids and the system-user exclusion
+  ok - SQL has no email literal other than the recorded ones and the owner exclusion
+  ok - SQL has no /\bLIKE\b/i predicate
+  ok - SQL has no /\bILIKE\b/i predicate
+  ok - SQL has no /\bSIMILAR\b/i predicate
+  ok - SQL has no /~/ predicate
+  ok - SQL has no /\bnow\s*\(/i predicate
+  ok - SQL has no /\binterval\b/i predicate
+  ok - SQL has no /\bcurrent_(date|timestamp)\b/i predicate
+  ok - SQL repeats the e2e-domain refusal
+  ok - SQL repeats the owner-account exclusion
+  ok - SQL repeats the system-user exclusion
+  ok - guard matches on exact id AND exact email
+  ok - SQL asserts the matched count equals the recorded count
+  ok - SQL asserts the deleted count equals the recorded count
+  ok - SQL locks the doomed rows FOR UPDATE
+  ok - SQL sets a lock_timeout
+  ok - SQL is one transaction
+  ok - user delete selects by id only
+  ok - every DELETE is scoped to the doomed set
+  ok - registry read returns both of this run's records
+  ok - a sibling run directory's id never reaches the SQL
+  ok - scrubSecrets removes the URL, user and password
+  ok - a forced psql failure throws
+  ok - the thrown message carries no URL, user or password
+  ok - root: home default when nothing is set
+  ok - root: .env-only HELIO_UPLOADS_ROOT is honoured
+  ok - root: process env overrides .env
+  ok - root: HELIO_UPLOADS_DIR is the fallback when ROOT is unset in both
+  ok - root: ROOT in .env beats DIR in process env (per-key merge, ROOT first)
+  ok - root: result is absolute and normalized
+  ok - folder paths: exactly assistant-conversations/<id> per validated record
+  ok - folder paths: an unvalidated id never reaches a path
+  ok - run: psql commits before any folder is removed
+  ok - run: removes exactly the built folders under the resolved root
+  ok - run: logs one numbers-only line
+  ok - run: a failed delete removes no folder
+  ok - run: a symlinked folder is skipped, not followed
+  ok - run: the .env uploads root is used when the process env has none
+  FAIL - run: a failing folder is counted, the other is still attempted, nothing escapes: {"calls":["psql","rm","rm"],"logs":[],"result":{"threw":"cannot remove /uploads-root/assistant-conversations/22222222-2222-4222-8222-222222222222"}}
+  FAIL - run: the log line carries the failed count and no path or id
+  FAIL - run: a root-resolution failure after the commit counts every folder as failed: {"calls":["psql"],"logs":[],"result":{"threw":"root resolution broke"}}
+  FAIL - registry: a failed folder removal still removes the registry dir, then throws count-only: {"threw":"delReg is not a function"}
+  FAIL - registry: a second run on the cleared dir returns 0 without calling psql: {"threw":"delReg is not a function"}
+  FAIL - registry: a root-resolution failure counts all as failed and still clears the dir: {"threw":"delReg is not a function"}
+  FAIL - registry: a psql failure keeps the dir and removes nothing: {"threw":"delReg is not a function"}
+  FAIL - registry: a clean run clears the dir and returns the record count: {"threw":"delReg is not a function"}
+
+54 passed, 8 failed

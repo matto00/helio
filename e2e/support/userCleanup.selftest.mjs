@@ -3,7 +3,7 @@
 // a run recorded. Pure: no DB, no browser. `HEL1301_CORE_PATH` points the test at a mutated copy of
 // the core (used by the mutation proof in the change's measurements.md); unset = the real module.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -316,6 +316,195 @@ function fakeRun(psqlImpl, opts = {}) {
     envOnly.removed[0] === `/from-dotenv/assistant-conversations/${A.id}`,
     envOnly.removed.join(","),
   );
+}
+
+// --- HEL-1817: a post-commit failure never escapes; the registry is cleared once the delete committed -------
+{
+  const failOne = (p) => {
+    if (p.endsWith(B.id)) throw new Error(`cannot remove ${p}`);
+  };
+  const run = (extra) => {
+    const calls = [];
+    const logs = [];
+    const result = (() => {
+      try {
+        return del([A, B], {
+          psql: () => {
+            calls.push("psql");
+            return [];
+          },
+          dotEnv: {},
+          processEnv: { HELIO_UPLOADS_ROOT: "/uploads-root" },
+          homedir: HOME,
+          isSymlink: () => false,
+          remove: (p) => {
+            calls.push("rm");
+            failOne(p);
+          },
+          log: (m) => logs.push(m),
+          ...extra,
+        });
+      } catch (e) {
+        return { threw: String(e && e.message) };
+      }
+    })();
+    return { calls, logs, result };
+  };
+  const one = run({});
+  record(
+    "run: a failing folder is counted, the other is still attempted, nothing escapes",
+    one.result.threw === undefined &&
+      one.result.failed === 1 &&
+      one.result.total === 2 &&
+      one.calls.join(",") === "psql,rm,rm",
+    JSON.stringify(one),
+  );
+  record(
+    "run: the log line carries the failed count and no path or id",
+    one.logs.length === 1 &&
+      /removed \d+ of 2 conversation folders, 1 failed/.test(one.logs[0]) &&
+      !one.logs[0].includes("/") &&
+      !one.logs[0].includes(B.id),
+    one.logs.join("|"),
+  );
+  const rootFail = run({
+    processEnv: new Proxy(
+      {},
+      {
+        get() {
+          throw new Error("root resolution broke");
+        },
+      },
+    ),
+  });
+  record(
+    "run: a root-resolution failure after the commit counts every folder as failed",
+    rootFail.calls.join(",") === "psql" &&
+      rootFail.result.threw === undefined &&
+      rootFail.result.failed === 2 &&
+      rootFail.result.removed === 0,
+    JSON.stringify(rootFail),
+  );
+}
+
+const delReg = runMod.deleteRegistryRun;
+{
+  const reg = mkdtempSync(join(tmpdir(), "hel1817-reg-"));
+  const write = (dir) =>
+    writeFileSync(join(dir, "1.jsonl"), `${JSON.stringify(A)}\n${JSON.stringify(B)}\n`);
+  const mk = (dir, over = {}) => {
+    const calls = [];
+    return {
+      calls,
+      deps: {
+        psql: () => {
+          calls.push("psql");
+          return [];
+        },
+        dotEnv: {},
+        processEnv: { HELIO_UPLOADS_ROOT: "/uploads-root" },
+        homedir: HOME,
+        isSymlink: () => false,
+        remove: (p) => {
+          calls.push("rm");
+          if (p.endsWith(B.id)) throw new Error(`cannot remove ${p}`);
+        },
+        log: () => {},
+        ...over,
+      },
+    };
+  };
+  const attempt = (dir, deps) => {
+    try {
+      return { value: delReg(dir, deps) };
+    } catch (e) {
+      return { threw: String(e && e.message) };
+    }
+  };
+  try {
+    write(reg);
+    const m = mk(reg);
+    const first = attempt(reg, m.deps);
+    record(
+      "registry: a failed folder removal still removes the registry dir, then throws count-only",
+      typeof delReg === "function" &&
+        !existsSync(reg) &&
+        m.calls.join(",") === "psql,rm,rm" &&
+        typeof first.threw === "string" &&
+        /1 of 2/.test(first.threw) &&
+        !first.threw.includes("/uploads-root") &&
+        !first.threw.includes(A.id) &&
+        !first.threw.includes(B.id),
+      JSON.stringify(first),
+    );
+    const m2 = mk(reg);
+    const second = attempt(reg, m2.deps);
+    record(
+      "registry: a second run on the cleared dir returns 0 without calling psql",
+      second.value === 0 && m2.calls.length === 0,
+      JSON.stringify(second),
+    );
+  } finally {
+    rmSync(reg, { recursive: true, force: true });
+  }
+  const reg2 = mkdtempSync(join(tmpdir(), "hel1817-reg-"));
+  try {
+    write(reg2);
+    const m = mk(reg2, {
+      processEnv: new Proxy(
+        {},
+        {
+          get() {
+            throw new Error("root resolution broke");
+          },
+        },
+      ),
+    });
+    const r = attempt(reg2, m.deps);
+    record(
+      "registry: a root-resolution failure counts all as failed and still clears the dir",
+      typeof delReg === "function" &&
+        !existsSync(reg2) &&
+        typeof r.threw === "string" &&
+        /2 of 2/.test(r.threw),
+      JSON.stringify(r),
+    );
+  } finally {
+    rmSync(reg2, { recursive: true, force: true });
+  }
+  const reg3 = mkdtempSync(join(tmpdir(), "hel1817-reg-"));
+  try {
+    write(reg3);
+    const m = mk(reg3, {
+      psql: () => {
+        throw new Error("aborted");
+      },
+    });
+    const r = attempt(reg3, m.deps);
+    record(
+      "registry: a psql failure keeps the dir and removes nothing",
+      typeof delReg === "function" &&
+        existsSync(reg3) &&
+        m.calls.length === 0 &&
+        r.threw === "aborted",
+      JSON.stringify(r),
+    );
+  } finally {
+    rmSync(reg3, { recursive: true, force: true });
+  }
+  const reg4 = mkdtempSync(join(tmpdir(), "hel1817-reg-"));
+  try {
+    write(reg4);
+    const m = mk(reg4, { remove: () => {} });
+    const r = attempt(reg4, m.deps);
+    record(
+      "registry: a clean run clears the dir and returns the record count",
+      typeof delReg === "function" && !existsSync(reg4) && r.value === 2,
+      JSON.stringify(r),
+    );
+  } finally {
+    rmSync(reg4, { recursive: true, force: true });
+  }
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
