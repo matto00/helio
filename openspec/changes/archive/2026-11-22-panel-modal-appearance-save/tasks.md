@@ -5,7 +5,7 @@
 ## 1. Probe
 
 - [x] 1.1 Start lane servers (DB helio_hel1615, ANTHROPIC_API_KEY empty); seed chart.chartType != Output config and != line, transparency 0.555, non-default background; API probe with the modal's exact batch body; record before/after JSON
-- [x] 1.2 Playwright through the real modal (title-only, background-only, OutputControlsEditor/subtype saves); record request body, server read-back, Redux panel + rendered chart type BEFORE the batch flush and after it
+- [x] 1.2 Playwright through the real modal (title-only, background-only; subtype/OutputControlsEditor saves checked by code reading and the evaluator's browser run); record request body, server read-back, Redux panel + rendered chart type BEFORE the batch flush and after it
 - [x] 1.3 Commit probe-evidence.md with an explicit verdict: what was lost (server / client / nothing)
 
 ### Backend
