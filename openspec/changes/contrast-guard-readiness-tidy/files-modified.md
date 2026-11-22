@@ -1,5 +1,0 @@
-- `e2e/support/state-surface-contrast-guard.ts` — 1440 pipeline-detail readiness wait (shared helper), measured-refresh assertion and log line, stale comment fix
-- `e2e/support/state-surface-contrast-guard-narrow.ts` — narrow awaitReady uses the shared helper; narrowWidths() by-value lookup
-- `e2e/state-surface-contrast-guard-narrow-1100-768.spec.ts` — select widths by value
-- `e2e/state-surface-contrast-guard-narrow-390.spec.ts` — select width by value
-- `openspec/changes/contrast-guard-readiness-tidy/evidence/*` — committed red/mutation/green evidence and coverage comparison
