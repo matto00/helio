@@ -1,0 +1,25 @@
+MUTATION: undo-after-undoPatchSet in usePipelineDraftUndo.ts (replace occurrence 0)
+exit=1
+FAIL src/features/pipelines/hooks/usePipelineDraftUndo.sessionEpoch.test.tsx
+  ● undo › does not dismiss the toast or reload when the session ends during undoPatchSet
+
+    expect(received).not.toContain(expected) // indexOf
+
+    Expected value: not "toasts/dismissToast"
+    Received array:     ["toasts/dismissToast"]
+
+      86 |       await flushPromises();
+      87 |     });
+    > 88 |     expect(dispatchedTypes(dispatch)).not.toContain("toasts/dismissToast");
+         |                                           ^
+      89 |     expect(getPipelineWithDefinition).not.toHaveBeenCalled();
+      90 |     expect(getPipelineById).not.toHaveBeenCalled();
+      91 |   });
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineDraftUndo.sessionEpoch.test.tsx:88:43)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 2 passed, 3 total
+Snapshots:   0 total
+Time:        3.593 s, estimated 5 s
+Ran all test suites matching src/features/pipelines/hooks/usePipelineDraftUndo.sessionEpoch.

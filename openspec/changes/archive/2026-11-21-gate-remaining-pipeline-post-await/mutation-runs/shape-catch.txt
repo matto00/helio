@@ -1,0 +1,27 @@
+MUTATION: shape-catch - removed ONLY line 117 (the check) of usePipelineShapeInstantiation.ts, against the committed 7-test file
+exit=1
+FAIL src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.test.tsx
+  ● handleInstantiateShape › does not toast a rejection that arrives after sign-out
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: {"message": "Shape only partially applied: 0 of 3 entries were added (Failed to apply shape.).", "variant": "error"}
+
+      169 |       await done;
+      170 |     });
+    > 171 |     expect(pushToast).not.toHaveBeenCalled();
+          |                           ^
+      172 |   });
+      173 | });
+      174 |
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.test.tsx:171:27)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 6 passed, 7 total
+Snapshots:   0 total
+Time:        3.63 s, estimated 4 s
+Ran all test suites matching src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.

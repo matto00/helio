@@ -1,0 +1,78 @@
+FAIL src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.test.tsx
+  ● handleInstantiateShape › sends no further create when the session ends during the first step create
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 2
+
+      71 |       await done;
+      72 |     });
+    > 73 |     expect(createPipelineStep).toHaveBeenCalledTimes(1);
+         |                                ^
+      74 |     expect(createOutput).not.toHaveBeenCalled();
+      75 |   });
+      76 |
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.test.tsx:73:32)
+
+  ● handleInstantiateShape › sends no Output create when the session ends during the last step create
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "pipe-A", {"config": undefined, "kind": "table", "name": "table", "nodeStepId": "real2"}
+
+       95 |       await done;
+       96 |     });
+    >  97 |     expect(createOutput).not.toHaveBeenCalled();
+          |                              ^
+       98 |   });
+       99 |
+      100 |   it("sends no further Output create when the session ends during an Output create", async () => {
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.test.tsx:97:30)
+
+  ● handleInstantiateShape › sends no further Output create when the session ends during an Output create
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 2
+
+      125 |       await done;
+      126 |     });
+    > 127 |     expect(createOutput).toHaveBeenCalledTimes(1);
+          |                          ^
+      128 |   });
+      129 |
+      130 |   it("creates both Outputs in the same session (control)", async () => {
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.test.tsx:127:26)
+
+  ● handleInstantiateShape › does not toast a rejection that arrives after sign-out
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: {"message": "Shape only partially applied: 0 of 3 entries were added (Failed to apply shape.).", "variant": "error"}
+
+      169 |       await done;
+      170 |     });
+    > 171 |     expect(pushToast).not.toHaveBeenCalled();
+          |                           ^
+      172 |   });
+      173 | });
+      174 |
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.test.tsx:171:27)
+
+Test Suites: 1 failed, 1 total
+Tests:       4 failed, 3 passed, 7 total
+Snapshots:   0 total
+Time:        3.695 s, estimated 4 s
+Ran all test suites matching src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.

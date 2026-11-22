@@ -1,0 +1,139 @@
+FAIL src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.test.tsx
+  ● handleInstantiateShape › sends no further create when the session ends during the first step create
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 2
+
+      71 |       await done;
+      72 |     });
+    > 73 |     expect(createPipelineStep).toHaveBeenCalledTimes(1);
+         |                                ^
+      74 |     expect(createOutput).not.toHaveBeenCalled();
+      75 |   });
+      76 |
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.test.tsx:73:32)
+
+  ● handleInstantiateShape › sends no Output create when the session ends during the last step create
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "pipe-A", {"config": undefined, "kind": "table", "name": "table", "nodeStepId": "real2"}
+
+       95 |       await done;
+       96 |     });
+    >  97 |     expect(createOutput).not.toHaveBeenCalled();
+          |                              ^
+       98 |   });
+       99 |
+      100 |   it("toasts a failure in the same session (control)", async () => {
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.test.tsx:97:30)
+
+  ● handleInstantiateShape › does not toast a rejection that arrives after sign-out
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: {"message": "Shape only partially applied: 0 of 3 entries were added (Failed to apply shape.).", "variant": "error"}
+
+      122 |       await done;
+      123 |     });
+    > 124 |     expect(pushToast).not.toHaveBeenCalled();
+          |                           ^
+      125 |   });
+      126 | });
+      127 |
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.test.tsx:124:27)
+
+FAIL src/features/pipelines/hooks/usePipelineDraftUndo.sessionEpoch.test.tsx (5.033 s)
+  ● undo › does not dismiss the toast or reload when the session ends during undoPatchSet
+
+    expect(received).not.toContain(expected) // indexOf
+
+    Expected value: not "toasts/dismissToast"
+    Received array:     ["toasts/dismissToast", "thunk"]
+
+      86 |       await flushPromises();
+      87 |     });
+    > 88 |     expect(dispatchedTypes(dispatch)).not.toContain("toasts/dismissToast");
+         |                                           ^
+      89 |     expect(getPipelineWithDefinition).not.toHaveBeenCalled();
+      90 |     expect(getPipelineById).not.toHaveBeenCalled();
+      91 |   });
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineDraftUndo.sessionEpoch.test.tsx:88:43)
+
+  ● undo › adopts, refetches and toasts nothing when the session ends during getPipelineWithDefinition
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "pipe-A", {"outputs": [], "roots": [], "steps": []}
+
+      110 |       await flushPromises();
+      111 |     });
+    > 112 |     expect(adoptDefinition).not.toHaveBeenCalled();
+          |                                 ^
+      113 |     expect(getPipelineById).not.toHaveBeenCalled();
+      114 |     expect(dispatch).not.toHaveBeenCalled();
+      115 |     expect(pushToast).not.toHaveBeenCalled();
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineDraftUndo.sessionEpoch.test.tsx:112:33)
+
+FAIL src/features/pipelines/hooks/usePipelineRunStream.sessionEpoch.test.tsx (5.032 s)
+  ● usePipelineRunStream onTerminal › dispatches and refreshes nothing when the session ended before the terminal event
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 2
+
+    1: {"payload": undefined, "type": "outputs/resetRunScopedState"}
+    2: [Function anonymous]
+
+      69 |     });
+      70 |     expect(setSseActive).toHaveBeenCalledWith(false);
+    > 71 |     expect(dispatch).not.toHaveBeenCalled();
+         |                          ^
+      72 |     expect(refreshRunHistoryAfterRun).not.toHaveBeenCalled();
+      73 |     expect(previewOutputs).not.toHaveBeenCalled();
+      74 |   });
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineRunStream.sessionEpoch.test.tsx:71:26)
+
+FAIL src/features/pipelines/hooks/usePipelineDraftCreate.sessionEpoch.test.tsx
+  ● createDraftIfComplete › does not flush the in-flight edit when the session ends during the create
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "step-real", {"inputField": "a", "instruction": "edited", "outputSchema": [{"name": "b", "type": "string"}]}
+
+      79 |       await flushPromises();
+      80 |     });
+    > 81 |     expect(updatePipelineStep).not.toHaveBeenCalled();
+         |                                    ^
+      82 |   });
+      83 | });
+      84 |
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineDraftCreate.sessionEpoch.test.tsx:81:36)
+
+Test Suites: 4 failed, 4 total
+Tests:       7 failed, 5 passed, 12 total
+Snapshots:   0 total
+Time:        5.738 s, estimated 10 s
+Ran all test suites matching src/features/pipelines/hooks/usePipelineDraftCreate.sessionEpoch|src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch|src/features/pipelines/hooks/usePipelineRunStream.sessionEpoch|src/features/pipelines/hooks/usePipelineDraftUndo.sessionEpoch.

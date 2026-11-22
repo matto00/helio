@@ -1,0 +1,25 @@
+MUTATION: shape-after-output in usePipelineShapeInstantiation.ts (replace occurrence 1)
+exit=1
+FAIL src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.test.tsx
+  ● handleInstantiateShape › sends no further Output create when the session ends during an Output create
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 2
+
+      125 |       await done;
+      126 |     });
+    > 127 |     expect(createOutput).toHaveBeenCalledTimes(1);
+          |                          ^
+      128 |   });
+      129 |
+      130 |   it("creates both Outputs in the same session (control)", async () => {
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.test.tsx:127:26)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 6 passed, 7 total
+Snapshots:   0 total
+Time:        4.254 s
+Ran all test suites matching src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.

@@ -1,6 +1,7 @@
 import { useCallback, useRef } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
 import { createOutput } from "../services/outputService";
 import { createPipelineStep } from "../services/pipelineService";
@@ -71,6 +72,8 @@ export function usePipelineShapeInstantiation({
       const totalEntries = stepExpansions.length + outputExpansions.length;
       const clientIdToRealId = new Map<string, string>();
       let createdCount = 0;
+      // HEL-1810: every continuation below belongs to the session that started the apply.
+      const startEpoch = getSessionEpoch();
 
       try {
         for (let i = 0; i < stepExpansions.length; i++) {
@@ -92,6 +95,7 @@ export function usePipelineShapeInstantiation({
             // `handleInsertStep`); required once the pipeline has >1 root.
             roots[0]?.id,
           );
+          if (getSessionEpoch() !== startEpoch) return;
           clientIdToRealId.set(stepExpansion.clientId, persisted.id);
           // A shape step has no local temp step: a synthetic, never-present, never-removed temp
           // id makes `applyCreatedStep` append it, and applies the splice's `reparentedStepIds`.
@@ -106,9 +110,11 @@ export function usePipelineShapeInstantiation({
             name: outputExpansion.name ?? outputExpansion.kind,
             config: outputExpansion.config,
           });
+          if (getSessionEpoch() !== startEpoch) return;
           createdCount += 1;
         }
       } catch (err: unknown) {
+        if (getSessionEpoch() !== startEpoch) return;
         const message = extractErrorMessage(err, "Failed to apply shape.");
         pushToast({
           variant: "error",

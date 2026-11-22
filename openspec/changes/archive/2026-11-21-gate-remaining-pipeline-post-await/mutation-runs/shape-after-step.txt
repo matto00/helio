@@ -1,0 +1,44 @@
+MUTATION: shape-after-step - removed ONLY line 98 (the check) of usePipelineShapeInstantiation.ts, against the committed 7-test file
+exit=1
+FAIL src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.test.tsx
+  ● handleInstantiateShape › sends no further create when the session ends during the first step create
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 2
+
+      71 |       await done;
+      72 |     });
+    > 73 |     expect(createPipelineStep).toHaveBeenCalledTimes(1);
+         |                                ^
+      74 |     expect(createOutput).not.toHaveBeenCalled();
+      75 |   });
+      76 |
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.test.tsx:73:32)
+
+  ● handleInstantiateShape › sends no Output create when the session ends during the last step create
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "pipe-A", {"config": undefined, "kind": "table", "name": "table", "nodeStepId": "real2"}
+
+       95 |       await done;
+       96 |     });
+    >  97 |     expect(createOutput).not.toHaveBeenCalled();
+          |                              ^
+       98 |   });
+       99 |
+      100 |   it("sends no further Output create when the session ends during an Output create", async () => {
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.test.tsx:97:30)
+
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 5 passed, 7 total
+Snapshots:   0 total
+Time:        3.661 s, estimated 5 s
+Ran all test suites matching src/features/pipelines/hooks/usePipelineShapeInstantiation.sessionEpoch.

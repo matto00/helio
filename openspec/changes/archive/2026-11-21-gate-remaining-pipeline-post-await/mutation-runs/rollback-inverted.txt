@@ -1,0 +1,45 @@
+MUTATION: rollback-inverted in usePipelineStepStructure.ts (replace occurrence 0)
+exit=1
+FAIL src/features/pipelines/hooks/usePipelineStepStructure.sessionEpoch.test.tsx
+  ● handleAddOutputViaAggregateTail after sign-out › does not send the rollback delete when createOutput rejects after sign-out
+
+    expect(jest.fn()).not.toHaveBeenCalled()
+
+    Expected number of calls: 0
+    Received number of calls: 1
+
+    1: "step-new"
+
+      136 |       await settled;
+      137 |     });
+    > 138 |     expect(deletePipelineStep).not.toHaveBeenCalled();
+          |                                    ^
+      139 |   });
+      140 | });
+      141 |
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineStepStructure.sessionEpoch.test.tsx:138:36)
+
+  ● handleAddOutputViaAggregateTail rollback in the same session › removes the orphaned step locally and deletes it when createOutput rejects
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "step-new"
+
+    Number of calls: 0
+
+      156 |     });
+      157 |     expect(outcome).toEqual(new Error("create failed"));
+    > 158 |     expect(deletePipelineStep).toHaveBeenCalledWith("step-new");
+          |                                ^
+      159 |     const filter = setSteps.mock.calls
+      160 |       .map(([arg]) => arg)
+      161 |       .filter((arg): arg is (prev: { id: string }[]) => { id: string }[] => typeof arg === "function")
+
+      at Object.<anonymous> (src/features/pipelines/hooks/usePipelineStepStructure.sessionEpoch.test.tsx:158:32)
+
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 3 passed, 5 total
+Snapshots:   0 total
+Time:        3.973 s, estimated 4 s
+Ran all test suites matching src/features/pipelines/hooks/usePipelineStepStructure.sessionEpoch.

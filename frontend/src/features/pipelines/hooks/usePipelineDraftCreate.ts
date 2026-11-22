@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
+import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
 import { createPipelineStep, updatePipelineStep } from "../services/pipelineService";
 import type { CreatedPipelineStep } from "../services/pipelineService";
@@ -58,6 +59,8 @@ export function usePipelineDraftCreate({
               (stepId) => stepsRef.current.some((s) => s.id === stepId),
               meta.rootId,
             );
+      // HEL-1810: a create that resolves after sign-out must not flush this step's edit under the next session.
+      const startEpoch = getSessionEpoch();
       void createPipelineStep(
         id,
         step.opType.id as PipelineStepKind,
@@ -68,6 +71,7 @@ export function usePipelineDraftCreate({
         wire.rootId,
       )
         .then((persisted) => {
+          if (getSessionEpoch() !== startEpoch) return;
           // HEL-1321 D3 — `stepsRef` still holds the PRE-swap list here, so look the draft up by
           // its temp id. Every edit replaces `config` with a new object, so reference
           // inequality with the POSTed config means the user edited while the create was in
