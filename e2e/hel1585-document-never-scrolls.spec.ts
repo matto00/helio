@@ -135,7 +135,7 @@ async function navigate(page: Page, path: string): Promise<void> {
     window.history.pushState({}, "", to);
     window.dispatchEvent(new PopStateEvent("popstate"));
   }, path);
-  await expect(page).toHaveURL(new RegExp(`${path.replace(/[/]/g, "\\/")}$`));
+  await expect(page).toHaveURL(new RegExp(`${path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`));
 }
 
 interface Measurement {
