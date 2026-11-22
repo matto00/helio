@@ -1,6 +1,6 @@
 import { test } from "@playwright/test";
 
-import { NARROW_WIDTHS, registerNarrowCells } from "./support/state-surface-contrast-guard-narrow";
+import { narrowWidths, registerNarrowCells } from "./support/state-surface-contrast-guard-narrow";
 
 // HEL-1649 -- the narrow-viewport cells at 1100 and 768 px, both themes. One of the
 // `state-surface-contrast-guard-*.spec.ts` parts (split by width so CI's file-level sharding can place the two halves
@@ -9,5 +9,5 @@ import { NARROW_WIDTHS, registerNarrowCells } from "./support/state-surface-cont
 test.describe("HEL-866 state-surface contrast guard (narrow viewports)", () => {
   test.describe.configure({ mode: "parallel" });
   test.setTimeout(120_000);
-  registerNarrowCells(NARROW_WIDTHS.slice(0, 2));
+  registerNarrowCells(narrowWidths(1100, 768));
 });
