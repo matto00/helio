@@ -41,10 +41,10 @@ vertical `bar` chart (raw rows, or an aggregation grouped by that field) SHALL r
 points SHALL be ordered by the instant their x value denotes and spaced in proportion to the time between them.
 An x value SHALL denote an instant exactly as the backend's shared timestamp parser reads it (see
 `timestamp-value-parsing`), with no frontend-only extension: whole-number epochs (seconds, or milliseconds above
-9999999999) whose instant lies in years 0001–9999, ISO instants and offset date-times, `T`- or space-separated date-times with a numeric offset
+9999999999) whose instant lies in years 0001–9999, written in ASCII or any other Unicode decimal digits as the backend reads a numeric string, ISO instants and offset date-times, `T`- or space-separated date-times with a numeric offset
 `+HH`/`+HHMM`/`+HH:MM`/`+HH:MM:SS` of at most 18:00 (either optionally followed by a bracketed id, read at the
 written offset), time-zone-less date-times read as UTC, bare `yyyy-MM-dd` dates and
-`MM/dd/yyyy` dates as midnight UTC. A row whose x value
+`MM/dd/yyyy` dates as midnight UTC. Only surrounding characters at or below U+0020 are ignored, as the backend trims; a value padded with any other whitespace (such as U+00A0) denotes no instant. A row whose x value
 denotes no instant SHALL NOT be plotted on the time axis; when one or more rows (or, for an aggregation, group
 keys) are left out this way, the chart SHALL show a footnote stating how many, such as "3 rows with no readable
 date not shown." or "1 group with no readable date not shown.", and SHALL show no such footnote when none are
@@ -74,6 +74,18 @@ time axis by being cast to `timestamp` in its pipeline.
 #### Scenario: Chart and backend agree case by case
 - **WHEN** every case of the shared chart timestamp fixture is parsed by the chart's x parser and by the backend's shared timestamp parser
 - **THEN** both yield the same instant (or both yield none) for every case
+
+#### Scenario: A Unicode-digit epoch is placed like its ASCII spelling
+- **WHEN** a timestamp x value is the whole-number epoch `1700000000` written in Arabic-Indic digits (`١٧٠٠٠٠٠٠٠٠`)
+- **THEN** the point is placed at the same instant as `1700000000`, the instant the backend reads
+
+#### Scenario: Non-ASCII whitespace padding is not trimmed
+- **WHEN** a timestamp x value is `2026-10-01` preceded by U+00A0
+- **THEN** the row is not plotted and counts toward the "no readable date" footnote, as the backend reads no instant
+
+#### Scenario: Chart and pipeline steps agree on the corpus timestamp strings
+- **WHEN** a string that the pipeline step parity corpus feeds to a timestamp reader is parsed by the chart's x parser and by the backend's shared timestamp parser
+- **THEN** both yield the same instant (or both yield none)
 
 #### Scenario: A non-timestamp x field is unchanged
 - **WHEN** the x field is declared `string` (or no schema is available) and its values look like dates
