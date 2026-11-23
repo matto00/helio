@@ -1,0 +1,9 @@
+- `frontend/src/utils/timestampParsing.ts` — new single TS reader (`parseInstantParts`) with engine semantics: Java trim, Unicode-digit epoch arm, ASCII non-epoch shapes with nanos
+- `frontend/src/utils/chartTimeAxis.ts` — `parseChartInstant` is now a millisecond-floor wrapper over the shared reader; duplicate grammar removed
+- `frontend/src/features/pipelines/evaluator/instants.ts` — `parseInstantString`/`InstantParts` re-exported from the shared reader; no longer imports chartTimeAxis
+- `frontend/src/features/pipelines/evaluator/testing/timestampStrings.ts` — test helper selecting every corpus string fed to a timestamp reader
+- `frontend/src/utils/chartTimeAxis.test.ts` — min count raised; coverage guard, single-implementation guard, nanos guard
+- `shared-test-fixtures/chart-timestamp-parsing.json` — +110 Scala-generated cases (corpus strings, Unicode-digit epochs, non-ASCII whitespace, control-char padding)
+- `shared-test-fixtures/pipeline-step-parity/manifest.json` — chart-gap note updated
+- `backend/src/test/scala/com/helio/domain/engine/ChartTimestampParsingParitySpec.scala` — min count raised to 235, doc comment
+- `openspec/changes/chart-instant-engine-parity/` — change artifacts and task checkboxes

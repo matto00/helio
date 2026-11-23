@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { parseInstantString } from "../features/pipelines/evaluator/instants";
+import { corpusTimestampStrings } from "../features/pipelines/evaluator/testing/timestampStrings";
 import {
   allMidnightUtc,
   formatChartInstant,
@@ -30,7 +32,41 @@ describe("parseChartInstant against the shared backend-parity fixture", () => {
   );
 
   it("covers every shape the design lists", () => {
-    expect(cases.length).toBeGreaterThanOrEqual(125);
+    expect(cases.length).toBeGreaterThanOrEqual(235);
+  });
+
+  // GUARD (HEL-1640): green on a correct tree, red only by mutation or drift. Keeps the fixture (and so the
+  // Scala-pinned chart parity) from falling behind the HEL-1581 pipeline-step corpus.
+  it("GUARD: holds every timestamp string the pipeline-step parity corpus feeds to a timestamp reader", () => {
+    const inputs = new Set(cases.map((c) => c.input));
+    const missing = corpusTimestampStrings().filter((s) => !inputs.has(s));
+    expect(missing).toEqual([]);
+    expect(corpusTimestampStrings().length).toBeGreaterThanOrEqual(101);
+  });
+
+  // GUARD (HEL-1640): the chart and the client evaluator must stay one implementation of "which instant".
+  it("GUARD: the chart reader is the millisecond floor of the evaluator reader on every fixture input", () => {
+    for (const { input } of cases) {
+      const parts = parseInstantString(input);
+      const expected =
+        parts === undefined ? null : Number(parts.seconds) * 1000 + Math.floor(parts.nanos / 1e6);
+      expect({ input, ms: parseChartInstant(input) }).toEqual({ input, ms: expected });
+    }
+  });
+
+  it("GUARD: the evaluator keeps the written nanosecond fraction of every fixture instant", () => {
+    const written = /^\s*\d{4}-\d{2}-\d{2}[Tt ]\d{2}:\d{2}:\d{2}\.(\d{1,9})/;
+    let checked = 0;
+    for (const { input, epochMillis } of cases) {
+      const m = written.exec(input);
+      if (!m || epochMillis === null) continue;
+      checked++;
+      expect({ input, nanos: parseInstantString(input)?.nanos }).toEqual({
+        input,
+        nanos: Number(m[1].padEnd(9, "0")),
+      });
+    }
+    expect(checked).toBeGreaterThanOrEqual(5);
   });
 
   it("reads a time-zone-less date-time as UTC whatever the process time zone is", () => {
