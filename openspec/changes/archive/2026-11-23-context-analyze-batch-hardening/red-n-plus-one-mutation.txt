@@ -1,0 +1,122 @@
+# Mutation: listByPipelineInternalBatch(idSet) replaced by one call per pipeline (Future.traverse) in contextAnalyzeForOwner; never committed as code.
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.13.0.3)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/task/context-analyze-batch-hardening/HEL-1827/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/task/context-analyze-batch-hardening/HEL-1827/backend/)
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/task/context-analyze-batch-hardening/HEL-1827/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+14:31:59,994 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+14:31:59,995 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5b399be3 - No custom configurators were discovered as a service.
+14:31:59,995 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5b399be3 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+14:31:59,995 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5b399be3 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+14:31:59,997 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+14:31:59,999 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/task/context-analyze-batch-hardening/HEL-1827/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logb
+14:32:00,035 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+14:32:00,037 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@14ff2672 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+14:32:00,037 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+14:32:00,039 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+14:32:00,040 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@14ff2672 - value "plain" substituted for "${LOG_APPENDER}"
+14:32:00,041 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+14:32:00,041 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+14:32:00,041 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+14:32:00,044 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+14:32:00,054 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+14:32:00,054 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+14:32:00,054 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+14:32:00,055 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@14ff2672 - value "INFO" substituted for "${LOG_LEVEL}"
+14:32:00,055 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+14:32:00,055 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@14ff2672 - value "plain" substituted for "${LOG_APPENDER}"
+14:32:00,055 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+14:32:00,055 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@2184bdf0 - End of configuration.
+14:32:00,056 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@49ea4f85 - Registering current configuration as safe fallback point
+14:32:00,058 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5b399be3 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 61 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+14:32:00.060 INFO  [com-helio-api-routes-pipelines-PipelineContextAnalyzeQueryCountSpec-pekko.actor.default-dispatcher-4] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] PipelineContextAnalyzeQueryCountSpec:
+14:32:00.656 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - Detected a Linux x86_64 system
+14:32:00.666 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - Detected distribution: 'Arch'
+14:32:00.667 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - System specific postgres binaries found: 'postgres-linux-x86_64.txz'
+14:32:00.696 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - Postgres binaries at /tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b
+14:32:00.702 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - The files belonging to this database system will be owned by user "matt".
+14:32:00.702 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - This user must also own the server process.
+14:32:00.702 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+14:32:00.702 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - The database cluster will be initialized with locale "en_US.UTF-8".
+14:32:00.702 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - The default text search configuration will be set to "english".
+14:32:00.702 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+14:32:00.702 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - Data page checksums are disabled.
+14:32:00.702 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+14:32:00.702 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - fixing permissions on existing directory /tmp/epg8073248843916662364 ... ok
+14:32:00.703 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - creating subdirectories ... ok
+14:32:00.703 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting dynamic shared memory implementation ... posix
+14:32:00.710 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default max_connections ... 100
+14:32:00.720 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default shared_buffers ... 128MB
+14:32:00.726 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default time zone ... America/Los_Angeles
+14:32:00.726 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - creating configuration files ... ok
+14:32:00.788 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - running bootstrap script ... ok
+14:32:01.006 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - performing post-bootstrap initialization ... ok
+14:32:01.010 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - syncing data to disk ... ok
+14:32:01.010 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+14:32:01.010 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - Success. You can now start the database server using:
+14:32:01.010 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+14:32:01.010 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres -     /tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b/bin/pg_ctl -D /tmp/epg8073248843916662364 -l logfile start
+14:32:01.010 INFO  [initdb:pid(2472728)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+14:32:01.011 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - f58402ee-a3c3-42aa-a0e9-0d98e3a27ba6 initdb completed in 00:00:00.314
+14:32:01.014 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - f58402ee-a3c3-42aa-a0e9-0d98e3a27ba6 postmaster started as Process[pid=2472756, exitValue="not exited"] on port 35641.  Waiting up to PT10S for server startup to finish.
+14:32:01.032 INFO  [postgres:pid(2472756)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to start....2026-11-23 14:32:01.032 PST [2472759] LOG:  starting PostgreSQL 14.10 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit
+14:32:01.032 INFO  [postgres:pid(2472756)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:32:01.032 PST [2472759] LOG:  listening on IPv6 address "::1", port 35641
+14:32:01.032 INFO  [postgres:pid(2472756)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:32:01.032 PST [2472759] LOG:  listening on IPv4 address "127.0.0.1", port 35641
+14:32:01.033 INFO  [postgres:pid(2472756)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:32:01.032 PST [2472759] LOG:  listening on Unix socket "/tmp/.s.PGSQL.35641"
+14:32:01.033 INFO  [postgres:pid(2472756)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:32:01.033 PST [2472760] LOG:  database system was shut down at 2026-11-23 14:32:01 PST
+14:32:01.035 INFO  [postgres:pid(2472756)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:32:01.035 PST [2472759] LOG:  database system is ready to accept connections
+14:32:01.118 INFO  [postgres:pid(2472756)] i.z.t.d.p.embedded.EmbeddedPostgres -  done
+14:32:01.118 INFO  [postgres:pid(2472756)] i.z.t.d.p.embedded.EmbeddedPostgres - server started
+14:32:01.161 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - f58402ee-a3c3-42aa-a0e9-0d98e3a27ba6 postmaster startup finished in 00:00:00.148
+14:32:01.265 INFO  [pool-1-thread-1] org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:35641/postgres?user=postgres (PostgreSQL 14.10)
+14:32:01.312 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Schema history table "public"."flyway_schema_history" does not exist yet
+14:32:01.316 INFO  [pool-1-thread-1] o.f.core.internal.command.DbValidate - Successfully validated 142 migrations (execution time 00:00.034s)
+14:32:01.324 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Creating Schema History table "public"."flyway_schema_history" ...
+14:32:01.537 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "pipelines_select" for relation "pipelines" does not exist, skipping
+14:32:01.854 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1387_dropped_output_config_keys_deny_all" for relation "hel1387_dropped_output_config_keys" does not exist, skipping
+14:32:01.860 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1410_migrated_output_formats_deny_all" for relation "hel1410_migrated_output_formats" does not exist, skipping
+14:32:01.865 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned or ownerless data_sources rows (dataset_rows cascade)
+14:32:01.866 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned image_uploads rows
+14:32:01.879 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - +-----------------------------------+
++-----------------------------------+
++-----------------------------------+
+
+14:32:02.242 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+14:32:02.247 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+14:32:02.286 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+14:32:02.294 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+14:32:02.294 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+14:32:02.294 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+14:32:02.295 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] GET /api/pipelines/context-analyze
+[info] - should execute the same number of statements for 10 and for 200 pipelines of the same shape *** FAILED ***
+[info]   (5, 203) was not equal to (5, 13) (PipelineContextAnalyzeQueryCountSpec.scala:81)
+[info]   + statements at 10 pipelines: app=5 privileged=13; at 200: app=5 privileged=203 
+14:32:06.160 WARN  [com-helio-api-routes-pipelines-PipelineContextAnalyzeQueryCountSpec-pekko.actor.default-dispatcher-6] c.h.s.p.PipelineContextAnalyzeReads - context-analyze: omitting pipeline 869b2e45-b34f-4c31-b5e8-4e74e23f3a94: java.lang.IllegalStateException: injected per-pipeline fault
+[info] - should omit a pipeline whose analysis fails, return the others, and answer 200
+14:32:06.269 INFO  [postgres:pid(2472756)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:32:06.269 PST [2472759] LOG:  received fast shutdown request
+14:32:06.269 INFO  [postgres:pid(2472756)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:32:06.269 PST [2472759] LOG:  aborting any active transactions
+14:32:06.269 INFO  [postgres:pid(2472756)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:32:06.269 PST [2472990] FATAL:  terminating connection due to administrator command
+14:32:06.270 INFO  [postgres:pid(2472756)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:32:06.269 PST [2472986] FATAL:  terminating connection due to administrator command
+14:32:06.270 INFO  [postgres:pid(2472756)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:32:06.269 PST [2472979] FATAL:  terminating connection due to administrator command
+14:32:06.369 INFO  [pg_ctl:pid(2473349)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to shut down.... done
+14:32:06.370 INFO  [pg_ctl:pid(2473349)] i.z.t.d.p.embedded.EmbeddedPostgres - server stopped
+14:32:06.370 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - f58402ee-a3c3-42aa-a0e9-0d98e3a27ba6 shut down postmaster in 00:00:00.102
+14:32:06.418 INFO  [com-helio-api-routes-pipelines-PipelineContextAnalyzeQueryCountSpec-pekko.actor.default-dispatcher-6] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 7 seconds, 107 milliseconds.
+[info] Total number of tests run: 2
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 1, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.pipelines.PipelineContextAnalyzeQueryCountSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 8 s, cache 93%, 27 disk cache hits, 2 onsite tasks
