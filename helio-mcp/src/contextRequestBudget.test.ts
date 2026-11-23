@@ -274,3 +274,52 @@ describe("get_workspace_context analyze-batch fallback (HEL-1625 D7)", () => {
     );
   });
 });
+
+describe("get_workspace_context analyze-batch item without steps (HEL-1827)", () => {
+  /** A non-failing pipeline whose batch item lacks `steps` (a malformed or older-server item). */
+  const STEPLESS_INDEX = 3;
+  const dropSteps = (items: unknown[]): unknown => ({
+    items: (items as Array<{ pipelineId: string }>).map((item) =>
+      item.pipelineId === `p-${STEPLESS_INDEX}`
+        ? { pipelineId: item.pipelineId, warnings: [] }
+        : item,
+    ),
+  });
+  let writes: string[];
+  let spy: jest.SpyInstance;
+  beforeEach(() => {
+    writes = [];
+    spy = jest.spyOn(process.stderr, "write").mockImplementation(((chunk: string | Uint8Array) => {
+      writes.push(String(chunk));
+      return true;
+    }) as never);
+  });
+  afterEach(() => spy.mockRestore());
+
+  it("full mode: payload equals the golden (no stepsError for the steps-less pipeline)", async () => {
+    const { ctx } = await run({ contextAnalyzeBody: dropSteps }, false);
+    expect(JSON.stringify(stripGeneratedAt(ctx))).toBe(
+      JSON.stringify(golden("workspaceContext.full.json")),
+    );
+  });
+
+  it("concise mode: payload equals the golden", async () => {
+    const { ctx } = await run({ contextAnalyzeBody: dropSteps }, true);
+    expect(JSON.stringify(stripGeneratedAt(ctx))).toBe(
+      JSON.stringify(golden("workspaceContext.concise.json")),
+    );
+  });
+
+  it("analyzes exactly the steps-less and the failing pipeline per pipeline, with one 'omitted 2 of 55' stderr line", async () => {
+    const { stats } = await run({ contextAnalyzeBody: dropSteps });
+    const lines = writes.filter((w) => w.includes("context-analyze"));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(/omitted 2 of 55/);
+    expect(stats.paths.filter((p) => /\/analyze$/.test(p)).sort()).toEqual(
+      [
+        `/api/pipelines/p-${ANALYZE_FAILS_INDEX}/analyze`,
+        `/api/pipelines/p-${STEPLESS_INDEX}/analyze`,
+      ].sort(),
+    );
+  });
+});

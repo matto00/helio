@@ -1,0 +1,131 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.13.0.3)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/task/context-analyze-batch-hardening/HEL-1827/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/task/context-analyze-batch-hardening/HEL-1827/backend/)
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/task/context-analyze-batch-hardening/HEL-1827/backend/target/out/jvm/scala-2.13.15/helio-backend/test-classes ...
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+14:07:35,920 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+14:07:35,921 |-INFO in ch.qos.logback.classic.util.ContextInitializer@2e043d42 - No custom configurators were discovered as a service.
+14:07:35,921 |-INFO in ch.qos.logback.classic.util.ContextInitializer@2e043d42 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+14:07:35,921 |-INFO in ch.qos.logback.classic.util.ContextInitializer@2e043d42 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+14:07:35,923 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+14:07:35,925 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/task/context-analyze-batch-hardening/HEL-1827/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+14:07:35,975 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+14:07:35,978 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@44f2a00 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+14:07:35,978 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+14:07:35,984 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+14:07:35,985 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@44f2a00 - value "plain" substituted for "${LOG_APPENDER}"
+14:07:35,986 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+14:07:35,986 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+14:07:35,986 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+14:07:35,989 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+14:07:36,007 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+14:07:36,008 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+14:07:36,008 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+14:07:36,008 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@44f2a00 - value "INFO" substituted for "${LOG_LEVEL}"
+14:07:36,008 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+14:07:36,008 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@44f2a00 - value "plain" substituted for "${LOG_APPENDER}"
+14:07:36,008 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+14:07:36,008 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@78324bb1 - End of configuration.
+14:07:36,009 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@62b98ef - Registering current configuration as safe fallback point
+14:07:36,011 |-INFO in ch.qos.logback.classic.util.ContextInitializer@2e043d42 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 88 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+14:07:36.014 INFO  [com-helio-api-routes-pipelines-PipelineContextAnalyzeRoutesSpec-pekko.actor.default-dispatcher-4] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] PipelineContextAnalyzeRoutesSpec:
+14:07:36.877 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - Detected a Linux x86_64 system
+14:07:36.891 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - Detected distribution: 'Arch'
+14:07:36.892 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - System specific postgres binaries found: 'postgres-linux-x86_64.txz'
+14:07:36.921 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - Postgres binaries at /tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b
+14:07:36.929 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - The files belonging to this database system will be owned by user "matt".
+14:07:36.929 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - This user must also own the server process.
+14:07:36.929 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+14:07:36.929 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - The database cluster will be initialized with locale "en_US.UTF-8".
+14:07:36.929 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - The default text search configuration will be set to "english".
+14:07:36.929 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+14:07:36.929 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - Data page checksums are disabled.
+14:07:36.929 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+14:07:36.929 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - fixing permissions on existing directory /tmp/epg8318195304882787826 ... ok
+14:07:36.929 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - creating subdirectories ... ok
+14:07:36.929 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting dynamic shared memory implementation ... posix
+14:07:36.938 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default max_connections ... 100
+14:07:36.953 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default shared_buffers ... 128MB
+14:07:36.959 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default time zone ... America/Los_Angeles
+14:07:36.960 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - creating configuration files ... ok
+14:07:37.031 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - running bootstrap script ... ok
+14:07:37.283 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - performing post-bootstrap initialization ... ok
+14:07:37.289 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - syncing data to disk ... ok
+14:07:37.289 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+14:07:37.289 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - Success. You can now start the database server using:
+14:07:37.289 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+14:07:37.289 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres -     /tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b/bin/pg_ctl -D /tmp/epg8318195304882787826 -l logfile start
+14:07:37.289 INFO  [initdb:pid(2320626)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+14:07:37.289 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - e4b7c765-1b1a-430e-bdd7-bf23fbbf6904 initdb completed in 00:00:00.367
+14:07:37.293 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - e4b7c765-1b1a-430e-bdd7-bf23fbbf6904 postmaster started as Process[pid=2320639, exitValue="not exited"] on port 41799.  Waiting up to PT10S for server startup to finish.
+14:07:37.310 INFO  [postgres:pid(2320639)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to start....2026-11-23 14:07:37.310 PST [2320642] LOG:  starting PostgreSQL 14.10 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit
+14:07:37.311 INFO  [postgres:pid(2320639)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:07:37.311 PST [2320642] LOG:  listening on IPv6 address "::1", port 41799
+14:07:37.311 INFO  [postgres:pid(2320639)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:07:37.311 PST [2320642] LOG:  listening on IPv4 address "127.0.0.1", port 41799
+14:07:37.311 INFO  [postgres:pid(2320639)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:07:37.311 PST [2320642] LOG:  listening on Unix socket "/tmp/.s.PGSQL.41799"
+14:07:37.312 INFO  [postgres:pid(2320639)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:07:37.312 PST [2320643] LOG:  database system was shut down at 2026-11-23 14:07:37 PST
+14:07:37.314 INFO  [postgres:pid(2320639)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:07:37.313 PST [2320642] LOG:  database system is ready to accept connections
+14:07:37.397 INFO  [postgres:pid(2320639)] i.z.t.d.p.embedded.EmbeddedPostgres -  done
+14:07:37.397 INFO  [postgres:pid(2320639)] i.z.t.d.p.embedded.EmbeddedPostgres - server started
+14:07:37.448 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - e4b7c765-1b1a-430e-bdd7-bf23fbbf6904 postmaster startup finished in 00:00:00.156
+14:07:37.572 INFO  [pool-1-thread-1] org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:41799/postgres?user=postgres (PostgreSQL 14.10)
+14:07:37.629 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Schema history table "public"."flyway_schema_history" does not exist yet
+14:07:37.634 INFO  [pool-1-thread-1] o.f.core.internal.command.DbValidate - Successfully validated 142 migrations (execution time 00:00.043s)
+14:07:37.644 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Creating Schema History table "public"."flyway_schema_history" ...
+14:07:37.928 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "pipelines_select" for relation "pipelines" does not exist, skipping
+14:07:38.328 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1387_dropped_output_config_keys_deny_all" for relation "hel1387_dropped_output_config_keys" does not exist, skipping
+14:07:38.334 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1410_migrated_output_formats_deny_all" for relation "hel1410_migrated_output_formats" does not exist, skipping
+14:07:38.339 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned or ownerless data_sources rows (dataset_rows cascade)
+14:07:38.339 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned image_uploads rows
+14:07:38.355 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - +-----------------------------------+
++-----------------------------------+
++-----------------------------------+
+
+14:07:38.747 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+14:07:38.754 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+14:07:38.811 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+14:07:38.837 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+14:07:38.838 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+14:07:38.838 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+14:07:38.839 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] GET /api/pipelines/context-analyze
+[info] - should respond 401 without a credential, like GET /api/pipelines
+[info] - should return exactly the owner-scoped pipelines GET /api/pipelines lists, in the same order; an editor-granted pipeline is absent
+[info] - should include a pipeline with zero steps as steps: [] and warnings: []
+[info] - should return steps and warnings equal to GET /:id/analyze for every case of a rich fixture
+[info] - should produce a body that validates against the committed schema (seam guard, backend half)
+[info] - should never return another user's pipelines or steps to an editor or viewer grantee (non-BYPASSRLS pool), and leave their /analyze unchanged
+14:07:42.364 WARN  [com-helio-api-routes-pipelines-PipelineContextAnalyzeRoutesSpec-pekko.actor.default-dispatcher-4] c.h.s.p.PipelineContextAnalyzeReads - context-analyze: omitting pipeline c25e2000-b948-47e2-9fcd-fc6c52a0295e: java.lang.IllegalArgumentException: Invalid UUID string: not-a-uuid
+14:07:42.364 WARN  [com-helio-api-routes-pipelines-PipelineContextAnalyzeRoutesSpec-pekko.actor.default-dispatcher-4] c.h.s.p.PipelineContextAnalyzeReads - context-analyze: omitting pipeline 4eacb072-a306-45e8-afd3-8a877a4cc120: java.lang.IllegalArgumentException: Invalid UUID string: not-a-uuid
+14:07:42.364 WARN  [com-helio-api-routes-pipelines-PipelineContextAnalyzeRoutesSpec-pekko.actor.default-dispatcher-4] c.h.s.p.PipelineContextAnalyzeReads - context-analyze: omitting pipeline 6fdbb03e-418a-4432-97a4-7e597261170d: java.lang.IllegalArgumentException: Invalid UUID string: not-a-uuid
+[info] - should HEL-1827: resolve a stored source id the way /analyze does (raw text compare): upper-case ids miss, malformed ids never omit the pipeline *** FAILED ***
+[info]   upper-case join secondary: batch [{"config":{"joinKey":"order_id","joinType":"inner","secondaryInput":{"dataSourceId":"D5C667B4-D266-41AB-91E6-BA9957B1900F","kind":"source"}},"id":"b39c594f-f8c7-43cc-abf1-deab92cba0af","inputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"outputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"},{"name":"label","type":"string"}],"position":0,"type":"join"}] / [{"code":"join-key-type-mismatch","message":"join: key 'order_id' is string on the input but integer on the secondary input; values of different types never match, so the join may return no rows (types are from the inferred schemas)","stepId":"b39c594f-f8c7-43cc-abf1-deab92cba0af"}] != analyze [{"config":{"joinKey":"order_id","joinType":"inner","secondaryInput":{"dataSourceId":"D5C667B4-D266-41AB-91E6-BA9957B1900F","kind":"source"}},"id":"b39c594f-f8c7-43cc-abf1-deab92cba0af","inputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"outputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"position":0,"type":"join"}] / []
+[info]   upper-case lookup secondary: batch [{"config":{"columns":["label"],"lookupKey":"order_id","secondaryInput":{"dataSourceId":"D5C667B4-D266-41AB-91E6-BA9957B1900F","kind":"source"},"sourceKey":"order_id"},"id":"48fd551d-efc7-4b49-8bff-61d91ee1f380","inputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"outputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"},{"name":"label","type":"string"}],"position":0,"type":"lookup"}] / [{"code":"join-key-type-mismatch","message":"lookup: match field 'order_id' is string on the input but reference match field 'order_id' is integer on the secondary input; values of different types never match, so no row will find a match (types are from the inferred schemas)","stepId":"48fd551d-efc7-4b49-8bff-61d91ee1f380"}] != analyze [{"config":{"columns":["label"],"lookupKey":"order_id","secondaryInput":{"dataSourceId":"D5C667B4-D266-41AB-91E6-BA9957B1900F","kind":"source"},"sourceKey":"order_id"},"id":"48fd551d-efc7-4b49-8bff-61d91ee1f380","inputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"outputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"},{"name":"label","type":"string"}],"position":0,"type":"lookup"}] / []
+[info]   upper-case upsert target: batch [{"config":{"mode":"append","target":{"dataSourceId":"FBCEBF0E-7D55-49A9-AA9D-43D5C7C578BC","kind":"existingSource"}},"id":"1da6719f-9f11-45f6-93e6-89f07fc6c24b","inputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"outputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"position":0,"type":"upsertsource"}] / [] != analyze [{"config":{"mode":"append","target":{"dataSourceId":"FBCEBF0E-7D55-49A9-AA9D-43D5C7C578BC","kind":"existingSource"}},"id":"1da6719f-9f11-45f6-93e6-89f07fc6c24b","inputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"outputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"position":0,"type":"upsertsource","validationError":"Data source not found: FBCEBF0E-7D55-49A9-AA9D-43D5C7C578BC"}] / []
+[info]   non-UUID join secondary: omitted from the batch
+[info]   non-UUID lookup secondary: omitted from the batch
+[info]   non-UUID upsert target: omitted from the batch
+[info]   Vector("upper-case join secondary: batch [{"config":{"joinKey":"order_id","joinType":"inner","secondaryInput":{"dataSourceId":"D5C667B4-D266-41AB-91E6-BA9957B1900F","kind":"source"}},"id":"b39c594f-f8c7-43cc-abf1-deab92cba0af","inputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"outputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"},{"name":"label","type":"string"}],"position":0,"type":"join"}] / [{"code":"join-key-type-mismatch","message":"join: key 'order_id' is string on the input but integer on the secondary input; values of different types never match, so the join may return no rows (types are from the inferred schemas)","stepId":"b39c594f-f8c7-43cc-abf1-deab92cba0af"}] != analyze [{"config":{"joinKey":"order_id","joinType":"inner","secondaryInput":{"dataSourceId":"D5C667B4-D266-41AB-91E6-BA9957B1900F","kind":"source"}},"id":"b39c594f-f8c7-43cc-abf1-deab92cba0af","inputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"outputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"position":0,"type":"join"}] / []", "upper-case lookup secondary: batch [{"config":{"columns":["label"],"lookupKey":"order_id","secondaryInput":{"dataSourceId":"D5C667B4-D266-41AB-91E6-BA9957B1900F","kind":"source"},"sourceKey":"order_id"},"id":"48fd551d-efc7-4b49-8bff-61d91ee1f380","inputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"outputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"},{"name":"label","type":"string"}],"position":0,"type":"lookup"}] / [{"code":"join-key-type-mismatch","message":"lookup: match field 'order_id' is string on the input but reference match field 'order_id' is integer on the secondary input; values of different types never match, so no row will find a match (types are from the inferred schemas)","stepId":"48fd551d-efc7-4b49-8bff-61d91ee1f380"}] != analyze [{"config":{"columns":["label"],"lookupKey":"order_id","secondaryInput":{"dataSourceId":"D5C667B4-D266-41AB-91E6-BA9957B1900F","kind":"source"},"sourceKey":"order_id"},"id":"48fd551d-efc7-4b49-8bff-61d91ee1f380","inputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"outputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"},{"name":"label","type":"string"}],"position":0,"type":"lookup"}] / []", "upper-case upsert target: batch [{"config":{"mode":"append","target":{"dataSourceId":"FBCEBF0E-7D55-49A9-AA9D-43D5C7C578BC","kind":"existingSource"}},"id":"1da6719f-9f11-45f6-93e6-89f07fc6c24b","inputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"outputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"position":0,"type":"upsertsource"}] / [] != analyze [{"config":{"mode":"append","target":{"dataSourceId":"FBCEBF0E-7D55-49A9-AA9D-43D5C7C578BC","kind":"existingSource"}},"id":"1da6719f-9f11-45f6-93e6-89f07fc6c24b","inputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"outputSchema":[{"name":"order_id","type":"string"},{"name":"amount","type":"float"},{"name":"region","type":"string"}],"position":0,"type":"upsertsource","validationError":"Data source not found: FBCEBF0E-7D55-49A9-AA9D-43D5C7C578BC"}] / []", "non-UUID join secondary: omitted from the batch", "non-UUID lookup secondary: omitted from the batch", "non-UUID upsert target: omitted from the batch") was not empty (PipelineContextAnalyzeRoutesSpec.scala:165)
+14:07:42.546 INFO  [postgres:pid(2320639)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:07:42.546 PST [2320642] LOG:  received fast shutdown request
+14:07:42.547 INFO  [postgres:pid(2320639)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:07:42.546 PST [2320642] LOG:  aborting any active transactions
+14:07:42.547 INFO  [postgres:pid(2320639)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-23 14:07:42.547 PST [2320642] LOG:  background worker "logical replication launcher" (PID 2320649) exited with exit code 1
+14:07:42.646 INFO  [pg_ctl:pid(2320801)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to shut down.... done
+14:07:42.646 INFO  [pg_ctl:pid(2320801)] i.z.t.d.p.embedded.EmbeddedPostgres - server stopped
+14:07:42.646 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - e4b7c765-1b1a-430e-bdd7-bf23fbbf6904 shut down postmaster in 00:00:00.102
+14:07:42.696 INFO  [com-helio-api-routes-pipelines-PipelineContextAnalyzeRoutesSpec-pekko.actor.default-dispatcher-5] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 7 seconds, 604 milliseconds.
+[info] Total number of tests run: 7
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 6, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.pipelines.PipelineContextAnalyzeRoutesSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 8 s, cache 93%, 27 disk cache hits, 2 onsite tasks

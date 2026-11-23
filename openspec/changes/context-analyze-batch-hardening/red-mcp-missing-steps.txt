@@ -1,0 +1,107 @@
+FAIL helio-mcp/src/contextRequestBudget.test.ts
+  get_workspace_context request budget (HEL-1619, HEL-1625)
+    ✓ sends exactly 8 + 2 + Op + D + A = 31 requests on the 55-pipeline fixture when both batched reads exist (11 ms)
+    ✓ sends no per-pipeline /steps, /run-history or pipeline-summary request, and one placements request per PLACED Output only (9 ms)
+    ✓ sends an analyze request only for the pipeline absent from the batch (7 ms)
+    ✓ analyze batch answering 404: one more request than the HEL-1619 count of 84, one analyze per pipeline (17 ms)
+    ✓ is constant in P: 55 and 200 pipelines with the same placed Outputs, dashboards and absent pipelines send the same count (19 ms)
+    ✓ 200 pipelines (natural placements) send fewer than 120 requests; the same fixture without the analyze batch sends more (73 ms)
+    ✓ details 404 (older server) with the analyze batch served: falls back for steps and run-history only (28 ms)
+    ✓ the OUTPUTS_PER_PIPELINE x PIPELINE_COUNT fixture really has 110 Outputs (premise: 339 on the unfixed code)
+    ✓ never has more than MAX_IN_FLIGHT requests in flight, fixed fetches included (199 ms)
+    ✓ sends no placements request for an Output reporting panelCount 0, but still asks when panelCount is absent (44 ms)
+  get_workspace_context payload is byte-identical to the pre-change golden (HEL-1619, C1)
+    ✓ full mode, batched read (7 ms)
+    ✓ concise mode, batched read (8 ms)
+    ✓ full mode, 404 fallback (27 ms)
+    ✓ concise mode, 404 fallback (29 ms)
+    ✓ full mode, 500 fallback (25 ms)
+    ✓ concise mode, 500 fallback (27 ms)
+    ✓ full mode, batched read missing one pipeline (8 ms)
+    ✓ concise mode, batched read missing one pipeline (8 ms)
+    ✓ full mode, batched read, panelCount absent (24 ms)
+    ✓ concise mode, batched read, panelCount absent (25 ms)
+    ✓ full mode, analyze batch 404 (18 ms)
+    ✓ concise mode, analyze batch 404 (17 ms)
+    ✓ full mode, analyze batch 500 (17 ms)
+    ✓ concise mode, analyze batch 500 (16 ms)
+    ✓ full mode, analyze batch missing one pipeline (8 ms)
+    ✓ concise mode, analyze batch missing one pipeline (9 ms)
+    ✓ full mode, analyze batch malformed (17 ms)
+    ✓ concise mode, analyze batch malformed (18 ms)
+    ✓ full mode, both batched reads 404 (35 ms)
+    ✓ concise mode, both batched reads 404 (37 ms)
+    ✓ the golden exercises the cases the proof needs (1 ms)
+  get_workspace_context fallback visibility (HEL-1619 D10)
+    ✓ warns once on stderr when the batched read fails with a non-404 error (27 ms)
+    ✓ does not warn on a 404 (older server) (27 ms)
+    ✓ warns when the response omits pipelines, and fetches exactly the missing one per pipeline (7 ms)
+    ✓ treats a malformed (wrong envelope key) body as a failure, falls back, and warns (26 ms)
+  get_workspace_context analyze-batch fallback (HEL-1625 D7)
+    ✓ serve: exactly one stderr line (the pipeline whose analysis failed is absent), 'omitted 1 of 55' (6 ms)
+    ✓ 404: no stderr line, one analyze per pipeline (17 ms)
+    ✓ 500: one stderr line, one analyze per pipeline (15 ms)
+    ✓ malformed body (no items array): one stderr line, one analyze per pipeline (17 ms)
+    ✓ missing-one: one stderr line 'omitted 2 of 55'; exactly the two absent pipelines are analyzed per pipeline (7 ms)
+  get_workspace_context analyze-batch item without steps (HEL-1827)
+    ✕ full mode: payload equals the golden (no stepsError for the steps-less pipeline) (28 ms)
+    ✕ concise mode: payload equals the golden (28 ms)
+    ✕ analyzes exactly the steps-less and the failing pipeline per pipeline, with one 'omitted 2 of 55' stderr line (7 ms)
+
+  ● get_workspace_context analyze-batch item without steps (HEL-1827) › full mode: payload equals the golden (no stepsError for the steps-less pipeline)
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "{\"counts\":{\"dataSources\":5,\"pipelines\":55,\"dashboards\":1},\"dataSources\":[{\"id\":\"src-0\",\"name\":\"Source 0\",\"type\":\"csv\",\"tag\":null,\"inferredSchema\":[{\"name\":\"amount\",\"type\":\"number\"},{\"name\":\"label\",\"type\":\"string\"}]},{\"id\":\"src-1\",\"name\":
+    Received: "{\"counts\":{\"dataSources\":5,\"pipelines\":55,\"dashboards\":1},\"dataSources\":[{\"id\":\"src-0\",\"name\":\"Source 0\",\"type\":\"csv\",\"tag\":null,\"inferredSchema\":[{\"name\":\"amount\",\"type\":\"number\"},{\"name\":\"label\",\"type\":\"string\"}]},{\"id\":\"src-1\",\"name\":
+
+      299 |   it("full mode: payload equals the golden (no stepsError for the steps-less pipeline)", async () => {
+      300 |     const { ctx } = await run({ contextAnalyzeBody: dropSteps }, false);
+    > 301 |     expect(JSON.stringify(stripGeneratedAt(ctx))).toBe(
+          |                                                   ^
+      302 |       JSON.stringify(golden("workspaceContext.full.json")),
+      303 |     );
+      304 |   });
+
+      at Object.<anonymous> (helio-mcp/src/contextRequestBudget.test.ts:301:51)
+
+  ● get_workspace_context analyze-batch item without steps (HEL-1827) › concise mode: payload equals the golden
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "{\"counts\":{\"dataSources\":5,\"pipelines\":55,\"dashboards\":1},\"dataSources\":[{\"id\":\"src-0\",\"name\":\"Source 0\",\"type\":\"csv\",\"tag\":null,\"inferredSchemaFieldCount\":2},{\"id\":\"src-1\",\"name\":\"Source 1\",\"type\":\"csv\",\"tag\":null,\"inferredSchemaFieldCount\":2
+    Received: "{\"counts\":{\"dataSources\":5,\"pipelines\":55,\"dashboards\":1},\"dataSources\":[{\"id\":\"src-0\",\"name\":\"Source 0\",\"type\":\"csv\",\"tag\":null,\"inferredSchemaFieldCount\":2},{\"id\":\"src-1\",\"name\":\"Source 1\",\"type\":\"csv\",\"tag\":null,\"inferredSchemaFieldCount\":2
+
+      306 |   it("concise mode: payload equals the golden", async () => {
+      307 |     const { ctx } = await run({ contextAnalyzeBody: dropSteps }, true);
+    > 308 |     expect(JSON.stringify(stripGeneratedAt(ctx))).toBe(
+          |                                                   ^
+      309 |       JSON.stringify(golden("workspaceContext.concise.json")),
+      310 |     );
+      311 |   });
+
+      at Object.<anonymous> (helio-mcp/src/contextRequestBudget.test.ts:308:51)
+
+  ● get_workspace_context analyze-batch item without steps (HEL-1827) › analyzes exactly the steps-less and the failing pipeline per pipeline, with one 'omitted 2 of 55' stderr line
+
+    expect(received).toMatch(expected)
+
+    Expected pattern: /omitted 2 of 55/
+    Received string:  "helio-mcp: GET /api/pipelines/context-analyze unusable (omitted 1 of 55 pipelines); analyzing each pipeline separately
+    "
+
+      315 |     const lines = writes.filter((w) => w.includes("context-analyze"));
+      316 |     expect(lines).toHaveLength(1);
+    > 317 |     expect(lines[0]).toMatch(/omitted 2 of 55/);
+          |                      ^
+      318 |     expect(stats.paths.filter((p) => /\/analyze$/.test(p)).sort()).toEqual(
+      319 |       [
+      320 |         `/api/pipelines/p-${ANALYZE_FAILS_INDEX}/analyze`,
+
+      at Object.<anonymous> (helio-mcp/src/contextRequestBudget.test.ts:317:22)
+
+Test Suites: 1 failed, 1 total
+Tests:       3 failed, 40 passed, 43 total
+Snapshots:   0 total
+Time:        5.088 s
+Ran all test suites matching helio-mcp/src/contextRequestBudget.test.ts.

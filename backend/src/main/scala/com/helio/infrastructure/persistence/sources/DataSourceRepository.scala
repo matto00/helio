@@ -159,7 +159,8 @@ class DataSourceRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pipe
 
   /** HEL-1625: [[findByIdOwned]] for a set of ids in ONE statement -- the same user context and the same
    *  `owner_id` predicate, so a source the caller does not own is simply absent (indistinguishable from unknown).
-   *  `ids` must be valid UUID strings (the column compares as uuid). Keyed by the id as stored. */
+   *  `data_sources.id` is `TEXT` and ids are compared as text, so any string is accepted (a malformed or
+   *  differently-cased id simply matches nothing). Keyed by the id as stored. */
   def findByIdsOwned(ids: Set[DataSourceId], user: AuthenticatedUser): Future[Map[DataSourceId, DataSource]] =
     if (ids.isEmpty) Future.successful(Map.empty)
     else {

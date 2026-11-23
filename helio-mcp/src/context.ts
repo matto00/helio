@@ -292,7 +292,13 @@ async function fetchContextAnalyze(
       warnContextAnalyzeFallback("response has no items array");
       return null;
     }
-    return new Map(response.items.map((item) => [item.pipelineId, item]));
+    // An item without a `steps` array is treated as absent: that pipeline is analyzed per pipeline (and counted in
+    // the single "omitted N of M" line) instead of failing inside the step mapping.
+    return new Map(
+      response.items
+        .filter((item) => Array.isArray((item as { steps?: unknown } | undefined)?.steps))
+        .map((item) => [item.pipelineId, item]),
+    );
   } catch (err) {
     if (!(err instanceof HelioApiError && err.status === 404)) {
       warnContextAnalyzeFallback(err instanceof Error ? err.message : String(err));

@@ -1,0 +1,6 @@
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineContextAnalyzeReads.scala` — raw-id prefetch and plain map lookup (no UUID parsing), comments rewritten
+- `backend/src/main/scala/com/helio/infrastructure/persistence/sources/DataSourceRepository.scala` — findByIdsOwned doc corrected (TEXT column, any string)
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineContextAnalyzeRoutesSpec.scala` — upper-case and non-UUID secondary/upsert-target parity cases
+- `helio-mcp/src/context.ts` — fetchContextAnalyze only: a batch item without a steps array is treated as absent (per-pipeline analyze); fetchContextDetails is unchanged
+- `helio-mcp/src/contextRequestBudget.test.ts` — steps-less item golden (full/concise) and request-count/stderr cases
+- `openspec/changes/context-analyze-batch-hardening/red-backend-raw-id.txt`, `red-mcp-missing-steps.txt`, `red-n-plus-one-mutation.txt` — red runs
