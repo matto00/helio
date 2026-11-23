@@ -51,7 +51,8 @@ All in `PipelineRunRepository` unless noted.
 ### D4. Inventory: reads left alone (reasons)
 - `PipelineContextAnalyzeReads` / `context-analyze` (HEL-1625): reads steps and analyze projections, no runs.
 - `latestSuccessfulCompletedAtInternal`: `max(completed_at)`, a scalar, no tie to break.
-- `hasActiveRunInternal` / `findActiveRunInternal`: at most one open run per pipeline (overlap guard); no order.
+- `hasActiveRunInternal` (`exists`, no order). `findActiveRunInternal`: not a latest-run read, so outside this ticket;
+  note that manual `submit` has no overlap check, so two open runs can exist and it then returns either (follow-up).
 - `last_run_*` on normal terminal writes: written by the finishing run itself, no "latest" query; only the reaper
   compares runs.
 - `HomeSummaryBuilder` in-memory `sortBy`/`maxBy`: stable sort and first-max over the now-deterministic SQL order.
@@ -62,7 +63,7 @@ All in `PipelineRunRepository` unless noted.
 Adding `id` to `ORDER BY ... LIMIT 1` may stop V136 satisfying the sort alone (an incremental sort over equal
 `started_at` keys). The executor records `EXPLAIN (ANALYZE)` for `latestRunInternal` and `listByPipelineInternal` on
 the lane DB; an index (V147) is added only if the plan regresses measurably. Expected: no index (runs per pipeline
-are capped by retention at about 20).
+are capped by retention: 10 newest plus every run in the last 24 h, at most 300).
 
 ## Risks / Trade-offs
 
