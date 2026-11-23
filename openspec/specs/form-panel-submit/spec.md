@@ -477,7 +477,11 @@ clear-on-success behavior) — it SHALL NOT persist once a later request for the
 succeeded. This same field-associated error SHALL NOT be cleared by that same rejected settle's own
 subsequent reconciliation (the following requirement) reading back and applying the dataset's
 aggregate value — reconciling the displayed TOTAL is independent of, and SHALL NOT clear, this
-requirement's field-level error/invalid state; only a later request's own success clears it.
+requirement's field-level error/invalid state; it is cleared only by a later request's own success,
+or (owner ruling on HEL-1819) by a LATER burst's reconciliation as defined in the requirement "A stale counter
+rejection error is cleared once a later burst reconciles": a burst that starts after the rejection settled, that
+quiesces on an indeterminate (no-response) settle, and whose reconciliation fetch succeeds and is applied. A
+reconciliation within the same burst as the rejection SHALL NOT clear it.
 
 In the compact single-counter layout, a definite rejection's message SHALL be rendered and announced
 exactly once: its text SHALL appear only in the form's always-mounted assertive region, the field SHALL
@@ -537,6 +541,12 @@ paragraph: it keeps its form-level summary and each rejected control's own field
 - **WHEN** a counter's immediate-submit request is rejected by the server, marking the control invalid,
   and a later immediate-submit request for the same field succeeds
 - **THEN** the control's computed `aria-invalid` is no longer `"true"` once that later success settles
+
+#### Scenario: A later burst's successful reconcile after a no-response failure clears the error
+- **WHEN** a counter's immediate-submit request is rejected by the server, marking the control invalid,
+  and a later request, started after that rejection settled and with no other request in flight, fails
+  with no response and its reconciliation fetch succeeds
+- **THEN** the control's computed `aria-invalid` is no longer `"true"` once that reconciliation is applied
 
 ### Requirement: Only a caller with owner or editor access to the panel's dashboard may submit
 
@@ -698,3 +708,28 @@ triggered it, as an editor's manual run does.
 #### Scenario: The audit event names the editor
 - **WHEN** an editor submits successfully
 - **THEN** the append's audit event has the editor as actor and carries the panel id
+
+### Requirement: A stale counter rejection error is cleared once a later burst reconciles
+
+When a counter's field-associated error was set by a definite rejection in an EARLIER burst of immediate-submit
+activations, and the current burst quiesces on an indeterminate (no-response) settle whose reconciliation fetch
+succeeds and is applied, the client SHALL clear that field-associated error, so the control is no longer
+`aria-invalid` and no longer shown in the error colour. A definite rejection that settled within the CURRENT burst
+SHALL keep its field-associated error after the burst's reconciliation is applied (the existing rule that applying a
+reconciled total never clears an error set within the burst is unchanged). A reconciliation that fails, or whose
+result is discarded as stale, SHALL NOT clear the error.
+
+#### Scenario: Rejection, then a no-response failure, then a successful reconcile
+- **WHEN** a compact counter step is definitely rejected (the control becomes `aria-invalid="true"`)
+- **AND** a later step, started after that rejection settled, fails with no response
+- **AND** that step's reconciliation fetch succeeds
+- **THEN** the control is not `aria-invalid` and its value is not shown in the error colour
+
+#### Scenario: A rejection in the same burst keeps its error
+- **WHEN** two steps are in flight at once, one is definitely rejected and the other then fails with no response
+- **AND** the burst's reconciliation fetch succeeds
+- **THEN** the control stays `aria-invalid="true"` and the rejection message stays in the alert region
+
+#### Scenario: A failed reconciliation leaves the error
+- **WHEN** a step after an earlier rejection fails with no response and its reconciliation fetch also fails
+- **THEN** the control's field-associated error is not cleared by that settle

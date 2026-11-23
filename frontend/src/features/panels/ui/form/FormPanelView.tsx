@@ -92,6 +92,8 @@ export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanel
   // (design-gate round 4) — this is what lets a fetch already in flight be invalidated by a
   // sibling click's outcome even when that outcome alone wouldn't have dispatched a new fetch.
   const reconcileGenerationRef = useRef(0);
+  // HEL-1819: whether a definite rejection has settled in the CURRENT burst (reset when a click starts with nothing in flight).
+  const burstRejectedRef = useRef(false);
 
   function requestFocus(intent: "invalid" | "button") {
     pendingFocusRef.current = intent;
@@ -182,6 +184,9 @@ export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanel
     const delta = step * direction;
     const token = {};
 
+    // HEL-1819: a new burst (nothing in flight) starts with no rejection settled in it.
+    if (pendingDeltasRef.current.size === 0) burstRejectedRef.current = false;
+
     flushSync(() => {
       setAlertText("");
       setStatusText("");
@@ -201,7 +206,7 @@ export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanel
     // (design.md D4); this helper never does. Applies a fetched aggregate via `reconcileValue`,
     // NEVER `setValue` — `setValue`'s unconditional `externalErrors` clear would otherwise erase
     // a definite rejection's just-set `aria-invalid` state on this SAME settle (design.md D3a).
-    async function reconciliationTail(onReconcileFailed?: () => void) {
+    async function reconciliationTail(onReconcileFailed?: () => void, onReconciled?: () => void) {
       // Unconditional on every settle, success or failure alike (design-gate round 4) — this is
       // what lets a fetch already dispatched below be invalidated by a LATER sibling click's own
       // outcome, even when that outcome alone doesn't empty the map and so doesn't dispatch a new
@@ -234,6 +239,7 @@ export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanel
           // once they settle.
           if (myGen === reconcileGenerationRef.current && pendingDeltasRef.current.size === 0) {
             values.reconcileValue(field.sourceField, String(aggregate.value));
+            onReconciled?.();
           }
         } catch {
           onReconcileFailed?.();
@@ -272,6 +278,7 @@ export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanel
         // (`aria-invalid`/`aria-describedby`), matching what `handleSubmit` already does via
         // `setExternalErrors` on its own rejection path (today the compact counter never did).
         values.setExternalErrors({ [field.sourceField]: message });
+        burstRejectedRef.current = true;
         // No `onReconcileFailed` here (design.md D4) — a failed trailing fetch must never
         // overwrite this rejection's own already-announced error text.
         await reconciliationTail();
@@ -284,9 +291,16 @@ export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanel
         // that reconciliation fetch ALSO fails, the optimistic value is left as-is (never
         // silently discarded) and the assertive region announces that it could not be confirmed —
         // distinct wording from a definite rejection's own error.
-        await reconciliationTail(() => {
-          setAlertText("Couldn't confirm the current value. It may not be up to date.");
-        });
+        await reconciliationTail(
+          () => {
+            setAlertText("Couldn't confirm the current value. It may not be up to date.");
+          },
+          // HEL-1819 (owner ruling): a rejection from an EARLIER burst left a field error that nothing clears
+          // once this burst reconciles. A rejection settled in THIS burst keeps its error (HEL-1169 D3a).
+          () => {
+            if (!burstRejectedRef.current) values.setExternalErrors({});
+          },
+        );
       }
     }
   }

@@ -757,6 +757,100 @@ describe("FormPanelView — compact single-counter-field layout", () => {
     expect(control).toHaveAccessibleDescription(/delta must be positive/i);
   });
 
+  // HEL-1819 (a): an earlier burst's rejection, then a LATER burst that fails with no response and whose
+  // reconciliation fetch succeeds, must leave the control valid (no stale aria-invalid with an empty description).
+  it("HEL-1819 a: a rejection, then a no-response failure whose reconcile succeeds, leaves the control not aria-invalid", async () => {
+    submitFormPanelMock.mockRejectedValueOnce(
+      axiosErrorWith(400, { fieldErrors: [{ field: "delta", reason: "delta must be positive" }] }),
+    );
+    fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 0 });
+    const control = await renderCompact();
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+    await waitFor(() => expect(control).toHaveAttribute("aria-invalid", "true"));
+    await waitFor(() => expect(fetchFieldAggregateMock).toHaveBeenCalledTimes(1));
+
+    submitFormPanelMock.mockRejectedValueOnce(new Error("Network Error"));
+    fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 5 });
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+
+    await waitFor(() => expect(fetchFieldAggregateMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "5"));
+    await waitFor(() => expect(control).not.toHaveAttribute("aria-invalid", "true"));
+  });
+
+  // HEL-1819 (b), a GUARD: a rejection settled in the SAME burst keeps its error after the burst's reconcile is
+  // applied (failable by dropping the burst guard in `FormPanelView`'s indeterminate branch).
+  it("HEL-1819 b: a rejection in the same burst keeps aria-invalid and its alert text after a successful reconcile", async () => {
+    let rejectA!: (e: unknown) => void;
+    let rejectB!: (e: unknown) => void;
+    submitFormPanelMock.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectA = reject;
+      }),
+    );
+    submitFormPanelMock.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectB = reject;
+      }),
+    );
+    fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 5 });
+    const control = await renderCompact();
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+    await waitFor(() => expect(submitFormPanelMock).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      rejectA(
+        axiosErrorWith(400, {
+          fieldErrors: [{ field: "delta", reason: "delta must be positive" }],
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(control).toHaveAttribute("aria-invalid", "true"));
+    await act(async () => {
+      rejectB(new Error("Network Error"));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(fetchFieldAggregateMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "5"));
+    expect(control).toHaveAttribute("aria-invalid", "true");
+    expect(document.querySelector(".form-panel-view__alert")).toHaveTextContent(
+      "delta must be positive",
+    );
+  });
+
+  // HEL-1819 (c), a GUARD: a no-response failure whose reconcile fails never clears an earlier rejection's error
+  // (failable by calling the clear from the catch path).
+  it("HEL-1819 c: a failed reconcile after a no-response failure does not clear an earlier rejection's error", async () => {
+    submitFormPanelMock.mockRejectedValueOnce(
+      axiosErrorWith(400, { fieldErrors: [{ field: "delta", reason: "delta must be positive" }] }),
+    );
+    fetchFieldAggregateMock.mockResolvedValueOnce({ field: "delta", op: "sum", value: 0 });
+    const control = await renderCompact();
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+    await waitFor(() => expect(control).toHaveAttribute("aria-invalid", "true"));
+    await waitFor(() => expect(fetchFieldAggregateMock).toHaveBeenCalledTimes(1));
+
+    submitFormPanelMock.mockRejectedValueOnce(new Error("Network Error"));
+    fetchFieldAggregateMock.mockRejectedValueOnce(new Error("aggregate refetch failed"));
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+
+    await waitFor(() => expect(fetchFieldAggregateMock).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(document.querySelector(".form-panel-view__alert")).toHaveTextContent(
+        /couldn't confirm/i,
+      ),
+    );
+    expect(control).toHaveAttribute("aria-invalid", "true");
+  });
+
   it("resetOnSuccess: false is respected — the compact layout never wipes the tally after a click", async () => {
     submitFormPanelMock.mockResolvedValueOnce({
       rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
