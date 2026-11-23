@@ -1,3 +1,0 @@
-- `frontend/src/features/panels/state/panelsSlice.ts` — updateDashboardLayout.fulfilled sets the shared lastSavedAt
-- `frontend/src/shared/chrome/SaveStateIndicator.test.tsx` — layout-save, repair, reset, clearAuth tests
-- `e2e/hel1657-layout-save-last-saved.spec.ts` — drag-only save e2e
