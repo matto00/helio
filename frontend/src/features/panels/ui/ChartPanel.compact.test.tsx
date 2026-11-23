@@ -3,7 +3,7 @@ import { act, screen } from "@testing-library/react";
 import { ChartPanel } from "./ChartPanel";
 import { baseChartConfig, getOption, renderChart } from "./chartPanelTestHelpers";
 
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: ({ option }: { option: unknown }) => (
     <div data-testid="echarts" data-option={JSON.stringify(option)} />

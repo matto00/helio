@@ -8,7 +8,7 @@ import { getOutputById as getOutputByIdRequest } from "../../pipelines/services/
 import type { Output } from "../../pipelines/types/output";
 import { PanelFullscreenOverlay } from "./PanelFullscreenOverlay";
 
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: () => <div data-testid="echarts" />,
 }));

@@ -27,14 +27,14 @@ jest.mock("../../services/panelStatusService", () => ({
 }));
 
 // This suite's tree includes a chart panel path — `ChartPanel.tsx` renders via
-// `echarts-for-react/esm/core` (F-022, tree-shaken `echarts/core`
+// `echarts-for-react/lib/core` (F-022, tree-shaken `echarts/core`
 // registration) rather than the default `echarts-for-react` export. Mirrors
 // the mock in the co-located `ChartPanel.test.tsx`: this project's CommonJS
 // Jest transform can't handle `echarts`'s ESM-only subpath exports, so both
 // the `/core` entry and the registration module (`echartsCore.ts`, a
 // ship-time bundle-size concern only, irrelevant to anything under test
 // here) are stubbed.
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: ({ option }: { option: unknown }) => (
     <div data-testid="echarts" data-option={JSON.stringify(option)} />

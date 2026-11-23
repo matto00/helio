@@ -11,7 +11,7 @@ import type { Output } from "../../../pipelines/types/output";
 import { usePanelData } from "../../hooks/usePanelData";
 import { PanelDetailModal } from "./PanelDetailModal";
 
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: ({ option }: { option: unknown }) => (
     <div data-testid="echarts" data-option={JSON.stringify(option)} />

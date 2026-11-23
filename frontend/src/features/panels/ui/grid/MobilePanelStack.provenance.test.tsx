@@ -23,7 +23,7 @@ jest.mock("../../../pipelines/services/outputService", () => ({
 // HEL-1207 A1/A2 — the mobile stack renders its own trigger beside the title (no footer), and
 // nothing inside the popover may bubble to the item's detail-modal click handler.
 
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: () => <div data-testid="echarts" />,
 }));

@@ -24,7 +24,7 @@ interface MockChartNode extends HTMLDivElement {
   __onEvents?: MockClickHandlers;
 }
 
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: ({ onEvents }: { option: unknown; onEvents?: MockClickHandlers }) => (
     <div

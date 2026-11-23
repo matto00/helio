@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { EChartsOption } from "echarts";
 // The same selectively-registered ECharts instance + `/core` wrapper the dashboard `ChartPanel`
 // uses (F-022) — no new chart library.
-import ReactECharts from "echarts-for-react/esm/core";
+import ReactECharts from "echarts-for-react/lib/core";
 
 import echarts from "../../panels/ui/echartsCore";
 import { useChartEntranceMotion } from "../../panels/ui/useChartEntranceMotion";

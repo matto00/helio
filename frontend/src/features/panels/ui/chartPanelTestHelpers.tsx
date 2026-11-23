@@ -4,7 +4,7 @@ import { render } from "@testing-library/react";
 import { ThemeProvider } from "../../../theme/ThemeProvider";
 
 // HEL-1180 — shared across every `ChartPanel.*.test.tsx` split file. Each
-// file still declares its OWN `jest.mock("echarts-for-react/esm/core", ...)`
+// file still declares its OWN `jest.mock("echarts-for-react/lib/core", ...)`
 // / `jest.mock("./echartsCore", ...)` calls at its own top level — Jest's
 // mock-hoisting (`babel-plugin-jest-hoist`) only hoists `jest.mock()` calls
 // within the file they're written in, so moving those calls into this shared

@@ -9,7 +9,7 @@ import { UsageChart } from "./UsageChart";
 // resolve to the same fallback and a "follows the theme" assertion would be vacuous.
 
 let lastOption: Record<string, unknown> | null = null;
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: ({ option }: { option: Record<string, unknown> }) => {
     lastOption = option;

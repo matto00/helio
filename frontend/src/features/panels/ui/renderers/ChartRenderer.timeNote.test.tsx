@@ -6,7 +6,7 @@ import { settleChartMount } from "../../../../test/settleChartMount";
 import type { GroupedAggregate } from "../../../../utils/aggregate";
 import { ChartRenderer } from "./ChartRenderer";
 
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: () => <div data-testid="echarts" />,
 }));

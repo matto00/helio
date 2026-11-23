@@ -1,0 +1,7 @@
+
+> helio-frontend@0.0.0 typecheck
+> tsc --noEmit
+
+src/features/adminUsage/ui/UsageChart.tsx(5,26): error TS2307: Cannot find module 'echarts-for-react/esm/core' or its corresponding type declarations.
+src/features/panels/ui/ChartPanel.tsx(8,26): error TS2307: Cannot find module 'echarts-for-react/esm/core' or its corresponding type declarations.
+exit 2

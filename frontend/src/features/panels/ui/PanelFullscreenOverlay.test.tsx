@@ -47,7 +47,7 @@ jest.mock("../../pipelines/services/outputService", () => ({
 // test.ts`'s definite-height proof (the real box `autoResize` needs to
 // measure), this is the evidence design.md Decision 5 calls for without
 // fabricating a pixel measurement jsdom cannot make real.
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: ({ option, autoResize }: { option: unknown; autoResize?: boolean }) => (
     <div

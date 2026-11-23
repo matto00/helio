@@ -7,7 +7,7 @@ import { ChartPanel } from "./ChartPanel";
 
 // HEL-1584 D10 -- a refresh that changes only the data updates the chart in place (merge, series replaced by id) so it
 // morphs; any change of shape fully replaces it, so no stale nested option survives.
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: ({ notMerge, replaceMerge }: { notMerge?: boolean; replaceMerge?: string[] }) => (
     <div

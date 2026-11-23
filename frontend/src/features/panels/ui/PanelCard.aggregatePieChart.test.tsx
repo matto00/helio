@@ -23,7 +23,7 @@ ownDashboardsInThisFile("dashboard-1");
 // HEL-1351's card test is bar-only and HEL-624's pie test feeds a precomputed aggregate; this joins them.
 // Viewport resize is not meaningful in jsdom; the live resize/theme probe is recorded evidence, not claimed here.
 
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: ({ option }: { option: unknown }) => (
     <div data-testid="echarts" data-option={JSON.stringify(option)} />

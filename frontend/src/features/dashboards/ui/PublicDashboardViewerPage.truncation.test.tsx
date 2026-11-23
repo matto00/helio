@@ -17,7 +17,7 @@ import * as publicDashboardService from "../services/publicDashboardService";
 import { resetHistoryCache } from "../../panels/history/outputHistoryCache";
 import type { OutputPanel } from "../../panels/types/panel";
 
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: () => <div data-testid="echarts" />,
 }));
