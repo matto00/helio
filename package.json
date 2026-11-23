@@ -24,6 +24,7 @@
     "selftest:ci-prune-sbt-cas": "node scripts/ci-prune-sbt-cas.selftest.mjs",
     "check:cache-cleanup-pr": "node scripts/check-cache-cleanup-pr.mjs",
     "check:cache-cleanup-pr:selftest": "node scripts/check-cache-cleanup-pr.selftest.mjs",
+    "check:dependabot-auto-merge:selftest": "node scripts/check-dependabot-auto-merge.selftest.mjs",
     "check:repo-integrity": "node scripts/check-repo-integrity.mjs",
     "check:dependabot": "node scripts/check-dependabot-groups.mjs",
     "check:dependabot:selftest": "node scripts/check-dependabot-groups.selftest.mjs",

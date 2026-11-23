@@ -166,6 +166,8 @@ jobs:
       - run: npm run selftest:e2e-apt-deps
       - run: npm run check:cache-cleanup-pr
       - run: npm run check:cache-cleanup-pr:selftest
+      # HEL-1825: dependabot-auto-merge.yml's real if:/env:/run: text against a stub gh, plus its mutations (CI-only; no `.husky/**` change).
+      - run: npm run check:dependabot-auto-merge:selftest
       # HEL-1601: per-test timing + 1 Hz runner load around `npm test`, to locate the ~1 s main-thread stall seen on a
       # failing run (HEL-1596). Capture is opt-in via HELIO_JEST_TIMING_DIR (no test, worker, retry or timeout change);
       # the sampler is stopped by its recorded PID and also stops itself after 1080 s (< the job's timeout-minutes).

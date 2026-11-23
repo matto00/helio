@@ -1,0 +1,5 @@
+- `.github/workflows/dependabot-auto-merge.yml` — REST identity read, three-condition author check, job-level actor filter, --match-head-commit, corrected comments
+- `.github/workflows/ci.yml` — run the new selftest in the frontend job
+- `scripts/check-dependabot-auto-merge.selftest.mjs` — behavioural selftest with stub gh and built-in mutations
+- `package.json` — check:dependabot-auto-merge:selftest script
+- `openspec/changes/fix-dependabot-auto-merge-author/red-run.txt`, `green-run.txt` — recorded red and green runs
