@@ -1,0 +1,128 @@
+HEL-1821 BEFORE plan: backend shard partition at HEAD 943b5dd73 with the CURRENT (HEL-1758) test-suite-weights.tsv
+=====================================================================================================================
+(Committed before the tsv is regenerated, per C12. The "same source" before/after balance table is in after-shard-plan.txt.)
+
+How the partition was read
+  Real build, not a mirror: for each shard i in 0..3, `sbt -J-Xmx3g` with HELIO_TEST_SHARD_INDEX=i HELIO_TEST_SHARD_COUNT=4
+  HEL924_TEST_GROUP_COUNT=4 (ci.yml:219,226-227; concurrency 2) and a session-only `set` that renders Test / testGrouping
+  (group name + suite names) into a task value. TestShards.select ran its exact-partition check in every run (all 4 exit 0).
+  Result: 4 legs x 4 groups; 775 suites placed, 775 distinct.
+
+Same discovered suite set as the failed run (45023531045, 07a118001)
+  - `git diff 07a118001 HEAD -- backend/project/` : empty (same tsv, same TestShards.scala, same scripts).
+  - `git diff 07a118001 HEAD -- backend/src/test backend/src/main | grep -E '^[+-] *(final |abstract |private )?(class|object|trait) '`
+    : empty. d350dd7ae edited ApiRoutesSpec.scala (+64 lines) but added or removed no class.
+  - Therefore this partition is the failed run's real partition (partition depends only on suite names + weights).
+  - Cross-check: the three green post-split runs' legs kept 178/199/199/199 fresh JUnit reports = 775 = discovered suites,
+    and leg 1 = 199 suites here, as in the failed run.
+
+Unweighted suites under the current tsv
+  The current tsv has 714 rows; 775 suites are discovered, so 61 suites carry NO row and are priced at the median known
+  weight (1.287 s). It is not only the 8 HEL-1803 classes: 50 other suites added since HEL-1758 (insight, ask, grantee,
+  patchsets, draft-save, ...) and the 3 HEL-1817 LocalFileSystem{AtomicWrite,FromEnv,Prune}Spec are unweighted too.
+  There are no stale rows (every row names a discovered suite). The 3 parents are priced at their pre-split weights:
+  ClaudeClientSpec 1.78, AssistantServiceSpec 4.39, AssistantConversationRoutesSpec 3.73.
+
+  Unweighted (61):
+    com.helio.api.protocols.AskSeamSpec
+    com.helio.api.protocols.InsightSeamSpec
+    com.helio.api.routes.ask.AskPinRealRouteSpec
+    com.helio.api.routes.ask.AskRoutesSpec
+    com.helio.api.routes.assistant.AssistantConversationRoutesTierSpec
+    com.helio.api.routes.assistant.AssistantConversationRoutesTurnSpec
+    com.helio.api.routes.dashboards.DashboardGranteePanelRoutesSpec
+    com.helio.api.routes.dashboards.DashboardPanelStatusRoutesSpec
+    com.helio.api.routes.dashboards.DashboardSharedListRoutesSpec
+    com.helio.api.routes.dashboards.OutputInsightPublicRoutesSpec
+    com.helio.api.routes.dashboards.SharedDashboardOutputRoutesRlsSpec
+    com.helio.api.routes.dashboards.SharedDashboardPanelsSeamSpec
+    com.helio.api.routes.panels.FormSchemaRouteSpec
+    com.helio.api.routes.panels.FormSubmitEditorRoutesSpec
+    com.helio.api.routes.pipelines.DraftSaveRootsApiSpec
+    com.helio.api.routes.pipelines.DraftSaveRootsRaceSpec
+    com.helio.api.routes.pipelines.DraftSaveRootsUndoSpec
+    com.helio.api.routes.pipelines.OutputInsightRoleAndRefreshRoutesSpec
+    com.helio.api.routes.pipelines.OutputInsightRoutesSpec
+    com.helio.api.routes.pipelines.PipelineAnalyzeUpsertGranteeGuardSpec
+    com.helio.api.routes.pipelines.PipelineApplyProposalRunCapSpec
+    com.helio.api.routes.pipelines.PipelineContextAnalyzeQueryCountSpec
+    com.helio.api.routes.pipelines.PipelineContextAnalyzeRoutesSpec
+    com.helio.api.routes.pipelines.PipelineContextAnalyzeUndecodableRowSpec
+    com.helio.api.routes.pipelines.PipelineRunHistorySchemaSpec
+    com.helio.api.routes.pipelines.PipelineRunResponseCapSpec
+    com.helio.api.routes.proposals.CombinedApplyProposalRunCapSpec
+    com.helio.domain.insights.InsightDigestAndScheduleSpec
+    com.helio.infrastructure.ai.ClaudeClientFailureBudgetSpec
+    com.helio.infrastructure.ai.ClaudeClientToolLoopSpec
+    com.helio.infrastructure.ai.ClaudeClientToolRequestSpec
+    com.helio.infrastructure.persistence.OutputInsightRlsSpec
+    com.helio.infrastructure.storage.LocalFileSystemAtomicWriteSpec
+    com.helio.infrastructure.storage.LocalFileSystemFromEnvSpec
+    com.helio.infrastructure.storage.LocalFileSystemPruneSpec
+    com.helio.services.ask.AskCitationLedgerSpec
+    com.helio.services.ask.AskDataServiceSpec
+    com.helio.services.ask.AskGranteeRlsSpec
+    com.helio.services.ask.AskReasonsSpec
+    com.helio.services.assistant.AssistantServiceFailureBudgetSpec
+    com.helio.services.assistant.AssistantServicePromptHistorySpec
+    com.helio.services.assistant.AssistantServiceSearchRepairSpec
+    com.helio.services.insights.InsightRenderServiceSpec
+    com.helio.services.insights.OutputInsightReadServiceShapeSpec
+    com.helio.services.panels.FormSubmitEditorRlsSpec
+    com.helio.services.patchsets.AssistantInsightNoRenderSpec
+    com.helio.services.patchsets.PatchSetInsightOutputSpec
+    com.helio.services.patchsets.PatchSetPreviewWriteParitySpec
+    com.helio.services.patchsets.PatchSetUndoBoundOutputPanelsSpec
+    com.helio.services.patchsets.PatchSetUndoDatasetLaterWorkSpec
+    com.helio.services.patchsets.PatchSetUndoInlineDatasetLaterWorkSpec
+    com.helio.services.patchsets.PatchSetUndoLaterAlertRulesSpec
+    com.helio.services.patchsets.PatchSetUndoLaterOutputsSpec
+    com.helio.services.pipelines.AutoRunDebounceWriterAttributionSpec
+    com.helio.services.pipelines.Hel1661GranteeAnalyzeVerdictSpec
+    com.helio.services.pipelines.Hel1799GranteeConciseAnalyzeSpec
+    com.helio.services.pipelines.InsightModelConfigWriteSpec
+    com.helio.services.pipelines.OutputInsightRetentionSpec
+    com.helio.services.pipelines.PipelineSchedulerServiceInsightPassSpec
+    com.helio.services.pipelines.draft.DraftUndoPanelNamingSpec
+    com.helio.services.workspace.WorkspaceSharedDashboardsSpec
+
+Leg loads UNDER THE OLD WEIGHTS (what the packer believed; unknown suites at the median 1.287 s)
+  median used for unknown: 1.287
+  leg 0: suites=178 sum=519.5s makespan(4grp/2slot)=279.9s groups=[239.6, 93.3, 93.3, 93.3]
+  leg 1: suites=199 sum=519.5s makespan(4grp/2slot)=260.3s groups=[130.1, 129.1, 130.1, 130.1]
+  leg 2: suites=199 sum=519.5s makespan(4grp/2slot)=259.8s groups=[130.4, 129.4, 129.4, 130.4]
+  leg 3: suites=199 sum=519.5s makespan(4grp/2slot)=259.8s groups=[129.9, 129.9, 129.9, 129.9]
+  sum: longest=519.5 mean=519.5 ratio=1.000
+  makespan: longest=279.9 mean=264.9 ratio=1.056  budget(+161)=440.9
+  (A leg's "sum" is the sum of its suites' weights; "makespan" = its 4 groups LPT-placed on 2 slots, the HEL-1758 model.
+   Every leg sums to 519.5 s: the packer saw four perfectly balanced legs. That belief is what the regeneration corrects.)
+
+Where the 11 assistant / ClaudeClient suites land (leg, group): the missing weights did NOT put them in one leg
+  (the "weight" column is what the packer used, not a measurement)
+  ClaudeClientSpec                       leg 3 group 2  packer weight 1.780
+  AssistantServiceSpec                   leg 2 group 2  packer weight 4.386
+  AssistantConversationRoutesSpec        leg 0 group 1  packer weight 3.729
+  ClaudeClientFailureBudgetSpec          leg 2 group 1  packer weight 1.287  (median, no row)
+  ClaudeClientToolLoopSpec               leg 3 group 3  packer weight 1.287  (median, no row)
+  ClaudeClientToolRequestSpec            leg 0 group 1  packer weight 1.287  (median, no row)
+  AssistantServiceFailureBudgetSpec      leg 1 group 2  packer weight 1.287  (median, no row)
+  AssistantServicePromptHistorySpec      leg 2 group 3  packer weight 1.287  (median, no row)
+  AssistantServiceSearchRepairSpec       leg 3 group 0  packer weight 1.287  (median, no row)
+  AssistantConversationRoutesTierSpec    leg 2 group 1  packer weight 1.287  (median, no row)
+  AssistantConversationRoutesTurnSpec    leg 3 group 1  packer weight 1.287  (median, no row)
+  Leg 1 (the leg that failed in 45023531045) holds exactly one of the 11: AssistantServiceFailureBudgetSpec.
+
+The 660 s failure of 45023531045 backend (1): load, not a hang (artifact 14755031576, sbt-diagnostics-backend-shard-1)
+  - "Compile and test" step of leg 1: 12:41:25Z -> 12:52:29Z = 664 s (deadline 660 s). The same run's other legs took
+    540 / 655 / 530 s, i.e. the whole run was slow; green post-split runs: leg 1 = 518 / 495 / 439 s (see after-shard-plan.txt).
+  - Thread dump (12:52:25Z) of the one forked test JVM (pid 31406, 2:06 old): it was in PatchSetUndoLaneDescendantsSpec.beforeAll
+    (EmbeddedPostgres initdb), started 1 s earlier at 12:52:26; sbt.log kept advancing until 12:52:27 (Slf4jLogger started,
+    Postgres "shutting down" when the deadline killed it). It had just begun MfaApiRoutesSpec's group at 12:50:21. No suite
+    was blocked, no lock cycle: this is a leg that simply had not finished 4 groups in 660 s.
+  - So the ticket's "stalled in an assistant spec" is not what the dump shows; the last running suite was a patchsets spec.
+  - What the measured data does show (from the 3 green post-split runs' JUnit, see after-shard-plan.txt): the packer priced
+    AssistantServiceFailureBudgetSpec and AssistantConversationRoutesTierSpec at the median 1.287 s, but they measure 115-199 s
+    and 170-191 s respectively, each dominated by one HEL-1637 test ("stop mid-turn on the input limit ..." and "refuse a first
+    request over the input limit ..."). Their old parent rows (4.39 / 3.73 s) pre-date HEL-1637. Leg 1 held one of them.
+  - Cause of those two slow tests is a test-cost defect, not a hang: the `sized(target)` helper steps `k` one word at a time
+    and re-estimates a ~100k-token string on every step (O(n^2)). Out of scope here (non-goal); reported as a spinoff candidate.

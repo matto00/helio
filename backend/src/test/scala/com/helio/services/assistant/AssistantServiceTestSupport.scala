@@ -149,14 +149,14 @@ trait AssistantServiceTestSupport extends Matchers with DashboardProposalProtoco
     val workspaceSearchService   = new WorkspaceSearchService(null, null, outputRepo, null, workspaceContextService)
     // HEL-904 task 3.11: rewired onto OutputRepository/NodeSnapshotRepository -- reuses the SAME
     // mocked outputRepo constructed above for workspaceContextService/workspaceSearchService (no
-    // test in this file exercises panel-capability row counts, so a `null` NodeSnapshotRepository
+    // `AssistantService*Spec` suite exercises panel-capability row counts, so a `null` NodeSnapshotRepository
     // degrades to `rowCount = 0`).
     val panelCapabilityService   = new PanelCapabilityService(outputRepo, null)
     val dashboardProposalService = new DashboardProposalService(null, null, outputRepo)
     val pipelineProposalService  = new PipelineProposalService(null, null, null, null, dsRepo, null, SourceFetchBudget.default())
     val claudeClient             = new ClaudeClient(config(), transport)
     // combinedProposalService/patchSetPreviewService/sourceService: null — no scripted sequence
-    // below invokes propose_combined/propose_patch_set/test_connection (mirrors
+    // in the specs using this helper invokes propose_combined/propose_patch_set/test_connection (mirrors
     // AssistantToolExecutorSpec's own null-unused pattern; a reached call would NPE and fail the
     // test loudly).
     new AssistantService(claudeClient, workspaceSearchService, panelCapabilityService, dashboardProposalService, pipelineProposalService, null, null, sourceService)

@@ -1,0 +1,61 @@
+HEL-1821 regeneration record: backend/project/test-suite-weights.tsv
+====================================================================
+
+Inputs (D1): backend-junit-reports-shard-{0..3} of the three most recent COMPLETE, all-green main push runs of ci.yml whose
+head contains 0954ea735 (HEL-1803). Re-listed at execution (`gh run list --workflow ci.yml --branch main --event push`):
+  45105409485 943b5dd73 (HEL-1826)  in_progress  -> not usable; NO substitution, the three below stand
+  45099529907 032321ada  success   artifacts 14785290623(0) 14785346805(1) 14784967084(2) 14784219064(3)
+  45098330154 b44a2d81c  success   artifacts 14784428369(0) 14784696811(1) 14784432951(2) 14784319137(3)
+  45088334635 d350dd7ae  success   artifacts 14780149143(0) 14779954476(1) 14780896465(2) 14780815426(3)
+  Never an input: 45023531045 (07a118001, failure; only its diagnostics artifact 14755031576 was read).
+  Downloaded by exact artifact id (`gh api repos/matto00/helio/actions/artifacts/<id>/zip`) into the main checkout's
+  .concertino/scratch/HEL-1821/; nothing else was read from CI.
+
+"Compile and test" step windows (from `gh api .../actions/runs/<id>/jobs`), passed to extract-fresh-junit.py per leg:
+  45099529907 leg 0: 2026-11-23T02:20:46Z .. 2026-11-23T02:26:28Z
+  45099529907 leg 1: 2026-11-23T02:22:42Z .. 2026-11-23T02:30:01Z
+  45099529907 leg 2: 2026-11-23T02:19:47Z .. 2026-11-23T02:28:35Z
+  45099529907 leg 3: 2026-11-23T02:19:48Z .. 2026-11-23T02:24:02Z
+  45098330154 leg 0: 2026-11-23T02:11:44Z .. 2026-11-23T02:17:15Z
+  45098330154 leg 1: 2026-11-23T02:07:40Z .. 2026-11-23T02:15:55Z
+  45098330154 leg 2: 2026-11-23T02:08:08Z .. 2026-11-23T02:16:53Z
+  45098330154 leg 3: 2026-11-23T02:11:04Z .. 2026-11-23T02:16:20Z
+  45088334635 leg 0: 2026-11-23T00:24:32Z .. 2026-11-23T00:29:36Z
+  45088334635 leg 1: 2026-11-23T00:22:25Z .. 2026-11-23T00:31:03Z
+  45088334635 leg 2: 2026-11-23T00:27:00Z .. 2026-11-23T00:34:57Z
+  45088334635 leg 3: 2026-11-23T00:22:22Z .. 2026-11-23T00:28:43Z
+
+Kept fresh reports per leg (extract-fresh-junit.py stderr), identical for all three runs:
+  leg 0: 178   leg 1: 199   leg 2: 199   leg 3: 199   -> sum 775 per run
+  skipped as stale: 472/490/499/490 (leg 0/1/2/3 of 45099529907; the other runs match within a few)
+Content-based safeguard (the filter itself is by zip mtime): the kept report names of each run, unioned over its four legs,
+are 775 distinct suites, and that set EQUALS the 775 suites the build discovers at HEAD (set difference both ways empty;
+discovered set read from `Test / testGrouping` for the four shards, see before-shard-plan.txt). No run was dropped or
+down-weighted.
+
+Command (D2), run from the worktree root, output straight into the tsv; the header is script-written:
+  python3 -I backend/project/gen-test-suite-weights.py \
+    45099529907=<scratch>/junit/45099529907/{0,1,2,3} 45098330154=<scratch>/junit/45098330154/{0,1,2,3} \
+    45088334635=<scratch>/junit/45088334635/{0,1,2,3} > backend/project/test-suite-weights.tsv
+  (<scratch> = the main checkout's .concertino/scratch/HEL-1821; one <run>=<dir> argument per leg dir, labelled by run id.)
+Result: 775 suite rows + 1 header line; header reads "mean of 3 runs: 45099529907 45098330154 45088334635; +1.0 s/suite setup".
+
+Post-checks
+  - Discovered suites with no row: 0 (was 61: the 8 HEL-1803 classes, the 3 HEL-1817 LocalFileSystem*Spec, 50 others).
+  - Rows naming a suite no longer in the tree: 0.
+  - Measured rows of the 8 HEL-1803 classes and the 3 HEL-1817 classes (s = mean JUnit time over 3 runs + 1.0):
+      api.routes.assistant.AssistantConversationRoutesTierSpec	178.283
+      api.routes.assistant.AssistantConversationRoutesTurnSpec	1.287
+      infrastructure.ai.ClaudeClientFailureBudgetSpec	1.022
+      infrastructure.ai.ClaudeClientToolLoopSpec	1.492
+      infrastructure.ai.ClaudeClientToolRequestSpec	1.018
+      infrastructure.storage.LocalFileSystemAtomicWriteSpec	1.017
+      infrastructure.storage.LocalFileSystemFromEnvSpec	1.012
+      infrastructure.storage.LocalFileSystemPruneSpec	1.018
+      services.assistant.AssistantServiceFailureBudgetSpec	153.437
+      services.assistant.AssistantServicePromptHistorySpec	1.114
+      services.assistant.AssistantServiceSearchRepairSpec	1.752
+  - Partition gate: for shards 0..3 the real build (HELIO_TEST_SHARD_INDEX=i, COUNT=4, HEL924_TEST_GROUP_COUNT=4) ran
+    TestShards.select against the regenerated tsv and exited 0 (exact partition, 775 suites placed once each).
+  - Only backend/project/test-suite-weights.tsv changed in backend/project; scripts, TestShards.scala, workflow untouched.
+  - Not a test run: no test code changed in this ticket beyond comments (D8); the PR's 4 backend legs are the after measurement.
