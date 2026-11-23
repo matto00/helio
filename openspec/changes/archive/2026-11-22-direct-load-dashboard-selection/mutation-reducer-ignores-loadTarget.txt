@@ -1,0 +1,116 @@
+FAIL src/features/dashboards/tabs/loadSelection.test.ts (7.898 s)
+  ● HEL-1624 load selection never passes through another dashboard › RED on main: deep link to a non-landing dashboard
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "A",
+    + ]
+
+      82 |     const { seen, harness } = await loadAndRecord({ path: "/dashboards/B", list });
+      83 |     expect(harness.getState().dashboards.selectedDashboardId).toBe("B");
+    > 84 |     expect(onlyNullAnd(seen, "B")).toEqual([]);
+         |                                    ^
+      85 |   });
+      86 |
+      87 |   it("RED on main: saved active tab that is not the landing default", async () => {
+
+      at Object.<anonymous> (src/features/dashboards/tabs/loadSelection.test.ts:84:36)
+
+  ● HEL-1624 load selection never passes through another dashboard › RED on main: saved active tab that is not the landing default
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "A",
+    + ]
+
+      92 |     });
+      93 |     expect(harness.getState().dashboards.selectedDashboardId).toBe("C");
+    > 94 |     expect(onlyNullAnd(seen, "C")).toEqual([]);
+         |                                    ^
+      95 |   });
+      96 |
+      97 |   it("RED on main: surviving saved tabs with none active select the most recently viewed", async () => {
+
+      at Object.<anonymous> (src/features/dashboards/tabs/loadSelection.test.ts:94:36)
+
+  ● HEL-1624 load selection never passes through another dashboard › RED on main: surviving saved tabs with none active select the most recently viewed
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "A",
+    + ]
+
+      108 |     });
+      109 |     expect(harness.getState().dashboards.selectedDashboardId).toBe("E");
+    > 110 |     expect(onlyNullAnd(seen, "E")).toEqual([]);
+          |                                    ^
+      111 |   });
+      112 |
+      113 |   it("RED on main: a stored empty tab set stays null throughout", async () => {
+
+      at Object.<anonymous> (src/features/dashboards/tabs/loadSelection.test.ts:110:36)
+
+  ● HEL-1624 load selection never passes through another dashboard › RED on main: a stored empty tab set stays null throughout
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "A",
+    + ]
+
+      118 |     });
+      119 |     expect(harness.getState().dashboards.selectedDashboardId).toBeNull();
+    > 120 |     expect(seen.filter((v) => v !== null)).toEqual([]);
+          |                                            ^
+      121 |   });
+      122 |
+      123 |   it("RED on main: grantee deep link to a shared dashboard while the user owns A", async () => {
+
+      at Object.<anonymous> (src/features/dashboards/tabs/loadSelection.test.ts:120:44)
+
+  ● HEL-1624 load selection never passes through another dashboard › RED on main: grantee deep link to a shared dashboard while the user owns A
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "A",
+    + ]
+
+      127 |     });
+      128 |     expect(harness.getState().dashboards.selectedDashboardId).toBe("S");
+    > 129 |     expect(onlyNullAnd(seen, "S")).toEqual([]);
+          |                                    ^
+      130 |   });
+      131 |
+      132 |   it("GUARD (mutation: make getMostRecentDashboardId return the second item): no saved tabs selects the landing default", async () => {
+
+      at Object.<anonymous> (src/features/dashboards/tabs/loadSelection.test.ts:129:36)
+
+Test Suites: 1 failed, 1 total
+Tests:       5 failed, 2 passed, 7 total
+Snapshots:   0 total
+Time:        8.436 s
+Ran all test suites matching src/features/dashboards/tabs/loadSelection.test.ts.

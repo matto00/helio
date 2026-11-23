@@ -1,0 +1,45 @@
+
+Running 1 test using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1624-owner-1795387568660-4961@example.test
+[HEL-1300 e2e] throwaway user: hel1624-grantee-1795387569590-40522@example.test
+  ✘  1 [dev] › e2e/hel1624-direct-load-selection.spec.ts:37:7 › HEL-1624 direct load selection › a grantee loading /dashboards/S never selects their own landing dashboard first (3.8s)
+userCleanup: removed 0 of 2 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 2 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/hel1624-direct-load-selection.spec.ts:37:7 › HEL-1624 direct load selection › a grantee loading /dashboards/S never selects their own landing dashboard first 
+
+    Error: requests keyed on the landing dashboard during the load
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "GET /api/dashboards/84728387-b017-43d2-91d3-c2eae27e25fd/panels",
+    + ]
+
+      87 |       expect
+      88 |         .soft(ownRequests, "requests keyed on the landing dashboard during the load")
+    > 89 |         .toEqual([]);
+         |          ^
+      90 |     } finally {
+      91 |       await owner.context.close();
+      92 |       await grantee.context.close();
+        at /home/matt/Development/helio/.claude/worktrees/bug/no-transient-dashboard-selection/HEL-1624/e2e/hel1624-direct-load-selection.spec.ts:89:10
+
+    Error Context: test-results/hel1624-direct-load-select-ae135-own-landing-dashboard-first-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1624-direct-load-select-ae135-own-landing-dashboard-first-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1624-direct-load-select-ae135-own-landing-dashboard-first-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [dev] › e2e/hel1624-direct-load-selection.spec.ts:37:7 › HEL-1624 direct load selection › a grantee loading /dashboards/S never selects their own landing dashboard first 

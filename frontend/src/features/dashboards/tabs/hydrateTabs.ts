@@ -10,6 +10,7 @@ import {
 } from "./dashboardTabsSlice";
 import { refreshChangeSignals } from "./refreshChangeSignals";
 import { serverNowMs } from "./serverClock";
+import { deepLinkDashboardId, pruneSavedTabs, resolveLoadTarget } from "./loadTarget";
 import { normalizeSavedTabs, parseInstant, type DashboardTab } from "./tabTypes";
 import { getWarmStore } from "./warm/warmCache";
 import { HYDRATE_RESTORE_TIMEOUT_MS, LAZY_RESTORE_TIMEOUT_MS } from "./warm/warmConfig";
@@ -18,20 +19,7 @@ import { isTabWarm } from "./warm/warmValidity";
 import { knownReadScope } from "./warm/warmScope";
 import { getSessionEpoch } from "../../../shared/session/sessionEpoch";
 
-/** `/dashboards/:id` (the authenticated route, HEL-1209) -> `:id`; anything else -> null. The public
- *  viewer is the longer `/dashboards/:id/panels` and is deliberately not matched. */
-export function deepLinkDashboardId(pathname: string): string | null {
-  const match = /^\/dashboards\/([^/]+)\/?$/.exec(pathname);
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
-function mostRecentlyViewed(tabs: DashboardTab[]): DashboardTab {
-  return tabs.reduce((best, tab) =>
-    (parseInstant(tab.lastViewedAt) ?? -Infinity) > (parseInstant(best.lastViewedAt) ?? -Infinity)
-      ? tab
-      : best,
-  );
-}
+export { deepLinkDashboardId };
 
 /** The pure part of D1 hydration: from the saved set, the dashboards that exist, the URL and the reducer's
  *  auto-selection, decide the tabs and the target. `dirty` says the result differs from what is saved. */
@@ -43,16 +31,12 @@ export function planHydration(args: {
 }): { tabs: DashboardTab[]; target: string | null; dirty: boolean } {
   const { saved, dashboardIds, autoSelectedId, deepLinkId } = args;
   // 1. prune the saved tabs against the dashboards that exist (and drop duplicate ids)
-  const seen = new Set<string>();
-  const tabs = (saved?.tabs ?? []).filter((tab) => {
-    if (!dashboardIds.has(tab.id) || seen.has(tab.id)) return false;
-    seen.add(tab.id);
-    return true;
-  });
+  const { tabs, savedActive } = pruneSavedTabs(saved, dashboardIds);
   let dirty = saved === null || tabs.length !== saved.tabs.length;
-  const savedActive = saved?.activeId && seen.has(saved.activeId) ? saved.activeId : null;
 
-  // 2. the target: a deep link > the saved active tab > (a stored empty set stays empty) > auto-select
+  // 2. the target: `resolveLoadTarget` is the one rule (HEL-1624: `fetchDashboards` applies it too, on arrival of the list);
+  // the branches below only add the tabs/dirty each one implies.
+  const target = resolveLoadTarget(args);
   if (deepLinkId !== null && dashboardIds.has(deepLinkId)) {
     // The deep link opens as a new active tab (or activates it if open): the saved set is never overwritten.
     const next = dashboardTabsReducer(
@@ -61,15 +45,15 @@ export function planHydration(args: {
     );
     return {
       tabs: next.tabs,
-      target: deepLinkId,
+      target,
       dirty: dirty || next.tabs.length !== tabs.length || next.activeId !== savedActive,
     };
   }
-  if (savedActive !== null) return { tabs, target: savedActive, dirty };
-  if (saved !== null && saved.tabs.length === 0) return { tabs, target: null, dirty };
+  if (savedActive !== null) return { tabs, target, dirty };
+  if (saved !== null && saved.tabs.length === 0) return { tabs, target, dirty };
   if (tabs.length > 0) {
     // Saved tabs survive but none was active (its dashboard is gone): the most recently viewed one.
-    return { tabs, target: mostRecentlyViewed(tabs).id, dirty: true };
+    return { tabs, target, dirty: true };
   }
   // No saved key at all (or every saved tab pruned away): the reducer's auto-selection becomes the only tab.
   // With nothing to select there is nothing to save: an empty set is only ever written when the user closes

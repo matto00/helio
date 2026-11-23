@@ -31,6 +31,8 @@ import type {
   DuplicateDashboardResponse,
 } from "../types/dashboard";
 import type { AppliedProposal, DashboardProposal } from "../types/proposal";
+import { deepLinkDashboardId, resolveLoadTarget } from "../tabs/loadTarget";
+import { normalizeSavedTabs } from "../tabs/tabTypes";
 import { dispatchIfSameSession, getSessionEpoch } from "../../../shared/session/sessionEpoch";
 
 interface DashboardsState {
@@ -116,12 +118,30 @@ function upsertDashboardById(items: Dashboard[], dashboard: Dashboard): void {
 export const fetchDashboards = createAsyncThunk<
   Dashboard[],
   void,
-  { state: RootState; rejectValue: string }
+  {
+    state: RootState;
+    rejectValue: string;
+    /** HEL-1624: the dashboard a load selects, computed once the list is in hand (see `resolveLoadTarget`). Absent on an action
+     *  built without the thunk, which falls back to the landing default; an explicit `null` is "select nothing" (a stored
+     *  empty tab set). */
+    fulfilledMeta: { loadTarget?: string | null };
+  }
 >(
   "dashboards/fetchDashboards",
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, fulfillWithValue, getState }) => {
     try {
-      return await fetchDashboardsRequest();
+      const list = await fetchDashboardsRequest();
+      // Read AFTER the await: the user (and so the saved tabs) and the URL are those of the moment the list arrived. The
+      // shell that dispatches this renders only for an authenticated user, so `currentUser` is set here in production.
+      // A partial store (several component tests mount only the slices they need) has no `auth` slice: read it defensively.
+      const auth = getState().auth as RootState["auth"] | undefined;
+      const loadTarget = resolveLoadTarget({
+        saved: normalizeSavedTabs(auth?.currentUser?.preferences?.dashboardTabs),
+        dashboardIds: new Set(list.map((d) => d.id)),
+        autoSelectedId: getMostRecentDashboardId(list),
+        deepLinkId: deepLinkDashboardId(window.location.pathname),
+      });
+      return fulfillWithValue(list, { loadTarget });
     } catch {
       return rejectWithValue("Failed to load dashboards.");
     }
@@ -488,9 +508,12 @@ const dashboardsSlice = createSlice({
         const selectedExists = action.payload.some(
           (dashboard) => dashboard.id === state.selectedDashboardId,
         );
-        state.selectedDashboardId = selectedExists
-          ? state.selectedDashboardId
-          : getMostRecentDashboardId(action.payload);
+        if (selectedExists) return;
+        // HEL-1624: straight to the load target (deep link, saved active tab, ...), never via the landing default first.
+        state.selectedDashboardId =
+          action.meta?.loadTarget !== undefined
+            ? action.meta.loadTarget
+            : getMostRecentDashboardId(action.payload);
       })
       .addCase(fetchDashboards.rejected, (state, action) => {
         state.status = "failed";
