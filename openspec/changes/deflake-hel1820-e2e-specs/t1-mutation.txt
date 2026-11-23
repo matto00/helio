@@ -1,0 +1,56 @@
+T1 mutation (app CSS, uncommitted, reverted): status region taken out of flow
+diff --git a/frontend/src/features/panels/ui/form/FormPanel.css b/frontend/src/features/panels/ui/form/FormPanel.css
+index efeb75ab7..c908ed7c4 100644
+--- a/frontend/src/features/panels/ui/form/FormPanel.css
++++ b/frontend/src/features/panels/ui/form/FormPanel.css
+@@ -61,3 +61,4 @@
+   cursor: not-allowed;
+   opacity: 0.7;
+ }
++.form-panel-view__status:not(:empty) { position: absolute; }
+
+
+Running 6 tests using 1 worker
+
+(node:4005075) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:4005075) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:177:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light (6.7s)
+  ✓  2 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:177:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark (6.2s)
+  ✓  3 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:177:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light (6.0s)
+  ✓  4 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:177:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark (5.7s)
+  ✓  5 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:256:7 › HEL-1791 compact counter height in the panel stack › per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) (10.2s)
+  ✘  6 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:298:7 › HEL-1791 compact counter height in the panel stack › owner: a status message and an alert message render in flow in the same live regions (2.9s)
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+
+
+  1) [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:298:7 › HEL-1791 compact counter height in the panel stack › owner: a status message and an alert message render in flow in the same live regions 
+
+    Error: status message: in flow
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m"static"[39m
+    Received: [31m"absolute"[39m
+
+      360 |             }, ".form-panel-view__compact-counter");
+      361 |             expect(r.connected, `${what}: same element still attached`).toBe(true);
+    > 362 |             expect(r.position, `${what}: in flow`).toBe("static");
+          |                                                    ^
+      363 |             expect(r.height, `${what}: has height`).toBeGreaterThan(0);
+      364 |             expect(r.top, `${what}: below the content, no overlap`).toBeGreaterThanOrEqual(
+      365 |               r.contentBottom - 0.5,
+        at Object.verify (/home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1791-compact-counter-stack-height.spec.ts:362:52)
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1791-compact-counter-stack-height.spec.ts:381:7
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1791-compact-counter-st-c502c-ow-in-the-same-live-regions-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1791-compact-counter-st-c502c-ow-in-the-same-live-regions-dev/trace.zip
+
+after revert: git status --short
+ M e2e/hel1791-compact-counter-stack-height.spec.ts
+?? e2e/probe-hel1826-1791-stress.spec.ts
+?? openspec/changes/deflake-hel1820-e2e-specs/t1-mutation.txt

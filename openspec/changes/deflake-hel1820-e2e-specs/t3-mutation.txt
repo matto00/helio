@@ -1,0 +1,116 @@
+T3 mutation 1 re-run (cycle 2, bounded save wait): appearance save never sends its PATCH
+diff --git a/frontend/src/features/auth/state/authSlice.ts b/frontend/src/features/auth/state/authSlice.ts
+index 1776c0aab..cb1ecf7c6 100644
+--- a/frontend/src/features/auth/state/authSlice.ts
++++ b/frontend/src/features/auth/state/authSlice.ts
+@@ -192,7 +192,7 @@ export const saveAppearancePreferences = createAsyncThunk<void, AppearancePrefer
+   async (patch) => {
+     const body: PreferencesPatch = patch;
+     try {
+-      await patchShellPreferencesRequest(body);
++      void body; // MUTATION: appearance save never reaches the server
+     } catch {
+       // Keep the local value; the next change or the next load reconciles.
+     }
+
+Running 15 tests using 2 workers
+(node:608833) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:608832) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:608833) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:608832) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [dev] › e2e/hel1572-appearance-preferences.spec.ts:194:7 › HEL-1572 type style › no flash: cached reload applies the style before React's first DOM, and the first heading is already serif (6.0s)
+  ✓   3 [dev] › e2e/hel1572-appearance-preferences.spec.ts:215:7 › HEL-1572 type style › no flash: first heading is serif on a new device (no cache) too (3.5s)
+  ✓   4 [dev] › e2e/hel1572-appearance-preferences.spec.ts:249:7 › HEL-1572 type style › no flash: Home's opening sentence is serif on a new device (no cache) after sign-in (HEL-1578) (3.4s)
+  ✘   2 [dev] › e2e/hel1572-appearance-preferences.spec.ts:147:7 › HEL-1572 type style › re-renders headings with no reload and survives a fresh browser context (another device) (14.4s)
+(node:609208) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:609208) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   5 [dev] › e2e/hel1572-appearance-preferences.spec.ts:268:7 › HEL-1572 type style › probe sensitivity (negative control): the heading probe FAILS when the server value is withheld (3.0s)
+  ✓   6 [dev] › e2e/hel1572-appearance-preferences.spec.ts:288:7 › HEL-1572 type style › probe sensitivity (negative control): with the pre-paint script stripped, the attribute lands only after React's first DOM (4.9s)
+  ✘   7 [dev] › e2e/hel1572-appearance-preferences.spec.ts:374:7 › HEL-1572 density › Compact changes the grid gutter and row padding; panel tops do not move (7.7s)
+(node:609414) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:609414) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   8 [dev] › e2e/hel1572-appearance-preferences.spec.ts:425:7 › HEL-1572 density › Compact tightens overview list rows and the context list by the documented token difference (4.7s)
+  ✓  10 [dev] › e2e/hel1572-appearance-preferences.spec.ts:526:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 375px (3.8s)
+  ✓  11 [dev] › e2e/hel1572-appearance-preferences.spec.ts:526:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 768px (3.3s)
+  ✓  12 [dev] › e2e/hel1572-appearance-preferences.spec.ts:526:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 1280px (2.9s)
+  ✓  13 [dev] › e2e/hel1572-appearance-preferences.spec.ts:570:7 › HEL-1572 Appearance tap targets › under Mono no Appearance control or bottom-nav/command-bar label is clipped (non-ellipsized overflow) at 375/768/820/1280 (5.9s)
+  ✓  14 [dev] › e2e/hel1572-appearance-preferences.spec.ts:597:7 › HEL-1572 Appearance tap targets › clipping sweep is failable: an injected fixed-width label is flagged (2.9s)
+  ✓  15 [dev] › e2e/hel1572-appearance-preferences.spec.ts:622:7 › HEL-1572 tabular numerals under every style › equal-digit durations render at equal width under sans / mono / serif, and the check fails without tabular-nums (7.0s)
+  ✘   9 [dev] › e2e/hel1572-appearance-preferences.spec.ts:481:7 › HEL-1572 motion › Off pins the tokens near zero; Full keeps them; no saved choice follows OS reduce-motion; explicit Full beats it (30.1s)
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  1) [dev] › e2e/hel1572-appearance-preferences.spec.ts:147:7 › HEL-1572 type style › re-renders headings with no reload and survives a fresh browser context (another device) 
+    Error: the serif preference save was never answered within 10 s
+      54 |     )
+      55 |     .catch(() => {
+    > 56 |       throw new Error(`the ${style} preference save was never answered within 10 s`);
+         |             ^
+      57 |     });
+      58 |   await page.getByRole("radio", { name }).click();
+      59 |   expect((await saved).status(), `the ${style} preference save`).toBe(200);
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1572-appearance-preferences.spec.ts:56:13
+        at selectTypeStyle (/home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1572-appearance-preferences.spec.ts:59:11)
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1572-appearance-preferences.spec.ts:158:5
+    Error Context: test-results/hel1572-appearance-prefere-a1426-ser-context-another-device--dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1572-appearance-prefere-a1426-ser-context-another-device--dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1572-appearance-prefere-a1426-ser-context-another-device--dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  2) [dev] › e2e/hel1572-appearance-preferences.spec.ts:374:7 › HEL-1572 density › Compact changes the grid gutter and row padding; panel tops do not move 
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeCloseTo[2m([22m[32mexpected[39m[2m, [22mprecision[2m)[22m
+    Expected: [32m8[39m
+    Received: [31m12[39m
+    Expected precision:    0
+    Expected difference: < [32m0.5[39m
+    Received difference:   [31m4[39m
+      410 |
+      411 |     const horizontalGapAfter = after[1].left - (after[0].left + after[0].width);
+    > 412 |     expect(horizontalGapAfter).toBeCloseTo(compactGap, 0);
+          |                                ^
+      413 |     // Panel tops never move; every panel is exactly the gutter difference taller.
+      414 |     after.forEach((box, i) => {
+      415 |       expect(box.top).toBeCloseTo(before[i].top, 0);
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1572-appearance-preferences.spec.ts:412:32
+    Error Context: test-results/hel1572-appearance-prefere-1b55f-ding-panel-tops-do-not-move-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1572-appearance-prefere-1b55f-ding-panel-tops-do-not-move-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1572-appearance-prefere-1b55f-ding-panel-tops-do-not-move-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  3) [dev] › e2e/hel1572-appearance-preferences.spec.ts:481:7 › HEL-1572 motion › Off pins the tokens near zero; Full keeps them; no saved choice follows OS reduce-motion; explicit Full beats it 
+    [31mTest timeout of 30000ms exceeded.[39m
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('button', { name: 'Use system setting' })[22m
+      514 |     await page.goto("/settings");
+      515 |     await expect(page.locator("html")).toHaveAttribute("data-motion", "off");
+    > 516 |     await page.getByRole("button", { name: "Use system setting" }).click();
+          |                                                                    ^
+      517 |     await expect(page.locator("html")).not.toHaveAttribute("data-motion", /.*/);
+      518 |     await expect
+      519 |       .poll(async () => (await (await page.request.get("/api/auth/me")).json()).preferences?.motion)
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1572-appearance-preferences.spec.ts:516:68
+    Error Context: test-results/hel1572-appearance-prefere-8c0c1-tion-explicit-Full-beats-it-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1572-appearance-prefere-8c0c1-tion-explicit-Full-beats-it-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1572-appearance-prefere-8c0c1-tion-explicit-Full-beats-it-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  3 failed
+    [dev] › e2e/hel1572-appearance-preferences.spec.ts:147:7 › HEL-1572 type style › re-renders headings with no reload and survives a fresh browser context (another device) 
+    [dev] › e2e/hel1572-appearance-preferences.spec.ts:374:7 › HEL-1572 density › Compact changes the grid gutter and row padding; panel tops do not move 
+    [dev] › e2e/hel1572-appearance-preferences.spec.ts:481:7 › HEL-1572 motion › Off pins the tokens near zero; Full keeps them; no saved choice follows OS reduce-motion; explicit Full beats it 
+  12 passed (55.0s)
+
+after revert: git status --short
+ M e2e/hel1572-appearance-preferences.spec.ts
+ M openspec/changes/deflake-hel1820-e2e-specs/t3-mutation.txt
+?? openspec/changes/deflake-hel1820-e2e-specs/evaluation-1.md

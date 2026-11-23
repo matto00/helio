@@ -1,0 +1,45 @@
+
+Running 15 tests using 2 workers
+
+(node:611359) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:611358) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:611358) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:611359) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[HEL-1300 e2e] throwaway user: hel1572-flash-1795399921866-55440@example.test
+[HEL-1300 e2e] throwaway user: hel1572-type-1795399921866-21637@example.test
+  ✓   2 [dev] › e2e/hel1572-appearance-preferences.spec.ts:194:7 › HEL-1572 type style › no flash: cached reload applies the style before React's first DOM, and the first heading is already serif (4.9s)
+[HEL-1300 e2e] throwaway user: hel1572-flash-new-1795399926130-14511@example.test
+  ✓   1 [dev] › e2e/hel1572-appearance-preferences.spec.ts:147:7 › HEL-1572 type style › re-renders headings with no reload and survives a fresh browser context (another device) (7.5s)
+[HEL-1300 e2e] throwaway user: hel1572-flash-home-1795399928786-82065@example.test
+  ✓   3 [dev] › e2e/hel1572-appearance-preferences.spec.ts:215:7 › HEL-1572 type style › no flash: first heading is serif on a new device (no cache) too (3.8s)
+[HEL-1300 e2e] throwaway user: hel1572-neg-heading-1795399929956-18932@example.test
+  ✓   4 [dev] › e2e/hel1572-appearance-preferences.spec.ts:249:7 › HEL-1572 type style › no flash: Home's opening sentence is serif on a new device (no cache) after sign-in (HEL-1578) (3.6s)
+[HEL-1300 e2e] throwaway user: hel1572-neg-prepaint-1795399932410-85128@example.test
+  ✓   5 [dev] › e2e/hel1572-appearance-preferences.spec.ts:268:7 › HEL-1572 type style › probe sensitivity (negative control): the heading probe FAILS when the server value is withheld (3.2s)
+[HEL-1300 e2e] throwaway user: hel1572-density-1795399933165-70804@example.test
+  ✓   6 [dev] › e2e/hel1572-appearance-preferences.spec.ts:288:7 › HEL-1572 type style › probe sensitivity (negative control): with the pre-paint script stripped, the attribute lands only after React's first DOM (4.3s)
+[HEL-1300 e2e] throwaway user: hel1572-density-rows-1795399936738-83474@example.test
+  ✓   7 [dev] › e2e/hel1572-appearance-preferences.spec.ts:374:7 › HEL-1572 density › Compact changes the grid gutter and row padding; panel tops do not move (7.3s)
+[HEL-1300 e2e] throwaway user: hel1572-motion-1795399940436-76327@example.test
+  ✓   8 [dev] › e2e/hel1572-appearance-preferences.spec.ts:425:7 › HEL-1572 density › Compact tightens overview list rows and the context list by the documented token difference (4.7s)
+[HEL-1300 e2e] throwaway user: hel1572-tap-375-1795399941441-83198@example.test
+  ✓  10 [dev] › e2e/hel1572-appearance-preferences.spec.ts:526:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 375px (3.6s)
+[HEL-1300 e2e] throwaway user: hel1572-tap-768-1795399945088-56045@example.test
+  ✓   9 [dev] › e2e/hel1572-appearance-preferences.spec.ts:481:7 › HEL-1572 motion › Off pins the tokens near zero; Full keeps them; no saved choice follows OS reduce-motion; explicit Full beats it (5.1s)
+[HEL-1300 e2e] throwaway user: hel1572-tap-1280-1795399945552-36256@example.test
+  ✓  11 [dev] › e2e/hel1572-appearance-preferences.spec.ts:526:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 768px (3.6s)
+  ✓  12 [dev] › e2e/hel1572-appearance-preferences.spec.ts:526:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 1280px (3.1s)
+[HEL-1300 e2e] throwaway user: hel1572-clip-1795399948677-17531@example.test
+[HEL-1300 e2e] throwaway user: hel1572-clip-mut-1795399948690-20447@example.test
+  ✓  14 [dev] › e2e/hel1572-appearance-preferences.spec.ts:597:7 › HEL-1572 Appearance tap targets › clipping sweep is failable: an injected fixed-width label is flagged (3.3s)
+[HEL-1300 e2e] throwaway user: hel1572-tabular-1795399951958-57879@example.test
+  ✓  13 [dev] › e2e/hel1572-appearance-preferences.spec.ts:570:7 › HEL-1572 Appearance tap targets › under Mono no Appearance control or bottom-nav/command-bar label is clipped (non-ellipsized overflow) at 375/768/820/1280 (6.6s)
+  ✓  15 [dev] › e2e/hel1572-appearance-preferences.spec.ts:622:7 › HEL-1572 tabular numerals under every style › equal-digit durations render at equal width under sans / mono / serif, and the check fails without tabular-nums (7.0s)
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 15 recorded throwaway user(s)
+
+  15 passed (38.3s)

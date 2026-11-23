@@ -38,6 +38,27 @@ async function fontFamily(page: Page, selector: string): Promise<string> {
     .trim();
 }
 
+/** Clicks a type-style radio and waits for ITS save (the page's own `PATCH /api/users/me/preferences` carrying that
+ *  style) to be answered. HEL-1826: each click sends an independent, unordered PATCH, so clicking Serif while the Mono
+ *  request was still in flight let the slower Mono write land last (CI: Mono 467 ms in flight, Serif sent and answered
+ *  in 243 ms; the server kept "mono"). This test is about the style applying and persisting, not write ordering, so it
+ *  lets each save finish before the next change. The app's lack of write ordering is reported separately. */
+async function selectTypeStyle(page: Page, name: RegExp, style: "serif" | "mono") {
+  const saved = page
+    .waitForResponse(
+      (res) =>
+        res.url().includes("/api/users/me/preferences") &&
+        res.request().method() === "PATCH" &&
+        (res.request().postData() ?? "").includes(`"${style}"`),
+      { timeout: 10_000 },
+    )
+    .catch(() => {
+      throw new Error(`the ${style} preference save was never answered within 10 s`);
+    });
+  await page.getByRole("radio", { name }).click();
+  expect((await saved).status(), `the ${style} preference save`).toBe(200);
+}
+
 async function newDeviceLogin(
   browser: Browser,
   email: string,
@@ -134,7 +155,7 @@ test.describe("HEL-1572 type style", () => {
     await page.evaluate(() => ((window as unknown as { __noReload: boolean }).__noReload = true));
 
     expect(await fontFamily(page, "h1.page-title")).toMatch(/^Schibsted Grotesk/);
-    await page.getByRole("radio", { name: /Serif headings/ }).click();
+    await selectTypeStyle(page, /Serif headings/, "serif");
     await expect(page.locator("html")).toHaveAttribute("data-type-style", "serif");
     expect(await fontFamily(page, "h1.page-title")).toMatch(/^Fraunces/);
     // Body copy and controls are untouched by the serif style.
@@ -144,7 +165,7 @@ test.describe("HEL-1572 type style", () => {
     ).toBe(true);
 
     // Mono: the WHOLE UI, without a reload.
-    await page.getByRole("radio", { name: /^Markets.*Mono$/ }).click();
+    await selectTypeStyle(page, /^Markets.*Mono$/, "mono");
     await assertTypeStyleActive(page, "mono");
     expect(await fontFamily(page, "h1.page-title")).toMatch(/^JetBrains Mono/);
     // Each preview card shows its own face whatever style is active.
@@ -154,7 +175,7 @@ test.describe("HEL-1572 type style", () => {
     expect(
       await fontFamily(page, '[data-type-style-option="serif"] .appearance__type-card-title'),
     ).toMatch(/^Fraunces/);
-    await page.getByRole("radio", { name: /Serif headings/ }).click();
+    await selectTypeStyle(page, /Serif headings/, "serif");
     expect(
       await page.evaluate(() => (window as unknown as { __noReload?: boolean }).__noReload),
     ).toBe(true);

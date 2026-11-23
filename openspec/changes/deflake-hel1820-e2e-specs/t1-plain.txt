@@ -1,0 +1,80 @@
+=== run 1/10 14:07:27 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (54.0s)
+=== run 1 exit=0
+=== run 2/10 14:08:22 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (36.6s)
+=== run 2 exit=0
+=== run 3/10 14:08:59 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (41.6s)
+=== run 3 exit=0
+=== run 4/10 14:09:41 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (37.5s)
+=== run 4 exit=0
+=== run 5/10 14:10:19 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (42.6s)
+=== run 5 exit=0
+=== run 6/10 14:11:02 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (36.4s)
+=== run 6 exit=0
+=== run 7/10 14:11:39 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (38.4s)
+=== run 7 exit=0
+=== run 8/10 14:12:18 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (44.9s)
+=== run 8 exit=0
+=== run 9/10 14:13:04 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (44.6s)
+=== run 9 exit=0
+=== run 10/10 14:13:49 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (42.9s)
+=== run 10 exit=0
+=== run 11/20 14:14:35 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (37.0s)
+=== run 11 exit=0
+=== run 12/20 14:15:13 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (39.9s)
+=== run 12 exit=0
+=== run 13/20 14:15:53 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (40.1s)
+=== run 13 exit=0
+=== run 14/20 14:16:34 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (40.4s)
+=== run 14 exit=0
+=== run 15/20 14:17:15 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (42.7s)
+=== run 15 exit=0
+=== run 16/20 14:17:58 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (44.1s)
+=== run 16 exit=0
+=== run 17/20 14:18:43 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (40.3s)
+=== run 17 exit=0
+=== run 18/20 14:19:24 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (39.0s)
+=== run 18 exit=0
+=== run 19/20 14:20:03 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (42.7s)
+=== run 19 exit=0
+=== run 20/20 14:20:46 e2e/hel1791-compact-counter-stack-height.spec.ts 
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (43.7s)
+=== run 20 exit=0

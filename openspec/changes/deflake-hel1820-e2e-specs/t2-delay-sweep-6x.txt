@@ -1,0 +1,48 @@
+STRESS-ACTIVE cpu throttle 6x, preview release delay 0ms after tap start
+PROBE DELAY=0 RATE=6 OPENED=true
+4584ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+4979ms trigger@(65,343) header=[step-preview__title,step-preview__count,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 6x, preview release delay 3ms after tap start
+PROBE DELAY=3 RATE=6 OPENED=true
+5439ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+5956ms trigger@(65,343) header=[step-preview__title,step-preview__count,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 6x, preview release delay 6ms after tap start
+PROBE DELAY=6 RATE=6 OPENED=true
+5197ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+5656ms trigger@(65,343) header=[step-preview__title,step-preview__count,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 6x, preview release delay 10ms after tap start
+PROBE DELAY=10 RATE=6 OPENED=true
+5314ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+5815ms trigger@(65,343) header=[step-preview__title,step-preview__count,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 6x, preview release delay 15ms after tap start
+PROBE DELAY=15 RATE=6 OPENED=true
+5098ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+5673ms trigger@(65,343) header=[step-preview__title,step-preview__count,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 6x, preview release delay 20ms after tap start
+PROBE DELAY=20 RATE=6 OPENED=true
+4582ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+5043ms trigger@(65,343) header=[step-preview__title,step-preview__count,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 6x, preview release delay 30ms after tap start
+PROBE DELAY=30 RATE=6 OPENED=true
+4914ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+5416ms trigger@(65,343) header=[step-preview__title,step-preview__count,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 6x, preview release delay 40ms after tap start
+PROBE DELAY=40 RATE=6 OPENED=true
+4709ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+5223ms trigger@(65,343) header=[step-preview__title,step-preview__count,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 6x, preview release delay 60ms after tap start
+PROBE DELAY=60 RATE=6 OPENED=true
+4517ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+5003ms trigger@(65,343) header=[step-preview__title,step-preview__count,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 6x, preview release delay 90ms after tap start
+PROBE DELAY=90 RATE=6 OPENED=true
+4303ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+4792ms trigger@(65,343) header=[step-preview__title,step-preview__count,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 6x, preview release delay 130ms after tap start
+PROBE DELAY=130 RATE=6 OPENED=true
+4251ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+4808ms trigger@(65,343) header=[step-preview__title,step-preview__count,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 6x, preview release delay 180ms after tap start
+PROBE DELAY=180 RATE=6 OPENED=true
+4664ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+5487ms trigger@(65,343) header=[step-preview__title,step-preview__count,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]

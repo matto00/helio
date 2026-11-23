@@ -1,0 +1,111 @@
+import { expect, test } from "@playwright/test";
+
+import { registerAndLogin } from "./support/auth";
+import { AUTH, openPipeline, seedPipeline } from "./support/hel1582Phone";
+
+// PROBE HEL-1826 T2 (committed as .txt only): (1) when does the "N fields" trigger move, and what else appears in the
+// step-preview header at that moment; (2) can a tap launched while the header is still laid out the early way miss?
+// PROBE_DELAY_MS: how long after the tap starts the held `steps/:id/preview` response is released (-1 = never hold).
+test.use({
+  viewport: { width: 390, height: 844 },
+  isMobile: true,
+  hasTouch: true,
+  deviceScaleFactor: 2,
+});
+const RATE = Number(process.env.PROBE_RATE ?? "1");
+const DELAY = Number(process.env.PROBE_DELAY_MS ?? "-1");
+
+test("probe: trigger position over time and a tap racing the header reflow", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  await registerAndLogin(page, request, { ...AUTH, label: "probe-t2" });
+  const pipelineId = await seedPipeline(page, false, true, true);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: RATE });
+  console.log(
+    `STRESS-ACTIVE cpu throttle ${RATE}x, preview release delay ${DELAY}ms after tap start`,
+  );
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  if (DELAY >= 0) {
+    await page.route(/\/steps\/[^/]+\/preview/, async (route) => {
+      await held;
+      await route.continue();
+    });
+  }
+  await page.addInitScript(() => {
+    const w = window as unknown as { __log: string[] };
+    w.__log = [];
+    const t0 = performance.now();
+    let last = "";
+    const tick = () => {
+      const trig = document.querySelector(".output-schema-disclosure__trigger");
+      if (trig) {
+        const r = trig.getBoundingClientRect();
+        const header = Array.from(document.querySelectorAll(".step-preview__header > *")).map(
+          (e) => e.className.split(" ")[0] || e.tagName.toLowerCase(),
+        );
+        const now = `trigger@(${Math.round(r.x + r.width / 2)},${Math.round(r.y + r.height / 2)}) header=[${header.join(",")}]`;
+        if (now !== last) {
+          w.__log.push(`${Math.round(performance.now() - t0)}ms ${now}`);
+          last = now;
+        }
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  await openPipeline(page, pipelineId, "dark");
+  await page.getByRole("tab", { name: "Preview" }).tap();
+  await expect(page.getByRole("region", { name: /^Rows after step/ })).toBeVisible();
+  const trigger = page.locator(".mobile-body .output-schema-disclosure__trigger").first();
+  await trigger.waitFor();
+  if (process.env.PROBE_STALE === "1") {
+    // Deterministic form of the CI failure: take the trigger's pre-reflow centre, let the preview land (the header
+    // reflows), then touch the OLD coordinates, which is what the CI run's tap did.
+    const early = (await trigger.boundingBox())!;
+    const [x, y] = [early.x + early.width / 2, early.y + early.height / 2];
+    release();
+    await expect(page.locator(".step-preview__count")).toBeVisible();
+    const late = (await trigger.boundingBox())!;
+    const hit = await page.evaluate(
+      ([px, py]) => {
+        const el = document.elementFromPoint(px, py);
+        return el ? `${el.tagName.toLowerCase()}.${el.className}` : "none";
+      },
+      [x, y],
+    );
+    console.log(
+      `PROBE STALE early centre (${Math.round(x)},${Math.round(y)}) late centre (${Math.round(late.x + late.width / 2)},${Math.round(late.y + late.height / 2)}); element at the early point after reflow: ${hit}`,
+    );
+    await page.touchscreen.tap(x, y);
+    let stale = true;
+    try {
+      await expect(page.getByRole("dialog", { name: "Output schema" })).toBeVisible({
+        timeout: 3000,
+      });
+    } catch {
+      stale = false;
+    }
+    console.log(`PROBE STALE tap at the pre-reflow point opened the panel: ${stale}`);
+    return;
+  }
+  const tapped = trigger.tap({ timeout: 5000 });
+  if (DELAY >= 0) {
+    await new Promise((r) => setTimeout(r, DELAY));
+    release();
+  }
+  await tapped;
+  let opened = true;
+  try {
+    await expect(page.getByRole("dialog", { name: "Output schema" })).toBeVisible({
+      timeout: 3000,
+    });
+  } catch {
+    opened = false;
+  }
+  const log = await page.evaluate(() => (window as unknown as { __log: string[] }).__log);
+  console.log(`PROBE DELAY=${DELAY} RATE=${RATE} OPENED=${opened}\n${log.join("\n")}`);
+});

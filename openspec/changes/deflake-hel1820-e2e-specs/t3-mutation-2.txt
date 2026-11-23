@@ -1,0 +1,326 @@
+T3 mutation 2 (app, uncommitted, reverted): a signed-in device never adopts the server's saved appearance
+diff --git a/frontend/src/theme/useAppearanceState.ts b/frontend/src/theme/useAppearanceState.ts
+index 698a523a2..a4533ee64 100644
+--- a/frontend/src/theme/useAppearanceState.ts
++++ b/frontend/src/theme/useAppearanceState.ts
+@@ -48,7 +48,7 @@ export function useAppearanceState(
+   if (changed) {
+     setLastPreferred(preferred);
+     if (preferred === null) setAppearance(DEFAULT_APPEARANCE);
+-    else if (preferred !== undefined) setAppearance(preferred);
++    else if (preferred !== undefined) void preferred; // MUTATION: server value never adopted
+   }
+ 
+   const signedOut = preferred === null;
+
+Running 15 tests using 2 workers
+(node:101959) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:101960) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:101960) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:101959) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   1 [dev] › e2e/hel1572-appearance-preferences.spec.ts:189:7 › HEL-1572 type style › no flash: cached reload applies the style before React's first DOM, and the first heading is already serif (8.7s)
+(node:102344) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:102344) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   2 [dev] › e2e/hel1572-appearance-preferences.spec.ts:142:7 › HEL-1572 type style › re-renders headings with no reload and survives a fresh browser context (another device) (12.1s)
+(node:102482) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:102482) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   3 [dev] › e2e/hel1572-appearance-preferences.spec.ts:210:7 › HEL-1572 type style › no flash: first heading is serif on a new device (no cache) too (9.0s)
+(node:102634) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:102634) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   4 [dev] › e2e/hel1572-appearance-preferences.spec.ts:244:7 › HEL-1572 type style › no flash: Home's opening sentence is serif on a new device (no cache) after sign-in (HEL-1578) (8.8s)
+(node:102758) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:102758) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   5 [dev] › e2e/hel1572-appearance-preferences.spec.ts:263:7 › HEL-1572 type style › probe sensitivity (negative control): the heading probe FAILS when the server value is withheld (3.4s)
+  ✓   7 [dev] › e2e/hel1572-appearance-preferences.spec.ts:369:7 › HEL-1572 density › Compact changes the grid gutter and row padding; panel tops do not move (7.0s)
+  ✘   6 [dev] › e2e/hel1572-appearance-preferences.spec.ts:283:7 › HEL-1572 type style › probe sensitivity (negative control): with the pre-paint script stripped, the attribute lands only after React's first DOM (8.5s)
+(node:102977) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:102977) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   9 [dev] › e2e/hel1572-appearance-preferences.spec.ts:476:7 › HEL-1572 motion › Off pins the tokens near zero; Full keeps them; no saved choice follows OS reduce-motion; explicit Full beats it (5.1s)
+  ✘   8 [dev] › e2e/hel1572-appearance-preferences.spec.ts:420:7 › HEL-1572 density › Compact tightens overview list rows and the context list by the documented token difference (9.5s)
+(node:104529) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:104529) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  10 [dev] › e2e/hel1572-appearance-preferences.spec.ts:521:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 375px (3.5s)
+  ✓  12 [dev] › e2e/hel1572-appearance-preferences.spec.ts:521:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 1280px (3.4s)
+  ✓  11 [dev] › e2e/hel1572-appearance-preferences.spec.ts:521:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 768px (4.2s)
+  ✘  13 [dev] › e2e/hel1572-appearance-preferences.spec.ts:565:7 › HEL-1572 Appearance tap targets › under Mono no Appearance control or bottom-nav/command-bar label is clipped (non-ellipsized overflow) at 375/768/820/1280 (8.1s)
+(node:104809) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:104809) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  14 [dev] › e2e/hel1572-appearance-preferences.spec.ts:592:7 › HEL-1572 Appearance tap targets › clipping sweep is failable: an injected fixed-width label is flagged (8.2s)
+  ✘  15 [dev] › e2e/hel1572-appearance-preferences.spec.ts:617:7 › HEL-1572 tabular numerals under every style › equal-digit durations render at equal width under sans / mono / serif, and the check fails without tabular-nums (10.1s)
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  1) [dev] › e2e/hel1572-appearance-preferences.spec.ts:142:7 › HEL-1572 type style › re-renders headings with no reload and survives a fresh browser context (another device) 
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveAttribute[2m([22m[32mexpected[39m[2m)[22m failed
+    Locator: locator('html')
+    Expected string: [32m"s[7merif[27m"[39m
+    Received string: [31m"s[7mans[27m"[39m
+    Timeout: 5000ms
+    Call log:
+    [2m  - Expect "toHaveAttribute" with timeout 5000ms[22m
+    [2m  - waiting for locator('html')[22m
+    [2m    9 × locator resolved to <html lang="en" data-theme="dark" data-type-style="sans" data-density="comfortable">…</html>[22m
+    [2m      - unexpected value "sans"[22m
+      182 |     const { ctx, page: other } = await newDeviceLogin(browser, creds.email);
+      183 |     await other.goto("/settings");
+    > 184 |     await expect(other.locator("html")).toHaveAttribute("data-type-style", "serif");
+          |                                         ^
+      185 |     expect(await fontFamily(other, "h1.page-title")).toMatch(/^Fraunces/);
+      186 |     await ctx.close();
+      187 |   });
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1572-appearance-preferences.spec.ts:184:41
+    Error Context: test-results/hel1572-appearance-prefere-a1426-ser-context-another-device--dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1572-appearance-prefere-a1426-ser-context-another-device--dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1572-appearance-prefere-a1426-ser-context-another-device--dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  2) [dev] › e2e/hel1572-appearance-preferences.spec.ts:189:7 › HEL-1572 type style › no flash: cached reload applies the style before React's first DOM, and the first heading is already serif 
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveAttribute[2m([22m[32mexpected[39m[2m)[22m failed
+    Locator: locator('html')
+    Expected string: [32m"s[7merif[27m"[39m
+    Received string: [31m"s[7mans[27m"[39m
+    Timeout: 5000ms
+    Call log:
+    [2m  - Expect "toHaveAttribute" with timeout 5000ms[22m
+    [2m  - waiting for locator('html')[22m
+    [2m    9 × locator resolved to <html lang="en" data-theme="dark" data-type-style="sans" data-density="comfortable">…</html>[22m
+    [2m      - unexpected value "sans"[22m
+      194 |     await setPref(page.request, { typeStyle: "serif" });
+      195 |     await page.goto("/dashboards"); // populates the cache via ThemeProvider
+    > 196 |     await expect(page.locator("html")).toHaveAttribute("data-type-style", "serif");
+          |                                        ^
+      197 |
+      198 |     await page.addInitScript(PROBE);
+      199 |     await page.reload();
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1572-appearance-preferences.spec.ts:196:40
+    Error Context: test-results/hel1572-appearance-prefere-ae7b3-st-heading-is-already-serif-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1572-appearance-prefere-ae7b3-st-heading-is-already-serif-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1572-appearance-prefere-ae7b3-st-heading-is-already-serif-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  3) [dev] › e2e/hel1572-appearance-preferences.spec.ts:210:7 › HEL-1572 type style › no flash: first heading is serif on a new device (no cache) too 
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveAttribute[2m([22m[32mexpected[39m[2m)[22m failed
+    Locator: locator('html')
+    Expected string: [32m"s[7merif[27m"[39m
+    Received string: [31m"s[7mans[27m"[39m
+    Timeout: 5000ms
+    Call log:
+    [2m  - Expect "toHaveAttribute" with timeout 5000ms[22m
+    [2m  - waiting for locator('html')[22m
+    [2m    9 × locator resolved to <html lang="en" data-theme="dark" data-type-style="sans" data-density="comfortable">…</html>[22m
+    [2m      - unexpected value "sans"[22m
+      234 |     await other.click("button[type=submit]");
+      235 |     await other.waitForURL("/dashboards");
+    > 236 |     await expect(other.locator("html")).toHaveAttribute("data-type-style", "serif");
+          |                                         ^
+      237 |     await expect(other.locator("h1, h2").first()).toBeVisible();
+      238 |     const result = await probe(other);
+      239 |     // The probe resets per document; assert on the post-login document's first authenticated heading.
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1572-appearance-preferences.spec.ts:236:41
+    Error Context: test-results/hel1572-appearance-prefere-da7c1-n-a-new-device-no-cache-too-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1572-appearance-prefere-da7c1-n-a-new-device-no-cache-too-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1572-appearance-prefere-da7c1-n-a-new-device-no-cache-too-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  4) [dev] › e2e/hel1572-appearance-preferences.spec.ts:244:7 › HEL-1572 type style › no flash: Home's opening sentence is serif on a new device (no cache) after sign-in (HEL-1578) 
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveAttribute[2m([22m[32mexpected[39m[2m)[22m failed
+    Locator: locator('html')
+    Expected string: [32m"s[7merif[27m"[39m
+    Received string: [31m"s[7mans[27m"[39m
+    Timeout: 5000ms
+    Call log:
+    [2m  - Expect "toHaveAttribute" with timeout 5000ms[22m
+    [2m  - waiting for locator('html')[22m
+    [2m    9 × locator resolved to <html lang="en" data-theme="dark" data-type-style="sans" data-density="comfortable">…</html>[22m
+    [2m      - unexpected value "sans"[22m
+      256 |     await other.click("button[type=submit]");
+      257 |     await other.waitForURL("/home");
+    > 258 |     await expect(other.locator("html")).toHaveAttribute("data-type-style", "serif");
+          |                                         ^
+      259 |     expect(await fontFamily(other, ".home-opening__sentence")).toMatch(/^Fraunces/);
+      260 |     await ctx.close();
+      261 |   });
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1572-appearance-preferences.spec.ts:258:41
+    Error Context: test-results/hel1572-appearance-prefere-ffb0b-che-after-sign-in-HEL-1578--dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1572-appearance-prefere-ffb0b-che-after-sign-in-HEL-1578--dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1572-appearance-prefere-ffb0b-che-after-sign-in-HEL-1578--dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  5) [dev] › e2e/hel1572-appearance-preferences.spec.ts:283:7 › HEL-1572 type style › probe sensitivity (negative control): with the pre-paint script stripped, the attribute lands only after React's first DOM 
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveAttribute[2m([22m[32mexpected[39m[2m)[22m failed
+    Locator: locator('html')
+    Expected string: [32m"s[7merif[27m"[39m
+    Received string: [31m"s[7mans[27m"[39m
+    Timeout: 5000ms
+    Call log:
+    [2m  - Expect "toHaveAttribute" with timeout 5000ms[22m
+    [2m  - waiting for locator('html')[22m
+    [2m    9 × locator resolved to <html lang="en" data-theme="dark" data-type-style="sans" data-density="comfortable">…</html>[22m
+    [2m      - unexpected value "sans"[22m
+      288 |     await setPref(page.request, { typeStyle: "serif" });
+      289 |     await page.goto("/dashboards");
+    > 290 |     await expect(page.locator("html")).toHaveAttribute("data-type-style", "serif"); // cache primed
+          |                                        ^
+      291 |     await page.route("**/*", async (route) => {
+      292 |       const request = route.request();
+      293 |       if (request.resourceType() !== "document") return route.continue();
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1572-appearance-preferences.spec.ts:290:40
+    Error Context: test-results/hel1572-appearance-prefere-1b5a7-nly-after-React-s-first-DOM-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1572-appearance-prefere-1b5a7-nly-after-React-s-first-DOM-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1572-appearance-prefere-1b5a7-nly-after-React-s-first-DOM-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  6) [dev] › e2e/hel1572-appearance-preferences.spec.ts:420:7 › HEL-1572 density › Compact tightens overview list rows and the context list by the documented token difference 
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveAttribute[2m([22m[32mexpected[39m[2m)[22m failed
+    Locator: locator('html')
+    Expected string: [32m"com[7mpact[27m"[39m
+    Received string: [31m"com[7mfortable[27m"[39m
+    Timeout: 5000ms
+    Call log:
+    [2m  - Expect "toHaveAttribute" with timeout 5000ms[22m
+    [2m  - waiting for locator('html')[22m
+    [2m    9 × locator resolved to <html lang="en" data-theme="dark" data-type-style="sans" data-density="comfortable">…</html>[22m
+    [2m      - unexpected value "comfortable"[22m
+      450 |     await setPref(page.request, { density: "compact" });
+      451 |     await page.goto("/sources");
+    > 452 |     await expect(page.locator("html")).toHaveAttribute("data-density", "compact");
+          |                                        ^
+      453 |     await expect(page.locator(".source-list-table tbody tr").first()).toBeVisible();
+      454 |     expect(await padTop()).toBe(4);
+      455 |     // Top and bottom padding each shrink 8 -> 4.
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1572-appearance-preferences.spec.ts:452:40
+    Error Context: test-results/hel1572-appearance-prefere-912fe-documented-token-difference-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1572-appearance-prefere-912fe-documented-token-difference-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1572-appearance-prefere-912fe-documented-token-difference-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  7) [dev] › e2e/hel1572-appearance-preferences.spec.ts:565:7 › HEL-1572 Appearance tap targets › under Mono no Appearance control or bottom-nav/command-bar label is clipped (non-ellipsized overflow) at 375/768/820/1280 
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveAttribute[2m([22m[32mexpected[39m[2m)[22m failed
+    Locator: locator('html')
+    Expected string: [32m"mono"[39m
+    Received string: [31m"sans"[39m
+    Timeout: 5000ms
+    Call log:
+    [2m  - Expect "toHaveAttribute" with timeout 5000ms[22m
+    [2m  - waiting for locator('html')[22m
+    [2m    9 × locator resolved to <html lang="en" data-theme="dark" data-type-style="sans" data-density="comfortable">…</html>[22m
+    [2m      - unexpected value "sans"[22m
+       at support/typeStyle.ts:36
+      34 |  *  must be in JetBrains Mono, so a reset-to-default would fail here rather than pass vacuously). */
+      35 | export async function assertTypeStyleActive(page: Page, style: TypeStyle): Promise<void> {
+    > 36 |   await expect(page.locator("html")).toHaveAttribute("data-type-style", style);
+         |                                      ^
+      37 |   if (style === "mono") {
+      38 |     const family = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
+      39 |     expect(family.replace(/["']/g, "")).toMatch(/^JetBrains Mono/);
+        at assertTypeStyleActive (/home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/support/typeStyle.ts:36:38)
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1572-appearance-preferences.spec.ts:575:34
+    Error Context: test-results/hel1572-appearance-prefere-3adfc-verflow-at-375-768-820-1280-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1572-appearance-prefere-3adfc-verflow-at-375-768-820-1280-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1572-appearance-prefere-3adfc-verflow-at-375-768-820-1280-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  8) [dev] › e2e/hel1572-appearance-preferences.spec.ts:592:7 › HEL-1572 Appearance tap targets › clipping sweep is failable: an injected fixed-width label is flagged 
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveAttribute[2m([22m[32mexpected[39m[2m)[22m failed
+    Locator: locator('html')
+    Expected string: [32m"mono"[39m
+    Received string: [31m"sans"[39m
+    Timeout: 5000ms
+    Call log:
+    [2m  - Expect "toHaveAttribute" with timeout 5000ms[22m
+    [2m  - waiting for locator('html')[22m
+    [2m    9 × locator resolved to <html lang="en" data-theme="dark" data-type-style="sans" data-density="comfortable">…</html>[22m
+    [2m      - unexpected value "sans"[22m
+       at support/typeStyle.ts:36
+      34 |  *  must be in JetBrains Mono, so a reset-to-default would fail here rather than pass vacuously). */
+      35 | export async function assertTypeStyleActive(page: Page, style: TypeStyle): Promise<void> {
+    > 36 |   await expect(page.locator("html")).toHaveAttribute("data-type-style", style);
+         |                                      ^
+      37 |   if (style === "mono") {
+      38 |     const family = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
+      39 |     expect(family.replace(/["']/g, "")).toMatch(/^JetBrains Mono/);
+        at assertTypeStyleActive (/home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/support/typeStyle.ts:36:38)
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1572-appearance-preferences.spec.ts:600:32
+    Error Context: test-results/hel1572-appearance-prefere-4c34b-ixed-width-label-is-flagged-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1572-appearance-prefere-4c34b-ixed-width-label-is-flagged-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1572-appearance-prefere-4c34b-ixed-width-label-is-flagged-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  9) [dev] › e2e/hel1572-appearance-preferences.spec.ts:617:7 › HEL-1572 tabular numerals under every style › equal-digit durations render at equal width under sans / mono / serif, and the check fails without tabular-nums 
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveAttribute[2m([22m[32mexpected[39m[2m)[22m failed
+    Locator: locator('html')
+    Expected string: [32m"mono"[39m
+    Received string: [31m"sans"[39m
+    Timeout: 5000ms
+    Call log:
+    [2m  - Expect "toHaveAttribute" with timeout 5000ms[22m
+    [2m  - waiting for locator('html')[22m
+    [2m    9 × locator resolved to <html lang="en" data-theme="dark" data-type-style="sans" data-density="comfortable">…</html>[22m
+    [2m      - unexpected value "sans"[22m
+       at support/typeStyle.ts:36
+      34 |  *  must be in JetBrains Mono, so a reset-to-default would fail here rather than pass vacuously). */
+      35 | export async function assertTypeStyleActive(page: Page, style: TypeStyle): Promise<void> {
+    > 36 |   await expect(page.locator("html")).toHaveAttribute("data-type-style", style);
+         |                                      ^
+      37 |   if (style === "mono") {
+      38 |     const family = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
+      39 |     expect(family.replace(/["']/g, "")).toMatch(/^JetBrains Mono/);
+        at assertTypeStyleActive (/home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/support/typeStyle.ts:36:38)
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1572-appearance-preferences.spec.ts:665:34
+    Error Context: test-results/hel1572-appearance-prefere-e98c7--fails-without-tabular-nums-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1572-appearance-prefere-e98c7--fails-without-tabular-nums-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1572-appearance-prefere-e98c7--fails-without-tabular-nums-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  9 failed
+    [dev] › e2e/hel1572-appearance-preferences.spec.ts:142:7 › HEL-1572 type style › re-renders headings with no reload and survives a fresh browser context (another device) 
+    [dev] › e2e/hel1572-appearance-preferences.spec.ts:189:7 › HEL-1572 type style › no flash: cached reload applies the style before React's first DOM, and the first heading is already serif 
+    [dev] › e2e/hel1572-appearance-preferences.spec.ts:210:7 › HEL-1572 type style › no flash: first heading is serif on a new device (no cache) too 
+    [dev] › e2e/hel1572-appearance-preferences.spec.ts:244:7 › HEL-1572 type style › no flash: Home's opening sentence is serif on a new device (no cache) after sign-in (HEL-1578) 
+    [dev] › e2e/hel1572-appearance-preferences.spec.ts:283:7 › HEL-1572 type style › probe sensitivity (negative control): with the pre-paint script stripped, the attribute lands only after React's first DOM 
+    [dev] › e2e/hel1572-appearance-preferences.spec.ts:420:7 › HEL-1572 density › Compact tightens overview list rows and the context list by the documented token difference 
+    [dev] › e2e/hel1572-appearance-preferences.spec.ts:565:7 › HEL-1572 Appearance tap targets › under Mono no Appearance control or bottom-nav/command-bar label is clipped (non-ellipsized overflow) at 375/768/820/1280 
+    [dev] › e2e/hel1572-appearance-preferences.spec.ts:592:7 › HEL-1572 Appearance tap targets › clipping sweep is failable: an injected fixed-width label is flagged 
+    [dev] › e2e/hel1572-appearance-preferences.spec.ts:617:7 › HEL-1572 tabular numerals under every style › equal-digit durations render at equal width under sans / mono / serif, and the check fails without tabular-nums 
+  6 passed (1.0m)
+
+after revert: git status --short
+ M e2e/hel1572-appearance-preferences.spec.ts
+ M e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts
+ M e2e/hel1791-compact-counter-stack-height.spec.ts
+?? e2e/probe-hel1826-1572-stress.spec.ts
+?? e2e/probe-hel1826-1582-stress.spec.ts
+?? e2e/probe-hel1826-1791-stress.spec.ts
+?? e2e/probe-hel1826-t2.spec.ts
+?? openspec/changes/deflake-hel1820-e2e-specs/t1-mutation.txt
+?? openspec/changes/deflake-hel1820-e2e-specs/t1-plain.txt
+?? openspec/changes/deflake-hel1820-e2e-specs/t1-stress.txt
+?? openspec/changes/deflake-hel1820-e2e-specs/t2-mutation.txt
+?? openspec/changes/deflake-hel1820-e2e-specs/t3-mutation-2.txt
+?? openspec/changes/deflake-hel1820-e2e-specs/t3-mutation.txt
+?? openspec/changes/deflake-hel1820-e2e-specs/t3-red-held-mono-patch.txt

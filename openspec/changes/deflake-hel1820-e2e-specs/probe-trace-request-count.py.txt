@@ -1,0 +1,21 @@
+import json,sys,glob
+from collections import defaultdict
+d=sys.argv[1]
+ev=[]
+for f in sorted(glob.glob(d+'/*-trace.network')):
+    for l in open(f):
+        j=json.loads(l)
+        if j.get('type')!='resource-snapshot': continue
+        s=j['snapshot']; r=s['request']; u=r['url']
+        if '/api/' not in u: continue
+        ck=[h['value'] for h in r['headers'] if h['name'].lower()=='cookie']
+        ev.append((s['_monotonicTime'],r['method'],u.split('/api/')[1][:40],s['response']['status'],(ck[0][-8:] if ck else '-')))
+ev.sort()
+by=defaultdict(list)
+for e in ev: by[e[4]].append(e)
+for k,v in by.items():
+    ts=[e[0] for e in v]; best=0; lo=0
+    for hi in range(len(ts)):
+        while ts[hi]-ts[lo]>=60000: lo+=1
+        best=max(best,hi-lo+1)
+    print("cookie..%s total=%d max-sliding-60s=%d n429=%d"%(k,len(v),best,sum(1 for e in v if e[3]==429)))

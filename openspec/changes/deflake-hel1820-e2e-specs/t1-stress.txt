@@ -1,0 +1,160 @@
+=== run 1/6 14:21:34 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.4m)
+=== run 1 exit=0
+=== run 2/6 14:22:58 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.2m)
+=== run 2 exit=0
+=== run 3/6 14:24:10 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.3m)
+=== run 3 exit=0
+=== run 4/6 14:25:30 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.2m)
+=== run 4 exit=0
+=== run 5/6 14:26:41 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.1m)
+=== run 5 exit=0
+=== run 6/6 14:27:50 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.1m)
+=== run 6 exit=0
+=== run 7/13 14:29:02 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.3m)
+=== run 7 exit=0
+=== run 8/13 14:30:19 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.4m)
+=== run 8 exit=0
+=== run 9/13 14:31:45 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.4m)
+=== run 9 exit=0
+=== run 10/13 14:33:10 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.4m)
+=== run 10 exit=0
+=== run 11/13 14:34:37 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.4m)
+=== run 11 exit=0
+=== run 12/13 14:35:59 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.4m)
+=== run 12 exit=0
+=== run 13/13 14:37:21 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.3m)
+=== run 13 exit=0
+=== run 14/20 14:38:43 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.3m)
+=== run 14 exit=0
+=== run 15/20 14:40:01 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.5m)
+=== run 15 exit=0
+=== run 16/20 14:41:33 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.4m)
+=== run 16 exit=0
+=== run 17/20 14:42:55 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.2m)
+=== run 17 exit=0
+=== run 18/20 14:44:11 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.3m)
+=== run 18 exit=0
+=== run 19/20 14:45:27 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.3m)
+=== run 19 exit=0
+=== run 20/20 14:46:47 e2e/probe-hel1826-1791-stress.spec.ts 
+      2 STRESS-ACTIVE cpu throttle 4x on a page of editor
+      1 STRESS-ACTIVE cpu throttle 4x on a page of measurer
+      2 STRESS-ACTIVE cpu throttle 4x on a page of owner
+      1 STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  6 passed (1.4m)
+=== run 20 exit=0

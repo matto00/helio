@@ -1,0 +1,15 @@
+--- e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts	2026-11-22 15:00:02.626448813 -0800
++++ e2e/probe-hel1826-1582-stress.spec.ts	2026-11-22 15:50:48.646850061 -0800
+@@ -35,6 +35,12 @@
+   deviceScaleFactor: 2,
+ });
+ 
++test.beforeEach(async ({ page }) => {
++  const cdp = await page.context().newCDPSession(page);
++  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
++  console.log("STRESS-ACTIVE cpu throttle 4x: " + test.info().title.slice(0, 50));
++});
++
+ test.describe("HEL-1582 phone pipeline page (live)", () => {
+   test("the sheet composes HEL-1584's Modal motion: one entrance, no transform at rest, a held exit with no flash, an anchored popover, under Full, Subtle and Off in both themes", async ({
+     page,

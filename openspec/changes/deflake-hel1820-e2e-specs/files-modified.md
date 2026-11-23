@@ -1,0 +1,4 @@
+- `e2e/hel1791-compact-counter-stack-height.spec.ts` -- HEL-1804 test runs as its own owner on its own one-panel dashboard (the shared owner's 120/60 s window was spent); `openStack` takes a target; alert regex tightened to the routed message
+- `e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts` -- wait for the step-preview header's row count (header reflow moves the "N fields" trigger) before tapping it
+- `e2e/hel1572-appearance-preferences.spec.ts` -- `selectTypeStyle` waits for each type-style PATCH before the next click (app has unordered preference writes)
+- `openspec/changes/deflake-hel1820-e2e-specs/` -- root-cause.md, tasks, red/mutation/20x evidence (.txt), stress mechanisms

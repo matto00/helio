@@ -1,0 +1,42 @@
+# HEL-1826 stress generator for hel1791 (T1). usage: stress1791.py <src spec> <dst spec> [--throttle N]
+# Mechanism A (burn): a context route on the OWNER actor that, right before the first submit request is forwarded,
+#   spends the owner's remaining /api rate-limit budget (GET /api/auth/me until 429), then lets the submit through.
+#   This reproduces the CI state: the owner's 120-per-60s fixed window is already used up when the submit fires.
+# Mechanism B (--throttle N): CDP Emulation.setCPUThrottlingRate on every page of every actor context.
+import sys
+src, dst = sys.argv[1], sys.argv[2]
+throttle = int(sys.argv[sys.argv.index("--throttle") + 1]) if "--throttle" in sys.argv else 0
+s = open(src).read()
+burn = '''
+  test.beforeEach(async () => {
+    if (!test.info().title.includes("status message and an alert")) return;
+    let burned = false;
+    await owner.context.route(/\\/api\\/panels\\/[^/]+\\/submit$/, async (route) => {
+      if (!burned) {
+        burned = true;
+        let ok = 0;
+        for (let i = 0; i < 400; i++) {
+          const r = await owner.context.request.get("/api/auth/me");
+          if (r.status() === 429) break;
+          ok++;
+        }
+        console.log(`STRESS-ACTIVE burn: spent ${ok} remaining owner requests, owner budget now exhausted`);
+      }
+      await route.fallback();
+    });
+  });
+'''
+anchor = '  test.afterAll(async () => {'
+assert anchor in s
+s = s.replace(anchor, burn + '\n' + anchor, 1)
+if throttle:
+    old = '  const context = await browser.newContext({ baseURL: BASE_URL });\n'
+    assert old in s
+    new = old + f'''  context.on("page", async (p) => {{
+    const cdp = await context.newCDPSession(p);
+    await cdp.send("Emulation.setCPUThrottlingRate", {{ rate: {throttle} }});
+    console.log("STRESS-ACTIVE cpu throttle {throttle}x on a page of " + label);
+  }});
+'''
+    s = s.replace(old, new, 1)
+open(dst, 'w').write(s)

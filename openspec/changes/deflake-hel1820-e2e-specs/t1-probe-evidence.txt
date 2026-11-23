@@ -1,0 +1,18 @@
+T1 probe evidence
+
+== CI trace (run 44998353027, job e2e (4)) 429 responses (python over trace.zip network) ==
+GET pipelines/1b59cb7d-d445-40ca-934d-a44af136ea2 status 429 retry-after 4 date Sun, 22 Nov 2026 07:40:20 GMT
+POST panels/9c86231b-63cb-4693-b969-7b70715bc9d1/s status 429 retry-after 4 date Sun, 22 Nov 2026 07:40:20 GMT
+GET data-sources/c2872688-018a-486d-89d6-11f6998d status 429 retry-after 4 date Sun, 22 Nov 2026 07:40:20 GMT
+GET pipelines/1b59cb7d-d445-40ca-934d-a44af136ea2 status 429 retry-after 3 date Sun, 22 Nov 2026 07:40:21 GMT
+GET pipelines/1b59cb7d-d445-40ca-934d-a44af136ea2 status 429 retry-after 3 date Sun, 22 Nov 2026 07:40:21 GMT
+POST events status 429 retry-after 3 date Sun, 22 Nov 2026 07:40:21 GMT
+GET pipelines/1b59cb7d-d445-40ca-934d-a44af136ea2 status 429 retry-after 1 date Sun, 22 Nov 2026 07:40:23 GMT
+GET pipelines/1b59cb7d-d445-40ca-934d-a44af136ea2 status 429 retry-after 1 date Sun, 22 Nov 2026 07:40:23 GMT
+-> the 429s start with a pipeline poll and include the POST panels/<id>/submit, retry-after 4 at 07:40:20Z: the owner window began about 07:39:24Z and was exhausted 56 s in.
+(every request appears twice in the trace zip: two context files; counts above in conversation were halved)
+
+== local probe: owner budget left after the file's six tests (temporary probe test appended to a copy of the spec; GET /api/auth/me until 429) ==
+run 1: PROBE owner remaining=1 => charged before probe=119; retry-after=24s => window age 36s
+run 2: PROBE owner remaining=5 => charged before probe=115; retry-after=23s => window age 37s
+(limiter: InMemoryRateLimiter fixed window, default 120 per 60 s, window starts at the principal's first request)

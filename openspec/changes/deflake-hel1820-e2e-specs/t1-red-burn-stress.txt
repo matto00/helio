@@ -1,0 +1,60 @@
+
+Running 6 tests using 1 worker
+
+(node:3969185) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:3969185) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[HEL-1300 e2e] throwaway user: hel1791-owner-1795384441649-54864@example.test
+[HEL-1300 e2e] throwaway user: hel1791-editor-1795384441893-51341@example.test
+[HEL-1300 e2e] throwaway user: hel1791-measurer-1795384442130-90530@example.test
+  ✓  1 [dev] › e2e/probe-hel1826-1791-stress.spec.ts:191:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light (5.6s)
+  ✓  2 [dev] › e2e/probe-hel1826-1791-stress.spec.ts:191:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark (5.0s)
+  ✓  3 [dev] › e2e/probe-hel1826-1791-stress.spec.ts:191:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light (5.6s)
+  ✓  4 [dev] › e2e/probe-hel1826-1791-stress.spec.ts:191:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark (5.2s)
+  ✓  5 [dev] › e2e/probe-hel1826-1791-stress.spec.ts:270:7 › HEL-1791 compact counter height in the panel stack › per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) (9.7s)
+STRESS-ACTIVE burn: spent 9 remaining owner requests, owner budget now exhausted
+  ✘  6 [dev] › e2e/probe-hel1826-1791-stress.spec.ts:309:7 › HEL-1791 compact counter height in the panel stack › owner: a status message and an alert message render in flow in the same live regions (7.0s)
+userCleanup: removed 0 of 3 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 3 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/probe-hel1826-1791-stress.spec.ts:309:7 › HEL-1791 compact counter height in the panel stack › owner: a status message and an alert message render in flow in the same live regions 
+
+    Error: status message: text
+
+    [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: locator('.mobile-panel-stack__item--form').filter({ has: getByRole('spinbutton', { name: 'Widgets' }) }).locator('.form-panel-view__status')
+    Expected pattern: [32m/The row was added\./[39m
+    Received string:  [31m""[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - status message: text with timeout 5000ms[22m
+    [2m  - waiting for locator('.mobile-panel-stack__item--form').filter({ has: getByRole('spinbutton', { name: 'Widgets' }) }).locator('.form-panel-view__status')[22m
+    [2m    9 × locator resolved to <p role="status" class="form-panel-view__status"></p>[22m
+    [2m      - unexpected value ""[22m
+
+
+      323 |         return {
+      324 |           async verify(what: string) {
+    > 325 |             await expect(region, `${what}: text`).toHaveText(text);
+          |                                                   ^
+      326 |             await expect(region, `${what}: visible`).toBeVisible();
+      327 |             await expect(region, `${what}: role`).toHaveAttribute("role", role);
+      328 |             const r = await handle!.evaluate((el, parentSel) => {
+        at Object.verify (/home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/probe-hel1826-1791-stress.spec.ts:325:51)
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/probe-hel1826-1791-stress.spec.ts:365:20
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/probe-hel1826-1791-stress--a687f-ow-in-the-same-live-regions-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/probe-hel1826-1791-stress--a687f-ow-in-the-same-live-regions-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [dev] › e2e/probe-hel1826-1791-stress.spec.ts:309:7 › HEL-1791 compact counter height in the panel stack › owner: a status message and an alert message render in flow in the same live regions 
+  5 passed (40.7s)

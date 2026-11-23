@@ -1,0 +1,10 @@
+CI evidence (HEL-1826), pulled with gh
+
+T1 run 44998353027 job e2e (4) = 137141434791, failure at hel1791 :290 'status message: text', Expected /The row was added\./ Received "" (9 polls, region <p role=status></p> unchanged, 5000ms)
+T2 run 44998353027 job e2e (7) = 137141434181 (attempt 2): hel1582 :244 at 390x844, spec line 257 (checkPanel from spec line 294): getByRole('dialog',{name:'Output schema'}) toBeVisible, element(s) not found, 5000ms
+T3 run 44979065391 job e2e (2) = 137075333074 (PR #1223 older head bedfee772): hel1572 :126 poll at spec line 163: Expected "serif" Received "mono" after 5000ms
+T3 earlier PR #1222 head: the CI runs listed for the branch (dbbc5af7f) show success; the failing earlier-head run was not retrievable via gh run list, only PR #1223's.
+
+e2e (7)	Record runner identity	2026-11-22T08:01:01.7884359Z ^[[36;1m  echo "cpu_model: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//')"^[[0m
+e2e (2)	UNKNOWN STEP	2026-11-22T07:28:30.1489225Z ^[[36;1m  echo "cpu_model: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//')"^[[0m
+e2e (6)	UNKNOWN STEP	2026-11-22T07:28:34.0428078Z ^[[36;1m  echo "cpu_model: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//')"^[[0m

@@ -1,0 +1,88 @@
+
+Running 15 tests using 2 workers
+
+(node:548662) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:548661) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:548662) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:548661) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[HEL-1300 e2e] throwaway user: hel1572-flash-1795398559962-85098@example.test
+[HEL-1300 e2e] throwaway user: hel1572-type-1795398559970-20977@example.test
+STRESS-ACTIVE holding the first typeStyle=mono PATCH for 200 ms
+  ✓   1 [dev] › e2e/probe-hel1826-1572-stress.spec.ts:186:7 › HEL-1572 type style › no flash: cached reload applies the style before React's first DOM, and the first heading is already serif (5.8s)
+[HEL-1300 e2e] throwaway user: hel1572-flash-new-1795398565179-41598@example.test
+  ✓   3 [dev] › e2e/probe-hel1826-1572-stress.spec.ts:207:7 › HEL-1572 type style › no flash: first heading is serif on a new device (no cache) too (4.0s)
+[HEL-1300 e2e] throwaway user: hel1572-flash-home-1795398569198-80288@example.test
+  ✘   2 [dev] › e2e/probe-hel1826-1572-stress.spec.ts:139:7 › HEL-1572 type style › re-renders headings with no reload and survives a fresh browser context (another device) (12.8s)
+(node:549055) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:549055) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   4 [dev] › e2e/probe-hel1826-1572-stress.spec.ts:241:7 › HEL-1572 type style › no flash: Home's opening sentence is serif on a new device (no cache) after sign-in (HEL-1578) (3.6s)
+[HEL-1300 e2e] throwaway user: hel1572-neg-prepaint-1795398572851-12475@example.test
+[HEL-1300 e2e] throwaway user: hel1572-neg-heading-1795398573132-20952@example.test
+  ✓   5 [dev] › e2e/probe-hel1826-1572-stress.spec.ts:260:7 › HEL-1572 type style › probe sensitivity (negative control): the heading probe FAILS when the server value is withheld (4.1s)
+[HEL-1300 e2e] throwaway user: hel1572-density-1795398576821-47718@example.test
+  ✓   6 [dev] › e2e/probe-hel1826-1572-stress.spec.ts:280:7 › HEL-1572 type style › probe sensitivity (negative control): with the pre-paint script stripped, the attribute lands only after React's first DOM (5.0s)
+[HEL-1300 e2e] throwaway user: hel1572-density-rows-1795398577857-7417@example.test
+  ✓   8 [dev] › e2e/probe-hel1826-1572-stress.spec.ts:417:7 › HEL-1572 density › Compact tightens overview list rows and the context list by the documented token difference (5.4s)
+[HEL-1300 e2e] throwaway user: hel1572-motion-1795398583300-71956@example.test
+  ✓   7 [dev] › e2e/probe-hel1826-1572-stress.spec.ts:366:7 › HEL-1572 density › Compact changes the grid gutter and row padding; panel tops do not move (8.3s)
+[HEL-1300 e2e] throwaway user: hel1572-tap-375-1795398585177-67924@example.test
+  ✓   9 [dev] › e2e/probe-hel1826-1572-stress.spec.ts:473:7 › HEL-1572 motion › Off pins the tokens near zero; Full keeps them; no saved choice follows OS reduce-motion; explicit Full beats it (5.5s)
+[HEL-1300 e2e] throwaway user: hel1572-tap-768-1795398588838-43989@example.test
+  ✓  10 [dev] › e2e/probe-hel1826-1572-stress.spec.ts:518:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 375px (4.2s)
+[HEL-1300 e2e] throwaway user: hel1572-tap-1280-1795398589374-63299@example.test
+  ✓  11 [dev] › e2e/probe-hel1826-1572-stress.spec.ts:518:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 768px (4.1s)
+[HEL-1300 e2e] throwaway user: hel1572-clip-1795398592905-12060@example.test
+  ✓  12 [dev] › e2e/probe-hel1826-1572-stress.spec.ts:518:9 › HEL-1572 Appearance tap targets › accent swatches and segments clear the 44px floor by hit extent at 1280px (3.6s)
+[HEL-1300 e2e] throwaway user: hel1572-clip-mut-1795398592930-12224@example.test
+  ✓  14 [dev] › e2e/probe-hel1826-1572-stress.spec.ts:589:7 › HEL-1572 Appearance tap targets › clipping sweep is failable: an injected fixed-width label is flagged (3.8s)
+[HEL-1300 e2e] throwaway user: hel1572-tabular-1795398596709-57351@example.test
+  ✓  13 [dev] › e2e/probe-hel1826-1572-stress.spec.ts:562:7 › HEL-1572 Appearance tap targets › under Mono no Appearance control or bottom-nav/command-bar label is clipped (non-ellipsized overflow) at 375/768/820/1280 (8.1s)
+  ✓  15 [dev] › e2e/probe-hel1826-1572-stress.spec.ts:614:7 › HEL-1572 tabular numerals under every style › equal-digit durations render at equal width under sans / mono / serif, and the check fails without tabular-nums (8.3s)
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 15 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/probe-hel1826-1572-stress.spec.ts:139:7 › HEL-1572 type style › re-renders headings with no reload and survives a fresh browser context (another device) 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveAttribute[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: locator('html')
+    Expected string: [32m"serif"[39m
+    Received string: [31m"mono"[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - Expect "toHaveAttribute" with timeout 5000ms[22m
+    [2m  - waiting for locator('html')[22m
+    [2m    9 × locator resolved to <html lang="en" data-theme="dark" data-type-style="mono" data-density="comfortable">…</html>[22m
+    [2m      - unexpected value "mono"[22m
+
+
+      179 |     const { ctx, page: other } = await newDeviceLogin(browser, creds.email);
+      180 |     await other.goto("/settings");
+    > 181 |     await expect(other.locator("html")).toHaveAttribute("data-type-style", "serif");
+          |                                         ^
+      182 |     expect(await fontFamily(other, "h1.page-title")).toMatch(/^Fraunces/);
+      183 |     await ctx.close();
+      184 |   });
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/probe-hel1826-1572-stress.spec.ts:181:41
+
+    Error Context: test-results/probe-hel1826-1572-stress--30374-ser-context-another-device--dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/probe-hel1826-1572-stress--30374-ser-context-another-device--dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/probe-hel1826-1572-stress--30374-ser-context-another-device--dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [dev] › e2e/probe-hel1826-1572-stress.spec.ts:139:7 › HEL-1572 type style › re-renders headings with no reload and survives a fresh browser context (another device) 
+  14 passed (46.3s)

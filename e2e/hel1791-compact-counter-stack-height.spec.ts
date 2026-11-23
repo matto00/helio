@@ -145,11 +145,16 @@ test.describe("HEL-1791 compact counter height in the panel stack", () => {
     await Promise.all([owner, editor, measurer].map((a) => a.context.close()));
   });
 
-  async function openStack(page: Page, width: number, theme: string): Promise<void> {
+  async function openStack(
+    page: Page,
+    width: number,
+    theme: string,
+    target: { id: string; items: number } = { id: dashboardId, items: 7 },
+  ): Promise<void> {
     await page.setViewportSize({ width, height: 900 });
     await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
-    await page.goto(`/dashboards/${dashboardId}`);
-    await expect(page.locator(LIVE_STACK_ITEMS)).toHaveCount(7, { timeout: 20_000 });
+    await page.goto(`/dashboards/${target.id}`);
+    await expect(page.locator(LIVE_STACK_ITEMS)).toHaveCount(target.items, { timeout: 20_000 });
     await expect(page.getByLabel("Loading panels")).toHaveCount(0);
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     await page.evaluate(() => document.fonts.ready.then(() => undefined));
@@ -285,12 +290,42 @@ test.describe("HEL-1791 compact counter height in the panel stack", () => {
     }
   });
 
-  // HEL-1804: a message must still render in the SAME always-mounted region, in flow below the content. Declared last
-  // (fullyParallel is false, so file order holds) and run on the existing counter panel.
-  test("owner: a status message and an alert message render in flow in the same live regions", async () => {
-    const page = await owner.context.newPage();
+  // HEL-1804: a message must still render in the SAME always-mounted region, in flow below the content.
+  // HEL-1826: it runs as its OWN owner, on its own one-panel dashboard. The shared `owner` has already spent 115-119 of
+  // its 120-per-60 s /api window on the geometry tests above (measured: `t1-probe-evidence.txt`), so on a slower runner
+  // the click's `POST .../submit` was answered 429, the status stayed empty and the assertion below failed. The
+  // assertions are unchanged; only the principal whose budget they spend is.
+  test("owner: a status message and an alert message render in flow in the same live regions", async ({
+    browser,
+  }) => {
+    const own = await newActor(browser, "owner-live-regions");
+    const api = own.context.request;
+    const source = await postJson<{ id: string }>(api, "/api/data-sources", {
+      name: `HEL1791 live regions ${RUN}`,
+      type: "static",
+      columns: [
+        { name: "occurred_at", type: "timestamp" },
+        { name: "delta", type: "integer", required: true },
+        { name: "value", type: "integer" },
+      ],
+      rows: [],
+    });
+    const ownDashboard = await postJson<{ id: string }>(api, "/api/dashboards", {
+      name: `HEL1791 live regions ${RUN}`,
+    });
+    await postJson(api, "/api/panels", {
+      dashboardId: ownDashboard.id,
+      title: COUNTER_TITLE,
+      type: "form",
+      config: {
+        dataSourceId: source.id,
+        fields: [{ sourceField: "delta", control: "counter", label: "Widgets", step: 5 }],
+        submit: { writeMode: "append", resetOnSuccess: false },
+      },
+    });
+    const page = await own.context.newPage();
     try {
-      await openStack(page, 390, "light");
+      await openStack(page, 390, "light", { id: ownDashboard.id, items: 1 });
       const card = page
         .locator(".mobile-panel-stack__item--form")
         .filter({ has: page.getByRole("spinbutton", { name: "Widgets" }) });
@@ -352,11 +387,18 @@ test.describe("HEL-1791 compact counter height in the panel stack", () => {
           body: JSON.stringify({ message: "HEL1804 rejected step" }),
         });
       });
-      const alert = await expectRegionInFlow(".form-panel-view__alert", "alert", /\S/);
+      const alert = await expectRegionInFlow(
+        ".form-panel-view__alert",
+        "alert",
+        /HEL1804 rejected step/,
+      );
       await page.getByRole("button", { name: /increase widgets/i }).click();
       await alert.verify("alert message");
     } finally {
       await page.close();
+      await api.delete(`/api/dashboards/${ownDashboard.id}`, { headers: CSRF });
+      await api.delete(`/api/data-sources/${source.id}`, { headers: CSRF });
+      await own.context.close();
     }
   });
 });
