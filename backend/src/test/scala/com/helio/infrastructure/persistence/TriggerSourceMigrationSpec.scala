@@ -17,7 +17,8 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 /** Integration test for the V63 migration (pipeline_run_trigger_source,
  *  HEL-417): pre-existing `pipeline_runs` rows (seeded before V63 runs)
  *  backfill to `trigger_source = 'manual'`, and the CHECK constraint rejects
- *  anything outside `manual`/`scheduled`/`external`.
+ *  anything outside `manual`/`scheduled`/`external`. V63 introduced that
+ *  three-value CHECK; V110 later widened it to also admit `auto-run`.
  *
  *  Flyway is staged in two steps — migrate to V62, seed a fixture directly
  *  against that pre-V63 schema (no `trigger_source` column yet), then
