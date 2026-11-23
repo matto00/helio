@@ -1,6 +1,0 @@
-- `frontend/src/features/panels/ui/form/FormFieldControl.tsx` — optional `errorDescriptionId`: error text rendered elsewhere, control stays invalid and described by that id
-- `frontend/src/features/panels/ui/form/FormPanelView.tsx` — compact branch gives the alert an id and passes it, so the rejection renders once
-- `frontend/src/features/panels/ui/form/FormFieldControl.test.tsx` — tests for the new prop
-- `frontend/src/features/panels/ui/form/FormPanelView.test.tsx` — red-first single-error tests; multi-field regression assertion
-- `e2e/hel1818-compact-counter-single-error.spec.ts` — live once-only check, light/dark x 390/1440
-- `openspec/changes/compact-counter-single-error/red-run.txt` — recorded red run (hook refused the red commit)
