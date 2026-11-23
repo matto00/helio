@@ -36,6 +36,11 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   private val assertionsTable = TableQuery[PipelineRunAssertionTable]
   private val permTable       = TableQuery[ResourcePermissionRepository.ResourcePermissionTable]
 
+  // HEL-1626 ordering contract for every run read below: `started_at DESC, id DESC`. Run ids are random UUIDs, so the
+  // `id` tie-break makes the order of equal-`started_at` runs DETERMINISTIC (every read, and the reaper, agree on one
+  // "latest"), not "more recent": no column records which of two tied runs really started later. Assertion reads
+  // order `created_at ASC, id ASC` (see `insertAssertions` for why that is evaluation order for new rows).
+
   private def pipelineOwnedAction(pipelineId: PipelineId, user: AuthenticatedUser) = {
     val ownerUuid = UUID.fromString(user.id.value)
     pipelinesTable.filter(p => p.id === pipelineId.value && p.ownerId === ownerUuid).exists.result
@@ -380,7 +385,9 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * stale when its heartbeat is older than `staleAfterSeconds`, or (no heartbeat ever: a legacy row) when it
     * started more than `legacyAfterSeconds` ago. The conditional UPDATE needs no lock: under READ COMMITTED a
     * concurrent heartbeat or reap that commits first makes this statement re-evaluate its WHERE on the updated row
-    * and skip it. The pipeline's `last_run_*` becomes failed only for a run with no newer non-dry run. */
+    * and skip it. The pipeline's `last_run_*` becomes failed only for a run with no newer non-dry run. "Newer" is
+    * the row-value `(started_at, id)` order the latest-run reads use (HEL-1626): on an equal `started_at` the greater
+    * id wins, a deterministic choice, not a claim that it started later (ids are random UUIDs). */
   def reapStaleRunsInternal(
       now: Instant,
       staleAfterSeconds: Long,
@@ -411,7 +418,8 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
               FROM reaped r
               WHERE p.id = r.pipeline_id
                 AND NOT EXISTS (SELECT 1 FROM pipeline_runs n
-                                WHERE n.pipeline_id = r.pipeline_id AND n.status <> 'dry_run' AND n.started_at > r.started_at)
+                                WHERE n.pipeline_id = r.pipeline_id AND n.status <> 'dry_run'
+                                  AND (n.started_at, n.id) > (r.started_at, r.id))
               RETURNING p.id
             )
             SELECT r.id, r.pipeline_id, p.owner_id::text, r.started_at, r.error_log
@@ -494,7 +502,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     val windowStart = Instant.now().minusSeconds(RetentionWindowHours * 3600L)
     val newestN = runsTable
       .filter(r => r.pipelineId === pid && r.status =!= "dry_run")
-      .sortBy(_.startedAt.desc)
+      .sortBy(r => (r.startedAt.desc, r.id.desc))
       .take(keepN)
       .map(_.id)
     val inWindow = runsTable
@@ -503,7 +511,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     // The cap: only the RetentionMaxRuns newest runs may survive, whatever the union says.
     val capped = runsTable
       .filter(r => r.pipelineId === pid && r.status =!= "dry_run")
-      .sortBy(_.startedAt.desc)
+      .sortBy(r => (r.startedAt.desc, r.id.desc))
       .take(RetentionMaxRuns)
       .map(_.id)
 
@@ -532,7 +540,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     val pid = pipelineId.value
     val keepIds = runsTable
       .filter(r => r.pipelineId === pid && r.status === "dry_run")
-      .sortBy(_.startedAt.desc)
+      .sortBy(r => (r.startedAt.desc, r.id.desc))
       .take(keepN)
       .map(_.id)
 
@@ -551,7 +559,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       run      <- runsTable if run.pipelineId === pipelineId.value
       pipeline <- pipelinesTable if pipeline.id === run.pipelineId && pipeline.ownerId === ownerUuid
     } yield run
-    ctx.withUserContext(user.id.value)(query.sortBy(_.startedAt.desc).result).map(_.toVector)
+    ctx.withUserContext(user.id.value)(query.sortBy(r => (r.startedAt.desc, r.id.desc)).result).map(_.toVector)
   }
 
   /** ACL-bypassing list of runs. Safe to call only after the caller's pipeline
@@ -561,7 +569,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(
       runsTable
         .filter(_.pipelineId === pipelineId.value)
-        .sortBy(_.startedAt.desc)
+        .sortBy(r => (r.startedAt.desc, r.id.desc))
         .result
     ).map(_.toVector)
 
@@ -577,7 +585,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(
       runsTable
         .filter(_.pipelineId === pipelineId.value)
-        .sortBy(_.startedAt.desc)
+        .sortBy(r => (r.startedAt.desc, r.id.desc))
         .take(1)
         .result
     ).map(_.headOption)
@@ -590,7 +598,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(
       runsTable
         .filter(r => r.pipelineId === pipelineId.value && r.status =!= "dry_run")
-        .sortBy(_.startedAt.desc)
+        .sortBy(r => (r.startedAt.desc, r.id.desc))
         .take(1)
         .result
     ).map(_.headOption)
@@ -645,9 +653,13 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   def insertAssertions(runId: PipelineRunId, results: Seq[AssertionResult]): Future[Unit] =
     if (results.isEmpty) Future.successful(())
     else {
-      val rows = results.map { r =>
+      // One random prefix per batch plus a zero-padded index: within a run `id ASC` is evaluation order, and across
+      // runs the order is fixed (created_at first). Reads order `(created_at, id)`; no API exposes assertion ids.
+      // `%05d` sorts correctly up to 99,999 results per run, far above any real assertion count.
+      val batchId = UUID.randomUUID().toString
+      val rows = results.zipWithIndex.map { case (r, i) =>
         PipelineRunAssertionRow(
-          id       = UUID.randomUUID().toString,
+          id       = f"$batchId-$i%05d",
           runId    = runId.value,
           stepId   = r.stepId,
           kind     = r.kind,
@@ -671,7 +683,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       run      <- runsTable if run.id === a.runId
       pipeline <- pipelinesTable if pipeline.id === run.pipelineId && pipeline.ownerId === ownerUuid
     } yield a
-    ctx.withUserContext(user.id.value)(query.result).map(_.toVector)
+    ctx.withUserContext(user.id.value)(query.sortBy(a => (a.createdAt, a.id)).result).map(_.toVector)
   }
 
   /** HEL-1619: the batched sibling of `listByPipelineInternal(...).head` -- the id of the most
@@ -686,7 +698,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       ctx.withSystemContext(
         runsTable
           .filter(_.pipelineId.inSet(pipelineIds.map(_.value)))
-          .sortBy(_.startedAt.desc)
+          .sortBy(r => (r.startedAt.desc, r.id.desc))
           .map(r => (r.pipelineId, r.id))
           .result
       ).map(_.foldLeft(Map.empty[PipelineId, String]) { case (acc, (pid, runId)) =>
@@ -699,7 +711,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   def listAssertionsByRunsInternalBatch(runIds: Set[String]): Future[Map[String, Vector[PipelineRunAssertionRow]]] =
     if (runIds.isEmpty) Future.successful(Map.empty)
     else
-      ctx.withSystemContext(assertionsTable.filter(_.runId.inSet(runIds)).result)
+      ctx.withSystemContext(assertionsTable.filter(_.runId.inSet(runIds)).sortBy(a => (a.createdAt, a.id)).result)
         .map(_.toVector.groupBy(_.runId))
 
   /** ACL-bypassing list of assertion results for a run. Safe to call only
@@ -707,7 +719,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * service layer (mirrors `listByPipelineInternal` — a future
     * grantee-aware caller's job to wire up, per design.md Decision 6). */
   def listAssertionsByRunInternal(runId: PipelineRunId): Future[Vector[PipelineRunAssertionRow]] =
-    ctx.withSystemContext(assertionsTable.filter(_.runId === runId.value).result).map(_.toVector)
+    ctx.withSystemContext(assertionsTable.filter(_.runId === runId.value).sortBy(a => (a.createdAt, a.id)).result).map(_.toVector)
 
   // HEL-904 task 2.10: `findLatestRunIdByOutputDataTypeIdInternal` removed
   // outright -- it resolved a pipeline via `pipelines.output_data_type_id`
@@ -843,6 +855,8 @@ object PipelineRunRepository {
     def passed   = column[Boolean]("passed")
     def observed = column[Option[String]]("observed")
     def message  = column[Option[String]]("message")
+    /** Read-only: ordering key of the assertion reads (all rows of a batch share the insert transaction's `now()`). */
+    def createdAt = column[Instant]("created_at")
 
     def * = (id, runId, stepId, kind, field, severity, passed, observed, message).mapTo[PipelineRunAssertionRow]
   }

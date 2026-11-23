@@ -26,7 +26,7 @@ class HomeSummaryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
             FROM pipeline_runs r JOIN pipelines p ON p.id = r.pipeline_id
             WHERE p.owner_id = $owner::uuid AND r.status <> 'dry_run'
               AND (r.started_at >= $window OR r.status IN ('queued', 'running'))
-            ORDER BY r.started_at DESC"""
+            ORDER BY r.started_at DESC, r.id DESC"""
         .as[(String, String, String, String, Timestamp, Option[Timestamp], String, Option[Int], Option[String])]
     val schedulesQuery =
       sql"""SELECT s.pipeline_id, p.name, s.kind, s.expression, s.timezone, s.next_run_at
