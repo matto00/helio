@@ -27,11 +27,14 @@ describe("run-history wire contract (HEL-1815)", () => {
     (httpClient.get as jest.Mock).mockResolvedValue({ data: fixture });
     const records = await fetchRunHistory("p-1");
     expect(records.map((r) => r.triggerSource).sort()).toEqual([...TRIGGER_SOURCES].sort());
+    expect(records.map((r) => triggerSourceLabel(r.triggerSource)).sort()).toEqual([
+      "Auto-run",
+      "External",
+      "Manual",
+      "Scheduled",
+    ]);
     for (const r of records) {
       expect(TRIGGER_SOURCES).toContain(r.triggerSource);
-      expect(["Unknown", "Auto-run", "Manual", "Scheduled", "External"]).toContain(
-        triggerSourceLabel(r.triggerSource),
-      );
       expect(r.completedAt === null || typeof r.completedAt === "string").toBe(true);
       expect(r.rowCount === null || typeof r.rowCount === "number").toBe(true);
       expect(r.errorLog === null || typeof r.errorLog === "string").toBe(true);

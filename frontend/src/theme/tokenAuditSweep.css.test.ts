@@ -184,7 +184,7 @@ const SPACING_BASELINE: BaselineEntry[] = [
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 182 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 240 },
   { file: "features/pipelines/ui/PipelineDetailPage.css", line: 396 },
-  { file: "features/pipelines/ui/RunHistoryModal.css", line: 162 },
+  { file: "features/pipelines/ui/RunHistoryModal.css", line: 170 },
   { file: "features/sources/ui/AddSourceModal.css", line: 148 },
   { file: "features/sources/ui/AddSourceModal.css", line: 262 },
 ];

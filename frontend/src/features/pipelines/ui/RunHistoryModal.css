@@ -76,6 +76,14 @@
   background: var(--app-warning-surface);
 }
 
+/* HEL-1822: neutral-filled (no hue), so it reads apart from the outlined manual badge and from the scheduled /
+   external tints and the run-status chip beside it. */
+.run-history-modal__trigger--auto-run {
+  color: var(--app-text);
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+}
+
 .run-history-modal__row-toggle {
   margin-left: auto;
   height: 22px;
