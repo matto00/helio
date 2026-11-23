@@ -7,6 +7,8 @@
   flex-direction: column;
   gap: var(--space-3);
   width: 100%;
+  /* HEL-1819: the containing block for an EMPTY alert/status region taken out of flow below. */
+  position: relative;
 }
 
 /* `Textarea`'s default rows/min-height is tuned for a full-page composer; a form-panel field
@@ -16,9 +18,17 @@
   min-height: 56px;
 }
 
-/* HEL-1087 design.md D9 — always-mounted live regions, emptied at the start of every attempt.
-   Visually hidden when empty is unnecessary here: an empty `<p>` renders as zero height already,
-   so no extra "visually-hidden-until-populated" class is needed. */
+/* HEL-1087 design.md D9 — always-mounted live regions, emptied at the start of every attempt. */
+/* HEL-1819: an empty `<p>` is zero height but still a flex item, so each one claimed a `gap` slot (two extra gaps
+   between the last field and Submit). While empty, a direct child region is `position: absolute` (the field stack is
+   `position: relative`), so it takes no slot; `:empty` stops matching once React writes a text node and the region
+   returns to flow. Never `display`/`visibility`: the region must stay in the accessibility tree. Its 0x0 box sits at
+   the stack's content-box start (static position), over the first field's label: harmless, do not "fix" it. Mirrors
+   the compact counter's HEL-1804 rule in `CounterControl.css`, whose regions are not children of the field stack. */
+.form-panel-view__fields > :is(.form-panel-view__alert, .form-panel-view__status):empty {
+  position: absolute;
+}
+
 .form-panel-view__alert,
 .form-panel-view__status {
   margin: 0;
