@@ -1,95 +1,26 @@
 // HEL-1581 — UTC instants for `cast` date/timestamp, `datebucket` and the compute date/time
-// functions. A numeric string is read by `epochOfString`, a port of `TimestampParsing.epochOf`'s String arm
-// (Java `Long.parseLong` / `BigDecimal`, which accept any Unicode decimal digit; `parseChartInstant` is
-// ASCII-only there, a pre-existing chart gap that is out of scope). Every other timestamp string goes to
-// `parseChartInstant`, which `chart-timestamp-parsing.json` holds to `TimestampParsing.parseInstant` for
-// ASCII input. This module also adds the nanosecond fraction that
-// `parseChartInstant` truncates to milliseconds, and Java's `Instant.toString` / `ISO_INSTANT`
+// functions. A timestamp string is read by `parseInstantString`, the shared reader in
+// `utils/timestampParsing.ts` (HEL-1640: the chart's x parser reads through it too), which
+// `chart-timestamp-parsing.json` holds to `TimestampParsing.parseInstant`, nanosecond fraction included.
+// This module also adds Java's `Instant.toString` / `ISO_INSTANT`
 // rendering (omit a zero fraction, otherwise groups of 3, 6 or 9 digits; years outside 0000-9999
 // carry a sign).
 
-import { parseChartInstant } from "../../../utils/chartTimeAxis";
-import { digitValue, javaTrim } from "./javaNumbers";
+import { parseInstantParts, type InstantParts } from "../../../utils/timestampParsing";
 
-/** An instant as epoch seconds (floor) plus a 0..999,999,999 nanosecond-of-second. */
-export interface InstantParts {
-  seconds: bigint;
-  nanos: number;
-}
+export type { InstantParts };
 
 const EPOCH_MILLIS_THRESHOLD = 9999999999;
 const MIN_EPOCH_MS = -62135596800000;
 const MAX_EPOCH_MS = 253402300799999;
-const FRACTION_AFTER_SECONDS = /^[+-]?\d+-\d{2}-\d{2}[Tt ]\d{2}:\d{2}:\d{2}\.(\d{1,9})/;
 
 function fromMillis(ms: number): InstantParts {
   const seconds = Math.floor(ms / 1000);
   return { seconds: BigInt(seconds), nanos: (ms - seconds * 1000) * 1_000_000 };
 }
 
-const DECIMAL = /^([+-]?)(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d+))?$/;
-const LONG_MIN = -(2n ** 63n);
-const LONG_MAX = 2n ** 63n - 1n;
-
-/** Replaces each Unicode decimal digit (BMP, as `Character.digit`) with its ASCII digit. */
-function asciiDigits(s: string): string {
-  let out = "";
-  for (let i = 0; i < s.length; i++) {
-    const d = s.charCodeAt(i) < 128 ? -1 : digitValue(s, i);
-    out += d >= 0 ? String(d) : s[i];
-  }
-  return out;
-}
-
-/** `Try(BigDecimal(s)).filter(|scale| <= 40 && isWhole).toLongExact` for a trimmed string, or `undefined`. */
-function wholeLongOfDecimal(s: string): bigint | undefined {
-  const m = DECIMAL.exec(asciiDigits(s));
-  if (!m) return undefined;
-  const fraction = m[3] ?? "";
-  if (m[2] === "" && fraction === "") return undefined;
-  const exponent = m[4] === undefined ? 0 : Number(m[4]);
-  const scale = fraction.length - exponent;
-  if (!Number.isFinite(scale) || Math.abs(scale) > 40) return undefined;
-  const unscaled = BigInt(`${m[2]}${fraction}` || "0");
-  let value: bigint;
-  if (scale <= 0) value = unscaled * 10n ** BigInt(-scale);
-  else {
-    const divisor = 10n ** BigInt(scale);
-    if (unscaled % divisor !== 0n) return undefined;
-    value = unscaled / divisor;
-  }
-  if (m[1] === "-") value = -value;
-  return value >= LONG_MIN && value <= LONG_MAX ? value : undefined;
-}
-
-/** `TimestampParsing.epochOf` for a String: `Long.parseLong(trim)`, else a whole `BigDecimal`; bounded to 0001-9999. */
-function epochOfString(trimmed: string): InstantParts | undefined | null {
-  // `Long.parseLong` accepts a subset of what the whole-`BigDecimal` arm accepts, with the same value.
-  const epoch = wholeLongOfDecimal(trimmed);
-  if (epoch === undefined) return null;
-  const millisUnit = epoch > 9999999999n || epoch < -9999999999n;
-  const seconds = millisUnit ? floorDiv(epoch, 1000n) : epoch;
-  const nanos = millisUnit ? Number(epoch - seconds * 1000n) * 1_000_000 : 0;
-  if (seconds < -62135596800n || seconds > 253402300799n) return undefined;
-  return { seconds, nanos };
-}
-
 /** The instant a numeric string or a timestamp string denotes (`TimestampParsing.parseInstant` on a String). */
-export function parseInstantString(raw: string): InstantParts | undefined {
-  // Java `trim` strips code units <= U+0020 only; a string still padded with other whitespace (U+00A0) is
-  // not a timestamp on the JVM, but `parseChartInstant` would trim it again.
-  const trimmed = javaTrim(raw);
-  if (trimmed !== trimmed.trim()) return undefined;
-  raw = trimmed;
-  const epoch = epochOfString(raw);
-  if (epoch !== null) return epoch;
-  const ms = parseChartInstant(raw);
-  if (ms === null) return undefined;
-  const parts = fromMillis(ms);
-  const fraction = FRACTION_AFTER_SECONDS.exec(raw.trim());
-  if (fraction) parts.nanos = Number(fraction[1].padEnd(9, "0"));
-  return parts;
-}
+export const parseInstantString: (raw: string) => InstantParts | undefined = parseInstantParts;
 
 /** `TimestampParsing.epochInstant` for a numeric cell: a whole number, seconds or (above 9999999999)
  *  milliseconds, within years 0001-9999. */

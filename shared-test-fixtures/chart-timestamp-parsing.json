@@ -623,5 +623,555 @@
     "input": "2026-07-01 00:00",
     "epochMillis": 1782864000000,
     "note": "HEL-1532: hour 00 stays valid"
+  },
+  {
+    "input": "2026-02-29",
+    "epochMillis": null,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "not a date",
+    "epochMillis": null,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "1700000000",
+    "epochMillis": 1700000000000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "\u00a02026-10-01",
+    "epochMillis": null,
+    "note": "HEL-1640: leading U+00A0 is not trimmed by the backend"
+  },
+  {
+    "input": "2026-10-01T24:00:00Z",
+    "epochMillis": null,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "0000-01-01",
+    "epochMillis": null,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "1700000000.0",
+    "epochMillis": 1700000000000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "1.7E9",
+    "epochMillis": 1700000000000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "1700000000.5",
+    "epochMillis": null,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "99999999999999",
+    "epochMillis": 99999999999999,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "١٧٠٠٠٠٠٠٠٠",
+    "epochMillis": 1700000000000,
+    "note": "HEL-1640: Arabic-Indic digit epoch (seconds)"
+  },
+  {
+    "input": "１７００００００００",
+    "epochMillis": 1700000000000,
+    "note": "HEL-1640: fullwidth digit epoch"
+  },
+  {
+    "input": "१७००००००००",
+    "epochMillis": 1700000000000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "٣",
+    "epochMillis": 3000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "１.０",
+    "epochMillis": 1000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "１e３",
+    "epochMillis": 1000000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "１.５",
+    "epochMillis": null,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": " １７００００００００ ",
+    "epochMillis": 1700000000000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "１７００００００００\u00a0",
+    "epochMillis": null,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "１ ",
+    "epochMillis": null,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "१२",
+    "epochMillis": 12000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "１００００００００００００",
+    "epochMillis": 1000000000000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-01T13:45:00Z",
+    "epochMillis": 1790862300000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-04T13:45:00Z",
+    "epochMillis": 1791121500000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-05T13:45:00Z",
+    "epochMillis": 1791207900000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-04",
+    "epochMillis": 1791072000000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-05",
+    "epochMillis": 1791158400000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-12-31",
+    "epochMillis": 1798675200000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2027-01-01",
+    "epochMillis": 1798761600000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-03-31",
+    "epochMillis": 1774915200000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-04-01",
+    "epochMillis": 1775001600000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-06-30",
+    "epochMillis": 1782777600000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-07-01",
+    "epochMillis": 1782864000000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2020-01-05",
+    "epochMillis": 1578182400000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-01T23:30:00-05:00",
+    "epochMillis": 1790915400000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-01 08:15:00",
+    "epochMillis": 1790842500000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "10/05/2026",
+    "epochMillis": 1791158400000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-01T00:00:00+02:00",
+    "epochMillis": 1790805600000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-01 23:59:59.999999999",
+    "epochMillis": 1790899199999,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-17",
+    "epochMillis": 1792195200000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "  ",
+    "epochMillis": null,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-17T12:00:00Z",
+    "epochMillis": 1792238400000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "also garbage",
+    "epochMillis": null,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "1969-12-31",
+    "epochMillis": -86400000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "1970-01-01",
+    "epochMillis": 0,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "9999-12-31",
+    "epochMillis": 253402214400000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2025-12-29",
+    "epochMillis": 1766966400000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-01-01",
+    "epochMillis": 1767225600000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "９９９９９９９９９９９９９９９９９９９",
+    "epochMillis": null,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-01T00:00:00Z",
+    "epochMillis": 1790812800000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-01T01:00:00Z",
+    "epochMillis": 1790816400000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-09-30T23:59:59Z",
+    "epochMillis": 1790812799000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-01T00:00:00.25Z",
+    "epochMillis": 1790812800250,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-01T00:00:01.75Z",
+    "epochMillis": 1790812801750,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-01T00:00:00.999999999Z",
+    "epochMillis": 1790812800999,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2023-11-14T22:14:20Z",
+    "epochMillis": 1700000060000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "x",
+    "epochMillis": null,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-17T13:45:56.789Z",
+    "epochMillis": 1792244756789,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-19",
+    "epochMillis": 1792368000000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-18T23:59:59Z",
+    "epochMillis": 1792367999000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-08-17T12:00:00Z",
+    "epochMillis": 1786968000000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-17T23:30:00-05:00",
+    "epochMillis": 1792297800000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-17T00:30:00+02:00",
+    "epochMillis": 1792189800000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "1969-12-31T23:59:59Z",
+    "epochMillis": -1000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-17T10:00:00Z",
+    "epochMillis": 1792231200000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-02-27",
+    "epochMillis": 1772150400000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-17T00:00:00Z",
+    "epochMillis": 1792195200000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-17T00:00:00.5Z",
+    "epochMillis": 1792195200500,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-17T00:00:00.123456Z",
+    "epochMillis": 1792195200123,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-17T00:00:00.123456789Z",
+    "epochMillis": 1792195200123,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-17T00:00:00.100Z",
+    "epochMillis": 1792195200100,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "1",
+    "epochMillis": 1000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "day",
+    "epochMillis": null,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "１７０００００００１",
+    "epochMillis": 1700000001000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "a",
+    "epochMillis": null,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-01-02",
+    "epochMillis": 1767312000000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "b",
+    "epochMillis": null,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-01-05",
+    "epochMillis": 1767571200000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-01-06",
+    "epochMillis": 1767657600000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-01-03",
+    "epochMillis": 1767398400000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "nope",
+    "epochMillis": null,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-01-07",
+    "epochMillis": 1767744000000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-03-01",
+    "epochMillis": 1772323200000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-03-02",
+    "epochMillis": 1772409600000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-03-04",
+    "epochMillis": 1772582400000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2023-11-15T08:00:00Z",
+    "epochMillis": 1700035200000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "11/16/2023",
+    "epochMillis": 1700092800000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2023-11-19",
+    "epochMillis": 1700352000000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-02-01",
+    "epochMillis": 1769904000000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-02-02",
+    "epochMillis": 1769990400000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-02-04",
+    "epochMillis": 1770163200000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-02-05",
+    "epochMillis": 1770249600000,
+    "note": "HEL-1581 corpus string (pipeline-step-parity: cast, datebucket, compute or window)"
+  },
+  {
+    "input": "2026-10-01\u00a0",
+    "epochMillis": null,
+    "note": "HEL-1640: trailing U+00A0 is not trimmed by the backend"
+  },
+  {
+    "input": "\u20032026-10-01T12:00:00Z\u2003",
+    "epochMillis": null,
+    "note": "HEL-1640: U+2003 padding around an instant"
+  },
+  {
+    "input": "\u30002026-10-01\u3000",
+    "epochMillis": null,
+    "note": "HEL-1640: U+3000 padding around a date"
+  },
+  {
+    "input": "\u00a01700000000",
+    "epochMillis": null,
+    "note": "HEL-1640: U+00A0 padding around an epoch"
+  },
+  {
+    "input": "\u20031700000000\u2003",
+    "epochMillis": null,
+    "note": "HEL-1640: U+2003 padding around an epoch"
+  },
+  {
+    "input": "١٧٠٠٠٠٠٠٠٠٠٠٠",
+    "epochMillis": 1700000000000,
+    "note": "HEL-1640: Arabic-Indic digit epoch (milliseconds)"
+  },
+  {
+    "input": "-١٧٠٠٠٠٠٠٠٠",
+    "epochMillis": -1700000000000,
+    "note": "HEL-1640: negative Arabic-Indic digit epoch"
+  },
+  {
+    "input": "17٠٠٠٠٠٠٠٠",
+    "epochMillis": 1700000000000,
+    "note": "HEL-1640: mixed ASCII and Arabic-Indic digit epoch"
+  },
+  {
+    "input": "١٧٠٠٠٠٠٠٠٠.0",
+    "epochMillis": 1700000000000,
+    "note": "HEL-1640: whole Unicode-digit decimal"
+  },
+  {
+    "input": "١٧٠٠٠٠٠٠٠٠.5",
+    "epochMillis": null,
+    "note": "HEL-1640: non-whole Unicode-digit decimal"
+  },
+  {
+    "input": "٩٩٩٩٩٩٩٩٩٩٩٩٩٩",
+    "epochMillis": 99999999999999,
+    "note": "HEL-1640: out-of-range Unicode-digit epoch"
+  },
+  {
+    "input": " ١٧٠٠٠٠٠٠٠٠ ",
+    "epochMillis": 1700000000000,
+    "note": "HEL-1640: ASCII-space-padded Unicode-digit epoch"
+  },
+  {
+    "input": "𝟏𝟕𝟎𝟎𝟎𝟎𝟎𝟎𝟎𝟎",
+    "epochMillis": null,
+    "note": "HEL-1640: supplementary-plane (mathematical bold) digit epoch"
+  },
+  {
+    "input": "\u00012026-10-01\u0001",
+    "epochMillis": 1790812800000,
+    "note": "HEL-1640: U+0001 padding is trimmed by Java trim"
+  },
+  {
+    "input": "\u001f2026-10-01T12:00:00Z\u001f",
+    "epochMillis": 1790856000000,
+    "note": "HEL-1640: U+001F padding around an instant is trimmed by Java trim"
+  },
+  {
+    "input": "\u0001 1700000000 \u001f",
+    "epochMillis": 1700000000000,
+    "note": "HEL-1640: control and space padding around an epoch"
+  },
+  {
+    "input": "\t2026-10-01\n",
+    "epochMillis": 1790812800000,
+    "note": "HEL-1640: tab and newline padding"
+  },
+  {
+    "input": "٩٩٩٩٩٩٩٩٩٩٩٩٩٩٩٩",
+    "epochMillis": null,
+    "note": "HEL-1640: Unicode-digit epoch beyond year 9999 (millisecond unit)"
   }
 ]

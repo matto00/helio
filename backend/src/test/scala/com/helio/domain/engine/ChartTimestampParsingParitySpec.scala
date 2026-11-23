@@ -12,7 +12,9 @@ import java.nio.file.{Files, Paths}
  *  pins that parser to [[TimestampParsing.parseInstant]] case by case (the frontend half is
  *  `chartTimeAxis.test.ts`). HEL-1502: there is no frontend-only extension any more (`MM/dd/yyyy` is a
  *  shared shape), so every fixture case is pure parity and both halves iterate all of them. Both halves
- *  also assert a minimum case count so a truncated fixture cannot pass. */
+ *  also assert a minimum case count so a truncated fixture cannot pass. HEL-1640: the fixture also holds
+ *  every timestamp string the HEL-1581 pipeline-step corpus feeds to a timestamp reader, plus Unicode-digit
+ *  epoch, non-ASCII-whitespace and control-character-padding cases. */
 class ChartTimestampParsingParitySpec extends AnyWordSpec with Matchers {
 
   private val cases = JsonParser(Files.readString(Paths.get("../shared-test-fixtures/chart-timestamp-parsing.json")))
@@ -20,7 +22,7 @@ class ChartTimestampParsingParitySpec extends AnyWordSpec with Matchers {
 
   "TimestampParsing.parseInstant" should {
     "agree with every case of the shared chart timestamp fixture" in {
-      cases.size should be >= 125
+      cases.size should be >= 235
       cases.foreach { c =>
         val input    = c.fields("input").asInstanceOf[JsString].value
         val expected = c.fields("epochMillis") match {
