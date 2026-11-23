@@ -11,6 +11,9 @@ import {
   fetchFieldAggregate as fetchFieldAggregateRequest,
 } from "../../../sources/services/dataSourceService";
 import { submitFormPanel as submitFormPanelRequest } from "../../services/panelService";
+import { runPipeline as runPipelineRequest } from "../../../pipelines/services/pipelineService";
+import type { Toast, ToastListItem } from "../../../toasts/state/toastsSlice";
+import { ToastViewport } from "../../../../shared/ui/Toast";
 import { renderWithStore as renderWithStoreBase } from "../../../../test/renderWithStore";
 import { testUser } from "../../../../test/tabsTestStore";
 import type { FormPanelConfig } from "../../types/panel";
@@ -25,6 +28,11 @@ jest.mock("../../services/panelService", () => ({
   parseFieldErrors: jest.requireActual("../../services/panelService").parseFieldErrors,
 }));
 
+jest.mock("../../../pipelines/services/pipelineService", () => ({
+  ...jest.requireActual("../../../pipelines/services/pipelineService"),
+  runPipeline: jest.fn(),
+}));
+
 // The form's owner is the signed-in user, so these tests exercise the owner path (the dataset's own schema + aggregate).
 function renderWithStore(ui: React.ReactElement) {
   return renderWithStoreBase(ui, { auth: { currentUser: testUser(undefined, "user-1") } });
@@ -33,6 +41,7 @@ function renderWithStore(ui: React.ReactElement) {
 const fetchDatasetSchemaMock = jest.mocked(fetchDatasetSchemaRequest);
 const fetchFieldAggregateMock = jest.mocked(fetchFieldAggregateRequest);
 const submitFormPanelMock = jest.mocked(submitFormPanelRequest);
+const runPipelineMock = jest.mocked(runPipelineRequest);
 
 const config: FormPanelConfig = {
   dataSourceId: "ds-1",
@@ -1194,5 +1203,60 @@ describe("FormPanelView — compact single-counter-field layout", () => {
     });
     expect(control).toHaveAttribute("aria-valuenow", "10");
     expect(control).toHaveAttribute("aria-invalid", "true");
+  });
+});
+
+// HEL-1172 1.3c — a two-pipeline denial pushes ONE toast whose per-row run action targets only its
+// own pipeline and consumes only its own row's action from THAT toast.
+describe("FormPanelView multi-denial toast (HEL-1172)", () => {
+  beforeEach(() => {
+    fetchDatasetSchemaMock.mockReset();
+    submitFormPanelMock.mockReset();
+  });
+
+  it("clicking row 2's run action runs pipeline 2 only and removes only row 2's action", async () => {
+    runPipelineMock.mockResolvedValue({ id: "run-1" } as never);
+    submitFormPanelMock.mockResolvedValueOnce({
+      rows: [{ id: "r1", seq: 0, updatedAt: "now" }],
+      updatedAt: "now",
+      deniedPipelines: [
+        {
+          pipelineId: "pA",
+          name: "Alpha",
+          reasons: [{ code: "steps-above-bound", detail: "too many steps" }],
+          canRun: true,
+        },
+        {
+          pipelineId: "pB",
+          name: "Beta",
+          reasons: [{ code: "steps-above-bound", detail: "too many steps" }],
+          canRun: true,
+        },
+      ],
+    });
+    fetchDatasetSchemaMock.mockResolvedValueOnce({ fields: schemaFields });
+    const { store } = renderWithStore(
+      <>
+        <FormPanelView formOwnerId="user-1" title="My form" panelId="panel-1" config={config} />
+        <ToastViewport />
+      </>,
+    );
+    await screen.findByRole("form", { name: "My form" });
+    fireEvent.change(screen.getByRole("textbox", { name: "Note" }), { target: { value: "hi" } });
+    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
+
+    const runB = await screen.findByRole("button", { name: "Run to update: Beta" });
+    expect(store.getState().toasts.items).toHaveLength(1);
+    fireEvent.click(runB);
+
+    await waitFor(() => expect(runPipelineMock).toHaveBeenCalledTimes(1));
+    expect(runPipelineMock).toHaveBeenCalledWith("pB");
+    expect(screen.queryByRole("button", { name: "Run to update: Beta" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Run to update: Alpha" })).toBeInTheDocument();
+    const toast = store.getState().toasts.items.find((t: Toast) => t.items !== undefined);
+    expect(toast?.items?.map((i: ToastListItem) => [i.key, i.action !== undefined])).toEqual([
+      ["pA", true],
+      ["pB", false],
+    ]);
   });
 });

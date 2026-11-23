@@ -133,6 +133,38 @@
   white-space: pre-line;
 }
 
+/* HEL-1172 D5/D6 — per-pipeline rows of a multi-denial toast. The <ul> default padding is reset and the token
+   padding replaces it, so a focused link/button at the list edge keeps its global :focus-visible outline unclipped
+   by the scroll container. Every row is listed; past the max height the list scrolls inside the toast. */
+.toast__list {
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: min(40vh, 16rem);
+  overflow-y: auto;
+}
+
+.toast__list-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.toast__link {
+  color: inherit;
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.toast__list-text {
+  overflow-wrap: anywhere;
+}
+
 .toast__action {
   display: inline-flex;
   align-items: center;
@@ -147,6 +179,39 @@
   text-decoration: underline;
   text-underline-offset: 2px;
   transition: opacity var(--app-transition);
+}
+
+/* DESIGN.md §3 touch floor (HEL-1172): the in-toast link and "Run to update" are compact painted controls (~17px),
+   so each gets the sized ::after expander (shared/ui/tapTarget.css), gated on the input device. The expander extends
+   about 13.6px past the control, so the touch-gated spacing is the tiling point and no further: stacked controls need
+   >= 27.2px between them (row gap 28px; the text between a row's link and button already clears it with the item
+   gap), and the scroll list pads by the overhang so its edge never clips the first/last expander. */
+@media (max-width: 768px), (pointer: coarse) {
+  .toast__link,
+  .toast__action {
+    position: relative;
+  }
+
+  .toast__link::after,
+  .toast__action::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+
+  .toast__list {
+    gap: calc(var(--space-6) + var(--space-1));
+    padding-block: var(--space-4);
+  }
+
+  .toast__list-item {
+    gap: var(--space-2);
+  }
 }
 
 @media (hover: hover) {

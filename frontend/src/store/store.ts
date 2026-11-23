@@ -32,6 +32,7 @@ import { registerSignedInHintListener } from "../features/auth/state/signedInHin
 // Modules that register a sign-out hook but may not be loaded when a session ends are imported for the registration.
 import "../features/pipelines/state/keptDraft";
 import "../features/dashboards/state/refinementConversationIds";
+import { TOAST_IGNORED_ACTION_PATHS } from "./serializableCheckPaths";
 import { addRecentVisitsListeners } from "../features/commandPalette/state/recentVisitsListeners";
 
 // Register all toast listeners before the store is finalised.
@@ -122,7 +123,7 @@ export const store = configureStore({
       // action itself.
       serializableCheck: {
         ignoredPaths: ["toasts"],
-        ignoredActionPaths: ["payload.action.onClick"],
+        ignoredActionPaths: TOAST_IGNORED_ACTION_PATHS,
       },
     }).prepend(createSessionEpochMiddleware(), listenerMiddleware.middleware),
 });

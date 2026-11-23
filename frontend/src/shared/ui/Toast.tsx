@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 
 import { dismissToast } from "../../features/toasts/state/toastsSlice";
@@ -9,6 +9,8 @@ import type { Toast as ToastData } from "../../features/toasts/state/toastsSlice
 import { CircleCheck, CircleX, Info, TriangleAlert, X } from "lucide-react";
 import { ICON_SIZE } from "./iconSize";
 import { FOCUSABLE_SELECTORS } from "./Modal";
+import { ToastRowList } from "./ToastRowList";
+import { useToastFocusHandOff } from "./toastFocusHandOff";
 import { useTopModalDialog } from "./useTopModalDialog";
 import { prefersReducedMotion } from "../../utils/prefersReducedMotion";
 
@@ -58,11 +60,13 @@ function lifeOf(toast: ToastData): ToastLife {
 
 interface ToastItemProps {
   toast: ToastData;
+  /** The element focused just before focus entered the viewport (recorded by `ToastViewport`). */
+  preEntry: RefObject<Element | null>;
   /** The dialog the viewport is portalled into, if any: a focused toast that is removed hands focus back to it. */
   dialog: HTMLDialogElement | null;
 }
 
-function ToastItem({ toast, dialog }: ToastItemProps) {
+function ToastItem({ toast, preEntry, dialog }: ToastItemProps) {
   const dispatch = useAppDispatch();
   // Primitives read once per render: the clock and the entrance flag of THIS toast, however often it was remounted.
   const { deadline, entered, exiting: wasExiting } = lifeOf(toast);
@@ -114,6 +118,8 @@ function ToastItem({ toast, dialog }: ToastItemProps) {
     };
   }, [dialog]);
 
+  useToastFocusHandOff(elementRef, toast.id, dialog, preEntry);
+
   const classes = [
     "toast",
     `toast--${toast.variant}`,
@@ -124,6 +130,7 @@ function ToastItem({ toast, dialog }: ToastItemProps) {
     .join(" ");
 
   const messageId = `toast-message-${toast.id}`;
+  const hasItems = toast.items !== undefined && toast.items.length > 0;
 
   return (
     // HEL-535 D2 — no live-region role/aria-live/aria-atomic here: this card
@@ -143,9 +150,17 @@ function ToastItem({ toast, dialog }: ToastItemProps) {
             screen-reader user browsing this region landmark doesn't meet it
             twice. Still referenced (via aria-describedby below) so the
             action/dismiss controls aren't orphaned from their message. */}
-        <p id={messageId} className="toast__message" aria-hidden="true">
+        <p
+          id={messageId}
+          className="toast__message"
+          aria-hidden="true"
+          hidden={hasItems || undefined}
+        >
           {toast.message}
         </p>
+        {toast.items !== undefined && hasItems && (
+          <ToastRowList toastId={toast.id} items={toast.items} />
+        )}
         {toast.action !== undefined && (
           <button
             type="button"
@@ -193,6 +208,8 @@ export function ToastViewport() {
   const dialog = modal !== null && modal.isConnected ? modal : null;
   const target: Element = dialog ?? document.body;
 
+  // HEL-1172 D8 — the element focus came from when it last entered the viewport (a toast control gaining focus).
+  const preEntry = useRef<Element | null>(null);
   const commitTimes = useRef(new Map<string, number>());
   const prevTarget = useRef<Element | null>(null);
   const [live, setLive] = useState<LiveState>(() => ({
@@ -253,9 +270,17 @@ export function ToastViewport() {
       {/* F-154 — `aria-label` on a bare `<div>` (no valid role) is dropped from the accessibility
           tree entirely (axe `aria-prohibited-attr`); `role="region"` gives it one, which also makes
           it the page's landmark region for notifications. */}
-      <div className="toast-viewport" role="region" aria-label="Notifications">
+      <div
+        className="toast-viewport"
+        role="region"
+        aria-label="Notifications"
+        onFocus={(e) => {
+          const from = e.relatedTarget;
+          if (from instanceof Element && !e.currentTarget.contains(from)) preEntry.current = from;
+        }}
+      >
         {items.map((toast) => (
-          <ToastItem key={toast.id} toast={toast} dialog={dialog} />
+          <ToastItem key={toast.id} toast={toast} preEntry={preEntry} dialog={dialog} />
         ))}
       </div>
 

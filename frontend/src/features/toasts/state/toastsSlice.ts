@@ -7,6 +7,18 @@ export interface ToastAction {
   onClick: () => void;
 }
 
+/** One row of a multi-item toast (HEL-1172 D1): a link to a page, its reason text, and an optional per-row action. */
+export interface ToastListItem {
+  /** Stable within one toast (the pipeline id). */
+  key: string;
+  linkLabel: string;
+  /** In-app path. */
+  linkTo: string;
+  text: string;
+  /** Absent = link only. */
+  action?: ToastAction;
+}
+
 export interface Toast {
   id: string;
   variant: ToastVariant;
@@ -16,6 +28,8 @@ export interface Toast {
    *  in `DEFAULT_DURATION` when the caller didn't specify one. */
   duration: number;
   action?: ToastAction;
+  /** Optional ordered rows (HEL-1172); `message` stays the aggregate coalescing key and live-region text. */
+  items?: ToastListItem[];
 }
 
 /** The payload accepted by pushToast — id is generated automatically, and
@@ -48,7 +62,11 @@ export const MAX_VISIBLE_TOASTS = 3;
  *  `PatchSetReviewPage.tsx`'s sticky Undo toast) and would falsify "a zero
  *  duration toast never auto-dismisses". */
 function isEvictionExempt(toast: Toast): boolean {
-  return toast.duration === 0 || toast.action !== undefined;
+  return (
+    toast.duration === 0 ||
+    toast.action !== undefined ||
+    (toast.items !== undefined && toast.items.length > 0)
+  );
 }
 
 const toastsSlice = createSlice({
@@ -96,8 +114,20 @@ const toastsSlice = createSlice({
     dismissToast(state, action: PayloadAction<string>) {
       state.items = state.items.filter((t) => t.id !== action.payload);
     },
+    // HEL-1172 D2 — a row's run action was used: drop just that action (the row and its link stay). When the
+    // toast had row actions and none is left it is dismissed, mirroring the single-pipeline toast's dismiss-on-run.
+    // A toast that never had a row action (link-only rows) is left alone; an unknown id or key is a no-op.
+    consumeToastItemAction(state, action: PayloadAction<{ toastId: string; key: string }>) {
+      const toast = state.items.find((t) => t.id === action.payload.toastId);
+      const row = toast?.items?.find((i) => i.key === action.payload.key);
+      if (toast === undefined || row === undefined || row.action === undefined) return;
+      row.action = undefined;
+      if (!toast.items?.some((i) => i.action !== undefined)) {
+        state.items = state.items.filter((t) => t.id !== toast.id);
+      }
+    },
   },
 });
 
-export const { pushToast, dismissToast } = toastsSlice.actions;
+export const { pushToast, dismissToast, consumeToastItemAction } = toastsSlice.actions;
 export const toastsReducer = toastsSlice.reducer;

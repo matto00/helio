@@ -8,7 +8,7 @@ import { flushSync } from "react-dom";
 
 import "./FormPanel.css";
 import "./CounterControl.css";
-import { useAppSelector } from "../../../../hooks/reduxHooks";
+import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
 import { PanelBodySkeleton } from "../PanelBodySkeleton";
 import { InlineError } from "../../../../shared/chrome/InlineError";
 import { fetchDatasetSchema } from "../../../sources/services/dataSourceService";
@@ -16,6 +16,7 @@ import { extractErrorMessage } from "../../../../services/extractErrorMessage";
 import { buildDeniedPipelinesToast } from "../../../pipelines/services/deniedPipelinesToast";
 import { useRunToUpdate } from "../../../pipelines/hooks/useRunToUpdate";
 import { useToast } from "../../../toasts/hooks/useToast";
+import { consumeToastItemAction } from "../../../toasts/state/toastsSlice";
 import { fetchFormSchema, parseFieldErrors, submitFormPanel } from "../../services/panelService";
 import { computeFormIssues } from "../../state/formConfigValidation";
 import {
@@ -46,6 +47,7 @@ interface FormPanelViewProps {
 type SubmitState = "idle" | "pending" | "succeeded" | "failed";
 
 export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanelViewProps) {
+  const dispatch = useAppDispatch();
   const currentUserId = useAppSelector((state) => state.auth.currentUser?.id ?? null);
   const isFormOwner = formOwnerId != null && formOwnerId === currentUserId;
   // The schema a non-owner reads omits `occurred_at`/`value`, which a counter submit fills in server-side, so the
@@ -86,8 +88,17 @@ export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanel
   function pushDenialToastIfAny(response: FormSubmitResponse) {
     const denied = response.deniedPipelines;
     if (denied.length === 0) return;
+    // One denied pipeline: the toast dismisses itself on run. Two or more (HEL-1172 D4): the run starts and only
+    // that row's action is consumed; the toast closes when no row action is left.
     const toastId = pushToast(
-      buildDeniedPipelinesToast(denied, () => runToUpdateAction(denied[0].pipelineId, toastId)),
+      buildDeniedPipelinesToast(denied, (pipelineId) => {
+        if (denied.length === 1) {
+          runToUpdateAction(pipelineId, toastId);
+          return;
+        }
+        runToUpdateAction(pipelineId);
+        dispatch(consumeToastItemAction({ toastId, key: pipelineId }));
+      }),
     );
   }
 

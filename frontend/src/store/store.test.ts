@@ -1,6 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 
 import { pushToast, toastsReducer } from "../features/toasts/state/toastsSlice";
+import { TOAST_IGNORED_ACTION_PATHS } from "./serializableCheckPaths";
 
 /** HEL-413 evaluation-1.md CR1 regression guard. `Toast.action.onClick` (first populated by
  *  `PatchSetReviewPage`'s "Applied. Undo" toast) is an intentional, deliberate non-serializable
@@ -71,6 +72,42 @@ describe("store serializableCheck config (mirrors store.ts)", () => {
       );
 
       expect(consoleError).toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  // HEL-1172 R1 -- the per-row action closures live at payload.items.N.action.onClick.
+  it("a toast carrying per-row action closures produces no console.error under the real ignore list", () => {
+    const store = configureStore({
+      reducer: { toasts: toastsReducer },
+      middleware: (getDefaultMiddleware) =>
+        getDefaultMiddleware({
+          serializableCheck: {
+            ignoredPaths: ["toasts"],
+            ignoredActionPaths: TOAST_IGNORED_ACTION_PATHS,
+          },
+        }),
+    });
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      store.dispatch(
+        pushToast({
+          variant: "warning",
+          message: "A\nB",
+          duration: 0,
+          items: [
+            {
+              key: "a",
+              linkLabel: "A",
+              linkTo: "/pipelines/a",
+              text: "t",
+              action: { label: "Run to update", onClick: () => {} },
+            },
+          ],
+        }),
+      );
+      expect(consoleError).not.toHaveBeenCalled();
     } finally {
       consoleError.mockRestore();
     }
