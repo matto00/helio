@@ -19,9 +19,10 @@ import type { DashboardLayout } from "../../../dashboards/types/dashboard";
 import { useAppDispatch } from "../../../../hooks/reduxHooks";
 import { pushLayoutSnapshot } from "../../../layout/state/layoutHistorySlice";
 import type { Panel } from "../../types/panel";
-import { itemsFromRglLayout, rglBreakpoints } from "./panelGridConfig";
+import { itemsFromRglLayout, liftResizedForm, rglBreakpoints } from "./panelGridConfig";
 
 type LayoutChangeHandler = NonNullable<React.ComponentProps<typeof Responsive>["onLayoutChange"]>;
+type ResizeStopHandler = NonNullable<React.ComponentProps<typeof Responsive>["onResizeStop"]>;
 
 interface GridLayoutInteractionArgs {
   dashboardId: string;
@@ -33,6 +34,7 @@ interface GridLayoutInteractionArgs {
   markLayoutChanged: (next: DashboardLayout) => void;
   commitInteractionLayout: (next: DashboardLayout) => DashboardLayout;
   commitOnNextLayoutChangeRef: MutableRefObject<boolean>;
+  resizedIdRef: MutableRefObject<string | null>;
   clearCommitFlag: () => void;
   armCommitFlag: () => void;
 }
@@ -47,6 +49,7 @@ export function useGridLayoutInteraction({
   markLayoutChanged,
   commitInteractionLayout,
   commitOnNextLayoutChangeRef,
+  resizedIdRef,
   clearCommitFlag,
   armCommitFlag,
 }: GridLayoutInteractionArgs) {
@@ -79,18 +82,23 @@ export function useGridLayoutInteraction({
     preInteractionLayoutRef.current = latestLayoutRef.current;
   }, [latestLayoutRef, clearCommitFlag]);
 
-  const handleResizeStop = useCallback(() => {
-    if (preInteractionLayoutRef.current !== null) {
-      dispatch(
-        pushLayoutSnapshot({
-          dashboardId,
-          layout: preInteractionLayoutRef.current,
-        }),
-      );
-      preInteractionLayoutRef.current = null;
-    }
-    armCommitFlag();
-  }, [dashboardId, dispatch, armCommitFlag]);
+  const handleResizeStop = useCallback<ResizeStopHandler>(
+    (_layout, _oldItem, newItem) => {
+      if (preInteractionLayoutRef.current !== null) {
+        dispatch(
+          pushLayoutSnapshot({
+            dashboardId,
+            layout: preInteractionLayoutRef.current,
+          }),
+        );
+        preInteractionLayoutRef.current = null;
+      }
+      armCommitFlag();
+      // After arming (arming clears the ref): the committing `onLayoutChange` lifts this panel (HEL-1618).
+      resizedIdRef.current = newItem?.i ?? null;
+    },
+    [dashboardId, dispatch, armCommitFlag, resizedIdRef],
+  );
 
   const handleLayoutChange = useCallback<LayoutChangeHandler>(
     (currentLayout) => {
@@ -106,9 +114,17 @@ export function useGridLayoutInteraction({
       // loaded panels can never drop another writer's item.
       const loaded = new Set(panels.map((p) => p.id));
       const kept = layout[bp].filter((item) => !loaded.has(item.panelId));
-      const next = areDashboardLayoutsEqual(edited, resolvedLayout)
+      const changed = areDashboardLayoutsEqual(edited, resolvedLayout)
         ? layout
         : { ...layout, [bp]: [...items, ...kept] };
+      // HEL-1618 lift-when-free: ONLY the committing change after a resize stop (the flag is armed and a resized id is
+      // held) may lift, and it lifts `next` itself, so the staged layout, the history commit and the store write are
+      // one and the same object. The check runs over the full stored breakpoint, kept items included.
+      const resizedId = commitOnNextLayoutChangeRef.current ? resizedIdRef.current : null;
+      const next =
+        resizedId !== null && changed !== layout
+          ? { ...changed, [bp]: liftResizedForm(changed[bp], resizedId, panels) }
+          : changed;
       markLayoutChanged(next);
       if (commitOnNextLayoutChangeRef.current) {
         clearCommitFlag();
@@ -126,6 +142,7 @@ export function useGridLayoutInteraction({
       layout,
       clearCommitFlag,
       commitOnNextLayoutChangeRef,
+      resizedIdRef,
       resolvedLayout,
       dispatch,
       dashboardId,

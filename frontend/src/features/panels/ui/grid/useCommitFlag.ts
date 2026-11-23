@@ -12,9 +12,14 @@ import { useCallback, useEffect, useRef } from "react";
 
 export function useCommitFlag() {
   const commitOnNextLayoutChangeRef = useRef(false);
+  // HEL-1618: the id of the panel whose resize just stopped, held for the committing `onLayoutChange` (lift-when-free).
+  // It lives and dies with the commit flag: every clear of the flag (committed branch, the next drag/resize start, the
+  // zero-delay timer) clears it, so a resize that moved nothing can never leak into a later drag's commit.
+  const resizedIdRef = useRef<string | null>(null);
   const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearCommitFlag = useCallback(() => {
     commitOnNextLayoutChangeRef.current = false;
+    resizedIdRef.current = null;
     if (commitTimerRef.current !== null) {
       clearTimeout(commitTimerRef.current);
       commitTimerRef.current = null;
@@ -26,5 +31,5 @@ export function useCommitFlag() {
     commitTimerRef.current = setTimeout(clearCommitFlag, 0);
   }, [clearCommitFlag]);
   useEffect(() => clearCommitFlag, [clearCommitFlag]);
-  return { commitOnNextLayoutChangeRef, clearCommitFlag, armCommitFlag };
+  return { commitOnNextLayoutChangeRef, resizedIdRef, clearCommitFlag, armCommitFlag };
 }

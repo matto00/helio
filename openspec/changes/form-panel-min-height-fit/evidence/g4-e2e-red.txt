@@ -1,0 +1,76 @@
+
+Running 4 tests using 1 worker
+
+[1A[2K[1/4] [dev] › e2e/hel1618-form-min-rows.spec.ts:184:7 › HEL-1618 form minimum rows › a multi-field form stops at 5 rows; a compact counter still reaches 4
+[1A[2K[dev] › e2e/hel1618-form-min-rows.spec.ts:184:7 › HEL-1618 form minimum rows › a multi-field form stops at 5 rows; a compact counter still reaches 4
+[HEL-1300 e2e] throwaway user: hel1618-rows-1795415096979-1149@example.test
+
+[1A[2K  1) [dev] › e2e/hel1618-form-min-rows.spec.ts:184:7 › HEL-1618 form minimum rows › a multi-field form stops at 5 rows; a compact counter still reaches 4 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m308[39m
+    Received: [31m244[39m
+
+      190 |     await open(page, id, 2);
+      191 |     await drag(page, "Multi", 0, -500);
+    > 192 |     expect(await height(page, "Multi")).toBe(rowsPx(5));
+          |                                         ^
+      193 |     await drag(page, "Counter", 0, -500);
+      194 |     expect(await height(page, "Counter")).toBe(rowsPx(4));
+      195 |     await page.close();
+        at /home/matt/Development/helio/.claude/worktrees/bug/form-panel-min-height-clip/HEL-1618/e2e/hel1618-form-min-rows.spec.ts:192:41
+
+    Error Context: test-results/hel1618-form-min-rows-HEL--d4b03-act-counter-still-reaches-4-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1618-form-min-rows-HEL--d4b03-act-counter-still-reaches-4-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1618-form-min-rows-HEL--d4b03-act-counter-still-reaches-4-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[2/4] [dev] › e2e/hel1618-form-min-rows.spec.ts:198:7 › HEL-1618 form minimum rows › GUARD: a saved 4-row form is not bumped on load and nothing is saved
+[1A[2K[dev] › e2e/hel1618-form-min-rows.spec.ts:198:7 › HEL-1618 form minimum rows › GUARD: a saved 4-row form is not bumped on load and nothing is saved
+[HEL-1300 e2e] throwaway user: hel1618-rows-1795415102837-3645@example.test
+
+[1A[2K[3/4] [dev] › e2e/hel1618-form-min-rows.spec.ts:211:7 › HEL-1618 form minimum rows › a saved 4-row form with free space below grows to 5 on a width resize, persisted once
+[1A[2K  2) [dev] › e2e/hel1618-form-min-rows.spec.ts:211:7 › HEL-1618 form minimum rows › a saved 4-row form with free space below grows to 5 on a width resize, persisted once 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m308[39m
+    Received: [31m244[39m
+
+      217 |     await drag(page, "Lift", 160, 0);
+      218 |     expect(await width(page, "Lift")).toBeGreaterThan(w0 + 100);
+    > 219 |     expect(await height(page, "Lift")).toBe(rowsPx(5));
+          |                                        ^
+      220 |     await page.getByRole("button", { name: "Save now" }).click();
+      221 |     await expect.poll(() => patches.sm.length).toBe(1);
+      222 |     expect(patches.sm[0].find((i) => i.panelId === ids.Lift)).toMatchObject({ w: 4, h: 5 });
+        at /home/matt/Development/helio/.claude/worktrees/bug/form-panel-min-height-clip/HEL-1618/e2e/hel1618-form-min-rows.spec.ts:219:40
+
+    Error Context: test-results/hel1618-form-min-rows-HEL--b356f-width-resize-persisted-once-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1618-form-min-rows-HEL--b356f-width-resize-persisted-once-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1618-form-min-rows-HEL--b356f-width-resize-persisted-once-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[4/4] [dev] › e2e/hel1618-form-min-rows.spec.ts:235:7 › HEL-1618 form minimum rows › a saved 4-row form with a panel directly below stays 4 rows; the neighbour does not move
+[1A[2K[dev] › e2e/hel1618-form-min-rows.spec.ts:235:7 › HEL-1618 form minimum rows › a saved 4-row form with a panel directly below stays 4 rows; the neighbour does not move
+[HEL-1300 e2e] throwaway user: hel1618-rows-1795415112744-99673@example.test
+
+userCleanup: removed 0 of 3 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 3 recorded throwaway user(s)
+[1A[2K  2 failed
+    [dev] › e2e/hel1618-form-min-rows.spec.ts:184:7 › HEL-1618 form minimum rows › a multi-field form stops at 5 rows; a compact counter still reaches 4 
+    [dev] › e2e/hel1618-form-min-rows.spec.ts:211:7 › HEL-1618 form minimum rows › a saved 4-row form with free space below grows to 5 on a width resize, persisted once 
+  2 passed (20.9s)
