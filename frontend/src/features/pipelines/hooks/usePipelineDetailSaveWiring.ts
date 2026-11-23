@@ -28,6 +28,7 @@ export function usePipelineDetailSaveWiring({
   isDirty,
   setIsConfirmingCancel,
   runRole,
+  canEdit,
 }: {
   id: string | undefined;
   dispatch: ReturnType<typeof useAppDispatch>;
@@ -43,6 +44,7 @@ export function usePipelineDetailSaveWiring({
   isDirty: boolean;
   setIsConfirmingCancel: Dispatch<SetStateAction<boolean>>;
   runRole: PipelineRunRole;
+  canEdit: boolean;
 }) {
   const { stepsRef, setSteps, allOutputsRef, setSseActive } = editor;
   const {
@@ -65,6 +67,7 @@ export function usePipelineDetailSaveWiring({
     isDirty,
     setIsConfirmingCancel,
     runRole,
+    canEdit,
   });
 
   // One source of truth for "loaded" (D15): this page's own fetch, the same status the draft judges Output ops by.

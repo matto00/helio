@@ -13,8 +13,8 @@ import { usePipelineDetailAnalyze } from "./usePipelineDetailAnalyze";
 import { usePipelineDetailSaveWiring } from "./usePipelineDetailSaveWiring";
 import { usePipelineDetailStepActions } from "./usePipelineDetailStepActions";
 import { usePipelineDetailUiState } from "./usePipelineDetailUiState";
-import { usePipelineDirtyAndOwner } from "./usePipelineDirtyAndOwner";
-import { usePipelineRunRole } from "./usePipelineRunRole";
+import { isPipelineOwner, usePipelineDirtyAndOwner } from "./usePipelineDirtyAndOwner";
+import { canEditFromUi, usePipelineRunRole } from "./usePipelineRunRole";
 import { usePipelineEditorState } from "./usePipelineEditorState";
 import { usePipelineOutputSheets } from "./usePipelineOutputSheets";
 import { usePipelineOwnPipeline } from "./usePipelineOwnPipeline";
@@ -54,6 +54,12 @@ export function usePipelineDetailPage() {
   // HEL-1631: the client-only draft overlays the saved `steps`; everything the layouts render reads the draft steps.
   // HEL-1733 (D15): effect-free selector moved above the draft; the same selector `usePipelineOutputSheets` reads, so identity is shared.
   const savedOutputs = useAppSelector((state) => selectOutputsForPipeline(state, id ?? ""));
+  // HEL-1661/HEL-1794 (design.md D2): the caller's role is resolved BEFORE the draft, so the draft's mutators know whether the page is
+  // editable. Selector-only hooks: no effect moves.
+  const currentUser = useAppSelector((state) => state.auth.currentUser);
+  const isOwner = isPipelineOwner(currentPipeline, currentUser);
+  const runRole = usePipelineRunRole(id, isOwner);
+  const canEdit = canEditFromUi(runRole);
   const draft = usePipelineDraft({
     baseSteps: steps,
     baseStepsRef: stepsRef,
@@ -61,6 +67,7 @@ export function usePipelineDetailPage() {
     outputsStatus: editor.outputsFetch,
     pipelineId: id,
     ready: stepsInitialized && !stepsLoading && !stepsFailed,
+    editable: canEdit,
   });
   const draftSteps = draft.draftSteps;
   // Lives here, not in a layout, so the last good draft frames survive the 768px layout swap.
@@ -70,7 +77,6 @@ export function usePipelineDetailPage() {
   // refresh) rather than on every page open; see `useRunHistory`.
   const history = useRunHistory(id);
   const { refreshRunHistoryAfterRun } = history;
-  const currentUser = useAppSelector((state) => state.auth.currentUser);
 
   const draftSaveInFlightRef = useRef(false);
   // HEL-1733 D10: set by Save & run's settle; keeps an explicit pick of a created Output on the saved Output it became.
@@ -112,7 +118,7 @@ export function usePipelineDetailPage() {
     roots,
   });
 
-  const { isDirty, pipelineName, sourceByRootId, isOwner } = usePipelineDirtyAndOwner({
+  const { isDirty, pipelineName, sourceByRootId } = usePipelineDirtyAndOwner({
     id,
     outputNamePipelineId: ui.outputNamePipelineId,
     outputName: ui.outputName,
@@ -122,9 +128,6 @@ export function usePipelineDetailPage() {
     sources: own.sources,
   });
 
-  // HEL-1661: which run entries this caller is offered (owner/editor/viewer/pending), from the pipeline row and the analyze result.
-  const runRole = usePipelineRunRole(id, isOwner);
-
   const outputSheets = usePipelineOutputSheets({ id, allOutputsRef: editor.allOutputsRef });
 
   const { handleEditSource, handleToggleScheduleEnabled } = usePipelineSourceScheduleActions({
@@ -132,6 +135,7 @@ export function usePipelineDetailPage() {
     dispatch,
     navigate,
     pipelineSchedule: analyzeState.pipelineSchedule,
+    canEdit,
   });
 
   const stepActions = usePipelineDetailStepActions({
@@ -144,6 +148,7 @@ export function usePipelineDetailPage() {
     draft,
     draftSteps,
     sources: own.sources,
+    editable: canEdit,
   });
 
   const saveWiring = usePipelineDetailSaveWiring({
@@ -161,6 +166,7 @@ export function usePipelineDetailPage() {
     isDirty,
     setIsConfirmingCancel: ui.setIsConfirmingCancel,
     runRole,
+    canEdit,
   });
 
   const { analyzeResult } = analyzeState;
@@ -235,6 +241,8 @@ export function usePipelineDetailPage() {
     sourceByRootId,
     isOwner,
     runRole,
+    /** HEL-1794: the page offers edit affordances (owner or editor); a viewer and a not-yet-known role get none. */
+    canEdit,
     // HEL-1109 (design.md D5) — the pipeline's own estimated row count, when
     // known, threaded through to the AI step cards' cost disclosure. Never
     // presented as a per-step call count -- see `AiStepCostDisclosure`'s doc.

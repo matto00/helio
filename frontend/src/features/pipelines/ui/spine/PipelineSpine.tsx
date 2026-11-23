@@ -26,6 +26,7 @@ import { TruncatedRowCountBadge } from "../TruncatedRowCountBadge";
 import { SpineLane } from "./SpineLane";
 import type { SpineLaneContext } from "./SpineLane";
 import type { SpineRowDraft } from "./SpineStepRow";
+import { VIEWER_COPY, copyFor } from "../viewerCopy";
 import { SpineOutputs } from "./SpineOutputs";
 import { SpineSourceCard } from "./SpineSourceCard";
 import type { SpineStepActions } from "./useSpineStepActions";
@@ -70,6 +71,8 @@ interface PipelineSpineProps {
   onAddOutput: (stepId?: string) => void;
   onOpenOutput: (output: Output) => void;
   onOpenOutputHistory: (output: Output) => void;
+  /** HEL-1794: the page offers edit affordances (`page.canEdit`); false hides every add/edit control and swaps the invitation copy. */
+  canEdit?: boolean;
 }
 
 export function PipelineSpine({
@@ -100,6 +103,7 @@ export function PipelineSpine({
   onAddOutput,
   onOpenOutput,
   onOpenOutputHistory,
+  canEdit = true,
 }: PipelineSpineProps) {
   const phone = variant === "phone";
   // Stable, so the memoised Outputs section is not re-rendered by a new closure on every edit.
@@ -143,7 +147,7 @@ export function PipelineSpine({
     menuItemsFor,
     phone,
     reorderFor: (lane, index) =>
-      lane.parentStepId === undefined
+      canEdit && lane.parentStepId === undefined
         ? {
             index,
             onDragStart: reorder.onStepDragStart,
@@ -180,9 +184,10 @@ export function PipelineSpine({
             canRemove={multiRoot}
             onEditSource={onEditSource}
             onRemoveRoot={onRemoveRoot}
+            readOnly={!canEdit}
           />
         ))}
-        {!phone && (
+        {!phone && canEdit && (
           <button
             type="button"
             className="spine-ghost-btn"
@@ -219,7 +224,7 @@ export function PipelineSpine({
               variant="sidebar"
               icon={<GitBranch />}
               title="No steps yet"
-              description="Add your first transformation step to start shaping this pipeline's output."
+              description={copyFor(VIEWER_COPY.spineNoSteps, canEdit)}
             />
           </div>
         ) : (
@@ -232,7 +237,7 @@ export function PipelineSpine({
                   <SpineLane lane={trunk} context={laneContext} label={null} />
                 ) : (
                   <p className="spine-root__empty">
-                    No steps yet — join this source into another lane&apos;s step to use it.
+                    {copyFor(VIEWER_COPY.spineRootEmpty, canEdit)}
                   </p>
                 )}
               </div>
@@ -240,27 +245,29 @@ export function PipelineSpine({
           })
         )}
 
-        <div className="spine-actions">
-          <button
-            type="button"
-            className={phone ? "spine-add-row" : "spine-ghost-btn"}
-            aria-label={hasSteps ? "+ Add transformation step" : "+ Add step"}
-            onClick={actions.openAppendPalette}
-          >
-            + Add step
-          </button>
-          {!phone && (
+        {canEdit && (
+          <div className="spine-actions">
             <button
               type="button"
-              className="spine-ghost-btn"
-              disabled={shapeBlockedReason !== null}
-              title={shapeBlockedReason ?? undefined}
-              onClick={() => actions.openShapePicker(hasSteps ? shapeAnchorStep?.id : undefined)}
+              className={phone ? "spine-add-row" : "spine-ghost-btn"}
+              aria-label={hasSteps ? "+ Add transformation step" : "+ Add step"}
+              onClick={actions.openAppendPalette}
             >
-              Add Outputs from a shape
+              + Add step
             </button>
-          )}
-        </div>
+            {!phone && (
+              <button
+                type="button"
+                className="spine-ghost-btn"
+                disabled={shapeBlockedReason !== null}
+                title={shapeBlockedReason ?? undefined}
+                onClick={() => actions.openShapePicker(hasSteps ? shapeAnchorStep?.id : undefined)}
+              >
+                Add Outputs from a shape
+              </button>
+            )}
+          </div>
+        )}
       </section>
 
       <SpineOutputs
@@ -273,6 +280,7 @@ export function PipelineSpine({
         onAddOutput={addOutput}
         blockedReason={outputBlockedReason}
         editedOutputIds={editedOutputIds}
+        readOnly={!canEdit}
       />
     </div>
   );

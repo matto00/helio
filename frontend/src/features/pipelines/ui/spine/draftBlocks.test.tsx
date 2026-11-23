@@ -212,6 +212,7 @@ describe("MobilePipelineHeader menu in a draft (D3)", () => {
       draftOutputBlockReason: null,
       isDirty: false,
       isOwner: true,
+      canEdit: true,
       sseData: {},
       setEditingOutputName: jest.fn(),
       ...over,

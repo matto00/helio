@@ -9,7 +9,7 @@ import { makeSpineStore } from "../ui/pipelineSpineTestKit";
 import { usePipelineRunAndSaveActions } from "./usePipelineRunAndSaveActions";
 import type { PipelineRunRole } from "./usePipelineRunRole";
 
-function actionsFor(runRole: PipelineRunRole) {
+function actionsFor(runRole: PipelineRunRole, canEdit = runRole !== "viewer") {
   const dispatch = jest.fn(() => ({ unwrap: () => Promise.resolve({}) }));
   const setSseActive = jest.fn();
   const store = makeSpineStore();
@@ -29,6 +29,7 @@ function actionsFor(runRole: PipelineRunRole) {
         isDirty: false,
         setIsConfirmingCancel: jest.fn(),
         runRole,
+        canEdit,
       }),
     { wrapper },
   );
@@ -49,5 +50,14 @@ describe("run handlers by role", () => {
     await result.current.handleDryRun();
     expect(dispatch).not.toHaveBeenCalled();
     expect(setSseActive).not.toHaveBeenCalled();
+  });
+
+  it("HEL-1794: the rename save does nothing for a caller who cannot edit, and submits for one who can", async () => {
+    const viewer = actionsFor("viewer");
+    await viewer.result.current.handleSave();
+    expect(viewer.dispatch).not.toHaveBeenCalled();
+    const editor = actionsFor("editor");
+    await editor.result.current.handleSave();
+    expect(editor.dispatch).toHaveBeenCalledTimes(1);
   });
 });

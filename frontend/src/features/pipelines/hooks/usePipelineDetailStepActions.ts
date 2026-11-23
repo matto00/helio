@@ -27,6 +27,7 @@ export function usePipelineDetailStepActions({
   draft,
   draftSteps,
   sources,
+  editable,
 }: {
   id: string | undefined;
   dispatch: ReturnType<typeof useAppDispatch>;
@@ -38,6 +39,8 @@ export function usePipelineDetailStepActions({
   draftSteps: Step[];
   /** The caller's sources, for naming a source the draft adds as a root. */
   sources: DataSource[];
+  /** HEL-1794: false for a viewer or an unknown role (the routing's edit guard). */
+  editable: boolean;
 }) {
   const {
     stepsRef,
@@ -108,6 +111,7 @@ export function usePipelineDetailStepActions({
     roots,
     draftSteps,
     sources,
+    editable,
     handlers: {
       handleAddRootNow,
       handleRemoveRootNow,

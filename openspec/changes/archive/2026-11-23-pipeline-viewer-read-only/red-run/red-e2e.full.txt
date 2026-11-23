@@ -1,0 +1,3597 @@
+
+Running 3 tests using 1 worker
+
+[1/3] [dev] › e2e/hel1794-viewer-read-only.spec.ts:271:9 › HEL-1794 viewer read-only pipeline page (live) › viewer on desktop: no edit control, no write request, no draft, light and dark
+[dev] › e2e/hel1794-viewer-read-only.spec.ts:271:9 › HEL-1794 viewer read-only pipeline page (live) › viewer on desktop: no edit control, no write request, no draft, light and dark
+[HEL-1300 e2e] throwaway user: hel1794-owner-desktop-1795461380195-85490@example.test
+
+[HEL-1300 e2e] throwaway user: hel1661-editor-desktop-1795461381971-96250@example.test
+
+[HEL-1300 e2e] throwaway user: hel1661-viewer-desktop-1795461382233-95023@example.test
+
+  1) [dev] › e2e/hel1794-viewer-read-only.spec.ts:271:9 › HEL-1794 viewer read-only pipeline page (live) › viewer on desktop: no edit control, no write request, no draft, light and dark 
+
+    Error: desktop/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Edit pipeline name' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Edit pipeline name' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:9)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Add schedule' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Add schedule' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Add source' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Add source' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: /^\+ Add (transformation )?step$/ })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light with timeout 2000ms
+      - waiting for getByRole('button', { name: /^\+ Add (transformation )?step$/ })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'New output' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light with timeout 2000ms
+      - waiting for getByRole('button', { name: 'New output' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Disable step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Disable step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Duplicate step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Duplicate step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Remove step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Remove step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('button[aria-label^="Step actions for"]')
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light with timeout 2000ms
+      - waiting for locator('button[aria-label^="Step actions for"]')
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('[draggable="true"]')
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light with timeout 2000ms
+      - waiting for locator('[draggable="true"]')
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light (page): controls outside the viewer allow-list
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 16
+
+    - Array []
+    + Array [
+    +   "button \"Edit pipeline name\"",
+    +   "button \"Add schedule\"",
+    +   "button \"Source actions for hel1661-orders\"",
+    +   "button \"Add source\"",
+    +   "span \"\"",
+    +   "button \"Step actions for Compute column\"",
+    +   "button \"+ Add transformation step\"",
+    +   "button \"Add Outputs from a shape\"",
+    +   "button \"New output\"",
+    +   "button \"Disable step\"",
+    +   "button \"Duplicate step\"",
+    +   "button \"Remove step\"",
+    +   "input \"Output field name\"",
+    +   "input \"Expression\"",
+    + ]
+
+      124 |       `${where}: controls outside the viewer allow-list`,
+      125 |     )
+    > 126 |     .toEqual([]);
+          |      ^
+      127 | }
+      128 |
+      129 | function watchWrites(page: Page): string[] {
+        at expectOnlyAllowed (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:126:6)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:206:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light: Rename
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('menuitem', { name: 'Rename' })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - desktop/light: Rename with timeout 5000ms
+      - waiting for getByRole('menuitem', { name: 'Rename' })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      179 |     await expect
+      180 |       .soft(page.getByRole("menuitem", { name: item }), `${where}: ${item}`)
+    > 181 |       .toHaveCount(0);
+          |        ^
+      182 |   }
+      183 |   await expect
+      184 |     .soft(page.getByRole("menuitem", { name: /schedule/i }), `${where}: schedule`)
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:181:8)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light: Set schedule
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('menuitem', { name: 'Set schedule' })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - desktop/light: Set schedule with timeout 5000ms
+      - waiting for getByRole('menuitem', { name: 'Set schedule' })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      179 |     await expect
+      180 |       .soft(page.getByRole("menuitem", { name: item }), `${where}: ${item}`)
+    > 181 |       .toHaveCount(0);
+          |        ^
+      182 |   }
+      183 |   await expect
+      184 |     .soft(page.getByRole("menuitem", { name: /schedule/i }), `${where}: schedule`)
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:181:8)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light: schedule
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('menuitem', { name: /schedule/i })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - desktop/light: schedule with timeout 5000ms
+      - waiting for getByRole('menuitem', { name: /schedule/i })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      183 |   await expect
+      184 |     .soft(page.getByRole("menuitem", { name: /schedule/i }), `${where}: schedule`)
+    > 185 |     .toHaveCount(0);
+          |      ^
+      186 |   await expectOnlyAllowed(page, `${where} (menu open)`, stepRow);
+      187 |   await page.keyboard.press("Escape");
+      188 | }
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:185:6)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light (menu open): controls outside the viewer allow-list
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 18
+
+    - Array []
+    + Array [
+    +   "button \"Edit pipeline name\"",
+    +   "button \"Add schedule\"",
+    +   "button \"Source actions for hel1661-orders\"",
+    +   "button \"Add source\"",
+    +   "span \"\"",
+    +   "button \"Step actions for Compute column\"",
+    +   "button \"+ Add transformation step\"",
+    +   "button \"Add Outputs from a shape\"",
+    +   "button \"New output\"",
+    +   "button \"Disable step\"",
+    +   "button \"Duplicate step\"",
+    +   "button \"Remove step\"",
+    +   "input \"Output field name\"",
+    +   "input \"Expression\"",
+    +   "button[menuitem] \"Rename\"",
+    +   "button[menuitem] \"Set schedule\"",
+    + ]
+
+      124 |       `${where}: controls outside the viewer allow-list`,
+      125 |     )
+    > 126 |     .toEqual([]);
+          |      ^
+      127 | }
+      128 |
+      129 | function watchWrites(page: Page): string[] {
+        at expectOnlyAllowed (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:126:6)
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:186:3)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Edit pipeline name' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Edit pipeline name' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:9)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Add schedule' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Add schedule' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Add source' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Add source' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: /^\+ Add (transformation )?step$/ })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: /^\+ Add (transformation )?step$/ })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'New output' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'New output' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Disable step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Disable step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Duplicate step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Duplicate step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Remove step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Remove step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('button[aria-label^="Step actions for"]')
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light (step open) with timeout 2000ms
+      - waiting for locator('button[aria-label^="Step actions for"]')
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('[draggable="true"]')
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light (step open) with timeout 2000ms
+      - waiting for locator('[draggable="true"]')
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light (step open): controls outside the viewer allow-list
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 16
+
+    - Array []
+    + Array [
+    +   "button \"Edit pipeline name\"",
+    +   "button \"Add schedule\"",
+    +   "button \"Source actions for hel1661-orders\"",
+    +   "button \"Add source\"",
+    +   "span \"\"",
+    +   "button \"Step actions for Compute column\"",
+    +   "button \"+ Add transformation step\"",
+    +   "button \"Add Outputs from a shape\"",
+    +   "button \"New output\"",
+    +   "button \"Disable step\"",
+    +   "button \"Duplicate step\"",
+    +   "button \"Remove step\"",
+    +   "input \"Output field name\"",
+    +   "input \"Expression\"",
+    + ]
+
+      124 |       `${where}: controls outside the viewer allow-list`,
+      125 |     )
+    > 126 |     .toEqual([]);
+          |      ^
+      127 | }
+      128 |
+      129 | function watchWrites(page: Page): string[] {
+        at expectOnlyAllowed (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:126:6)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:214:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light: the field value is unchanged
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "double"
+    Received: "doublexx"
+
+      228 |   await field.fill(`${before}x`, { force: true, timeout: 3_000 }).catch(() => undefined);
+      229 |   await field.press("x", { timeout: 3_000 }).catch(() => undefined);
+    > 230 |   soft(await field.inputValue(), `${where}: the field value is unchanged`).toBe(before);
+          |                                                                            ^
+      231 |   await soft(page.getByRole("button", { name: "Discard draft" }), where).toHaveCount(0);
+      232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+      233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:230:76)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Discard draft' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Discard draft' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      229 |   await field.press("x", { timeout: 3_000 }).catch(() => undefined);
+      230 |   soft(await field.inputValue(), `${where}: the field value is unchanged`).toBe(before);
+    > 231 |   await soft(page.getByRole("button", { name: "Discard draft" }), where).toHaveCount(0);
+          |                                                                          ^
+      232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+      233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+      234 |   await soft(page.locator(".spine-row__grip"), where).toHaveCount(0);
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:231:74)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByText('Draft · unsaved changes')
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light with timeout 2000ms
+      - waiting for getByText('Draft · unsaved changes')
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      230 |   soft(await field.inputValue(), `${where}: the field value is unchanged`).toBe(before);
+      231 |   await soft(page.getByRole("button", { name: "Discard draft" }), where).toHaveCount(0);
+    > 232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+          |                                                                ^
+      233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+      234 |   await soft(page.locator(".spine-row__grip"), where).toHaveCount(0);
+      235 |
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:232:64)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light: no kept draft
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "helio.pipelineDraft.66b9858b-5649-4628-83c4-5ba1240c82fe",
+    + ]
+
+      231 |   await soft(page.getByRole("button", { name: "Discard draft" }), where).toHaveCount(0);
+      232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+    > 233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+          |                                                              ^
+      234 |   await soft(page.locator(".spine-row__grip"), where).toHaveCount(0);
+      235 |
+      236 |   if (phone) {
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:233:62)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('.spine-row__grip')
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light with timeout 2000ms
+      - waiting for locator('.spine-row__grip')
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+      233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+    > 234 |   await soft(page.locator(".spine-row__grip"), where).toHaveCount(0);
+          |                                                       ^
+      235 |
+      236 |   if (phone) {
+      237 |     await page.keyboard.press("Escape");
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:234:55)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('dialog').getByRole('button', { name: 'Save', exact: true })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - desktop/light with timeout 5000ms
+      - waiting for getByRole('dialog').getByRole('button', { name: 'Save', exact: true })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      245 |   await expect
+      246 |     .soft(dialog.getByRole("button", { name: "Save", exact: true }), where)
+    > 247 |     .toHaveCount(0);
+          |      ^
+      248 |   await expect
+      249 |     .soft(dialog.getByRole("button", { name: "Delete", exact: true }), where)
+      250 |     .toHaveCount(0);
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:247:6)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('dialog').getByRole('button', { name: 'Delete', exact: true })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - desktop/light with timeout 5000ms
+      - waiting for getByRole('dialog').getByRole('button', { name: 'Delete', exact: true })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      248 |   await expect
+      249 |     .soft(dialog.getByRole("button", { name: "Delete", exact: true }), where)
+    > 250 |     .toHaveCount(0);
+          |      ^
+      251 |   await soft(dialog.getByRole("textbox", { name: "Name" }), where).toBeDisabled();
+      252 |   await expectOnlyAllowed(page, `${where} (output sheet)`, stepRow);
+      253 |   await page.screenshot({ path: evidencePath("HEL-1794", `viewer-${label}-${theme}-output.png`) });
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:250:6)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light
+
+    expect(locator).toBeDisabled() failed
+
+    Locator:  getByRole('dialog').getByRole('textbox', { name: 'Name' })
+    Expected: disabled
+    Received: enabled
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/light with timeout 2000ms
+      - waiting for getByRole('dialog').getByRole('textbox', { name: 'Name' })
+        6 × locator resolved to <input type="text" class="ui-input" id="output-name" value="hel1661-out" placeholder="Untitled output"/>
+          - unexpected value "enabled"
+
+
+      249 |     .soft(dialog.getByRole("button", { name: "Delete", exact: true }), where)
+      250 |     .toHaveCount(0);
+    > 251 |   await soft(dialog.getByRole("textbox", { name: "Name" }), where).toBeDisabled();
+          |                                                                    ^
+      252 |   await expectOnlyAllowed(page, `${where} (output sheet)`, stepRow);
+      253 |   await page.screenshot({ path: evidencePath("HEL-1794", `viewer-${label}-${theme}-output.png`) });
+      254 |   await page.keyboard.press("Escape");
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:251:68)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light (output sheet): controls outside the viewer allow-list
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 26
+
+    - Array []
+    + Array [
+    +   "button \"Edit pipeline name\"",
+    +   "button \"Add schedule\"",
+    +   "button \"Discard draft\"",
+    +   "button \"Source actions for hel1661-orders\"",
+    +   "button \"Add source\"",
+    +   "span \"\"",
+    +   "button \"Step 1: Compute column, updating on the server\"",
+    +   "button \"Step actions for Compute column\"",
+    +   "button \"+ Add transformation step\"",
+    +   "button \"Add Outputs from a shape\"",
+    +   "button \"New output\"",
+    +   "button \"Disable step\"",
+    +   "button \"Duplicate step\"",
+    +   "button \"Remove step\"",
+    +   "input \"Output field name\"",
+    +   "input \"Expression\"",
+    +   "input \"Name\"",
+    +   "button[combobox] \"Cell density\"",
+    +   "button \"Add rule\"",
+    +   "a \"Request Beta access (opens in a new tab)\"",
+    +   "a \"Request Beta access (opens in a new tab)\"",
+    +   "button \"Delete\"",
+    +   "button \"Cancel\"",
+    +   "button \"Save\"",
+    + ]
+
+      124 |       `${where}: controls outside the viewer allow-list`,
+      125 |     )
+    > 126 |     .toEqual([]);
+          |      ^
+      127 | }
+      128 |
+      129 | function watchWrites(page: Page): string[] {
+        at expectOnlyAllowed (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:126:6)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:252:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light: write requests during the viewer flow
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "POST /api/pipeline-steps/abe9d76e-18e4-4686-9055-b920655d0244/duplicate",
+    + ]
+
+      256 |
+      257 |   await page.screenshot({ path: evidencePath("HEL-1794", `viewer-${label}-${theme}.png`) });
+    > 258 |   soft(writes, `${where}: write requests during the viewer flow`).toEqual([]);
+          |                                                                   ^
+      259 |   soft(await keptDraft(page), where).toEqual([]);
+      260 | }
+      261 |
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:258:67)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "helio.pipelineDraft.66b9858b-5649-4628-83c4-5ba1240c82fe",
+    + ]
+
+      257 |   await page.screenshot({ path: evidencePath("HEL-1794", `viewer-${label}-${theme}.png`) });
+      258 |   soft(writes, `${where}: write requests during the viewer flow`).toEqual([]);
+    > 259 |   soft(await keptDraft(page), where).toEqual([]);
+          |                                      ^
+      260 | }
+      261 |
+      262 | async function keptDraft(page: Page): Promise<string[]> {
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:259:38)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Edit pipeline name' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Edit pipeline name' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:9)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Add schedule' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Add schedule' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Add source' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Add source' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: /^\+ Add (transformation )?step$/ })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark with timeout 2000ms
+      - waiting for getByRole('button', { name: /^\+ Add (transformation )?step$/ })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'New output' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark with timeout 2000ms
+      - waiting for getByRole('button', { name: 'New output' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Disable step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Disable step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Duplicate step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Duplicate step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Remove step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Remove step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('button[aria-label^="Step actions for"]')
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark with timeout 2000ms
+      - waiting for locator('button[aria-label^="Step actions for"]')
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('[draggable="true"]')
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark with timeout 2000ms
+      - waiting for locator('[draggable="true"]')
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Discard draft' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Discard draft' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark (page): controls outside the viewer allow-list
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 17
+
+    - Array []
+    + Array [
+    +   "button \"Edit pipeline name\"",
+    +   "button \"Add schedule\"",
+    +   "button \"Discard draft\"",
+    +   "button \"Source actions for hel1661-orders\"",
+    +   "button \"Add source\"",
+    +   "span \"\"",
+    +   "button \"Step actions for Compute column\"",
+    +   "button \"+ Add transformation step\"",
+    +   "button \"Add Outputs from a shape\"",
+    +   "button \"New output\"",
+    +   "button \"Disable step\"",
+    +   "button \"Duplicate step\"",
+    +   "button \"Remove step\"",
+    +   "input \"Output field name\"",
+    +   "input \"Expression\"",
+    + ]
+
+      124 |       `${where}: controls outside the viewer allow-list`,
+      125 |     )
+    > 126 |     .toEqual([]);
+          |      ^
+      127 | }
+      128 |
+      129 | function watchWrites(page: Page): string[] {
+        at expectOnlyAllowed (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:126:6)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:206:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark: Rename
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('menuitem', { name: 'Rename' })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - desktop/dark: Rename with timeout 5000ms
+      - waiting for getByRole('menuitem', { name: 'Rename' })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      179 |     await expect
+      180 |       .soft(page.getByRole("menuitem", { name: item }), `${where}: ${item}`)
+    > 181 |       .toHaveCount(0);
+          |        ^
+      182 |   }
+      183 |   await expect
+      184 |     .soft(page.getByRole("menuitem", { name: /schedule/i }), `${where}: schedule`)
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:181:8)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark: Set schedule
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('menuitem', { name: 'Set schedule' })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - desktop/dark: Set schedule with timeout 5000ms
+      - waiting for getByRole('menuitem', { name: 'Set schedule' })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      179 |     await expect
+      180 |       .soft(page.getByRole("menuitem", { name: item }), `${where}: ${item}`)
+    > 181 |       .toHaveCount(0);
+          |        ^
+      182 |   }
+      183 |   await expect
+      184 |     .soft(page.getByRole("menuitem", { name: /schedule/i }), `${where}: schedule`)
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:181:8)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark: schedule
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('menuitem', { name: /schedule/i })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - desktop/dark: schedule with timeout 5000ms
+      - waiting for getByRole('menuitem', { name: /schedule/i })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      183 |   await expect
+      184 |     .soft(page.getByRole("menuitem", { name: /schedule/i }), `${where}: schedule`)
+    > 185 |     .toHaveCount(0);
+          |      ^
+      186 |   await expectOnlyAllowed(page, `${where} (menu open)`, stepRow);
+      187 |   await page.keyboard.press("Escape");
+      188 | }
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:185:6)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark (menu open): controls outside the viewer allow-list
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 19
+
+    - Array []
+    + Array [
+    +   "button \"Edit pipeline name\"",
+    +   "button \"Add schedule\"",
+    +   "button \"Discard draft\"",
+    +   "button \"Source actions for hel1661-orders\"",
+    +   "button \"Add source\"",
+    +   "span \"\"",
+    +   "button \"Step actions for Compute column\"",
+    +   "button \"+ Add transformation step\"",
+    +   "button \"Add Outputs from a shape\"",
+    +   "button \"New output\"",
+    +   "button \"Disable step\"",
+    +   "button \"Duplicate step\"",
+    +   "button \"Remove step\"",
+    +   "input \"Output field name\"",
+    +   "input \"Expression\"",
+    +   "button[menuitem] \"Rename\"",
+    +   "button[menuitem] \"Set schedule\"",
+    + ]
+
+      124 |       `${where}: controls outside the viewer allow-list`,
+      125 |     )
+    > 126 |     .toEqual([]);
+          |      ^
+      127 | }
+      128 |
+      129 | function watchWrites(page: Page): string[] {
+        at expectOnlyAllowed (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:126:6)
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:186:3)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Edit pipeline name' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Edit pipeline name' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:9)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Add schedule' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Add schedule' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Add source' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Add source' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: /^\+ Add (transformation )?step$/ })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: /^\+ Add (transformation )?step$/ })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'New output' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'New output' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Disable step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Disable step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Duplicate step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Duplicate step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Remove step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Remove step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('button[aria-label^="Step actions for"]')
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark (step open) with timeout 2000ms
+      - waiting for locator('button[aria-label^="Step actions for"]')
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('[draggable="true"]')
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark (step open) with timeout 2000ms
+      - waiting for locator('[draggable="true"]')
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Discard draft' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Discard draft' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark (step open): controls outside the viewer allow-list
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 17
+
+    - Array []
+    + Array [
+    +   "button \"Edit pipeline name\"",
+    +   "button \"Add schedule\"",
+    +   "button \"Discard draft\"",
+    +   "button \"Source actions for hel1661-orders\"",
+    +   "button \"Add source\"",
+    +   "span \"\"",
+    +   "button \"Step actions for Compute column\"",
+    +   "button \"+ Add transformation step\"",
+    +   "button \"Add Outputs from a shape\"",
+    +   "button \"New output\"",
+    +   "button \"Disable step\"",
+    +   "button \"Duplicate step\"",
+    +   "button \"Remove step\"",
+    +   "input \"Output field name\"",
+    +   "input \"Expression\"",
+    + ]
+
+      124 |       `${where}: controls outside the viewer allow-list`,
+      125 |     )
+    > 126 |     .toEqual([]);
+          |      ^
+      127 | }
+      128 |
+      129 | function watchWrites(page: Page): string[] {
+        at expectOnlyAllowed (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:126:6)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:214:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark: the field value is unchanged
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "doublexx"
+    Received: "doublexxxx"
+
+      228 |   await field.fill(`${before}x`, { force: true, timeout: 3_000 }).catch(() => undefined);
+      229 |   await field.press("x", { timeout: 3_000 }).catch(() => undefined);
+    > 230 |   soft(await field.inputValue(), `${where}: the field value is unchanged`).toBe(before);
+          |                                                                            ^
+      231 |   await soft(page.getByRole("button", { name: "Discard draft" }), where).toHaveCount(0);
+      232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+      233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:230:76)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Discard draft' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Discard draft' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      229 |   await field.press("x", { timeout: 3_000 }).catch(() => undefined);
+      230 |   soft(await field.inputValue(), `${where}: the field value is unchanged`).toBe(before);
+    > 231 |   await soft(page.getByRole("button", { name: "Discard draft" }), where).toHaveCount(0);
+          |                                                                          ^
+      232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+      233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+      234 |   await soft(page.locator(".spine-row__grip"), where).toHaveCount(0);
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:231:74)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByText('Draft · unsaved changes')
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark with timeout 2000ms
+      - waiting for getByText('Draft · unsaved changes')
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      230 |   soft(await field.inputValue(), `${where}: the field value is unchanged`).toBe(before);
+      231 |   await soft(page.getByRole("button", { name: "Discard draft" }), where).toHaveCount(0);
+    > 232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+          |                                                                ^
+      233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+      234 |   await soft(page.locator(".spine-row__grip"), where).toHaveCount(0);
+      235 |
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:232:64)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark: no kept draft
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "helio.pipelineDraft.66b9858b-5649-4628-83c4-5ba1240c82fe",
+    + ]
+
+      231 |   await soft(page.getByRole("button", { name: "Discard draft" }), where).toHaveCount(0);
+      232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+    > 233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+          |                                                              ^
+      234 |   await soft(page.locator(".spine-row__grip"), where).toHaveCount(0);
+      235 |
+      236 |   if (phone) {
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:233:62)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('.spine-row__grip')
+    Expected: 0
+    Received: 2
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark with timeout 2000ms
+      - waiting for locator('.spine-row__grip')
+        6 × locator resolved to 2 elements
+          - unexpected value "2"
+
+
+      232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+      233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+    > 234 |   await soft(page.locator(".spine-row__grip"), where).toHaveCount(0);
+          |                                                       ^
+      235 |
+      236 |   if (phone) {
+      237 |     await page.keyboard.press("Escape");
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:234:55)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('dialog').getByRole('button', { name: 'Save', exact: true })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - desktop/dark with timeout 5000ms
+      - waiting for getByRole('dialog').getByRole('button', { name: 'Save', exact: true })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      245 |   await expect
+      246 |     .soft(dialog.getByRole("button", { name: "Save", exact: true }), where)
+    > 247 |     .toHaveCount(0);
+          |      ^
+      248 |   await expect
+      249 |     .soft(dialog.getByRole("button", { name: "Delete", exact: true }), where)
+      250 |     .toHaveCount(0);
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:247:6)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('dialog').getByRole('button', { name: 'Delete', exact: true })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - desktop/dark with timeout 5000ms
+      - waiting for getByRole('dialog').getByRole('button', { name: 'Delete', exact: true })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      248 |   await expect
+      249 |     .soft(dialog.getByRole("button", { name: "Delete", exact: true }), where)
+    > 250 |     .toHaveCount(0);
+          |      ^
+      251 |   await soft(dialog.getByRole("textbox", { name: "Name" }), where).toBeDisabled();
+      252 |   await expectOnlyAllowed(page, `${where} (output sheet)`, stepRow);
+      253 |   await page.screenshot({ path: evidencePath("HEL-1794", `viewer-${label}-${theme}-output.png`) });
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:250:6)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(locator).toBeDisabled() failed
+
+    Locator:  getByRole('dialog').getByRole('textbox', { name: 'Name' })
+    Expected: disabled
+    Received: enabled
+    Timeout:  2000ms
+
+    Call log:
+      - desktop/dark with timeout 2000ms
+      - waiting for getByRole('dialog').getByRole('textbox', { name: 'Name' })
+        6 × locator resolved to <input type="text" class="ui-input" id="output-name" value="hel1661-out" placeholder="Untitled output"/>
+          - unexpected value "enabled"
+
+
+      249 |     .soft(dialog.getByRole("button", { name: "Delete", exact: true }), where)
+      250 |     .toHaveCount(0);
+    > 251 |   await soft(dialog.getByRole("textbox", { name: "Name" }), where).toBeDisabled();
+          |                                                                    ^
+      252 |   await expectOnlyAllowed(page, `${where} (output sheet)`, stepRow);
+      253 |   await page.screenshot({ path: evidencePath("HEL-1794", `viewer-${label}-${theme}-output.png`) });
+      254 |   await page.keyboard.press("Escape");
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:251:68)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark (output sheet): controls outside the viewer allow-list
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 28
+
+    - Array []
+    + Array [
+    +   "button \"Edit pipeline name\"",
+    +   "button \"Add schedule\"",
+    +   "button \"Discard draft\"",
+    +   "button \"Source actions for hel1661-orders\"",
+    +   "button \"Add source\"",
+    +   "span \"\"",
+    +   "button \"Step actions for Compute column\"",
+    +   "span \"\"",
+    +   "button \"Step 2: Compute column, an earlier step has an error, showing its last result\"",
+    +   "button \"Step actions for Compute column\"",
+    +   "button \"+ Add transformation step\"",
+    +   "button \"Add Outputs from a shape\"",
+    +   "button \"New output\"",
+    +   "button \"Disable step\"",
+    +   "button \"Duplicate step\"",
+    +   "button \"Remove step\"",
+    +   "input \"Output field name\"",
+    +   "input \"Expression\"",
+    +   "input \"Name\"",
+    +   "button[combobox] \"Cell density\"",
+    +   "button \"Add rule\"",
+    +   "a \"Request Beta access (opens in a new tab)\"",
+    +   "a \"Request Beta access (opens in a new tab)\"",
+    +   "button \"Delete\"",
+    +   "button \"Cancel\"",
+    +   "button \"Save\"",
+    + ]
+
+      124 |       `${where}: controls outside the viewer allow-list`,
+      125 |     )
+    > 126 |     .toEqual([]);
+          |      ^
+      127 | }
+      128 |
+      129 | function watchWrites(page: Page): string[] {
+        at expectOnlyAllowed (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:126:6)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:252:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/dark
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "helio.pipelineDraft.66b9858b-5649-4628-83c4-5ba1240c82fe",
+    + ]
+
+      257 |   await page.screenshot({ path: evidencePath("HEL-1794", `viewer-${label}-${theme}.png`) });
+      258 |   soft(writes, `${where}: write requests during the viewer flow`).toEqual([]);
+    > 259 |   soft(await keptDraft(page), where).toEqual([]);
+          |                                      ^
+      260 | }
+      261 |
+      262 | async function keptDraft(page: Page): Promise<string[]> {
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:259:38)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error Context: test-results/hel1794-viewer-read-only-H-f83eb-est-no-draft-light-and-dark-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1794-viewer-read-only-H-f83eb-est-no-draft-light-and-dark-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1794-viewer-read-only-H-f83eb-est-no-draft-light-and-dark-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[2/3] [dev] › e2e/hel1794-viewer-read-only.spec.ts:271:9 › HEL-1794 viewer read-only pipeline page (live) › viewer on phone: no edit control, no write request, no draft, light and dark
+[dev] › e2e/hel1794-viewer-read-only.spec.ts:271:9 › HEL-1794 viewer read-only pipeline page (live) › viewer on phone: no edit control, no write request, no draft, light and dark
+[HEL-1300 e2e] throwaway user: hel1794-owner-phone-1795461542274-40959@example.test
+
+[HEL-1300 e2e] throwaway user: hel1661-editor-phone-1795461544013-96875@example.test
+
+[HEL-1300 e2e] throwaway user: hel1661-viewer-phone-1795461544259-48563@example.test
+
+  2) [dev] › e2e/hel1794-viewer-read-only.spec.ts:271:9 › HEL-1794 viewer read-only pipeline page (live) › viewer on phone: no edit control, no write request, no draft, light and dark 
+
+    Error: phone/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Add schedule' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/light with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Add schedule' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: /^\+ Add (transformation )?step$/ })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/light with timeout 2000ms
+      - waiting for getByRole('button', { name: /^\+ Add (transformation )?step$/ })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'New output' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/light with timeout 2000ms
+      - waiting for getByRole('button', { name: 'New output' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light (page): controls outside the viewer allow-list
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 6
+
+    - Array []
+    + Array [
+    +   "button \"Add schedule\"",
+    +   "button \"Source actions for hel1661-orders\"",
+    +   "button \"+ Add transformation step\"",
+    +   "button \"New output\"",
+    + ]
+
+      124 |       `${where}: controls outside the viewer allow-list`,
+      125 |     )
+    > 126 |     .toEqual([]);
+          |      ^
+      127 | }
+      128 |
+      129 | function watchWrites(page: Page): string[] {
+        at expectOnlyAllowed (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:126:6)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:206:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light: Rename
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('menuitem', { name: 'Rename' })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - phone/light: Rename with timeout 5000ms
+      - waiting for getByRole('menuitem', { name: 'Rename' })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      179 |     await expect
+      180 |       .soft(page.getByRole("menuitem", { name: item }), `${where}: ${item}`)
+    > 181 |       .toHaveCount(0);
+          |        ^
+      182 |   }
+      183 |   await expect
+      184 |     .soft(page.getByRole("menuitem", { name: /schedule/i }), `${where}: schedule`)
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:181:8)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light: Set schedule
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('menuitem', { name: 'Set schedule' })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - phone/light: Set schedule with timeout 5000ms
+      - waiting for getByRole('menuitem', { name: 'Set schedule' })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      179 |     await expect
+      180 |       .soft(page.getByRole("menuitem", { name: item }), `${where}: ${item}`)
+    > 181 |       .toHaveCount(0);
+          |        ^
+      182 |   }
+      183 |   await expect
+      184 |     .soft(page.getByRole("menuitem", { name: /schedule/i }), `${where}: schedule`)
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:181:8)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light: Add source
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('menuitem', { name: 'Add source' })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - phone/light: Add source with timeout 5000ms
+      - waiting for getByRole('menuitem', { name: 'Add source' })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      179 |     await expect
+      180 |       .soft(page.getByRole("menuitem", { name: item }), `${where}: ${item}`)
+    > 181 |       .toHaveCount(0);
+          |        ^
+      182 |   }
+      183 |   await expect
+      184 |     .soft(page.getByRole("menuitem", { name: /schedule/i }), `${where}: schedule`)
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:181:8)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light: schedule
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('menuitem', { name: /schedule/i })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - phone/light: schedule with timeout 5000ms
+      - waiting for getByRole('menuitem', { name: /schedule/i })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      183 |   await expect
+      184 |     .soft(page.getByRole("menuitem", { name: /schedule/i }), `${where}: schedule`)
+    > 185 |     .toHaveCount(0);
+          |      ^
+      186 |   await expectOnlyAllowed(page, `${where} (menu open)`, stepRow);
+      187 |   await page.keyboard.press("Escape");
+      188 | }
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:185:6)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light (menu open): controls outside the viewer allow-list
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 10
+
+    - Array []
+    + Array [
+    +   "button \"Add schedule\"",
+    +   "button \"Source actions for hel1661-orders\"",
+    +   "button \"+ Add transformation step\"",
+    +   "button \"New output\"",
+    +   "button[menuitem] \"Rename\"",
+    +   "button[menuitem] \"Add source\"",
+    +   "button[menuitem] \"Add Outputs from a shape\"",
+    +   "button[menuitem] \"Set schedule\"",
+    + ]
+
+      124 |       `${where}: controls outside the viewer allow-list`,
+      125 |     )
+    > 126 |     .toEqual([]);
+          |      ^
+      127 | }
+      128 |
+      129 | function watchWrites(page: Page): string[] {
+        at expectOnlyAllowed (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:126:6)
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:186:3)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Add schedule' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/light (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Add schedule' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: /^\+ Add (transformation )?step$/ })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/light (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: /^\+ Add (transformation )?step$/ })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'New output' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/light (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'New output' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Disable step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/light (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Disable step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Duplicate step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/light (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Duplicate step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Remove step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/light (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Remove step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('button[aria-label^="Step actions for"]')
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/light (step open) with timeout 2000ms
+      - waiting for locator('button[aria-label^="Step actions for"]')
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light (step open): controls outside the viewer allow-list
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 12
+
+    - Array []
+    + Array [
+    +   "button \"Add schedule\"",
+    +   "button \"Source actions for hel1661-orders\"",
+    +   "button \"+ Add transformation step\"",
+    +   "button \"New output\"",
+    +   "button \"Step actions for Compute column\"",
+    +   "button \"Disable step\"",
+    +   "button \"Duplicate step\"",
+    +   "button \"Remove step\"",
+    +   "input \"Output field name\"",
+    +   "input \"Expression\"",
+    + ]
+
+      124 |       `${where}: controls outside the viewer allow-list`,
+      125 |     )
+    > 126 |     .toEqual([]);
+          |      ^
+      127 | }
+      128 |
+      129 | function watchWrites(page: Page): string[] {
+        at expectOnlyAllowed (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:126:6)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:214:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light: the field value is unchanged
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "double"
+    Received: "doublexx"
+
+      228 |   await field.fill(`${before}x`, { force: true, timeout: 3_000 }).catch(() => undefined);
+      229 |   await field.press("x", { timeout: 3_000 }).catch(() => undefined);
+    > 230 |   soft(await field.inputValue(), `${where}: the field value is unchanged`).toBe(before);
+          |                                                                            ^
+      231 |   await soft(page.getByRole("button", { name: "Discard draft" }), where).toHaveCount(0);
+      232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+      233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:230:76)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Discard draft' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/light with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Discard draft' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      229 |   await field.press("x", { timeout: 3_000 }).catch(() => undefined);
+      230 |   soft(await field.inputValue(), `${where}: the field value is unchanged`).toBe(before);
+    > 231 |   await soft(page.getByRole("button", { name: "Discard draft" }), where).toHaveCount(0);
+          |                                                                          ^
+      232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+      233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+      234 |   await soft(page.locator(".spine-row__grip"), where).toHaveCount(0);
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:231:74)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByText('Draft · unsaved changes')
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/light with timeout 2000ms
+      - waiting for getByText('Draft · unsaved changes')
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      230 |   soft(await field.inputValue(), `${where}: the field value is unchanged`).toBe(before);
+      231 |   await soft(page.getByRole("button", { name: "Discard draft" }), where).toHaveCount(0);
+    > 232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+          |                                                                ^
+      233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+      234 |   await soft(page.locator(".spine-row__grip"), where).toHaveCount(0);
+      235 |
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:232:64)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light: no kept draft
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "helio.pipelineDraft.c9cc8866-1ebb-4cab-aab2-4b31eadd306b",
+    + ]
+
+      231 |   await soft(page.getByRole("button", { name: "Discard draft" }), where).toHaveCount(0);
+      232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+    > 233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+          |                                                              ^
+      234 |   await soft(page.locator(".spine-row__grip"), where).toHaveCount(0);
+      235 |
+      236 |   if (phone) {
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:233:62)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('dialog').getByRole('button', { name: 'Save', exact: true })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - phone/light with timeout 5000ms
+      - waiting for getByRole('dialog').getByRole('button', { name: 'Save', exact: true })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      245 |   await expect
+      246 |     .soft(dialog.getByRole("button", { name: "Save", exact: true }), where)
+    > 247 |     .toHaveCount(0);
+          |      ^
+      248 |   await expect
+      249 |     .soft(dialog.getByRole("button", { name: "Delete", exact: true }), where)
+      250 |     .toHaveCount(0);
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:247:6)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('dialog').getByRole('button', { name: 'Delete', exact: true })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - phone/light with timeout 5000ms
+      - waiting for getByRole('dialog').getByRole('button', { name: 'Delete', exact: true })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      248 |   await expect
+      249 |     .soft(dialog.getByRole("button", { name: "Delete", exact: true }), where)
+    > 250 |     .toHaveCount(0);
+          |      ^
+      251 |   await soft(dialog.getByRole("textbox", { name: "Name" }), where).toBeDisabled();
+      252 |   await expectOnlyAllowed(page, `${where} (output sheet)`, stepRow);
+      253 |   await page.screenshot({ path: evidencePath("HEL-1794", `viewer-${label}-${theme}-output.png`) });
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:250:6)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light
+
+    expect(locator).toBeDisabled() failed
+
+    Locator:  getByRole('dialog').getByRole('textbox', { name: 'Name' })
+    Expected: disabled
+    Received: enabled
+    Timeout:  2000ms
+
+    Call log:
+      - phone/light with timeout 2000ms
+      - waiting for getByRole('dialog').getByRole('textbox', { name: 'Name' })
+        6 × locator resolved to <input type="text" class="ui-input" id="output-name" value="hel1661-out" placeholder="Untitled output"/>
+          - unexpected value "enabled"
+
+
+      249 |     .soft(dialog.getByRole("button", { name: "Delete", exact: true }), where)
+      250 |     .toHaveCount(0);
+    > 251 |   await soft(dialog.getByRole("textbox", { name: "Name" }), where).toBeDisabled();
+          |                                                                    ^
+      252 |   await expectOnlyAllowed(page, `${where} (output sheet)`, stepRow);
+      253 |   await page.screenshot({ path: evidencePath("HEL-1794", `viewer-${label}-${theme}-output.png`) });
+      254 |   await page.keyboard.press("Escape");
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:251:68)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light (output sheet): controls outside the viewer allow-list
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 16
+
+    - Array []
+    + Array [
+    +   "button \"Add schedule\"",
+    +   "button \"Source actions for hel1661-orders\"",
+    +   "button \"Step 1: Compute column, updating on the server\"",
+    +   "button \"+ Add transformation step\"",
+    +   "button \"New output\"",
+    +   "button \"Discard draft\"",
+    +   "input \"Name\"",
+    +   "button[combobox] \"Cell density\"",
+    +   "button \"Add rule\"",
+    +   "a \"Request Beta access (opens in a new tab)\"",
+    +   "a \"Request Beta access (opens in a new tab)\"",
+    +   "button \"Delete\"",
+    +   "button \"Cancel\"",
+    +   "button \"Save\"",
+    + ]
+
+      124 |       `${where}: controls outside the viewer allow-list`,
+      125 |     )
+    > 126 |     .toEqual([]);
+          |      ^
+      127 | }
+      128 |
+      129 | function watchWrites(page: Page): string[] {
+        at expectOnlyAllowed (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:126:6)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:252:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light: write requests during the viewer flow
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "POST /api/pipeline-steps/97b3d66c-1436-4a6d-8184-ed0ad19f1a3b/duplicate",
+    + ]
+
+      256 |
+      257 |   await page.screenshot({ path: evidencePath("HEL-1794", `viewer-${label}-${theme}.png`) });
+    > 258 |   soft(writes, `${where}: write requests during the viewer flow`).toEqual([]);
+          |                                                                   ^
+      259 |   soft(await keptDraft(page), where).toEqual([]);
+      260 | }
+      261 |
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:258:67)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/light
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "helio.pipelineDraft.c9cc8866-1ebb-4cab-aab2-4b31eadd306b",
+    + ]
+
+      257 |   await page.screenshot({ path: evidencePath("HEL-1794", `viewer-${label}-${theme}.png`) });
+      258 |   soft(writes, `${where}: write requests during the viewer flow`).toEqual([]);
+    > 259 |   soft(await keptDraft(page), where).toEqual([]);
+          |                                      ^
+      260 | }
+      261 |
+      262 | async function keptDraft(page: Page): Promise<string[]> {
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:259:38)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Add schedule' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/dark with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Add schedule' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: /^\+ Add (transformation )?step$/ })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/dark with timeout 2000ms
+      - waiting for getByRole('button', { name: /^\+ Add (transformation )?step$/ })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'New output' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/dark with timeout 2000ms
+      - waiting for getByRole('button', { name: 'New output' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Discard draft' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/dark with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Discard draft' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:205:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark (page): controls outside the viewer allow-list
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 7
+
+    - Array []
+    + Array [
+    +   "button \"Add schedule\"",
+    +   "button \"Source actions for hel1661-orders\"",
+    +   "button \"+ Add transformation step\"",
+    +   "button \"New output\"",
+    +   "button \"Discard draft\"",
+    + ]
+
+      124 |       `${where}: controls outside the viewer allow-list`,
+      125 |     )
+    > 126 |     .toEqual([]);
+          |      ^
+      127 | }
+      128 |
+      129 | function watchWrites(page: Page): string[] {
+        at expectOnlyAllowed (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:126:6)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:206:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark: Rename
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('menuitem', { name: 'Rename' })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - phone/dark: Rename with timeout 5000ms
+      - waiting for getByRole('menuitem', { name: 'Rename' })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      179 |     await expect
+      180 |       .soft(page.getByRole("menuitem", { name: item }), `${where}: ${item}`)
+    > 181 |       .toHaveCount(0);
+          |        ^
+      182 |   }
+      183 |   await expect
+      184 |     .soft(page.getByRole("menuitem", { name: /schedule/i }), `${where}: schedule`)
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:181:8)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark: Set schedule
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('menuitem', { name: 'Set schedule' })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - phone/dark: Set schedule with timeout 5000ms
+      - waiting for getByRole('menuitem', { name: 'Set schedule' })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      179 |     await expect
+      180 |       .soft(page.getByRole("menuitem", { name: item }), `${where}: ${item}`)
+    > 181 |       .toHaveCount(0);
+          |        ^
+      182 |   }
+      183 |   await expect
+      184 |     .soft(page.getByRole("menuitem", { name: /schedule/i }), `${where}: schedule`)
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:181:8)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark: Add source
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('menuitem', { name: 'Add source' })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - phone/dark: Add source with timeout 5000ms
+      - waiting for getByRole('menuitem', { name: 'Add source' })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      179 |     await expect
+      180 |       .soft(page.getByRole("menuitem", { name: item }), `${where}: ${item}`)
+    > 181 |       .toHaveCount(0);
+          |        ^
+      182 |   }
+      183 |   await expect
+      184 |     .soft(page.getByRole("menuitem", { name: /schedule/i }), `${where}: schedule`)
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:181:8)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark: schedule
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('menuitem', { name: /schedule/i })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - phone/dark: schedule with timeout 5000ms
+      - waiting for getByRole('menuitem', { name: /schedule/i })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      183 |   await expect
+      184 |     .soft(page.getByRole("menuitem", { name: /schedule/i }), `${where}: schedule`)
+    > 185 |     .toHaveCount(0);
+          |      ^
+      186 |   await expectOnlyAllowed(page, `${where} (menu open)`, stepRow);
+      187 |   await page.keyboard.press("Escape");
+      188 | }
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:185:6)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark (menu open): controls outside the viewer allow-list
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 11
+
+    - Array []
+    + Array [
+    +   "button \"Add schedule\"",
+    +   "button \"Source actions for hel1661-orders\"",
+    +   "button \"+ Add transformation step\"",
+    +   "button \"New output\"",
+    +   "button \"Discard draft\"",
+    +   "button[menuitem] \"Rename\"",
+    +   "button[menuitem] \"Add source\"",
+    +   "button[menuitem] \"Add Outputs from a shape\"",
+    +   "button[menuitem] \"Set schedule\"",
+    + ]
+
+      124 |       `${where}: controls outside the viewer allow-list`,
+      125 |     )
+    > 126 |     .toEqual([]);
+          |      ^
+      127 | }
+      128 |
+      129 | function watchWrites(page: Page): string[] {
+        at expectOnlyAllowed (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:126:6)
+        at checkMenu (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:186:3)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:207:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Add schedule' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/dark (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Add schedule' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: /^\+ Add (transformation )?step$/ })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/dark (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: /^\+ Add (transformation )?step$/ })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'New output' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/dark (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'New output' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Disable step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/dark (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Disable step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Duplicate step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/dark (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Duplicate step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Remove step' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/dark (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Remove step' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('button[aria-label^="Step actions for"]')
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/dark (step open) with timeout 2000ms
+      - waiting for locator('button[aria-label^="Step actions for"]')
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark (step open)
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Discard draft' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/dark (step open) with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Discard draft' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      168 |     page.getByRole("button", { name: "Discard draft" }),
+      169 |   ];
+    > 170 |   for (const locator of absent) await soft(locator, where).toHaveCount(0);
+          |                                                            ^
+      171 | }
+      172 |
+      173 | /** Opens the Pipeline actions menu when the page has one, asserts no edit item, closes it. */
+        at expectNoEditControls (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:170:60)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:213:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark (step open): controls outside the viewer allow-list
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 13
+
+    - Array []
+    + Array [
+    +   "button \"Add schedule\"",
+    +   "button \"Source actions for hel1661-orders\"",
+    +   "button \"+ Add transformation step\"",
+    +   "button \"New output\"",
+    +   "button \"Discard draft\"",
+    +   "button \"Step actions for Compute column\"",
+    +   "button \"Disable step\"",
+    +   "button \"Duplicate step\"",
+    +   "button \"Remove step\"",
+    +   "input \"Output field name\"",
+    +   "input \"Expression\"",
+    + ]
+
+      124 |       `${where}: controls outside the viewer allow-list`,
+      125 |     )
+    > 126 |     .toEqual([]);
+          |      ^
+      127 | }
+      128 |
+      129 | function watchWrites(page: Page): string[] {
+        at expectOnlyAllowed (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:126:6)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:214:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark: the field value is unchanged
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "doublexx"
+    Received: "doublexxxx"
+
+      228 |   await field.fill(`${before}x`, { force: true, timeout: 3_000 }).catch(() => undefined);
+      229 |   await field.press("x", { timeout: 3_000 }).catch(() => undefined);
+    > 230 |   soft(await field.inputValue(), `${where}: the field value is unchanged`).toBe(before);
+          |                                                                            ^
+      231 |   await soft(page.getByRole("button", { name: "Discard draft" }), where).toHaveCount(0);
+      232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+      233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:230:76)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('button', { name: 'Discard draft' })
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/dark with timeout 2000ms
+      - waiting for getByRole('button', { name: 'Discard draft' })
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      229 |   await field.press("x", { timeout: 3_000 }).catch(() => undefined);
+      230 |   soft(await field.inputValue(), `${where}: the field value is unchanged`).toBe(before);
+    > 231 |   await soft(page.getByRole("button", { name: "Discard draft" }), where).toHaveCount(0);
+          |                                                                          ^
+      232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+      233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+      234 |   await soft(page.locator(".spine-row__grip"), where).toHaveCount(0);
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:231:74)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByText('Draft · unsaved changes')
+    Expected: 0
+    Received: 1
+    Timeout:  2000ms
+
+    Call log:
+      - phone/dark with timeout 2000ms
+      - waiting for getByText('Draft · unsaved changes')
+        6 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      230 |   soft(await field.inputValue(), `${where}: the field value is unchanged`).toBe(before);
+      231 |   await soft(page.getByRole("button", { name: "Discard draft" }), where).toHaveCount(0);
+    > 232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+          |                                                                ^
+      233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+      234 |   await soft(page.locator(".spine-row__grip"), where).toHaveCount(0);
+      235 |
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:232:64)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark: no kept draft
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "helio.pipelineDraft.c9cc8866-1ebb-4cab-aab2-4b31eadd306b",
+    + ]
+
+      231 |   await soft(page.getByRole("button", { name: "Discard draft" }), where).toHaveCount(0);
+      232 |   await soft(page.getByText("Draft · unsaved changes"), where).toHaveCount(0);
+    > 233 |   soft(await keptDraftKeys(page), `${where}: no kept draft`).toEqual([]);
+          |                                                              ^
+      234 |   await soft(page.locator(".spine-row__grip"), where).toHaveCount(0);
+      235 |
+      236 |   if (phone) {
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:233:62)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('dialog').getByRole('button', { name: 'Save', exact: true })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - phone/dark with timeout 5000ms
+      - waiting for getByRole('dialog').getByRole('button', { name: 'Save', exact: true })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      245 |   await expect
+      246 |     .soft(dialog.getByRole("button", { name: "Save", exact: true }), where)
+    > 247 |     .toHaveCount(0);
+          |      ^
+      248 |   await expect
+      249 |     .soft(dialog.getByRole("button", { name: "Delete", exact: true }), where)
+      250 |     .toHaveCount(0);
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:247:6)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark
+
+    expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('dialog').getByRole('button', { name: 'Delete', exact: true })
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - phone/dark with timeout 5000ms
+      - waiting for getByRole('dialog').getByRole('button', { name: 'Delete', exact: true })
+        9 × locator resolved to 1 element
+          - unexpected value "1"
+
+
+      248 |   await expect
+      249 |     .soft(dialog.getByRole("button", { name: "Delete", exact: true }), where)
+    > 250 |     .toHaveCount(0);
+          |      ^
+      251 |   await soft(dialog.getByRole("textbox", { name: "Name" }), where).toBeDisabled();
+      252 |   await expectOnlyAllowed(page, `${where} (output sheet)`, stepRow);
+      253 |   await page.screenshot({ path: evidencePath("HEL-1794", `viewer-${label}-${theme}-output.png`) });
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:250:6)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark
+
+    expect(locator).toBeDisabled() failed
+
+    Locator:  getByRole('dialog').getByRole('textbox', { name: 'Name' })
+    Expected: disabled
+    Received: enabled
+    Timeout:  2000ms
+
+    Call log:
+      - phone/dark with timeout 2000ms
+      - waiting for getByRole('dialog').getByRole('textbox', { name: 'Name' })
+        6 × locator resolved to <input type="text" class="ui-input" id="output-name" value="hel1661-out" placeholder="Untitled output"/>
+          - unexpected value "enabled"
+
+
+      249 |     .soft(dialog.getByRole("button", { name: "Delete", exact: true }), where)
+      250 |     .toHaveCount(0);
+    > 251 |   await soft(dialog.getByRole("textbox", { name: "Name" }), where).toBeDisabled();
+          |                                                                    ^
+      252 |   await expectOnlyAllowed(page, `${where} (output sheet)`, stepRow);
+      253 |   await page.screenshot({ path: evidencePath("HEL-1794", `viewer-${label}-${theme}-output.png`) });
+      254 |   await page.keyboard.press("Escape");
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:251:68)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark (output sheet): controls outside the viewer allow-list
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 16
+
+    - Array []
+    + Array [
+    +   "button \"Add schedule\"",
+    +   "button \"Source actions for hel1661-orders\"",
+    +   "button \"Step 2: Compute column, an earlier step has an error, showing its last result\"",
+    +   "button \"+ Add transformation step\"",
+    +   "button \"New output\"",
+    +   "button \"Discard draft\"",
+    +   "input \"Name\"",
+    +   "button[combobox] \"Cell density\"",
+    +   "button \"Add rule\"",
+    +   "a \"Request Beta access (opens in a new tab)\"",
+    +   "a \"Request Beta access (opens in a new tab)\"",
+    +   "button \"Delete\"",
+    +   "button \"Cancel\"",
+    +   "button \"Save\"",
+    + ]
+
+      124 |       `${where}: controls outside the viewer allow-list`,
+      125 |     )
+    > 126 |     .toEqual([]);
+          |      ^
+      127 | }
+      128 |
+      129 | function watchWrites(page: Page): string[] {
+        at expectOnlyAllowed (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:126:6)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:252:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: phone/dark
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "helio.pipelineDraft.c9cc8866-1ebb-4cab-aab2-4b31eadd306b",
+    + ]
+
+      257 |   await page.screenshot({ path: evidencePath("HEL-1794", `viewer-${label}-${theme}.png`) });
+      258 |   soft(writes, `${where}: write requests during the viewer flow`).toEqual([]);
+    > 259 |   soft(await keptDraft(page), where).toEqual([]);
+          |                                      ^
+      260 | }
+      261 |
+      262 | async function keptDraft(page: Page): Promise<string[]> {
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:259:38)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error Context: test-results/hel1794-viewer-read-only-H-451b6-est-no-draft-light-and-dark-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1794-viewer-read-only-H-451b6-est-no-draft-light-and-dark-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1794-viewer-read-only-H-451b6-est-no-draft-light-and-dark-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[3/3] [dev] › e2e/hel1794-viewer-read-only.spec.ts:301:7 › HEL-1794 viewer read-only pipeline page (live) › editor keeps every edit control on desktop and phone, and typing creates a draft
+[dev] › e2e/hel1794-viewer-read-only.spec.ts:301:7 › HEL-1794 viewer read-only pipeline page (live) › editor keeps every edit control on desktop and phone, and typing creates a draft
+[HEL-1300 e2e] throwaway user: hel1794-owner-editor-1795461670434-45287@example.test
+
+[HEL-1300 e2e] throwaway user: hel1661-editor-control-1795461672540-62463@example.test
+
+[HEL-1300 e2e] throwaway user: hel1661-viewer-control-1795461672868-76579@example.test
+
+userCleanup: removed 0 of 9 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 9 recorded throwaway user(s)
+  2 failed
+    [dev] › e2e/hel1794-viewer-read-only.spec.ts:271:9 › HEL-1794 viewer read-only pipeline page (live) › viewer on desktop: no edit control, no write request, no draft, light and dark 
+    [dev] › e2e/hel1794-viewer-read-only.spec.ts:271:9 › HEL-1794 viewer read-only pipeline page (live) › viewer on phone: no edit control, no write request, no draft, light and dark 
+  1 passed (5.0m)

@@ -10,7 +10,7 @@
 // own files beside this one. This file keeps the top-level fields and the
 // save/create/delete lifecycle.
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 
 import { AskPanel } from "../../../ask/ui/AskPanel";
 import { Modal, Select, TextField } from "../../../../shared/ui/index";
@@ -80,6 +80,8 @@ interface OutputEditorSheetProps {
   /** HEL-1744: the signed-in user owns this pipeline (never "created the Output"). With the free tier it shows the insight
    *  card's upsell, since renders are charged to the pipeline owner. Omitted in contexts that do not know: no upsell. */
   isPipelineOwner?: boolean;
+  /** HEL-1794: a viewer (or a role not yet known): the fields are disabled, the footer is "Close" only, the title does not say "Edit". */
+  readOnly?: boolean;
 }
 
 export function OutputEditorSheet({
@@ -94,6 +96,7 @@ export function OutputEditorSheet({
   actions,
   draft,
   isPipelineOwner = false,
+  readOnly = false,
 }: OutputEditorSheetProps) {
   const immediate = useOutputImmediateActions(pipelineId);
   const write = actions ?? immediate;
@@ -285,14 +288,31 @@ export function OutputEditorSheet({
     }
   }
 
+  // HEL-1794: a viewer sees the same fields inside a disabled fieldset (full-strength values, default cursor).
+  const readOnlyFence = (children: ReactNode) =>
+    readOnly ? (
+      <fieldset className="output-editor-sheet__fieldset output-editor-sheet--readonly" disabled>
+        {children}
+      </fieldset>
+    ) : (
+      children
+    );
+
   return (
     <Modal
-      title={isCreate ? "New output" : `Edit ${output?.name ?? "output"}`}
+      title={
+        readOnly
+          ? (output?.name ?? "Output")
+          : isCreate
+            ? "New output"
+            : `Edit ${output?.name ?? "output"}`
+      }
       open={open}
       onClose={onClose}
       size="lg"
       footer={
         <OutputEditorFooter
+          readOnly={readOnly}
           isCreate={isCreate}
           confirmingDelete={confirmingDelete}
           onDeleteClick={() => (confirmingDelete ? void handleDelete() : setConfirmingDelete(true))}
@@ -311,95 +331,101 @@ export function OutputEditorSheet({
         />
       }
     >
-      <div className="output-editor-sheet__group">
-        <div className="output-editor-sheet__data-section">
-          <label className="output-editor-sheet__data-label" htmlFor="output-name">
-            Name
-          </label>
-          <TextField
-            id="output-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Untitled output"
-          />
-        </div>
+      {readOnlyFence(
+        <>
+          <div className="output-editor-sheet__group">
+            <div className="output-editor-sheet__data-section">
+              <label className="output-editor-sheet__data-label" htmlFor="output-name">
+                Name
+              </label>
+              <TextField
+                id="output-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Untitled output"
+              />
+            </div>
 
-        {isCreate && (
-          <div className="output-editor-sheet__data-section">
-            <label className="output-editor-sheet__data-label" htmlFor="output-step">
-              Step
-            </label>
-            <Select
-              id="output-step"
-              ariaLabel="Target step"
-              value={nodeStepId ?? ""}
-              onChange={(v) => {
-                const next = v === "" ? undefined : v;
-                setNodeStepId(next);
-                draft?.onNodeChange(next);
-              }}
-              options={stepOptions}
-            />
-            {needsStepPick && <p className="output-editor-sheet__field-hint">{PICK_STEP_HINT}</p>}
+            {isCreate && (
+              <div className="output-editor-sheet__data-section">
+                <label className="output-editor-sheet__data-label" htmlFor="output-step">
+                  Step
+                </label>
+                <Select
+                  id="output-step"
+                  ariaLabel="Target step"
+                  value={nodeStepId ?? ""}
+                  onChange={(v) => {
+                    const next = v === "" ? undefined : v;
+                    setNodeStepId(next);
+                    draft?.onNodeChange(next);
+                  }}
+                  options={stepOptions}
+                />
+                {needsStepPick && (
+                  <p className="output-editor-sheet__field-hint">{PICK_STEP_HINT}</p>
+                )}
+              </div>
+            )}
+
+            <div className="output-editor-sheet__data-section">
+              <label className="output-editor-sheet__data-label" htmlFor="output-kind">
+                Kind
+              </label>
+              <Select
+                id="output-kind"
+                ariaLabel="Output kind"
+                value={kind}
+                onChange={(v) => setKind(v as OutputKind)}
+                options={CREATABLE_KIND_OPTIONS}
+                disabled={!isCreate}
+                ariaDescribedBy={isCreate ? undefined : kindHintId}
+              />
+              {!isCreate && (
+                <p id={kindHintId} className="output-editor-sheet__field-hint">
+                  An Output&apos;s kind can&apos;t be changed after it&apos;s created. Create a new
+                  Output for a different kind.
+                </p>
+              )}
+            </div>
+            {hint !== null && (
+              <p className="output-editor-sheet__draft-hint" role="status">
+                {hint}
+              </p>
+            )}
           </div>
-        )}
 
-        <div className="output-editor-sheet__data-section">
-          <label className="output-editor-sheet__data-label" htmlFor="output-kind">
-            Kind
-          </label>
-          <Select
-            id="output-kind"
-            ariaLabel="Output kind"
-            value={kind}
-            onChange={(v) => setKind(v as OutputKind)}
-            options={CREATABLE_KIND_OPTIONS}
-            disabled={!isCreate}
-            ariaDescribedBy={isCreate ? undefined : kindHintId}
+          <OutputKindConfigCard
+            kind={kind}
+            kindState={kindState}
+            aggFieldOptions={aggFieldOptions}
+            fieldOptions={fieldOptions}
+            numericColumns={numericColumns}
+            insight={
+              kind === "insight"
+                ? {
+                    candidates: insightCandidates,
+                    node: insightNode,
+                    showUpsell: isPipelineOwner && tier === "free",
+                    tooMany: insightTooMany,
+                  }
+                : undefined
+            }
           />
-          {!isCreate && (
-            <p id={kindHintId} className="output-editor-sheet__field-hint">
-              An Output&apos;s kind can&apos;t be changed after it&apos;s created. Create a new
-              Output for a different kind.
-            </p>
+
+          {/* An insight has no row payload to store (HEL-1740: its config accepts no `historyPayloads`). */}
+          {!isCreate && kind !== "insight" && (
+            <div className="output-editor-sheet__group output-editor-sheet__group--card">
+              <h3 className="output-editor-sheet__edit-section-heading">History</h3>
+              <HistoryPayloadsField
+                checked={historyPayloads}
+                onChange={setHistoryPayloads}
+                available={output?.historyPayloadsAvailable === true}
+                limits={output?.historyPayloadLimits}
+              />
+            </div>
           )}
-        </div>
-        {hint !== null && (
-          <p className="output-editor-sheet__draft-hint" role="status">
-            {hint}
-          </p>
-        )}
-      </div>
-
-      <OutputKindConfigCard
-        kind={kind}
-        kindState={kindState}
-        aggFieldOptions={aggFieldOptions}
-        fieldOptions={fieldOptions}
-        numericColumns={numericColumns}
-        insight={
-          kind === "insight"
-            ? {
-                candidates: insightCandidates,
-                node: insightNode,
-                showUpsell: isPipelineOwner && tier === "free",
-                tooMany: insightTooMany,
-              }
-            : undefined
-        }
-      />
-
-      {/* An insight has no row payload to store (HEL-1740: its config accepts no `historyPayloads`). */}
-      {!isCreate && kind !== "insight" && (
-        <div className="output-editor-sheet__group output-editor-sheet__group--card">
-          <h3 className="output-editor-sheet__edit-section-heading">History</h3>
-          <HistoryPayloadsField
-            checked={historyPayloads}
-            onChange={setHistoryPayloads}
-            available={output?.historyPayloadsAvailable === true}
-            limits={output?.historyPayloadLimits}
-          />
-        </div>
+        </>,
       )}
 
       <OutputSheetPreviewCard
@@ -409,6 +435,7 @@ export function OutputEditorSheet({
         neverMaterialized={neverMaterialized}
         fieldTypes={previewFieldTypes}
         onRunPipeline={onRunPipeline}
+        readOnly={readOnly}
       />
 
       {/* HEL-1746: only an Output with a saved server row can be asked about (never create mode, never a draft Output whose

@@ -12,10 +12,13 @@ export function SpineStatusStrip({
   costVerdict,
   onRunToUpdate,
   truncationNotice,
+  canRun = true,
 }: {
   costVerdict: CostVerdict | null;
   onRunToUpdate: () => void;
   truncationNotice: string | null;
+  /** HEL-1794: "Run to update" is a run entry; a viewer (and a not-yet-known role) is not offered it. */
+  canRun?: boolean;
 }) {
   const denied = costVerdict !== null && !costVerdict.autoRunnable;
   if (!denied && truncationNotice === null) return null;
@@ -28,7 +31,7 @@ export function SpineStatusStrip({
           <span id={DENIAL_REASON_ID} className="spine-strip__denial-text">
             {[...new Set(costVerdict.reasons.map(denyReasonCopy))].join(" ")}
           </span>
-          {costVerdict.canRun && (
+          {costVerdict.canRun && canRun && (
             <button
               type="button"
               className="spine-header__btn"

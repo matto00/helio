@@ -41,6 +41,7 @@ const EXPECTED_KEYS: string[] = [
   "allOutputs",
   "analyzeSourceSchemas",
   "baseSteps",
+  "canEdit",
   "closeRunHistory",
   "confirmCancelDiscard",
   "costVerdict",

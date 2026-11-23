@@ -57,6 +57,7 @@ interface HarnessProps {
   /** Models the CR2 guard / a failed PUT: the reorder resolves without changing the steps. */
   refuse?: boolean;
   onReorderSteps?: (order: Step[]) => void;
+  canEdit?: boolean;
 }
 
 /** Mirrors the page: applies a reorder optimistically, like `handleReorderSteps`. */
@@ -67,6 +68,7 @@ function Harness({
   getAnalyzeWarnings = () => [],
   refuse = false,
   onReorderSteps,
+  canEdit,
 }: HarnessProps) {
   const [steps, setSteps] = useState<Step[]>(initialSteps);
   const laneGraph = useMemo(() => buildLaneGraph(steps, roots), [steps, roots]);
@@ -113,6 +115,7 @@ function Harness({
         onAddOutput={jest.fn()}
         onOpenOutput={jest.fn()}
         onOpenOutputHistory={jest.fn()}
+        canEdit={canEdit}
       />
       {actions.dialogs}
       <button type="button" onClick={() => setSteps((prev) => prev.map((s) => ({ ...s })))}>
@@ -435,5 +438,22 @@ describe("PipelineSpine (phone) -- source sample labels are scoped to the pipeli
     jest.spyOn(sampleAccess, "useSourceSampleAccess").mockReturnValue("yes");
     renderWithStore(<Harness initialSteps={[]} variant="phone" />, { sources } as never);
     expect(screen.getByRole("button", { name: "Refresh sample of Shipments" })).toBeInTheDocument();
+  });
+});
+
+// ---- HEL-1794: the viewer's per-root empty line --------------------------------------------------------------
+
+describe("PipelineSpine -- a source with no steps (HEL-1794)", () => {
+  const onlyFirstRoot = [step("a1", "filter", "Only step", { rootId: "root-1", position: 0 })];
+
+  it("tells an editor to join the source, and a viewer only that no step uses it", () => {
+    const { unmount } = renderWithStore(<Harness initialSteps={onlyFirstRoot} canEdit />);
+    expect(
+      screen.getByText("No steps yet — join this source into another lane's step to use it."),
+    ).toBeVisible();
+    unmount();
+    renderWithStore(<Harness initialSteps={onlyFirstRoot} canEdit={false} />);
+    expect(screen.getByText("No steps use this source yet.")).toBeVisible();
+    expect(screen.queryByText(/join this source/)).toBeNull();
   });
 });

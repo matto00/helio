@@ -3,6 +3,7 @@
 
 import type { ChartFieldTypes } from "../../../../utils/chartTimeAxis";
 import type { OutputKind, RunResult } from "../../types/output";
+import { VIEWER_COPY, copyFor } from "../viewerCopy";
 import { OutputPreviewPane } from "./OutputPreviewPane";
 import type { OutputKindState } from "./useOutputKindState";
 
@@ -14,6 +15,8 @@ interface OutputSheetPreviewCardProps {
   /** HEL-1305: the node's column types, so the preview plots a timestamp x like the dashboard. */
   fieldTypes?: ChartFieldTypes | null;
   onRunPipeline?: () => void;
+  /** HEL-1794: the never-run paragraph does not invite a viewer to run the pipeline. */
+  readOnly?: boolean;
 }
 
 export function OutputSheetPreviewCard({
@@ -23,6 +26,7 @@ export function OutputSheetPreviewCard({
   neverMaterialized,
   fieldTypes,
   onRunPipeline,
+  readOnly = false,
 }: OutputSheetPreviewCardProps) {
   const {
     chartType,
@@ -55,8 +59,7 @@ export function OutputSheetPreviewCard({
         // empty result (that case renders no banner at all).
         <div className="output-editor-sheet__data-section" role="status">
           <p className="output-editor-sheet__field-hint">
-            This output hasn&rsquo;t been included in a saved run yet, so any dashboard panel bound
-            to it currently shows &ldquo;No data available.&rdquo; Run the pipeline to populate it.
+            {copyFor(VIEWER_COPY.outputNeverRun, !readOnly)}
           </p>
           {onRunPipeline && (
             <button

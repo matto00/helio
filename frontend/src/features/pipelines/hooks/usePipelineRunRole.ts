@@ -30,6 +30,14 @@ export function runRoleOf({ isOwner, callerRole, analyzeStatus }: RunRoleInput):
 export const canRunFromUi = (role: PipelineRunRole): boolean =>
   role === "owner" || role === "editor";
 
+/**
+ * HEL-1794 (design.md D1): an edit affordance (and a client-only draft) is offered to these roles only. The same set as
+ * `canRunFromUi` today, under its own name so the two can diverge in one line. `pending` is not editable: a viewer must never see
+ * an edit control appear and vanish.
+ */
+export const canEditFromUi = (role: PipelineRunRole): boolean =>
+  role === "owner" || role === "editor";
+
 export function usePipelineRunRole(
   pipelineId: string | undefined,
   isOwner: boolean,

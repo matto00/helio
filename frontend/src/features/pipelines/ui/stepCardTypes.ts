@@ -36,4 +36,6 @@ export interface FocusedStepCardProps {
   structuralBlockedReason?: string | null;
   /** HEL-1631: the draft preview's error for this step (the evaluator's own message), shown with the step's other errors. */
   draftPreviewError?: string | null;
+  /** HEL-1794: a viewer (or a role not yet known): no Disable/Duplicate/Remove, and the configuration is shown disabled. */
+  readOnly?: boolean;
 }

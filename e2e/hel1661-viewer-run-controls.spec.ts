@@ -78,7 +78,14 @@ test.describe("HEL-1661 viewer run controls (live)", () => {
       await openPipeline(who.page, pipelineId, "light", DESKTOP);
       await who.page.getByRole("button", { name: `Open ${OUTPUT_NAME} output` }).click();
       const dialog = who.page.getByRole("dialog");
-      await expect(dialog.getByText("hasn’t been included in a saved run yet")).toBeVisible();
+      // HEL-1794: a viewer's paragraph does not invite a run; an editor's keeps the "Run the pipeline" line.
+      await expect(
+        dialog.getByText(
+          who === viewer
+            ? "This Output has no rows yet"
+            : "hasn’t been included in a saved run yet",
+        ),
+      ).toBeVisible();
       await expect(dialog.getByRole("button", { name: "Run pipeline" })).toHaveCount(expected);
     }
     await editor.context.close();

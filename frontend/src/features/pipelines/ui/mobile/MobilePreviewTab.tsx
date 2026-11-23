@@ -13,6 +13,7 @@ import type { LaneGraph } from "../../state/stepTree";
 import type { PipelineRoot } from "../../types/pipelineStep";
 import type { PipelinePageState } from "../spine/PipelineSpineLayout";
 import { StepPreviewTable } from "../spine/StepPreviewTable";
+import { VIEWER_COPY, copyFor } from "../viewerCopy";
 import { LiveOutputColumn } from "../liveOutput/LiveOutputColumn";
 
 /** The step the tab previews until the user picks another: the last step of the first source's trunk, else the first step. */
@@ -71,7 +72,7 @@ export function MobilePreviewTab({
         variant="main"
         icon={<GitBranch />}
         title="Nothing to preview yet"
-        description="Add a step on the Steps tab to see the rows it produces."
+        description={copyFor(VIEWER_COPY.previewNoSteps, page.canEdit)}
       />
     );
   }

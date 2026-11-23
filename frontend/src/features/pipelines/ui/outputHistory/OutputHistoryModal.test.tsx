@@ -119,6 +119,20 @@ describe("OutputHistoryModal (HEL-1277)", () => {
     expect(document.body.textContent).not.toMatch(/previous run/i);
   });
 
+  it("a viewer's empty history does not invite a run (HEL-1794)", async () => {
+    fetchHistory.mockResolvedValue(history([]));
+    renderWithStore(<OutputHistoryModal output={makeOutput()} onClose={jest.fn()} readOnly />);
+    expect(await screen.findByText("No history recorded yet.")).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/Run the pipeline/);
+  });
+
+  it("an editor's empty history still says to run the pipeline (HEL-1794)", async () => {
+    render([]);
+    expect(
+      await screen.findByText("Run the pipeline to start recording this Output's history."),
+    ).toBeInTheDocument();
+  });
+
   it("renders a visible error when the history request fails", async () => {
     fetchHistory.mockRejectedValue(new Error("boom"));
     renderWithStore(<OutputHistoryModal output={makeOutput()} onClose={jest.fn()} />);

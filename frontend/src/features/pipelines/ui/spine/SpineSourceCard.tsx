@@ -28,6 +28,8 @@ interface SpineSourceCardProps {
   canRemove: boolean;
   onEditSource: (sourceId: string) => void;
   onRemoveRoot: (rootId: string) => void;
+  /** HEL-1794: a viewer (or a role not yet known) gets no menu and no "Edit source" name button. */
+  readOnly?: boolean;
 }
 
 // HEL-1809: memoised; its props keep their identity across a step edit, so the card skips the edit's render.
@@ -40,6 +42,7 @@ export const SpineSourceCard = memo(function SpineSourceCard({
   canRemove,
   onEditSource,
   onRemoveRoot,
+  readOnly = false,
 }: SpineSourceCardProps) {
   // HEL-1668: the sample label already says "Static · 30 rows" for a static source, so the kind meta is dropped
   // only when the rendered label text starts with the kind (loading / unavailable / truncated keep it).
@@ -76,7 +79,7 @@ export const SpineSourceCard = memo(function SpineSourceCard({
       data-draft-root={isDraftClientId(root.id) ? "true" : undefined}
     >
       <div className="spine-card__text">
-        {variant === "phone" && source ? (
+        {variant === "phone" && source && !readOnly ? (
           // The button itself must not clip (overflow would cut off its hit expander); the name inside ellipsizes.
           <button
             type="button"
@@ -98,9 +101,11 @@ export const SpineSourceCard = memo(function SpineSourceCard({
           pipelineId={pipelineId}
         />
       </div>
-      <div className="spine-card__menu">
-        <ActionsMenu label={`Source actions for ${root.dataSourceName}`} items={items} />
-      </div>
+      {!readOnly && (
+        <div className="spine-card__menu">
+          <ActionsMenu label={`Source actions for ${root.dataSourceName}`} items={items} />
+        </div>
+      )}
     </div>
   );
 });

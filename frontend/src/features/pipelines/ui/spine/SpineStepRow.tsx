@@ -249,7 +249,7 @@ function SpineStepRowView({
           <ChevronRight className="spine-row__chevron" aria-hidden="true" size={ICON_SIZE.sm} />
         )}
       </button>
-      {!phone && (
+      {!phone && menuItems.length > 0 && (
         <div className="spine-row__menu">
           <ActionsMenu label={`Step actions for ${step.label}`} items={menuItems} />
         </div>

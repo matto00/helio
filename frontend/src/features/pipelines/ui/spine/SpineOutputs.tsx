@@ -30,6 +30,8 @@ export interface SpineOutputsProps {
   blockedReason?: string | null;
   /** HEL-1733: Output ids the draft edited ("Edited"); a created one reads "New · not saved". */
   editedOutputIds?: ReadonlySet<string>;
+  /** HEL-1794: a viewer (or a role not yet known) is offered no "New output". */
+  readOnly?: boolean;
 }
 
 function SpineOutputsView({
@@ -42,6 +44,7 @@ function SpineOutputsView({
   onAddOutput,
   blockedReason = null,
   editedOutputIds,
+  readOnly = false,
 }: SpineOutputsProps) {
   const phone = variant === "phone";
   const stepLabelById = new Map(steps.map((s) => [s.id, s.label]));
@@ -101,16 +104,18 @@ function SpineOutputsView({
           </li>
         ))}
       </ul>
-      <button
-        type="button"
-        className="spine-ghost-btn"
-        aria-label="New output"
-        disabled={blockedReason !== null}
-        title={blockedReason ?? undefined}
-        onClick={onAddOutput}
-      >
-        + Output
-      </button>
+      {!readOnly && (
+        <button
+          type="button"
+          className="spine-ghost-btn"
+          aria-label="New output"
+          disabled={blockedReason !== null}
+          title={blockedReason ?? undefined}
+          onClick={onAddOutput}
+        >
+          + Output
+        </button>
+      )}
     </section>
   );
 }
@@ -156,6 +161,7 @@ const OUTPUTS_COMPARERS: OutputsComparers = {
   onAddOutput: is,
   blockedReason: is,
   editedOutputIds: sameIds,
+  readOnly: is,
 };
 
 /**

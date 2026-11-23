@@ -19,6 +19,7 @@ import {
   type OutputPick,
 } from "../../state/liveOutput/resolveDisplayedOutput";
 import type { PipelinePageState } from "../spine/PipelineSpineLayout";
+import { VIEWER_COPY, copyFor } from "../viewerCopy";
 import { LiveOutputBody } from "./LiveOutputBody";
 import "./LiveOutputColumn.css";
 
@@ -188,7 +189,9 @@ const LiveOutputColumnView = memo(function LiveOutputColumnView({
     return (
       <section className={`live-output live-output--${layout}`} aria-label="Live Output">
         <header className="live-output__header">{eyebrow}</header>
-        {open && <p className="live-output__hint">No Output yet. Add one from the spine.</p>}
+        {open && (
+          <p className="live-output__hint">{copyFor(VIEWER_COPY.liveNoOutput, page.canEdit)}</p>
+        )}
       </section>
     );
   }

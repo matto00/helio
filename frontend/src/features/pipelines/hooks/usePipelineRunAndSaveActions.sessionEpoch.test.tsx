@@ -35,6 +35,7 @@ function setup() {
         isDirty: false,
         setIsConfirmingCancel: jest.fn(),
         runRole: "owner",
+        canEdit: true,
       }),
     { wrapper },
   );

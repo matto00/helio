@@ -1,0 +1,50 @@
+# red-jest.txt: HEL-1794 red jest run on the inert stubs (C15). Zero compile/tsc failures ("failed to run": 0).
+
+FAIL src/features/pipelines/ui/spine/SpineOutputs.memoComparators.test.tsx
+FAIL src/features/pipelines/hooks/usePipelineDraftRouting.viewer.test.tsx
+FAIL src/features/pipelines/hooks/usePipelineDraft.viewer.test.tsx
+FAIL src/features/pipelines/hooks/usePipelineRunRole.canEdit.test.ts
+FAIL src/features/pipelines/ui/spine/PipelineSpineLayout.viewerReadOnly.test.tsx (5.181 s)
+FAIL src/features/pipelines/ui/mobile/PipelineMobileLayout.viewerReadOnly.test.tsx (5.35 s)
+Test Suites: 6 failed, 6 total
+Tests:       13 failed, 16 passed, 29 total
+
+- SpineOutputs readOnly (HEL-1794) › flipping readOnly removes and restores New output (a role flip reaches the DOM)
+    expect(received).toBeNull()
+    > 117 |     expect(screen.queryByRole("button", { name: "New output" })).toBeNull();
+- usePipelineDraftRouting with editable: false (hasDraft false) › fires no write and records no op for any edit handler
+    expect(received).toEqual(expected) // deep equality
+    > 87 |       ).toEqual(
+- usePipelineDraftRouting with editable: false (hasDraft true) › fires no write and records no op for any edit handler
+    expect(received).toEqual(expected) // deep equality
+    > 87 |       ).toEqual(
+- usePipelineDraft with editable: false › every mutator leaves hasDraft false and writes no kept draft
+    expect(received).toBe(expected) // Object.is equality
+    > 50 |     expect(result.current.hasDraft).toBe(false);
+- canEditFromUi › viewer -> false
+    expect(received).toBe(expected) // Object.is equality
+    > 12 |     expect(canEditFromUi(role)).toBe(expected);
+- canEditFromUi › pending -> false
+    expect(received).toBe(expected) // Object.is equality
+    > 12 |     expect(canEditFromUi(role)).toBe(expected);
+- desktop edit affordances by caller role › a viewer sees no edit control on the page, in the step editor or in the actions menu
+    expect(received).toBeNull()
+    > 115 |     for (const name of EDIT_CONTROLS) expect(q(name)).toBeNull();
+- desktop edit affordances by caller role › a viewer cannot create a draft: a change event on a configuration field records nothing
+    expect(received).toBeNull()
+    > 137 |     expect(q("Discard draft")).toBeNull();
+- desktop edit affordances by caller role › while the role is unknown (pending) no edit control is offered either
+    expect(received).toBeNull()
+    > 147 |     for (const name of EDIT_CONTROLS) expect(q(name)).toBeNull();
+- desktop viewer copy › an empty pipeline says nothing that invites an edit to a viewer, and still does to an editor
+    Unable to find an element with the text: No transformation steps yet.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+    > 182 |     expect(await screen.findByText("No transformation steps yet.")).toBeVisible();
+- a viewer opening an Output › sees the preview with disabled fields, no Save/Delete, a Close button, and no 'Edit' title
+    expect(received).toBeNull()
+    > 209 |     expect(within(dialog).queryByRole("button", { name: "Save" })).toBeNull();
+- phone edit affordances by caller role › a viewer: no menu, no schedule chip, no add/new controls, and a read-only step sheet
+    expect(received).toBeNull()
+    >  98 |       expect(q(name)).toBeNull();
+- phone edit affordances by caller role › a viewer cannot create a draft from the sheet's fields
+    expect(received).toBeNull()
+    > 124 |     expect(q("Discard draft")).toBeNull();

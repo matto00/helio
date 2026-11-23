@@ -108,3 +108,14 @@ describe("SpineOutputs comparator: a changed value always reaches the DOM (HEL-1
     expect(first).not.toHaveBeenCalled();
   });
 });
+
+describe("SpineOutputs readOnly (HEL-1794)", () => {
+  it("flipping readOnly removes and restores New output (a role flip reaches the DOM)", () => {
+    const { rerender } = render(<SpineOutputs {...props()} readOnly={false} />);
+    expect(screen.getByRole("button", { name: "New output" })).toBeVisible();
+    rerender(<SpineOutputs {...props()} readOnly />);
+    expect(screen.queryByRole("button", { name: "New output" })).toBeNull();
+    rerender(<SpineOutputs {...props()} readOnly={false} />);
+    expect(screen.getByRole("button", { name: "New output" })).toBeVisible();
+  });
+});

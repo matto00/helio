@@ -365,3 +365,23 @@
   font-weight: var(--weight-semibold);
   color: var(--app-text-muted);
 }
+
+/* HEL-1794: a viewer opens the Output with every field inside a disabled fieldset. Reset the fieldset's own box and keep the values
+   at full strength (the shared disabled recipe dims them to 0.55) with a plain cursor; existing tokens only. */
+.output-editor-sheet__fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.output-editor-sheet--readonly {
+  cursor: default;
+}
+
+.output-editor-sheet--readonly .ui-input:disabled,
+.output-editor-sheet--readonly .ui-select__trigger:disabled,
+.output-editor-sheet--readonly .ui-textarea:disabled {
+  opacity: 1;
+  cursor: default;
+}

@@ -49,7 +49,14 @@ function setup(hasDraft: boolean, roots: PipelineRoot[] = [root("r1")]) {
     outputActionsNow: { create: jest.fn(), update: jest.fn(), remove: jest.fn() },
   };
   const { result } = renderHook(() =>
-    usePipelineDraftRouting({ draft, roots, draftSteps: steps, sources: SOURCES, handlers }),
+    usePipelineDraftRouting({
+      draft,
+      roots,
+      draftSteps: steps,
+      sources: SOURCES,
+      handlers,
+      editable: true,
+    }),
   );
   return { draft, handlers, routed: result.current };
 }
