@@ -526,6 +526,32 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       executor.proposeValidationFailures shouldBe 0
     }
 
+    // HEL-1727: an oversized remote error body from the propose-time schema fetch is capped before it becomes the
+    // `is_error` tool_result the model reads back.
+    "bound the is_error tool_result when the dry-run schema fetch fails with an oversized remote body" in {
+      val config         = restConfig()
+      val sourceServiceM = mock(classOf[SourceService])
+      when(sourceServiceM.testRest(config, user)).thenReturn(Future.successful(Right(TestConnectionResponse(ok = true, error = None))))
+      when(sourceServiceM.dryRunRestSchema(any[CreateSourceRequest](), any[AuthenticatedUser](), any[() => Either[ServiceError, Unit]]()))
+        .thenReturn(Future.successful(Right(SourceService.InlineDryRunSchema(Vector.empty, Some("HTTP 500: " + ("x" * 100000))))))
+      val realPipeline = new PipelineProposalService(sourceServiceM, null, null, null, null, null, SourceFetchBudget.default())
+      val executor     = newExecutor(sourceService = sourceServiceM, pipelineProposalServiceOverride = realPipeline)
+
+      await(executor.execute("test_connection", JsObject("type" -> JsString("rest_api"), "config" -> executorJson.restApiConfigPayloadFormat.write(config))))
+
+      val chart = CreatePipelineTransactionalOutputRequest(
+        None, "chart", "Out", Some("""{"chartType":"bar","fieldMapping":{"xAxis":"x","yAxis":"y"}}""".parseJson.asJsObject), None
+      )
+      val proposal = pipelineProposalWith(inlineRestSource(config)).copy(outputs = Vector(chart))
+      val result   = await(executor.execute("propose_pipeline", executorJson.pipelineProposalFormat.write(proposal)))
+
+      result shouldBe a[Left[_, _]]
+      val content = result.left.toOption.get
+      content should include("could not read the source schema")
+      content should include("[truncated]")
+      content.length should be < 1500
+    }
+
     "let propose_combined proceed to validate after a prior test_connection success for the identical sql config" in {
       val config         = sqlConfig()
       val sourceServiceM = mock(classOf[SourceService])

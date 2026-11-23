@@ -1,0 +1,9 @@
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRootDryRun.scala` — `capFetchError` (500 code points + marker) applied to every inline root's fetch error
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineProposalService.scala` — dry run: preflight before the charged root fetches, checkOutputs after; doc comment
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineCreateDryRun.scala` — removed the now-unused `check`; doc comment states the call order
+- `helio-mcp/src/tools/pipelineProposal.ts` — `propose_pipeline` description matches the dry run (source only, no deploy)
+- `helio-mcp/src/tools/proposePipelineDescription.test.ts` — description test
+- `backend/src/test/scala/com/helio/services/pipelines/ProposalDryRunFetchHardeningSpec.scala` — cap and check-order specs
+- `backend/src/test/scala/com/helio/services/pipelines/ProposalDryRunEgressGuardSpec.scala` — SSRF guard pin on the dry-run fetch (loopback server)
+- `backend/src/test/scala/com/helio/services/assistant/AssistantToolExecutorSpec.scala` — bounded is_error tool result
+- `openspec/changes/harden-proposal-dryrun-fetch/evidence/*.txt` — red, green and mutation run output

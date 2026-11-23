@@ -28,7 +28,7 @@ private[services] final class PipelineRootDryRun(
   def rootSchema(spec: Spec, address: String, user: AuthenticatedUser, chargeFetches: Boolean, notFound: String, inlineCsv: ServiceError): Future[Either[ServiceError, Root]] = {
     val beforeFetch: () => Either[ServiceError, Unit] = () => if (chargeFetches) sourceFetchBudget.charge(user) else Right(())
     def inline(r: Either[ServiceError, SourceService.InlineDryRunSchema]): Either[ServiceError, Root] =
-      r.map(x => Root(x.schema, x.fetchError))
+      r.map(x => Root(x.schema, x.fetchError.map(capFetchError)))
     spec match {
       case Spec.Existing(id) =>
         dataSourceRepo.findByIdOwned(DataSourceId(id), user).map {
@@ -57,6 +57,20 @@ private[services] object PipelineRootDryRun {
   /** One root's schema as apply would persist it; `fetchError` is set when an inline rest/sql fetch failed (apply keeps the
    *  source with an empty schema). */
   final case class Root(schema: Vector[SchemaField], fetchError: Option[String] = None)
+
+  /** HEL-1727: the most code points of a failed fetch's remote error text a rejection (and so the assistant's `is_error` tool
+   *  result) carries. 500 matches `HomeSummaryLimits.ErrorLogMax`: it keeps an HTTP status plus the useful head of a JSON
+   *  error body, while a large or hostile response cannot grow the tool result or the model's context. */
+  val FetchErrorMaxCodePoints: Int = 500
+
+  private val FetchErrorTruncationMarker = " … [truncated]"
+
+  /** Cuts `error` to [[FetchErrorMaxCodePoints]] code points plus a visible marker. Counted by code point (never splitting a
+   *  surrogate pair); the `codePointCount` guard comes first because `offsetByCodePoints` throws when fewer code points
+   *  exist than asked for, even when `length` exceeds the limit. */
+  def capFetchError(error: String): String =
+    if (error.codePointCount(0, error.length) <= FetchErrorMaxCodePoints) error
+    else error.substring(0, error.offsetByCodePoints(0, FetchErrorMaxCodePoints)) + FetchErrorTruncationMarker
 
   sealed trait Spec
   object Spec {
