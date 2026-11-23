@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/mcp/mcp-refresh-family-rotate-response.schema.json",
+  "title": "McpRefreshFamilyRotateResponse",
+  "description": "200 body of a rotation that was stored.",
+  "type": "object",
+  "properties": {
+    "generation": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": ["generation", "expiresAt"],
+  "additionalProperties": false
+}

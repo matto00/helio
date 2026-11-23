@@ -9,8 +9,9 @@ Defines helio-mcp's Streamable HTTP `/mcp` endpoint: stateless per-request servi
 
 helio-mcp SHALL provide an HTTP entry point that serves the tools and resources registered by `createServer` over
 MCP Streamable HTTP at `/mcp`. Each `POST /mcp` SHALL be handled statelessly by a server and transport created for
-that request, so any instance can serve any request. `GET /mcp` and `DELETE /mcp` SHALL answer `405` with an `Allow`
-header, as the MCP specification permits for a server that offers no server-initiated stream. The stdio entry point
+that request, so any instance can serve any request. An authorized `GET /mcp` or `DELETE /mcp` SHALL answer `405` with
+an `Allow: POST` header, as the MCP specification permits for a server that offers no server-initiated stream; an
+unauthorized one SHALL answer `401`, because bearer verification runs before the method check. The stdio entry point
 SHALL keep its current behaviour and configuration.
 
 #### Scenario: Authorized client lists the same tools as stdio
@@ -22,6 +23,11 @@ SHALL keep its current behaviour and configuration.
 
 - **WHEN** an authorized client sends `GET /mcp`
 - **THEN** the response is `405` with `Allow: POST`
+
+#### Scenario: Unauthorized GET is challenged first
+
+- **WHEN** a client sends `GET /mcp` with no `Authorization` header
+- **THEN** the response is `401`, not `405`
 
 #### Scenario: stdio unchanged
 

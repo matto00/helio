@@ -16,9 +16,11 @@ import express, {
   type Response,
 } from "express";
 import {
+  createOAuthMetadata,
   mcpAuthRouter,
   getOAuthProtectedResourceMetadataUrl,
 } from "@modelcontextprotocol/sdk/server/auth/router.js";
+import { allowedMethods } from "@modelcontextprotocol/sdk/server/auth/middleware/allowedMethods.js";
 import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { HelioHttpClient } from "./httpClient.js";
@@ -43,6 +45,8 @@ export interface HttpAppOptions {
   /** One-line logger (stderr in production). Receives only method/path/status and error names. */
   readonly log?: (line: string) => void;
   readonly now?: () => number;
+  /** Timeout for the backend refresh-family calls; defaults to 3 s. */
+  readonly familyTimeoutMs?: number | undefined;
 }
 
 /** Per-instance LRU of "this token's PAT was accepted by the backend at time T". */
@@ -83,7 +87,10 @@ function jsonRpcError(code: number, message: string): Record<string, unknown> {
 export function createHttpApp(config: HttpConfig, options: HttpAppOptions = {}): Express {
   const log = options.log ?? (() => undefined);
   const now = options.now ?? Date.now;
-  const provider = new HelioOAuthProvider(config, now);
+  const provider = new HelioOAuthProvider(config, now, {
+    log,
+    ...(options.familyTimeoutMs === undefined ? {} : { familyTimeoutMs: options.familyTimeoutMs }),
+  });
   const resourceMetadataUrl = getOAuthProtectedResourceMetadataUrl(config.resourceUrl);
   const liveness = new LivenessCache();
   const ttlMs = config.livenessTtlSeconds * 1000;
@@ -100,6 +107,24 @@ export function createHttpApp(config: HttpConfig, options: HttpAppOptions = {}):
     );
     next();
   });
+
+  // HEL-1713: our own authorization-server metadata, mounted ahead of `mcpAuthRouter` so the grant list
+  // is stated here and verified by a test, not inherited from an SDK default that once advertised a
+  // grant this server refused. Same behaviour as the SDK's handler: CORS for any origin, GET/OPTIONS only.
+  const authServerMetadata = createOAuthMetadata({
+    provider,
+    issuerUrl: config.publicUrl,
+    baseUrl: config.publicUrl,
+  });
+  authServerMetadata.grant_types_supported = ["authorization_code", "refresh_token"];
+  app.use(
+    "/.well-known/oauth-authorization-server",
+    cors(),
+    allowedMethods(["GET", "OPTIONS"]),
+    (_req, res) => {
+      res.status(200).json(authServerMetadata);
+    },
+  );
 
   app.use(
     mcpAuthRouter({

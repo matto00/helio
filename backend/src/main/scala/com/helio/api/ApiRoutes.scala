@@ -34,7 +34,7 @@ import com.helio.domain.engine.InProcessPipelineEngine
 import com.helio.infrastructure.email.{EmailConfig, EmailSender, HttpResendEmailSender}
 import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
 import com.helio.services.alerts.{AlertEvaluationService, AlertEventService, AlertRuleService}
-import com.helio.services.auth.{AiPipelineQuotaGate, ApiTokenService, AuthService, BetaAccessService, ChatAccessService, MfaService, PermissionService, PipelinePermissionService, UserResponseAssembler, UserTierConfig}
+import com.helio.services.auth.{AiPipelineQuotaGate, ApiTokenService, AuthService, BetaAccessService, ChatAccessService, McpRefreshFamilyService, MfaService, PermissionService, PipelinePermissionService, UserResponseAssembler, UserTierConfig}
 import com.helio.services.assistant.{AssistantConversationService, AssistantModelPolicy, AssistantService}
 import com.helio.services.ask.{AskAccess, AskDataService, AskReads}
 import com.helio.api.routes.ask.AskRoutes
@@ -72,7 +72,7 @@ import com.helio.api.routes.admin.AdminUsageRoutes
 import com.helio.infrastructure.persistence.telemetry.ProductUsageRepository
 import com.helio.services.auth.AdminAccessService
 import com.helio.services.telemetry.AdminUsageService
-import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, InviteCodeRepository, MfaRepository, OAuthStateRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, InviteCodeRepository, McpRefreshFamilyRepository, MfaRepository, OAuthStateRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodePayloadHistoryRepository, NodeSnapshotRepository, OutputHistoryRepository, OutputInsightRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRootRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
@@ -680,6 +680,8 @@ final class ApiRoutes(
   // HEL-369: ApiTokenService now also takes pipelineRepo (always constructed
   // above, never null) to validate a create request's scopedPipelineIds.
   private val apiTokenServiceOpt          = Option(apiTokenRepo).map(new ApiTokenService(_, pipelineRepo, auditService))
+  // HEL-1713: needs only `dbContext` (required), so it is mounted unconditionally like HomeSummaryRoutes.
+  private val mcpRefreshFamilyService     = new McpRefreshFamilyService(new McpRefreshFamilyRepository(dbContext), auditService)
   // HEL-369: same nullable-optional wiring pattern as apiTokenServiceOpt
   // above — fixtures that don't pass a PipelineRunRepository simply don't
   // get the /api/hooks/run route mounted (hookTriggerServiceOpt.fold(reject)).
@@ -1115,6 +1117,7 @@ final class ApiRoutes(
                   new PipelineRunStreamRoutes(pipelineRunService, authenticatedUser).routes,
                   new PipelinePermissionRoutes(pipelinePermissionService, authenticatedUser).routes,
                   apiTokenServiceOpt.fold(reject: Route)(svc => new ApiTokenRoutes(svc, authenticatedUser).routes),
+                  new McpRefreshFamilyRoutes(mcpRefreshFamilyService, authenticatedUser).routes,
                   // HEL-369: the only route family that consumes `tokenScope`
                   // (extracted by confineScopedToken above the branch split).
                   // Every other route class in this list keeps taking a bare

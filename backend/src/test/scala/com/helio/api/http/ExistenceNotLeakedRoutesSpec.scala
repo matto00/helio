@@ -545,6 +545,9 @@ object ExistenceNotLeakedRoutesSpec {
     // pipeline, so the caller already knows it exists; an invisible pipeline is the same 404 as an absent one. Legitimate.
     "DraftSaveService.scala"         -> 1,
     "HookTriggerService.scala"       -> 1,
+    // HEL-1713: `McpRefreshFamilyService.create`/`rotate` refuse a session caller (no PAT id) before any family is looked
+    // up, so the answer names no resource and cannot distinguish a real family from an absent one. Not an oracle.
+    "McpRefreshFamilyService.scala"  -> 2,
     // HEL-1743: `InsightRenderService.refresh` -- a viewer grantee refused a manual refresh, reached only after `InsightAccess.resolve`
     // (the sharing-aware `OutputRepository.findById` plus `requireAccess`) returned a grant, so the caller already knows the Output
     // exists; a stranger, an unknown id and a non-insight Output are the same 404. Legitimate.
