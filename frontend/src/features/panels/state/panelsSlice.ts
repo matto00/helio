@@ -1,6 +1,10 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-import { duplicateDashboard, importDashboard } from "../../dashboards/state/dashboardsSlice";
+import {
+  duplicateDashboard,
+  importDashboard,
+  updateDashboardLayout,
+} from "../../dashboards/state/dashboardsSlice";
 import { markDashboardPanelsStale } from "./panelActions";
 import { mergeColumns } from "./columnOrder";
 import {
@@ -35,6 +39,7 @@ interface PanelsState {
   status: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
   pendingPanelUpdates: Record<string, PanelUpdateFields>;
+  /** HEL-1657 -- the shared last-saved time of EITHER save path: a panel batch save or a layout-only save. */
   lastSavedAt: number | null;
   /** Pagination state for table panels, keyed by panelId */
   paginationState: Record<string, PanelPaginationState>;
@@ -358,6 +363,10 @@ const panelsSlice = createSlice({
         state.items = state.items.map((panel) => updatedById.get(panel.id) ?? panel);
         state.lastSavedAt = Date.now();
         state.panelSaveSeq = (state.panelSaveSeq ?? 0) + 1;
+      })
+      .addCase(updateDashboardLayout.fulfilled, (state) => {
+        // HEL-1657: a layout-only save is a save; `lastSavedAt` is the shared time of either path.
+        state.lastSavedAt = Date.now();
       })
       .addCase(duplicateDashboard.fulfilled, (state, action) => {
         state.items = action.payload.panels;

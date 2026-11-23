@@ -8,10 +8,12 @@ import {
   resetPanelSaveState,
   updatePanelsBatch,
 } from "../../features/panels/state/panelsSlice";
-import { authReducer } from "../../features/auth/state/authSlice";
+import { store as rootStore } from "../../store/store";
+import { authReducer, clearAuth } from "../../features/auth/state/authSlice";
 import {
   dashboardsReducer,
   setLayoutPending,
+  repairDashboardLayout,
   updateDashboardLayout,
 } from "../../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../../features/layout/state/layoutHistorySlice";
@@ -179,5 +181,66 @@ describe("SaveStateIndicator saved check (HEL-1584)", () => {
     expect(check()).toBeNull();
     save();
     expect(check()).toBeInTheDocument();
+  });
+});
+
+// HEL-1657: a layout-only save is a save, so it feeds the shared last-saved time the label reads.
+describe("SaveStateIndicator last saved after a layout-only save (HEL-1657)", () => {
+  const layout = { lg: [], md: [], sm: [], xs: [] };
+  const layoutSaved = () =>
+    updateDashboardLayout.fulfilled({ id: "d1", layout } as never, "req", {
+      dashboardId: "d1",
+      sentLayout: layout,
+    } as never);
+
+  it("shows 'Last saved just now' after a layout save with no panel save", () => {
+    const store = makeStore({});
+    render(
+      <MemoryRouter>
+        <ThemeProvider>
+          <Provider store={store}>
+            <SaveStateIndicator onSaveNow={jest.fn()} />
+          </Provider>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText(/Last saved/)).toBeNull();
+    act(() => {
+      store.dispatch(layoutSaved());
+    });
+    expect(screen.getByText(/Last saved just now/)).toBeInTheDocument();
+  });
+
+  it("a stale panel-save time is replaced by a later layout save", () => {
+    const store = makeStore({ lastSavedAt: Date.now() - 12 * 60_000 });
+    store.dispatch(layoutSaved());
+    expect(store.getState().panels.lastSavedAt).toBeGreaterThan(Date.now() - 5_000);
+  });
+
+  it("the stored-layout repair is not a user save", () => {
+    const store = makeStore({});
+    store.dispatch(
+      repairDashboardLayout.fulfilled({ id: "d1" } as never, "req", {
+        dashboardId: "d1",
+        layout: {},
+        expectedLayout: layout,
+      } as never),
+    );
+    expect(store.getState().panels.lastSavedAt).toBeNull();
+  });
+
+  it("resetPanelSaveState clears a layout-set time", () => {
+    const store = makeStore({});
+    store.dispatch(layoutSaved());
+    expect(store.getState().panels.lastSavedAt).not.toBeNull();
+    store.dispatch(resetPanelSaveState());
+    expect(store.getState().panels.lastSavedAt).toBeNull();
+  });
+
+  it("sign-out (clearAuth through the real root reducer) clears a layout-set time", () => {
+    rootStore.dispatch(layoutSaved());
+    expect(rootStore.getState().panels.lastSavedAt).not.toBeNull();
+    rootStore.dispatch(clearAuth());
+    expect(rootStore.getState().panels.lastSavedAt).toBeNull();
   });
 });
