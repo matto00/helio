@@ -86,8 +86,8 @@ describe("PanelDetailModal initial chart state (HEL-1378)", () => {
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Revenue v2" } });
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
     const pending = store.getState().panels.pendingPanelUpdates["p1"];
-    expect(pending.appearance).toBeDefined();
-    expect(pending.appearance).not.toHaveProperty("chart");
+    // HEL-1615 intended change: a title-only save stages only the title (no appearance object), so no chart is written.
+    expect(pending.appearance).toBeUndefined();
     expect(JSON.stringify(pending)).not.toContain("chartType");
   });
 });

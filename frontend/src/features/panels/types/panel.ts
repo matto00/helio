@@ -407,9 +407,12 @@ export function emptyConfigForKind(kind: PanelKind): PanelConfig {
   }
 }
 
+/** A partial appearance patch (`panel-appearance-patch.schema.json`): an omitted key keeps the stored value. */
+export type PanelAppearancePatch = Partial<PanelAppearance>;
+
 export interface PanelUpdateFields {
   title?: string;
-  appearance?: PanelAppearance;
+  appearance?: PanelAppearancePatch;
   type?: PanelKind;
 }
 
@@ -421,7 +424,7 @@ export type MappedPanelData = Record<string, string>;
 export interface PanelBatchItem {
   id: string;
   title?: string;
-  appearance?: PanelAppearance;
+  appearance?: PanelAppearancePatch;
   type?: string;
   config?: Record<string, unknown>;
 }

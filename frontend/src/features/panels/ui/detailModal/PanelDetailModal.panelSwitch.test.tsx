@@ -156,10 +156,10 @@ describe("PanelDetailModal — direct panel switch (HEL-307)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
     const pending = store.getState().panels.pendingPanelUpdates;
-    // B's staged appearance is B's own — never A's #111111.
-    expect(pending["b"]).toBeDefined();
-    expect(pending["b"].appearance?.background).toBe("#222222");
-    expect(pending["b"].appearance?.background).not.toBe("#111111");
+    // HEL-1615 intended change: an unedited Save stages NOTHING (the modal sends only changed keys), so B can carry
+    // neither A's #111111 nor a re-sent copy of its own appearance. The invariant -- A's values never land on B -- holds
+    // more strongly: no appearance is staged against B at all.
+    expect(pending["b"]).toBeUndefined();
     // A was never saved, so no update is dispatched against A's id either.
     expect(pending["a"]).toBeUndefined();
   });

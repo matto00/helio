@@ -122,14 +122,32 @@ const panelsSlice = createSlice({
       action: PayloadAction<{ panelId: string; fields: PanelUpdateFields }>,
     ) {
       const { panelId, fields } = action.payload;
+      const pending = state.pendingPanelUpdates[panelId];
+      // HEL-1615: `fields.appearance` is a PARTIAL patch (the server merges it, HEL-362), so mirror the merge here:
+      // over the previously staged patch (two saves before a flush both reach the batch) and, for the local item,
+      // over the stored appearance (a stored `chart` and untouched scalars survive until the flush).
+      // The mirror is deliberately SHALLOW and covers only what the client sends: it does not replicate the server's
+      // `null` handling (`null` resets a top-level key to its default, `chart: null` clears the chart) nor the
+      // field-level merge inside `chart`; a `chart` key present in a patch replaces the staged/local chart whole.
       state.pendingPanelUpdates[panelId] = {
-        ...state.pendingPanelUpdates[panelId],
+        ...pending,
         ...fields,
+        ...(fields.appearance
+          ? { appearance: { ...pending?.appearance, ...fields.appearance } }
+          : {}),
       };
       // Title / appearance / type are common to every subtype; the spread
       // narrows correctly at runtime even though TS sees the union shape.
       state.items = state.items.map((panel) =>
-        panel.id === panelId ? ({ ...panel, ...fields } as Panel) : panel,
+        panel.id === panelId
+          ? ({
+              ...panel,
+              ...fields,
+              ...(fields.appearance
+                ? { appearance: { ...panel.appearance, ...fields.appearance } }
+                : {}),
+            } as Panel)
+          : panel,
       );
     },
     clearPendingPanelUpdates(state) {

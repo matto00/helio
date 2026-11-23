@@ -61,7 +61,9 @@ describe("PanelDetailModal — appearance sentinel round-trip (HEL-322)", () => 
       appearance: { background: "transparent", color: "inherit", transparency: 0 },
       config: { content: "# Hi" },
     });
-    const { store } = renderWithStore(<PanelDetailModal panel={panel} onClose={jest.fn()} />);
+    const { store } = renderWithStore(<PanelDetailModal panel={panel} onClose={jest.fn()} />, {
+      panels: { items: [panel] },
+    });
 
     enterEditMode();
 
@@ -75,9 +77,13 @@ describe("PanelDetailModal — appearance sentinel round-trip (HEL-322)", () => 
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Notes v2" } });
     save();
 
-    const pending = store.getState().panels.pendingPanelUpdates["p1"];
-    expect(pending.appearance?.background).toBe("transparent");
-    expect(pending.appearance?.background).not.toBe(panelAppearanceEditorFallback);
+    // HEL-1615 intended change (intent unchanged: an untouched sentinel is never clobbered into a hex): the modal now
+    // sends only changed keys, so a title-only save stages no background at all and the client panel still reads the
+    // sentinel. The hex-edit case below is unchanged.
+    const state = store.getState().panels;
+    expect(state.pendingPanelUpdates["p1"]).toEqual({ title: "Notes v2" });
+    expect(state.items[0].appearance.background).toBe("transparent");
+    expect(state.items[0].appearance.background).not.toBe(panelAppearanceEditorFallback);
   });
 
   it("keeps an untouched inherit text color as the sentinel through save", () => {
@@ -88,7 +94,9 @@ describe("PanelDetailModal — appearance sentinel round-trip (HEL-322)", () => 
       appearance: { background: "transparent", color: "inherit", transparency: 0 },
       config: { content: "# Hi" },
     });
-    const { store } = renderWithStore(<PanelDetailModal panel={panel} onClose={jest.fn()} />);
+    const { store } = renderWithStore(<PanelDetailModal panel={panel} onClose={jest.fn()} />, {
+      panels: { items: [panel] },
+    });
 
     enterEditMode();
     expect((screen.getByLabelText("Notes text color") as HTMLInputElement).value).toBe(
@@ -98,9 +106,11 @@ describe("PanelDetailModal — appearance sentinel round-trip (HEL-322)", () => 
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Notes v2" } });
     save();
 
-    const pending = store.getState().panels.pendingPanelUpdates["p1"];
-    expect(pending.appearance?.color).toBe("inherit");
-    expect(pending.appearance?.color).not.toBe(panelTextEditorFallback);
+    // HEL-1615 intended change: see the background case above -- the untouched color is not sent, and the client keeps it.
+    const state = store.getState().panels;
+    expect(state.pendingPanelUpdates["p1"]).toEqual({ title: "Notes v2" });
+    expect(state.items[0].appearance.color).toBe("inherit");
+    expect(state.items[0].appearance.color).not.toBe(panelTextEditorFallback);
   });
 
   it("persists an explicitly chosen background color as its hex (not the sentinel)", () => {
@@ -111,7 +121,9 @@ describe("PanelDetailModal — appearance sentinel round-trip (HEL-322)", () => 
       appearance: { background: "transparent", color: "inherit", transparency: 0 },
       config: { content: "# Hi" },
     });
-    const { store } = renderWithStore(<PanelDetailModal panel={panel} onClose={jest.fn()} />);
+    const { store } = renderWithStore(<PanelDetailModal panel={panel} onClose={jest.fn()} />, {
+      panels: { items: [panel] },
+    });
 
     enterEditMode();
     fireEvent.change(screen.getByLabelText("Notes background color"), {
@@ -158,9 +170,10 @@ describe("PanelDetailModal — appearance sentinel round-trip (HEL-322)", () => 
     enterEditMode();
     save();
 
+    // HEL-1615 intended change: an unedited save stages nothing for the transparent panel (no sentinel can be clobbered),
+    // and the panel's own sentinels are untouched in the store.
     const pending = store.getState().panels.pendingPanelUpdates["clear"];
-    expect(pending.appearance?.background).toBe("transparent");
-    expect(pending.appearance?.color).toBe("inherit");
+    expect(pending).toBeUndefined();
     // The prior hex panel was never saved.
     expect(store.getState().panels.pendingPanelUpdates["hex"]).toBeUndefined();
   });

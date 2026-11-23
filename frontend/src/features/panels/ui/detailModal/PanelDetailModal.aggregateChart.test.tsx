@@ -112,8 +112,8 @@ describe("PanelDetailModal aggregated chart Output (HEL-1351)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));
 
     const pending = store.getState().panels.pendingPanelUpdates["p1"];
-    expect(pending).toBeDefined();
-    expect(pending.appearance).toBeDefined();
-    expect(pending.appearance).not.toHaveProperty("chart");
+    // HEL-1615 intended change: a title-only save now stages ONLY the title (the modal sends just the appearance keys the
+    // user changed), so there is no appearance object at all -- still no `appearance.chart` written.
+    expect(pending).toEqual({ title: "Revenue v2" });
   });
 });
