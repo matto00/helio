@@ -1,0 +1,23 @@
+HEL-1823 mutations of the stage-2 unit length (unitLength in regexInputCost.ts). Each run: both full spec files
+(regexInputCost.test.ts + regexCellWork.test.ts), 56 tests; the unmutated code passes all 56.
+
+1. Drop the "- 1" (lone surrogate counted LONE_SURROGATE_UNITS extra instead of LONE_SURROGATE_UNITS - 1):
+   RED, 2 failed: "BMP body" and "astral body" (admits the frame at the budget without reading a code point).
+2. Count surrogate PAIRS as lone (i++ then lone++ on a valid pair):
+   RED, 1 failed: "astral body" only (BMP body has no pair), as the design-gate note predicted.
+3. Revert to doubling the whole cell (hasNoLoneSurrogate ? length : 2 x length):
+   RED, 2 failed: "BMP body" and "astral body".
+4. Count only the first unpaired surrogate (break after the first):
+   RED, 2 failed: "decides exactly as the summed exact charge for cells mixing pairs and unpaired surrogates" (undercount makes the
+   bound unsound) and the existing "doubles an unpaired surrogate in the tested bound and the exact charge".
+
+Cycle 2 (evaluation-1.md): the property test was rewritten (150-300 character cells, 4 trials x 2 factors per pattern, exact sum
+once per distinct cell; 194.5 s -> about 1.0 s, whole file 5.4 s with regexCellWork.test.ts) and a lengthBound test was added
+("does not count the unpaired surrogates of cells whose tested bound is certain to miss", a charCodeAt spy). All mutations were
+re-run against both full spec files (57 tests; unmutated: all pass):
+1. Drop the "- 1": RED, 2 failed (BMP body, astral body).
+2. Pairs counted as lone: RED, 1 failed (astral body).
+3. Revert to doubling: RED, 2 failed (BMP body, astral body).
+4. Count only the first lone: RED, 2 failed (the mixed pair/lone property test and "doubles an unpaired surrogate ...").
+5. Remove the lengthBound stage from workExceedsBudget: RED, 1 failed ("does not count the unpaired surrogates of cells whose
+   tested bound is certain to miss").

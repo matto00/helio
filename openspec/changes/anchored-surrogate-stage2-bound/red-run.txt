@@ -1,0 +1,44 @@
+# red run on main stage-2 bound (doubling), full spec files regexInputCost.test.ts + regexCellWork.test.ts
+# command: cd frontend && nice -n 19 npx jest --maxWorkers=3 <both files>
+FAIL src/features/pipelines/evaluator/regexInputCost.test.ts (185.124 s)
+  ● regexInputCost start-anchored patterns › decision scan › an unpaired surrogate adds one unit to the tested bound, not a doubling › BMP body: admits the frame at the budget without reading a code point, declines one more
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 0
+    Received: 3997000
+
+      240 |           expect(workExceedsBudget(cells, w)).toBe(false);
+      241 |         });
+    > 242 |         expect(reads).toBe(0);
+          |                       ^
+      243 |         expect(workExceedsBudget(Array.from({ length: ROWS }, () => over), w)).toBe(true);
+      244 |       });
+      245 |
+
+      at src/features/pipelines/evaluator/regexInputCost.test.ts:242:23
+
+  ● regexInputCost start-anchored patterns › decision scan › an unpaired surrogate adds one unit to the tested bound, not a doubling › astral body: admits the frame at the budget without reading a code point, declines one more
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 0
+    Received: 1999000
+
+      240 |           expect(workExceedsBudget(cells, w)).toBe(false);
+      241 |         });
+    > 242 |         expect(reads).toBe(0);
+          |                       ^
+      243 |         expect(workExceedsBudget(Array.from({ length: ROWS }, () => over), w)).toBe(true);
+      244 |       });
+      245 |
+
+      at src/features/pipelines/evaluator/regexInputCost.test.ts:242:23
+
+Test Suites: 1 failed, 1 passed, 2 total
+Tests:       2 failed, 54 passed, 56 total
+Snapshots:   0 total
+Time:        185.7 s
+Ran all test suites matching src/features/pipelines/evaluator/regexInputCost.test.ts|src/features/pipelines/evaluator/regexCellWork.test.ts.
+
+[exited with code 0]
