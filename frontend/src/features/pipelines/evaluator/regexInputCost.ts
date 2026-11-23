@@ -126,17 +126,49 @@ function boundAt(work: RegexWork, L: number): number {
   return f * (work.anchored ? Math.min(perPosition, A * (1 + W) + L * (A + m)) : perPosition);
 }
 
+/** `String.prototype.isWellFormed` (ES2024; the project's type library predates it): true when the string has no unpaired surrogate. */
+const nativeIsWellFormed = (String.prototype as { isWellFormed?: () => boolean }).isWellFormed;
+const hasNoLoneSurrogate: (text: string) => boolean = nativeIsWellFormed
+  ? (text) => nativeIsWellFormed.call(text)
+  : (text) => !LONE_SURROGATE.test(text);
+
+/**
+ * HEL-1823 -- a cell's exact unit length: its UTF-16 length plus one per unpaired surrogate (an unpaired surrogate is one
+ * UTF-16 unit and charged `LONE_SURROGATE_UNITS`, a pair is two units and charged two), the same `len` `cellWork` sums. A cell
+ * without an unpaired surrogate (the usual case) costs one native check; only a cell that has one is counted, by a code-unit
+ * loop. Measured against a native replace-and-compare count and a gate-free loop in this change's calibration.md.
+ */
+function unitLength(text: string): number {
+  if (hasNoLoneSurrogate(text)) return text.length;
+  let lone = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (c < 0xd800 || c > 0xdfff) continue;
+    const next = i + 1 < text.length ? text.charCodeAt(i + 1) : 0;
+    if (c <= 0xdbff && next >= 0xdc00 && next <= 0xdfff) i++;
+    else lone++;
+  }
+  return text.length + (LONE_SURROGATE_UNITS - 1) * lone;
+}
+
 /**
  * HEL-1807 -- the second, tighter bound of an anchored frame whose surrogate-free bound is over the budget: `L` is the cell's
- * UTF-16 length, doubled only for a cell with an unpaired surrogate (the HEL-1697 test). When the first run covers the cell and
- * the pattern has no tail (`^(\d+)`, `^([^...]+)`), this bound equals the exact charge, so the exact scan is skipped
- * (calibration.md, "Final-gate round 1": that scan was the 21-34 ms case).
+ * exact unit length (`unitLength`; HEL-1823 charges each unpaired surrogate its own extra unit, where HEL-1807 doubled the whole
+ * cell for the first one), so it never under-states `cellWork`. When the first run covers the cell and the pattern has no tail
+ * (`^(\d+)`, `^([^...]+)`), this bound equals the exact charge, so the exact scan is skipped (calibration.md, "Final-gate
+ * round 1": that scan was the 21-34 ms case).
  */
 function testedBound(text: string, work: RegexWork): number {
-  return boundAt(
-    work,
-    LONE_SURROGATE.test(text) ? LONE_SURROGATE_UNITS * text.length : text.length,
-  );
+  return boundAt(work, unitLength(text));
+}
+
+/**
+ * HEL-1823 -- the least `testedBound` a cell can have (no unpaired surrogate, `L = text.length`). A frame whose sum of these is
+ * already over the budget cannot be admitted by the tested bound, so its cells are not counted (a cell the exact scan can leave
+ * after its first character must not be read in full here).
+ */
+function lengthBound(text: string, work: RegexWork): number {
+  return boundAt(work, text.length);
 }
 
 function boundExceeds(
@@ -158,7 +190,13 @@ function boundExceeds(
  */
 export function workExceedsBudget(texts: readonly string[], work: RegexWork): boolean {
   if (!boundExceeds(texts, work, cellWorkBound)) return false;
-  if (work.anchored && !boundExceeds(texts, work, testedBound)) return false;
+  if (
+    work.anchored &&
+    !boundExceeds(texts, work, lengthBound) &&
+    !boundExceeds(texts, work, testedBound)
+  ) {
+    return false;
+  }
   let total = 0;
   for (const text of texts) {
     total += cellWork(text, work);

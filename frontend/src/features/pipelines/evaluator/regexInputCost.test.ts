@@ -4,7 +4,7 @@
 
 import { clientEvaluable, evaluateStep, type RunContext } from "./evaluateStep";
 import { compileJavaRegex } from "./javaRegex";
-import { workExceedsBudget } from "./regexInputCost";
+import { cellWork, REGEX_WORK_BUDGET, workExceedsBudget } from "./regexInputCost";
 import type { Frame } from "./value";
 
 const none: RunContext = { lane: () => undefined, source: () => undefined };
@@ -213,6 +213,102 @@ describe("regexInputCost start-anchored patterns", () => {
       // ^(.+): 2 + 2 units per `\\ud800`; 1,999 of them are 4,000 per cell at the budget, 2,000 are over it (a guard: the model charged this before too).
       expect(run("^(.+)", 1000, "\ud800".repeat(1999))).toEqual(OK);
       expect(run("^(.+)", 1000, "\ud800".repeat(2000))).toEqual(DECLINED);
+    });
+
+    // HEL-1823: a no-tail anchored frame whose cells each hold ONE unpaired surrogate. The exact unit length is
+    // `text.length + 1`, so the stage-2 bound equals the exact charge and the per-character scan never runs.
+    describe("an unpaired surrogate adds one unit to the tested bound, not a doubling", () => {
+      const ROWS = 1000;
+      // The longest cell body (`unit` repeated n times, then one `\ud800`) whose exact total is within the budget.
+      const sized = (pattern: string, unit: string): { cell: string; over: string } => {
+        const w = work(pattern);
+        const make = (n: number) => unit.repeat(n) + "\ud800";
+        let n = 1;
+        while (ROWS * cellWork(make(n + 1), w) <= REGEX_WORK_BUDGET) n++;
+        return { cell: make(n), over: make(n + 1) };
+      };
+      it.each([
+        ["BMP body", "\u4e2d"],
+        ["astral body", "\u{1F600}"],
+      ])(
+        "%s: admits the frame at the budget without reading a code point, declines one more",
+        (_n, unit) => {
+          const pattern = "^([^<]*)";
+          const { cell, over } = sized(pattern, unit);
+          const w = work(pattern);
+          expect(ROWS * cellWork(cell, w)).toBe(REGEX_WORK_BUDGET);
+          const cells = Array.from({ length: ROWS }, () => cell);
+          const reads = countReads(() => {
+            expect(workExceedsBudget(cells, w)).toBe(false);
+          });
+          expect(reads).toBe(0);
+          expect(
+            workExceedsBudget(
+              Array.from({ length: ROWS }, () => over),
+              w,
+            ),
+          ).toBe(true);
+        },
+      );
+
+      it("decides exactly as the summed exact charge for cells mixing pairs and unpaired surrogates", () => {
+        let seed = 1823;
+        const rand = (n: number) => {
+          seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+          return seed % n;
+        };
+        const parts = [
+          "a",
+          "x",
+          "\u4e2d",
+          "\ud800",
+          "\udc00",
+          "\u{1F600}",
+          "\ud83d",
+          "\ude00",
+          "<",
+        ];
+        const cell = (len: number) =>
+          Array.from({ length: len }, () => parts[rand(parts.length)]).join("");
+        // Cells of 150-300 characters keep a frame at the budget to at most about 27,000 rows (a short cell would need ~1e6
+        // rows and minutes of runtime); the exact sum is taken once per distinct cell, so the test stays under a second or two.
+        for (const pattern of ["^(.+)", "^(.*)x", "^([^a]*)", "^([^<]+)", "^(.*)"]) {
+          const w = work(pattern);
+          for (let trial = 0; trial < 4; trial++) {
+            const cells = Array.from({ length: 1 + rand(3) }, () => cell(150 + rand(150)));
+            const charges = cells.map((c) => cellWork(c, w));
+            const each = charges.reduce((a, c) => a + c, 0) / cells.length;
+            for (const factor of [0.95, 1.05]) {
+              // Whole multiples of the cell set, so the exact sum straddles the budget on both sides.
+              const rounds = Math.max(
+                1,
+                Math.round((REGEX_WORK_BUDGET * factor) / (each * cells.length)),
+              );
+              const all = Array.from(
+                { length: rounds * cells.length },
+                (_, i) => cells[i % cells.length],
+              );
+              const exact = rounds * charges.reduce((a, c) => a + c, 0);
+              expect(workExceedsBudget(all, w)).toBe(exact > REGEX_WORK_BUDGET);
+            }
+          }
+        }
+      });
+    });
+
+    it("does not count the unpaired surrogates of cells whose tested bound is certain to miss", () => {
+      // ^(\\d+) over 1,000 cells of `\ud800` + 100,000 digits: R0 = 0 so the exact charge is 3 per cell, but the length-only
+      // bound (2 + 100,001 per cell) is over the budget after 40 cells, so no cell is counted code unit by code unit.
+      const cells = Array.from({ length: 1000 }, () => "\ud800" + "1".repeat(100000));
+      const spy = jest.spyOn(String.prototype, "charCodeAt");
+      let reads: number;
+      try {
+        expect(workExceedsBudget(cells, work("^(\\d+)"))).toBe(false);
+        reads = spy.mock.calls.length;
+      } finally {
+        spy.mockRestore();
+      }
+      expect(reads).toBe(0);
     });
 
     it("reads at most one character of a cell that starts outside the pattern's characters", () => {
