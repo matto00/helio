@@ -1,6 +1,0 @@
-- `e2e/hel1822-auto-run-trigger-badge.spec.ts` — rendered both-theme spec (red first), measures fill/text/contrast
-- `frontend/src/features/pipelines/ui/RunHistoryModal.css` — `.run-history-modal__trigger--auto-run` neutral-filled rule
-- `frontend/src/features/pipelines/services/runHistory.contract.test.ts` — label list tightened to the literal four
-- `backend/src/test/scala/com/helio/infrastructure/persistence/TriggerSourceMigrationSpec.scala` — doc comment only (V63 three values, V110 adds auto-run)
-- `openspec/changes/auto-run-trigger-badge-style/` — change artifacts
-- `frontend/src/theme/tokenAuditSweep.css.test.ts` — line-keyed raw-spacing baseline entry moved 162 -> 170 (rule inserted above it)
