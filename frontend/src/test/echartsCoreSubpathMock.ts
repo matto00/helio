@@ -3,10 +3,11 @@
 //
 // `echartsCore.ts` imports these directly (rather than the full `echarts`
 // package) to selectively register only the chart types/components
-// `ChartPanel` actually uses, so bundlers can tree-shake the rest away. Like
-// `echarts-for-react/esm/core` (see `echartsForReactCoreMock.tsx`), every one
-// of these subpaths is ESM-only in `echarts`'s package exports map — there's
-// no CommonJS build for ts-jest's default transform to fall back to — so any
+// `ChartPanel` actually uses, so bundlers can tree-shake the rest away. Unlike
+// `echarts-for-react/lib/core` (CommonJS under Jest, see
+// `echartsForReactCoreMock.tsx`), every one of these subpaths is ESM-only in
+// `echarts`'s package exports map — there's no
+// CommonJS build for ts-jest's default transform to fall back to — so any
 // test that transitively imports `ChartPanel` without mocking `echartsCore`
 // itself hits a `SyntaxError: Cannot use import statement outside a module`
 // several `node_modules` layers deep.

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 // (1.12 MB min / 369 KB gzip) and auto-registers every chart type/component
 // it ships, defeating bundler tree-shaking regardless of what's actually
 // used here (only the `ChartType` set registered in `echartsCore.ts`).
-import ReactECharts from "echarts-for-react/esm/core";
+import ReactECharts from "echarts-for-react/lib/core";
 
 import type { ChartTypeOptionsMap, PanelAppearance } from "../types/panel";
 import type { GroupedAggregate } from "../../../utils/aggregate";

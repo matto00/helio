@@ -35,7 +35,7 @@ jest.mock("../../../pipelines/services/outputService", () => ({
 // module", not from any assertion. Mirrors `ChartPanel.test.tsx`'s own
 // mock; keep the module specifier in sync with `ChartPanel.tsx`'s import if
 // that changes.
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: () => <div data-testid="echarts" />,
 }));

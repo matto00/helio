@@ -25,7 +25,7 @@ jest.mock("../../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../../pipelines/services/outputService"),
   getOutputById: jest.fn(() => Promise.reject(new Error("unmocked request stubbed (HEL-1656)"))),
 }));
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: () => <div data-testid="echarts" />,
 }));

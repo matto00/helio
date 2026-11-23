@@ -5,7 +5,7 @@ import { ThemeProvider } from "../../../../theme/ThemeProvider";
 import { settleChartMount } from "../../../../test/settleChartMount";
 import { ChartRenderer, histogramSkippedNote } from "./ChartRenderer";
 
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: () => <div data-testid="echarts" />,
 }));

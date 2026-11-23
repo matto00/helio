@@ -15,7 +15,7 @@ import { ThemeStorageKey } from "../../../../theme/theme";
 import { PanelDetailModal } from "./PanelDetailModal";
 
 // `PanelDetailModal` pulls in `ChartPanel.tsx` (via `PanelContent` →
-// `ChartRenderer`), which renders through `echarts-for-react/esm/core`
+// `ChartRenderer`), which renders through `echarts-for-react/lib/core`
 // (F-022) rather than the default `echarts-for-react` export. Mirrors the
 // mock in the co-located `ChartPanel.test.tsx` — this project's CommonJS
 // Jest transform can't handle `echarts`'s ESM-only subpath exports, so both
@@ -23,7 +23,7 @@ import { PanelDetailModal } from "./PanelDetailModal";
 // ship-time bundle-size concern only, irrelevant here) are stubbed. This
 // suite never renders a chart panel itself, but the module graph still has
 // to resolve.
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: ({ option }: { option: unknown }) => (
     <div data-testid="echarts" data-option={JSON.stringify(option)} />

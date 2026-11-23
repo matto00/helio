@@ -10,7 +10,7 @@ import { PanelFullscreenOverlay } from "./PanelFullscreenOverlay";
 // HEL-1351 design D2 — the fullscreen overlay receives the loaded record rows (`paginationRows`)
 // and renders an aggregated chart Output grouped, exactly as the dashboard card does.
 
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: ({ option }: { option: unknown }) => (
     <div data-testid="echarts" data-option={JSON.stringify(option)} />

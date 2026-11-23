@@ -1,0 +1,21 @@
+FAIL src/features/panels/ui/detailModal/PanelDetailModal.appearanceSave.test.tsx
+  ● Test suite failed to run
+
+    Cannot find module 'echarts-for-react/esm/core' from 'src/features/panels/ui/detailModal/PanelDetailModal.appearanceSave.test.tsx'
+
+      11 | import { PanelDetailModal } from "./PanelDetailModal";
+      12 |
+    > 13 | jest.mock("echarts-for-react/esm/core", () => ({
+         |      ^
+      14 |   __esModule: true,
+      15 |   default: ({ option }: { option: unknown }) => (
+      16 |     <div data-testid="echarts" data-option={JSON.stringify(option)} />
+
+      at Resolver._throwModNotFoundError (node_modules/jest-resolve/build/index.js:863:11)
+      at Object.<anonymous> (src/features/panels/ui/detailModal/PanelDetailModal.appearanceSave.test.tsx:13:6)
+
+Test Suites: 1 failed, 1 total
+Tests:       0 total
+Snapshots:   0 total
+Time:        3.529 s
+Ran all test suites matching src/features/panels/ui/detailModal/PanelDetailModal.appearanceSave.test.tsx.

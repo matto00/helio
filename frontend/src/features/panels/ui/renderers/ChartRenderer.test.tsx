@@ -6,10 +6,10 @@ import { settleChartMount } from "../../../../test/settleChartMount";
 
 // The ECharts canvas is irrelevant to the annotation footnote under test; mock
 // it so the renderer's own DOM (the annotation element) is what we assert on.
-// F-022 — `ChartPanel` now renders via `echarts-for-react`'s `/esm/core`
+// F-022 — `ChartPanel` now renders via `echarts-for-react`'s `/lib/core`
 // entry point (tree-shaking; see `ChartPanel.tsx`'s docblock), not the
 // default `echarts-for-react` export this mock used to target.
-jest.mock("echarts-for-react/esm/core", () => ({
+jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
   default: () => <div data-testid="echarts" />,
 }));
