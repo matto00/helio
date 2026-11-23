@@ -37,4 +37,4 @@
 
 ## 4. Verification
 
-- [ ] 4.1 Commit tsv + evidence (hooks green); the PR's 4 backend-leg "Compile and test" durations (all < 660 s) are recorded by the orchestrator at Delivery, in the PR body
+- [ ] 4.1 (commit half done; CI half pending PR CI, measured durations in the PR body) Commit tsv + evidence (hooks green); the PR's 4 backend-leg "Compile and test" durations (all < 660 s) are recorded by the orchestrator at Delivery, in the PR body
