@@ -50,7 +50,13 @@ import { PanelDetailModal } from "../detailModal/PanelDetailModal";
 import { PanelCard } from "../PanelCard";
 import { useDensity } from "../../../../theme/ThemeProvider";
 import { useKeyedEntrance } from "../../../../shared/motion/useKeyedEntrance";
-import { createLayouts, gridMetrics, panelGridConfig, rglBreakpoints } from "./panelGridConfig";
+import {
+  createLayouts,
+  gridMetrics,
+  panelGridConfig,
+  panelMinRows,
+  rglBreakpoints,
+} from "./panelGridConfig";
 import "./PanelGrid.css";
 import { useCommitFlag } from "./useCommitFlag";
 import { useGridLayoutInteraction } from "./useGridLayoutInteraction";
@@ -130,7 +136,10 @@ export function DesktopPanelGrid({
     [zoomLevel],
   );
   const resolvedLayout = useMemo(() => resolveDashboardLayout(panels, layout), [layout, panels]);
-  const layouts = useMemo(() => createLayouts(resolvedLayout), [resolvedLayout]);
+  const layouts = useMemo(() => {
+    const byId = new Map(panels.map((panel) => [panel.id, panel]));
+    return createLayouts(resolvedLayout, (panelId, h) => panelMinRows(byId.get(panelId), h));
+  }, [resolvedLayout, panels]);
   // HEL-1576: at the 12px gutter a minimum-height (4-row) card is 244px, 18px shorter than at the old 18px
   // gutter, and the chart canvas floors (HEL-1398/1444) are measured on that card. Cards at the minimum
   // height get a tighter vertical rhythm (see `PanelGrid.css`, `data-short-card`) so the floors still hold.
@@ -159,7 +168,8 @@ export function DesktopPanelGrid({
     later: "pop",
   });
 
-  const { commitOnNextLayoutChangeRef, clearCommitFlag, armCommitFlag } = useCommitFlag();
+  const { commitOnNextLayoutChangeRef, resizedIdRef, clearCommitFlag, armCommitFlag } =
+    useCommitFlag();
   const { latestLayoutRef, markLayoutChanged, commitInteractionLayout } = useLayoutSave({
     dashboardId,
     layout,
@@ -178,6 +188,7 @@ export function DesktopPanelGrid({
     markLayoutChanged,
     commitInteractionLayout,
     commitOnNextLayoutChangeRef,
+    resizedIdRef,
     clearCommitFlag,
     armCommitFlag,
   });

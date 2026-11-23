@@ -1,0 +1,150 @@
+FAIL src/features/panels/ui/grid/panelGridConfig.formMinRows.test.ts
+  ● panelMinRows › is 5 for a non-counter form whose stored h is 5 or more, 4 below that, 4 for a counter and any other kind
+    expect(received).toBe(expected) // Object.is equality
+    Expected: 5
+    Received: 4
+      45 |     const form = makeFormPanel({ id: "f", config: { fields: text2 } });
+      46 |     expect(FORM_MIN_ROWS).toBe(5);
+    > 47 |     expect(panelMinRows(form, 5)).toBe(5);
+         |                                   ^
+      48 |     expect(panelMinRows(form, 9)).toBe(5);
+      49 |     expect(panelMinRows(form, 4)).toBe(panelGridConfig.itemHeights.min);
+      50 |     expect(panelMinRows(form, 3)).toBe(panelGridConfig.itemHeights.min);
+  ● isSpaceBelowFree › is free with nothing below, including at the bottom edge of the layout
+    expect(received).toBe(expected) // Object.is equality
+    Expected: true
+    Received: false
+      73 |   const form = item("f", 0, 0, 3, 4);
+      74 |   it("is free with nothing below, including at the bottom edge of the layout", () => {
+    > 75 |     expect(isSpaceBelowFree([form], form, 5)).toBe(true);
+         |                                               ^
+      76 |   });
+      77 |   it("is blocked by an item occupying row y+4 in a spanned column", () => {
+      78 |     expect(isSpaceBelowFree([form, item("o", 0, 4, 3, 2)], form, 5)).toBe(false);
+  ● isSpaceBelowFree › is free for a neighbour beside it or below row y+4
+    expect(received).toBe(expected) // Object.is equality
+    Expected: true
+    Received: false
+      82 |   });
+      83 |   it("is free for a neighbour beside it or below row y+4", () => {
+    > 84 |     expect(isSpaceBelowFree([form, item("o", 3, 4, 3, 2)], form, 5)).toBe(true);
+         |                                                                      ^
+      85 |     expect(isSpaceBelowFree([form, item("o", 0, 5, 3, 2)], form, 5)).toBe(true);
+      86 |   });
+      87 |   it("ignores the form's own item", () => {
+  ● isSpaceBelowFree › ignores the form's own item
+    expect(received).toBe(expected) // Object.is equality
+    Expected: true
+    Received: false
+      86 |   });
+      87 |   it("ignores the form's own item", () => {
+    > 88 |     expect(isSpaceBelowFree([form], form, 5)).toBe(true);
+         |                                               ^
+      89 |   });
+      90 | });
+      91 |
+  ● liftResizedForm › lifts only the resized non-counter form below 5 rows when free, returning a new array
+    expect(received).toEqual(expected) // deep equality
+    - Expected  - 1
+    + Received  + 1
+    @@ -1,8 +1,8 @@
+      Array [
+        Object {
+    -     "h": 5,
+    +     "h": 4,
+          "panelId": "f",
+          "w": 3,
+          "x": 0,
+          "y": 0,
+        },
+       95 |   it("lifts only the resized non-counter form below 5 rows when free, returning a new array", () => {
+       96 |     const items = [item("f", 0, 0, 3, 4)];
+    >  97 |     expect(liftResizedForm(items, "f", [form])).toEqual([item("f", 0, 0, 3, 5)]);
+          |                                                 ^
+       98 |     expect(items[0].h).toBe(4);
+       99 |   });
+      100 |   it("returns the same array when nothing lifts", () => {
+FAIL src/features/panels/ui/grid/DesktopPanelGrid.formMinRows.test.tsx
+  ● Console
+    console.error
+      An update to PanelCardBody inside a test was not wrapped in act(...).
+      When testing, code that causes React state updates should be wrapped into act(...):
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+      71 |         if (!cancelled) {
+      72 |           setOutput(null);
+    > 73 |           setIsLoading(false);
+         |           ^
+      74 |         }
+      75 |       });
+      76 |     return () => {
+    console.error
+      An update to PanelCardBody inside a test was not wrapped in act(...).
+      When testing, code that causes React state updates should be wrapped into act(...):
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+      70 |       .catch(() => {
+      71 |         if (!cancelled) {
+    > 72 |           setOutput(null);
+         |           ^
+      73 |           setIsLoading(false);
+      74 |         }
+      75 |       });
+    console.error
+      An update to PanelCardBody inside a test was not wrapped in act(...).
+      When testing, code that causes React state updates should be wrapped into act(...):
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+      71 |         if (!cancelled) {
+      72 |           setOutput(null);
+    > 73 |           setIsLoading(false);
+         |           ^
+      74 |         }
+      75 |       });
+      76 |     return () => {
+    console.error
+      An update to PanelCard inside a test was not wrapped in act(...).
+      When testing, code that causes React state updates should be wrapped into act(...):
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+      71 |         if (!cancelled) {
+      72 |           setOutput(null);
+    > 73 |           setIsLoading(false);
+         |           ^
+      74 |         }
+      75 |       });
+      76 |     return () => {
+    console.error
+      An update to PanelCardBody inside a test was not wrapped in act(...).
+      When testing, code that causes React state updates should be wrapped into act(...):
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+    console.error
+      An update to DesktopPanelGrid inside a test was not wrapped in act(...).
+      When testing, code that causes React state updates should be wrapped into act(...):
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+    console.error
+      An update to ForwardRef(PanelGrid) inside a test was not wrapped in act(...).
+      When testing, code that causes React state updates should be wrapped into act(...):
+      act(() => {
+        /* fire events that update state */
+      });

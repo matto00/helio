@@ -1,0 +1,13 @@
+
+Running 4 tests using 1 worker
+
+[1A[2K[1/4] [dev] › e2e/hel1618-form-min-rows.spec.ts:185:7 › HEL-1618 form minimum rows › a multi-field form stops at 5 rows; a compact counter still reaches 4
+[1A[2K[dev] › e2e/hel1618-form-min-rows.spec.ts:185:7 › HEL-1618 form minimum rows › a multi-field form stops at 5 rows; a compact counter still reaches 4
+[HEL-1300 e2e] throwaway user: hel1618-rows-1795415271593-2008@example.test
+
+[1A[2K[2/4] [dev] › e2e/hel1618-form-min-rows.spec.ts:199:7 › HEL-1618 form minimum rows › GUARD: a saved 4-row form is not bumped on load and nothing is saved
+[1A[2K[3/4] [dev] › e2e/hel1618-form-min-rows.spec.ts:212:7 › HEL-1618 form minimum rows › a saved 4-row form with free space below grows to 5 on a width resize, persisted once
+[1A[2K[4/4] [dev] › e2e/hel1618-form-min-rows.spec.ts:236:7 › HEL-1618 form minimum rows › a saved 4-row form with a panel directly below stays 4 rows; the neighbour does not move
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 1 recorded throwaway user(s)
+[1A[2K  4 passed (24.0s)

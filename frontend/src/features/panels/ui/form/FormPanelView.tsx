@@ -11,16 +11,12 @@ import "./CounterControl.css";
 import { useAppSelector } from "../../../../hooks/reduxHooks";
 import { PanelBodySkeleton } from "../PanelBodySkeleton";
 import { InlineError } from "../../../../shared/chrome/InlineError";
-import {
-  fetchDatasetSchema,
-  fetchFieldAggregate,
-} from "../../../sources/services/dataSourceService";
+import { fetchDatasetSchema } from "../../../sources/services/dataSourceService";
 import { extractErrorMessage } from "../../../../services/extractErrorMessage";
 import { buildDeniedPipelinesToast } from "../../../pipelines/services/deniedPipelinesToast";
 import { useRunToUpdate } from "../../../pipelines/hooks/useRunToUpdate";
 import { useToast } from "../../../toasts/hooks/useToast";
 import { fetchFormSchema, parseFieldErrors, submitFormPanel } from "../../services/panelService";
-import { isDefiniteRejection } from "../../state/classifySubmitFailure";
 import { computeFormIssues } from "../../state/formConfigValidation";
 import {
   buildSubmitFiles,
@@ -28,8 +24,10 @@ import {
   mapServerFieldErrors,
   validateForSubmit,
 } from "../../state/formSubmission";
-import { COUNTER_TALLY_CAPTION } from "./counterTallyCaption";
-import { FormFieldControl } from "./FormFieldControl";
+import { isCompactCounterConfig } from "./compactCounter";
+import { CompactCounterFormBody } from "./CompactCounterFormBody";
+import { MultiFieldFormBody } from "./MultiFieldFormBody";
+import { useCompactCounterSubmit } from "./useCompactCounterSubmit";
 import { useFormPanelValues } from "./useFormPanelValues";
 import type { DatasetFieldResponse } from "../../../sources/types/dataSource";
 import type { FormPanelConfig, FormSubmitResponse } from "../../types/panel";
@@ -77,23 +75,6 @@ export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanel
 
   const formRef = useRef<HTMLFormElement>(null);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
-
-  // HEL-1095 design.md D9 — the compact counter's per-click pending-delta map, replacing
-  // HEL-1087's single-value `submitState === "pending"` reentrancy guard (that guard silently
-  // dropped every click after the first in a burst — design-gate round 1). Held in a ref (not
-  // state): every read of "is the map still empty right now" must see the value as of the exact
-  // moment it's checked, never a value captured by an earlier render's closure — an async
-  // settle callback from an EARLIER click otherwise reads a stale snapshot from before a LATER
-  // click's own mutation. `pendingCount` mirrors the ref's size purely to trigger a re-render for
-  // `aria-busy` (D8) — it is never itself read for a correctness decision.
-  const pendingDeltasRef = useRef<Map<object, number>>(new Map());
-  const [pendingCount, setPendingCount] = useState(0);
-  // Bumped on EVERY settle (success or failure), never just a success that empties the map
-  // (design-gate round 4) — this is what lets a fetch already in flight be invalidated by a
-  // sibling click's outcome even when that outcome alone wouldn't have dispatched a new fetch.
-  const reconcileGenerationRef = useRef(0);
-  // HEL-1819: whether a definite rejection has settled in the CURRENT burst (reset when a click starts with nothing in flight).
-  const burstRejectedRef = useRef(false);
 
   function requestFocus(intent: "invalid" | "button") {
     pendingFocusRef.current = intent;
@@ -145,7 +126,7 @@ export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanel
   // and it is a counter — zero fields, one non-counter field, and 2+ fields (including one
   // counter) all keep the standard stacked-field layout below, with any counter field rendered
   // `immediate={false}` (local-value-only, participates in the shared Submit button).
-  const isCompactCounter = config.fields.length === 1 && config.fields[0].control === "counter";
+  const isCompactCounter = isCompactCounterConfig(config);
 
   // HEL-1788 D3a: a non-owner's compact counter is a tally of their own clicks, so it starts at 0.
   const values = useFormPanelValues(config.fields, schema ?? [], isCompactCounter && !isFormOwner);
@@ -166,144 +147,17 @@ export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanel
     submitButtonRef.current?.focus();
   }, [focusTrigger, values.errors]);
 
-  // design.md Decision 1/2/3, HEL-1095 design.md D9 — the compact single-counter-field layout's
-  // `+`/`-` handler. Reuses the existing submit path (`submitFormPanel`) directly rather than
-  // going through `handleSubmit` above: there is no whole-form validation to run (the counter is
-  // the only field, always required, always numeric) and the payload is the DELTA (`±step`), not
-  // the field's stored value — unlike `buildSubmitValues`, which sends the field's current value
-  // verbatim. Every activation fires its own request immediately (no reentrancy guard — a burst
-  // of clicks is genuinely concurrent, tracked via `pendingDeltasRef`), advances the displayed
-  // value by `delta` on top of whatever is already shown, and reconciles against the dataset's
-  // own server-computed aggregate once the whole burst quiesces (HEL-1095 C1: decoupled from any
-  // downstream pipeline run entirely — see design.md D1's owner ruling).
-  async function handleImmediateStep(direction: 1 | -1) {
-    if (!schema) return;
-
-    const field = config.fields[0];
-    const step = field.step ?? 1;
-    const delta = step * direction;
-    const token = {};
-
-    // HEL-1819: a new burst (nothing in flight) starts with no rejection settled in it.
-    if (pendingDeltasRef.current.size === 0) burstRejectedRef.current = false;
-
-    flushSync(() => {
-      setAlertText("");
-      setStatusText("");
-    });
-    values.adjustNumericValue(field.sourceField, delta);
-
-    pendingDeltasRef.current.set(token, delta);
-    setPendingCount(pendingDeltasRef.current.size);
-
-    // HEL-1169 design.md D2 — extracted so it can be called unconditionally from all THREE
-    // settle outcomes below (success, definite rejection, indeterminate failure alike), fixing a
-    // real correctness gap: scoping this to only two of the three branches means a burst that
-    // happens to quiesce on a definite-rejection settle would never reconcile, even when an
-    // earlier sibling in the same burst was indeterminate and genuinely needs correcting.
-    // `onReconcileFailed` is invoked only when THIS settle emptied the pending map AND the
-    // aggregate fetch itself failed — the caller decides whether that's worth surfacing
-    // (design.md D4); this helper never does. Applies a fetched aggregate via `reconcileValue`,
-    // NEVER `setValue` — `setValue`'s unconditional `externalErrors` clear would otherwise erase
-    // a definite rejection's just-set `aria-invalid` state on this SAME settle (design.md D3a).
-    async function reconciliationTail(onReconcileFailed?: () => void, onReconciled?: () => void) {
-      // Unconditional on every settle, success or failure alike (design-gate round 4) — this is
-      // what lets a fetch already dispatched below be invalidated by a LATER sibling click's own
-      // outcome, even when that outcome alone doesn't empty the map and so doesn't dispatch a new
-      // fetch of its own.
-      pendingDeltasRef.current.delete(token);
-      reconcileGenerationRef.current += 1;
-      setPendingCount(pendingDeltasRef.current.size);
-
-      // Quiesce-gated: fetch the authoritative aggregate ONLY when THIS settle is the one that
-      // empties the map (design-gate round 2 — fetching on every success let a still-in-flight
-      // sibling's already-committed write get double-corrected by a second, later fetch, a
-      // visible backward snap). A response is only ever sent after its write commits, so once the
-      // LAST outstanding request in a burst is processed here, every request in that burst has
-      // already committed — the aggregate this fetch reads back is guaranteed to include all of
-      // them.
-      if (pendingDeltasRef.current.size === 0 && !isFormOwner) {
-        // HEL-1784: a user who is not the form's owner may not read the dataset's aggregate, so there is nothing to
-        // reconcile against. The tally stays their own clicks; an indeterminate click says it could not be confirmed.
-        onReconcileFailed?.();
-      } else if (pendingDeltasRef.current.size === 0) {
-        const myGen = reconcileGenerationRef.current;
-        try {
-          const aggregate = await fetchFieldAggregate(config.dataSourceId, field.sourceField);
-          // Applied only if NOTHING has settled since this fetch was dispatched (the generation
-          // check — design-gate round 4) AND the map is still empty right now (design-gate round
-          // 3, a brand-new click racing this fetch's own round trip). Either condition failing
-          // means the fetch's triggering condition no longer holds by the time it resolves, so
-          // its result is stale and must be discarded rather than overwrite a newer optimistic
-          // value — the click(s) that invalidated it will themselves drive a fresh reconciliation
-          // once they settle.
-          if (myGen === reconcileGenerationRef.current && pendingDeltasRef.current.size === 0) {
-            values.reconcileValue(field.sourceField, String(aggregate.value));
-            onReconciled?.();
-          }
-        } catch {
-          onReconcileFailed?.();
-        }
-      }
-    }
-
-    try {
-      const response = await submitFormPanel(panelId, { [field.sourceField]: delta }, {});
-      setStatusText("The row was added.");
-      pushDenialToastIfAny(response);
-      // HEL-1169 design.md D3 (round-1 design-gate CR3) — clears any stale rejection error
-      // UNCONDITIONALLY, independent of whether this settle's own trailing reconciliation fetch
-      // below succeeds: relying on `reconcileValue`'s incidental non-clearing would leave a stale
-      // `aria-invalid` across a later successful click whose own fetch happens to fail.
-      values.setExternalErrors({});
-      // No `onReconcileFailed` here — a failed trailing fetch after a KNOWN-successful write
-      // stays silent, exactly as before this ticket (nothing was ever in doubt).
-      await reconciliationTail();
-    } catch (err) {
-      if (isDefiniteRejection(err)) {
-        // Definite rejection: the server (or an intermediate proxy) answered, so the write is
-        // known NOT to have committed. Relative rollback — subtract only THIS click's own delta
-        // from the CURRENT displayed value, never revert to an absolute snapshot (HEL-1087's
-        // original approach, wrong once a sibling click can be concurrently in flight: an earlier
-        // snapshot may no longer reflect a sibling's contribution that has since landed —
-        // design.md D9).
-        values.adjustNumericValue(field.sourceField, -delta);
-        const serverFieldErrors = parseFieldErrors(err);
-        const message =
-          serverFieldErrors.length > 0
-            ? serverFieldErrors.map((e) => e.reason).join(" ")
-            : extractErrorMessage(err, "The submit could not be completed. Please try again.");
-        setAlertText(message);
-        // HEL-1169 design.md D3 — associates the rejection with the control itself
-        // (`aria-invalid`/`aria-describedby`), matching what `handleSubmit` already does via
-        // `setExternalErrors` on its own rejection path (today the compact counter never did).
-        values.setExternalErrors({ [field.sourceField]: message });
-        burstRejectedRef.current = true;
-        // No `onReconcileFailed` here (design.md D4) — a failed trailing fetch must never
-        // overwrite this rejection's own already-announced error text.
-        await reconciliationTail();
-      } else {
-        // Indeterminate: no HTTP exchange completed at all, so whether the write actually
-        // committed is genuinely unknown — rolling back here could revert an already-persisted
-        // write (the lost-ack case HEL-1169 exists to fix). Never adjust the optimistic value
-        // directly; once the burst quiesces, `reconciliationTail` fetches the dataset's own
-        // authoritative aggregate and replaces the (possibly-wrong) optimistic tally with it. If
-        // that reconciliation fetch ALSO fails, the optimistic value is left as-is (never
-        // silently discarded) and the assertive region announces that it could not be confirmed —
-        // distinct wording from a definite rejection's own error.
-        await reconciliationTail(
-          () => {
-            setAlertText("Couldn't confirm the current value. It may not be up to date.");
-          },
-          // HEL-1819 (owner ruling): a rejection from an EARLIER burst left a field error that nothing clears
-          // once this burst reconciles. A rejection settled in THIS burst keeps its error (HEL-1169 D3a).
-          () => {
-            if (!burstRejectedRef.current) values.setExternalErrors({});
-          },
-        );
-      }
-    }
-  }
+  // design.md Decision 1/2, HEL-1095 design.md D9 — the compact counter's `+`/`-` handler and its burst state.
+  const compactCounter = useCompactCounterSubmit({
+    schema,
+    config,
+    panelId,
+    isFormOwner,
+    values,
+    setAlertText,
+    setStatusText,
+    pushDenialToastIfAny,
+  });
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -386,96 +240,39 @@ export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanel
   }
 
   if (isCompactCounter) {
-    const field = config.fields[0];
     return (
-      <div className="panel-content panel-content--form">
-        <div className="form-panel-view__compact-counter" aria-label={title}>
-          {/* `FormFieldControl` already renders the field's own label via `FormField` — no
-             separate label span here, which would otherwise duplicate it visually. */}
-          <FormFieldControl
-            field={field}
-            declared={declaredByField.get(field.sourceField)}
-            issue={issuesByField.get(field.sourceField)}
-            value={values.values[field.sourceField]}
-            error={values.errors[field.sourceField]}
-            onChange={() => {
-              /* compact layout never edits local value directly — every activation submits */
-            }}
-            onBlur={() => {
-              /* no blur-driven validation in the compact layout — there is nothing else to
-                 mark touched */
-            }}
-            immediate
-            onImmediateStep={(direction) => void handleImmediateStep(direction)}
-            busy={pendingCount > 0}
-            tallyCaption={isFormOwner ? undefined : COUNTER_TALLY_CAPTION}
-            errorDescriptionId={alertId}
-          />
-          <p id={alertId} role="alert" className="form-panel-view__alert">
-            {alertText}
-          </p>
-          <p role="status" className="form-panel-view__status">
-            {statusText}
-          </p>
-        </div>
-      </div>
+      <CompactCounterFormBody
+        title={title}
+        config={config}
+        declaredByField={declaredByField}
+        issuesByField={issuesByField}
+        values={values}
+        isFormOwner={isFormOwner}
+        onStep={(direction) => void compactCounter.step(direction)}
+        busy={compactCounter.busy}
+        alertId={alertId}
+        alertText={alertText}
+        statusText={statusText}
+      />
     );
   }
 
   const submitLabel = submitState === "pending" ? "Submitting…" : (config.submit.label ?? "Submit");
 
   return (
-    <div className="panel-content panel-content--form">
-      {/* Enter inside a single-line `<input>` already submits the form natively (there is now a
-         real `type="submit"` button); a `<textarea>` already refuses to auto-submit on Enter —
-         neither needs bespoke key handling here. */}
-      <form
-        ref={formRef}
-        className="form-panel-view__fields"
-        aria-label={title}
-        noValidate
-        onSubmit={(e) => void handleSubmit(e)}
-      >
-        {config.fields.map((field) => (
-          <FormFieldControl
-            key={field.sourceField}
-            field={field}
-            declared={declaredByField.get(field.sourceField)}
-            issue={issuesByField.get(field.sourceField)}
-            value={values.values[field.sourceField]}
-            error={values.errors[field.sourceField]}
-            onChange={(v) => values.setValue(field.sourceField, v)}
-            onBlur={() => values.touch(field.sourceField)}
-            immediate={false}
-          />
-        ))}
-        {/* HEL-1087 design.md D8: always-mounted live regions, emptied at the start of every
-           attempt — a region that exists before the async outcome is what makes a later text
-           change announced. */}
-        <p role="alert" className="form-panel-view__alert">
-          {alertText}
-        </p>
-        <p role="status" className="form-panel-view__status">
-          {statusText}
-        </p>
-        {/* HEL-1090: `aria-disabled`, NOT the native `disabled` attribute, while pending — the
-           browser silently blurs a focused element the instant it becomes natively `disabled`
-           (moving focus to <body>, confirmed via a bare-HTML Playwright probe with no app code
-           involved), which violates the spec's "focus SHALL remain on or return to the submit
-           control ... never lost to the document body" requirement for the in-flight state.
-           `aria-disabled` communicates the same state to assistive tech without triggering that
-           browser behavior; `handleSubmit`'s own `submitState === "pending"` early-return (and
-           `handleImmediateStep`'s matching guard) is what actually blocks a re-entrant submit,
-           so no native `disabled` is needed for that purpose either. */}
-        <button
-          ref={submitButtonRef}
-          type="submit"
-          className="form-panel-view__submit"
-          aria-disabled={submitState === "pending" ? "true" : undefined}
-        >
-          {submitLabel}
-        </button>
-      </form>
-    </div>
+    <MultiFieldFormBody
+      title={title}
+      config={config}
+      declaredByField={declaredByField}
+      issuesByField={issuesByField}
+      values={values}
+      formRef={formRef}
+      submitButtonRef={submitButtonRef}
+      onSubmit={(e) => void handleSubmit(e)}
+      alertText={alertText}
+      statusText={statusText}
+      submitPending={submitState === "pending"}
+      submitLabel={submitLabel}
+    />
   );
 }

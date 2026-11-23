@@ -481,7 +481,9 @@ requirement's field-level error/invalid state; it is cleared only by a later req
 or (owner ruling on HEL-1819) by a LATER burst's reconciliation as defined in the requirement "A stale counter
 rejection error is cleared once a later burst reconciles": a burst that starts after the rejection settled, that
 quiesces on an indeterminate (no-response) settle, and whose reconciliation fetch succeeds and is applied. A
-reconciliation within the same burst as the rejection SHALL NOT clear it.
+reconciliation within the same burst as the rejection SHALL NOT clear it. For a user who is not the form's owner, who has no
+reconciliation (HEL-1784), the LATER-burst clear is instead defined by the requirement "A non-owner's stale counter
+rejection error is cleared once a later burst settles without a rejection".
 
 In the compact single-counter layout, a definite rejection's message SHALL be rendered and announced
 exactly once: its text SHALL appear only in the form's always-mounted assertive region, the field SHALL
@@ -711,13 +713,15 @@ triggered it, as an editor's manual run does.
 
 ### Requirement: A stale counter rejection error is cleared once a later burst reconciles
 
-When a counter's field-associated error was set by a definite rejection in an EARLIER burst of immediate-submit
+When the signed-in user is the form's owner and a counter's field-associated error was set by a definite rejection in an EARLIER burst of immediate-submit
 activations, and the current burst quiesces on an indeterminate (no-response) settle whose reconciliation fetch
 succeeds and is applied, the client SHALL clear that field-associated error, so the control is no longer
 `aria-invalid` and no longer shown in the error colour. A definite rejection that settled within the CURRENT burst
 SHALL keep its field-associated error after the burst's reconciliation is applied (the existing rule that applying a
 reconciled total never clears an error set within the burst is unchanged). A reconciliation that fails, or whose
-result is discarded as stale, SHALL NOT clear the error.
+result is discarded as stale, SHALL NOT clear the error. A user who is not the form's owner never reconciles; their stale-error clear is
+defined by the requirement "A non-owner's stale counter rejection error is cleared once a later burst settles without
+a rejection".
 
 #### Scenario: Rejection, then a no-response failure, then a successful reconcile
 - **WHEN** a compact counter step is definitely rejected (the control becomes `aria-invalid="true"`)
@@ -731,5 +735,27 @@ result is discarded as stale, SHALL NOT clear the error.
 - **THEN** the control stays `aria-invalid="true"` and the rejection message stays in the alert region
 
 #### Scenario: A failed reconciliation leaves the error
-- **WHEN** a step after an earlier rejection fails with no response and its reconciliation fetch also fails
+- **WHEN** the form's owner's step after an earlier rejection fails with no response and its reconciliation fetch
+  also fails
 - **THEN** the control's field-associated error is not cleared by that settle
+
+### Requirement: A non-owner's stale counter rejection error is cleared once a later burst settles without a rejection
+
+When the signed-in user is not the form's owner, and a compact counter's field-associated error was set by a definite
+rejection in an EARLIER burst of immediate-submit activations, the client SHALL clear that field-associated error when
+the current burst quiesces and no definite rejection settled within the current burst, so the control is no longer
+`aria-invalid` and no longer shown in the error colour. A definite rejection that settled within the CURRENT burst
+SHALL keep its field-associated error. The rejection text SHALL remain carried by the form's assertive (alert) region,
+and the alert and status regions SHALL stay mounted. An indeterminate settle SHALL still announce that the value could
+not be confirmed.
+
+#### Scenario: An editor's rejection, then a no-response step
+- **WHEN** a non-owner's compact counter step is definitely rejected (the control becomes `aria-invalid="true"`)
+- **AND** a later step, started after that rejection settled, fails with no response
+- **THEN** the control is not `aria-invalid` and its value is not shown in the error colour
+- **AND** the assertive region announces that the value could not be confirmed
+
+#### Scenario: An editor's rejection in the same burst keeps its error
+- **WHEN** two of a non-owner's steps are in flight at once, one is definitely rejected and the other then fails with
+  no response
+- **THEN** the control stays `aria-invalid="true"`

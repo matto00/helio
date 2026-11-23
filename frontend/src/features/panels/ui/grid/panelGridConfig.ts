@@ -9,6 +9,7 @@ import { dashboardGridCols } from "../../../dashboards/state/dashboardLayout";
 import type { DashboardLayout, DashboardLayoutItem } from "../../../dashboards/types/dashboard";
 import type { Density } from "../../../../theme/appearancePrefs";
 import type { Panel } from "../../types/panel";
+import { isCompactCounterConfig } from "../form/compactCounter";
 
 /** The Compact gutter (HEL-1572). Mirrors `:root[data-density="compact"] --density-grid-gap`. */
 export const COMPACT_GRID_GUTTER_PX = 8;
@@ -77,8 +78,61 @@ export const rglBreakpoints: PanelGridConfig["breakpoints"] = Object.fromEntries
   ]),
 );
 
+/** HEL-1618: the fewest rows a form panel (other than a compact counter) may be placed or resized to; matches the backend
+ *  packer's `Form minH = 5` (`PanelPacker.scala`). */
+export const FORM_MIN_ROWS = 5;
+
+/** The fewest rows `panel` may be resized to, given its stored height `h` (HEL-1618, owner rulings `min-height-5-rows`
+ *  and `lift-when-free`). A non-counter form already at 5+ rows gets the strict `FORM_MIN_ROWS`; a form saved below 5
+ *  keeps today's general minimum so it resizes as before and RGL never bumps or collision-reverts it; a compact
+ *  counter and every other kind keep the general minimum. A form with no fields or no config counts as a plain form,
+ *  as the backend packer treats it. */
+export function panelMinRows(panel: Panel | undefined, h: number): number {
+  if (panel?.type !== "form" || isCompactCounterConfig(panel.config)) {
+    return panelGridConfig.itemHeights.min;
+  }
+  return h >= FORM_MIN_ROWS ? FORM_MIN_ROWS : panelGridConfig.itemHeights.min;
+}
+
+/** True when no OTHER item of `items` (the FULL stored breakpoint, kept items of unloaded panels included) occupies a
+ *  cell in `target`'s columns on rows `target.y + target.h` .. `target.y + rows - 1`. There is no bottom edge: the
+ *  grid grows downward. */
+export function isSpaceBelowFree(
+  items: DashboardLayoutItem[],
+  target: DashboardLayoutItem,
+  rows: number,
+): boolean {
+  const top = target.y + target.h;
+  const bottom = target.y + rows;
+  return !items.some(
+    (other) =>
+      other.panelId !== target.panelId &&
+      other.x < target.x + target.w &&
+      other.x + other.w > target.x &&
+      other.y < bottom &&
+      other.y + other.h > top,
+  );
+}
+
+/** HEL-1618 `lift-when-free`: when a resize of `resizedId` ends with a non-counter form below `FORM_MIN_ROWS`, grow it
+ *  to `FORM_MIN_ROWS` only if the space directly below is free; otherwise keep it. No other item moves. Returns `items`
+ *  itself when nothing lifts. */
+export function liftResizedForm(
+  items: DashboardLayoutItem[],
+  resizedId: string | null,
+  panels: Panel[],
+): DashboardLayoutItem[] {
+  if (resizedId === null) return items;
+  const target = items.find((item) => item.panelId === resizedId);
+  const panel = panels.find((p) => p.id === resizedId);
+  if (!target || panel?.type !== "form" || isCompactCounterConfig(panel.config)) return items;
+  if (target.h >= FORM_MIN_ROWS || !isSpaceBelowFree(items, target, FORM_MIN_ROWS)) return items;
+  return items.map((item) => (item === target ? { ...item, h: FORM_MIN_ROWS } : item));
+}
+
 export function createLayouts(
   layout: DashboardLayout,
+  minRowsFor: (panelId: string, h: number) => number = () => panelGridConfig.itemHeights.min,
 ): NonNullable<ResponsiveGridLayoutProps["layouts"]> {
   return {
     lg: layout.lg.map((item) => ({
@@ -88,7 +142,7 @@ export function createLayouts(
       w: item.w,
       h: item.h,
       minW: Math.min(2, item.w),
-      minH: panelGridConfig.itemHeights.min,
+      minH: minRowsFor(item.panelId, item.h),
     })),
     md: layout.md.map((item) => ({
       i: item.panelId,
@@ -97,7 +151,7 @@ export function createLayouts(
       w: item.w,
       h: item.h,
       minW: Math.min(2, item.w),
-      minH: panelGridConfig.itemHeights.min,
+      minH: minRowsFor(item.panelId, item.h),
     })),
     sm: layout.sm.map((item) => ({
       i: item.panelId,
@@ -106,7 +160,7 @@ export function createLayouts(
       w: item.w,
       h: item.h,
       minW: Math.min(2, item.w),
-      minH: panelGridConfig.itemHeights.min,
+      minH: minRowsFor(item.panelId, item.h),
     })),
     xs: layout.xs.map((item) => ({
       i: item.panelId,
@@ -115,7 +169,7 @@ export function createLayouts(
       w: item.w,
       h: item.h,
       minW: 1,
-      minH: panelGridConfig.itemHeights.min,
+      minH: minRowsFor(item.panelId, item.h),
     })),
   };
 }

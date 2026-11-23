@@ -332,3 +332,62 @@ describe("FormPanelView for the form's owner", () => {
     expect(fetchFieldAggregateMock).toHaveBeenCalledWith("ds-2", "delta");
   });
 });
+
+describe("FormPanelView non-owner stale counter error (HEL-1618)", () => {
+  beforeEach(() => {
+    fetchDatasetSchemaMock.mockReset();
+    fetchFieldAggregateMock.mockReset();
+    fetchFormSchemaMock.mockReset();
+    submitFormPanelMock.mockReset();
+  });
+
+  it("clears an earlier burst's rejection error when a later step gets no response", async () => {
+    fetchFormSchemaMock.mockResolvedValueOnce(counterFormSchema);
+    submitFormPanelMock
+      .mockRejectedValueOnce(definiteRejection())
+      .mockRejectedValueOnce(new Error("Network Error"));
+    renderNonOwner(counterConfig);
+    const control = await screen.findByRole("spinbutton", { name: "Widgets" });
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+    await waitFor(() => expect(control).toHaveAttribute("aria-invalid", "true"));
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+
+    await waitFor(() =>
+      expect(document.querySelector(".form-panel-view__alert")).toHaveTextContent(
+        /couldn't confirm the current value/i,
+      ),
+    );
+    expect(control).not.toHaveAttribute("aria-invalid", "true");
+    expect(fetchFieldAggregateMock).not.toHaveBeenCalled();
+  });
+
+  // GUARD (failable by dropping the `burstRejectedRef` check): the no-response step settles AFTER the rejection in
+  // the SAME burst (both in flight at once), so the rejection's error must survive the quiesce.
+  it("keeps a same-burst rejection's error when a later in-flight step then gets no response", async () => {
+    fetchFormSchemaMock.mockResolvedValueOnce(counterFormSchema);
+    let rejectFirst: (err: unknown) => void = () => {};
+    let rejectSecond: (err: unknown) => void = () => {};
+    submitFormPanelMock
+      .mockReturnValueOnce(new Promise((_, reject) => (rejectFirst = reject)))
+      .mockReturnValueOnce(new Promise((_, reject) => (rejectSecond = reject)));
+    renderNonOwner(counterConfig);
+    const control = await screen.findByRole("spinbutton", { name: "Widgets" });
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+    await waitFor(() => expect(submitFormPanelMock).toHaveBeenCalledTimes(2));
+
+    rejectFirst(definiteRejection());
+    await waitFor(() => expect(control).toHaveAttribute("aria-invalid", "true"));
+    rejectSecond(new Error("Network Error"));
+
+    await waitFor(() =>
+      expect(document.querySelector(".form-panel-view__alert")).toHaveTextContent(
+        /couldn't confirm the current value/i,
+      ),
+    );
+    expect(control).toHaveAttribute("aria-invalid", "true");
+  });
+});
