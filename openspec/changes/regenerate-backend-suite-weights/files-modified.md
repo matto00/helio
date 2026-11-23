@@ -1,0 +1,6 @@
+- `backend/project/test-suite-weights.tsv` — regenerated from 3 green post-split main runs; 775 measured rows
+- `backend/src/main/scala/com/helio/infrastructure/ai/ClaudeClient.scala` — scaladoc points at ClaudeRequestBuilder.guardrailReject
+- `backend/src/test/scala/com/helio/api/routes/assistant/AssistantConversationRoutesFixture.scala` — comments name TierSpec/TurnSpec instead of "below"
+- `backend/src/test/scala/com/helio/api/routes/assistant/AssistantConversationRoutesTurnSpec.scala` — comment names the shared fixture
+- `backend/src/test/scala/com/helio/services/assistant/AssistantServiceTestSupport.scala` — comments no longer say "this file"/"below"
+- `openspec/changes/regenerate-backend-suite-weights/evidence/*.txt` — before/after shard plans and regeneration record

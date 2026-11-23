@@ -171,7 +171,7 @@ class AssistantConversationRoutesTurnSpec
 
       // First call: every hop returns the SAME unresolved tool_use, driving the loop to the hop cap
       // ("unknown_tool" is never in AssistantProtocol.assistantTools -- AssistantToolExecutor's
-      // fallback never touches a real collaborator, mirroring this file's own established fixture).
+      // fallback never touches a real collaborator, mirroring the established `AssistantConversationRoutesFixture`).
       val firstAssistant = assistantServiceWith(new FakeTransport(toolUseResponse("dangling-1", "unknown_tool", JsObject.empty)))
 
       Post(s"/assistant-conversations/${detail.record.id.value}/converse", jsonEntity("""{"message":"Build me a huge dashboard"}""")) ~>

@@ -128,10 +128,10 @@ trait AssistantConversationRoutesFixture extends BeforeAndAfterAll with TempDire
 
     userRepo  = new UserRepository(appDb)(routeEc)
     usageRepo = new AssistantDailyUsageRepository(ctx, PinnedDayClock)(routeEc)
-    // HEL-703: the module-level userA/userB fixtures below are seeded `owner`-tier (not the
-    // `free` default) precisely so every PRE-EXISTING test in this file — written before tier
+    // HEL-703: the module-level userA/userB fixtures above are seeded `owner`-tier (not the
+    // `free` default) precisely so every PRE-EXISTING test in the `AssistantConversationRoutes*Spec` suites — written before tier
     // gating existed — keeps exercising unrestricted, uncounted access. The dedicated tier-gating
-    // tests near the bottom of this file seed their OWN fresh users at whichever tier they need.
+    // tests in `AssistantConversationRoutesTierSpec` seed their OWN fresh users at whichever tier they need.
     chatAccessService = new ChatAccessService(userRepo, usageRepo, UserTierConfig(Set.empty, UserTierConfig.DefaultBetaDailyMessageLimit))
 
     await(
@@ -201,8 +201,8 @@ trait AssistantConversationRoutesFixture extends BeforeAndAfterAll with TempDire
     }
   }
 
-  // No propose_*/find/get_resource/test_connection tool_use is ever scripted in this file's fake
-  // responses, so AssistantToolExecutor's other 6 collaborators are never touched -- null is safe
+  // No propose_*/find/get_resource/test_connection tool_use is ever scripted in the fake
+  // responses the `AssistantConversationRoutes*Spec` suites script, so AssistantToolExecutor's other 6 collaborators are never touched -- null is safe
   // here, mirroring AssistantServiceSpec's own established "null-unused" pattern for collaborators
   // no scripted sequence reaches.
   def assistantServiceWith(transport: ClaudeTransport): AssistantService =
@@ -211,7 +211,7 @@ trait AssistantConversationRoutesFixture extends BeforeAndAfterAll with TempDire
   // HEL-667 tasks.md 7.3 — a real (Mockito-backed) `WorkspaceSearchService` so a scripted `find`
   // tool_use actually executes end-to-end, needed for the searchedWithNoResults scenario. Mirrors
   // `AssistantServiceSpec`'s own `newService` wiring; every collaborator `find` never reaches
-  // (dashboard/dataSource/pipeline/metric summaries -- `findInput` below only requests `dataType`)
+  // (dashboard/dataSource/pipeline/metric summaries -- the `findInput` in `AssistantConversationRoutesTurnSpec` and `AssistantConversationRoutesTierSpec`, the callers, only requests `dataType`)
   // stays null.
   def assistantServiceWithSearch(transport: ClaudeTransport, outputRepo: OutputRepository): AssistantService = {
     val workspaceContextService = new WorkspaceContextService(null, null, outputRepo, null)(routeEc)
@@ -222,10 +222,10 @@ trait AssistantConversationRoutesFixture extends BeforeAndAfterAll with TempDire
   def routesFor(user: AuthenticatedUser, assistantOpt: Option[AssistantService]): Route =
     routesForWithChatAccess(user, assistantOpt, chatAccessService)
 
-  // HEL-703 tasks.md 6.4: lets the tier-gating tests below inject a `ChatAccessService` built with
+  // HEL-703 tasks.md 6.4: lets the tier-gating tests in `AssistantConversationRoutesTierSpec` inject a `ChatAccessService` built with
   // a different (usually much smaller, for a fast test) `UserTierConfig` than the module-level
   // default, while still sharing the SAME userRepo/usageRepo instances (and therefore the same
-  // underlying tables) every other helper in this file uses.
+  // underlying tables) every other helper in this fixture uses.
   def routesForWithChatAccess(user: AuthenticatedUser, assistantOpt: Option[AssistantService], chatAccess: ChatAccessService): Route =
     new AssistantConversationRoutes(
       conversationService, assistantOpt, chatAccess, user,
@@ -234,7 +234,7 @@ trait AssistantConversationRoutesFixture extends BeforeAndAfterAll with TempDire
 
   // HEL-703 tasks.md 6.4 — a `ChatAccessService` sharing the SAME userRepo/usageRepo (and
   // therefore the same underlying tables) as `chatAccessService`, but with a caller-chosen daily
-  // limit — lets the beta-cap tests below use a small limit instead of the module-level default.
+  // limit — lets the beta-cap tests in `AssistantConversationRoutesTierSpec` use a small limit instead of the module-level default.
   def chatAccessServiceWithLimit(limit: Int): ChatAccessService =
     new ChatAccessService(userRepo, usageRepo, UserTierConfig(Set.empty, limit))
 

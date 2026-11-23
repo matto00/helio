@@ -22,8 +22,8 @@ import scala.util.{Failure, Success}
  *  limit than the default>)` — the SAME `RateLimitDirective` `SourcePreviewRoutes`/
  *  `DataSourcePreviewRoutes` already use (HEL-505 design.md Decision 6) — UPSTREAM of (i.e.
  *  wrapping around) any call into this class, never downstream. This is a rate/concurrency
- *  front-end only: it must never duplicate `ClaudeConfig`'s own token/spend budgets (`send`'s
- *  `guardrailReject` above) or HEL-1108's `assistant_daily_usage` tier-gated spend cap (pipeline
+ *  front-end only: it must never duplicate `ClaudeConfig`'s own token/spend budgets (`ClaudeRequestBuilder.guardrailReject`,
+ *  which `send` and `stream` call, and `guardrailRejectTool` for `sendWithTools`) or HEL-1108's `assistant_daily_usage` tier-gated spend cap (pipeline
  *  AI-step spend is already covered there) — those stay exactly as they are. */
 class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec: ExecutionContext) {
 

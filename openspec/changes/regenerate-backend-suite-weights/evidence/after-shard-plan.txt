@@ -1,0 +1,59 @@
+HEL-1821 AFTER plan and same-source balance (D4/D5)
+===================================================
+Source S = the regenerated per-suite weights (mean measured JUnit seconds over the 3 runs + 1.0 s/suite), i.e. the new tsv.
+BEFORE = the partition built from main's old tsv (before-shard-plan.txt), AFTER = the partition built from the new tsv;
+both read from the real build (4 shards, HEL924_TEST_GROUP_COUNT=4), both over the same 775 discovered suites, and BOTH
+valued with S. "sum" = leg total of S; "makespan" = HEL-1758 model (the leg's 4 groups LPT-placed on 2 slots, ci.yml:226-227).
+
+BEFORE plan valued with S (what the old partition really cost)
+median used for unknown: 1.269
+leg 0: suites=178 sum=515.4s makespan(4grp/2slot)=296.8s groups=[194.2, 102.6, 114.5, 104.1]
+leg 1: suites=199 sum=725.9s makespan(4grp/2slot)=428.8s groups=[132.4, 158.4, 297.1, 138.1]
+leg 2: suites=199 sum=777.6s makespan(4grp/2slot)=454.9s groups=[178.7, 314.1, 144.0, 140.7]
+leg 3: suites=199 sum=531.7s makespan(4grp/2slot)=266.1s groups=[128.0, 140.1, 138.1, 125.5]
+sum: longest=777.6 mean=637.7 ratio=1.219
+makespan: longest=454.9 mean=361.6 ratio=1.258  budget(+161)=615.9
+
+AFTER plan valued with S (the new partition)
+median used for unknown: 1.269
+leg 0: suites=193 sum=637.7s makespan(4grp/2slot)=341.7s groups=[194.2, 147.5, 147.5, 148.5]
+leg 1: suites=193 sum=637.7s makespan(4grp/2slot)=331.1s groups=[178.3, 152.8, 153.8, 152.8]
+leg 2: suites=194 sum=637.7s makespan(4grp/2slot)=319.0s groups=[159.5, 159.5, 159.2, 159.5]
+leg 3: suites=195 sum=637.7s makespan(4grp/2slot)=318.8s groups=[158.9, 159.9, 158.9, 159.9]
+sum: longest=637.7 mean=637.7 ratio=1.000
+makespan: longest=341.7 mean=327.6 ratio=1.043  budget(+161)=502.7
+
+Summary (same source S)
+  BEFORE  leg-sum longest 777.6 s, mean 637.7 s, longest/mean 1.219 | wall-model makespan longest 454.9 s, mean 361.6 s, longest/mean 1.258
+  AFTER   leg-sum longest 637.7 s, mean 637.7 s, longest/mean 1.000 | wall-model makespan longest 341.7 s, mean 327.6 s, longest/mean 1.043
+
+D5 budget check (predicted heaviest-leg test wall time + 161 s compile term <= 480 s)
+  BEFORE (valued with S): 454.9 + 161 = 615.9 s  -> over 480 (the old partition was badly unbalanced under real weights).
+  AFTER  (valued with S): 341.7 + 161 = 502.7 s  -> over 480 by 22.7 s, but 113.2 s lower than before. The after longest
+  leg is NOT worse than before. The remaining miss is not packing: it is the work itself. The two HEL-1637 tests measured at
+  115-199 s and 170-191 s make AssistantServiceFailureBudgetSpec (153.4 s) and AssistantConversationRoutesTierSpec (178.3 s)
+  indivisible 150-180 s groups, and leg 0's ApiRoutesSpec group is 194.2 s; no leg count or weight change moves those.
+  The model is also conservative against measurement: for the 3 input runs it predicted (before plan, S) leg wall 458 / 590 /
+  616 / 427 s for legs 0..3 against measured "Compile and test" steps of 304-342 / 439-518 / 477-528 / 254-381 s.
+  Applying the model's own over-prediction (about 15-25 %) puts the after plan near 430 s, inside the 660 s deadline.
+  Owner ruling: commit-and-ship, because 480 s is HEL-1758's headroom target, not a CI limit (the CI deadline is 660 s).
+  Spinoff for the slow tests (O(n^2) sizing helpers): HEL-1831; the tests are not touched here.
+
+Where the 11 assistant / ClaudeClient suites land, BEFORE -> AFTER (leg/group; S weight)
+  ClaudeClientSpec                       3/2 -> 3/0   S=1.01 s
+  AssistantServiceSpec                   2/2 -> 0/1   S=2.99 s
+  AssistantConversationRoutesSpec        0/1 -> 3/1   S=1.86 s
+  ClaudeClientFailureBudgetSpec          2/1 -> 2/2   S=1.02 s
+  ClaudeClientToolLoopSpec               3/3 -> 2/3   S=1.49 s
+  ClaudeClientToolRequestSpec            0/1 -> 3/0   S=1.02 s
+  AssistantServiceFailureBudgetSpec      1/2 -> 2/0   S=153.44 s
+  AssistantServicePromptHistorySpec      2/3 -> 2/2   S=1.11 s
+  AssistantServiceSearchRepairSpec       3/0 -> 3/1   S=1.75 s
+  AssistantConversationRoutesTierSpec    2/1 -> 1/0   S=178.28 s
+  AssistantConversationRoutesTurnSpec    3/1 -> 0/2   S=1.29 s
+  After the regeneration the 11 are spread over legs: ['0', '1', '2', '3']
+
+Supplementary, DIFFERENT sources (not mixed into the table above): measured "Compile and test" step seconds per leg (0/1/2/3)
+  input runs on the OLD partition: 45099529907 342/439/528/254   45098330154 331/495/525/316   45088334635 304/518/477/381
+  failed run 45023531045 (old partition): 540/664 (failure)/655/530
+  this PR's CI legs on the NEW partition: recorded by the orchestrator at Delivery (design D8/task 4.1).
