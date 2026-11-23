@@ -24,4 +24,4 @@
 - [x] 3.2 Mutation runs, each must turn the selftest red (record output): revert author check; drop in-script actor check; drop type check; drop `--match-head-commit`; add `--auto`; remove actor condition from job `if:`; widen merge step `if:` to admit semver-major; drop `conclusion == 'success'` from job `if:`
 - [x] 3.3 actionlint (Decision 9) clean on both edited workflows; record output
 - [x] 3.4 `npm run check:ci-complete-needs` and `npm run check:precommit-ci-parity` pass
-- [ ] 3.5 PR body states the applied policy (patch/minor squash-merge after CI success with `--match-head-commit`, never `--auto`; major label-only) and the risks: no post-merge CI on main, non-strict ruleset lets a behind-main branch merge, GITHUB_TOKEN merge and `--delete-branch` untested until a real Dependabot run
+- [x] 3.5 PR body states the applied policy (patch/minor squash-merge after CI success with `--match-head-commit`, never `--auto`; major label-only) and the risks: no post-merge CI on main, non-strict ruleset lets a behind-main branch merge, GITHUB_TOKEN merge and `--delete-branch` untested until a real Dependabot run
