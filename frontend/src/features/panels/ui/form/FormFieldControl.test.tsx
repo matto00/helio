@@ -421,4 +421,45 @@ describe("FormFieldControl", () => {
       `Count widgets ${COUNTER_TALLY_CAPTION}`,
     );
   });
+
+  // HEL-1818 design.md D2 — an external description id moves the error text out of the field.
+  describe("errorDescriptionId", () => {
+    const field: FormFieldSpec = { sourceField: "delta", control: "counter", label: "Delta" };
+    function renderWith(error: string | null) {
+      render(
+        <>
+          <p id="ext-alert" role="alert">
+            {error}
+          </p>
+          <FormFieldControl
+            field={field}
+            declared={{ name: "delta", type: "integer", required: false }}
+            value="0"
+            error={error}
+            onChange={() => {}}
+            onBlur={() => {}}
+            immediate
+            onImmediateStep={() => {}}
+            tallyCaption={COUNTER_TALLY_CAPTION}
+            errorDescriptionId="ext-alert"
+          />
+        </>,
+      );
+      return screen.getByRole("spinbutton", { name: "Delta" });
+    }
+
+    it("with an error: renders no error paragraph, stays invalid, described by the external id then the caption", () => {
+      const control = renderWith("Nope");
+      expect(document.querySelector(".ui-form-field__error")).toBeNull();
+      expect(control).toHaveAttribute("aria-invalid", "true");
+      expect(control.getAttribute("aria-describedby")?.split(" ")[0]).toBe("ext-alert");
+      expect(control).toHaveAccessibleDescription(`Nope ${COUNTER_TALLY_CAPTION}`);
+    });
+
+    it("without an error: unchanged (not invalid, only the caption describes it)", () => {
+      const control = renderWith(null);
+      expect(control).not.toHaveAttribute("aria-invalid");
+      expect(control).toHaveAccessibleDescription(COUNTER_TALLY_CAPTION);
+    });
+  });
 });

@@ -218,6 +218,8 @@ describe("FormPanelView", () => {
 
     const formAlert = document.querySelector(".form-panel-view__alert");
     expect(formAlert).toHaveTextContent(/quantity/i);
+    // HEL-1818: a multi-field form keeps its own per-field error alongside the summary.
+    expect(document.querySelector(".ui-form-field__error")).toHaveTextContent(/expected integer/i);
     expect(screen.getByRole("textbox", { name: "Note" })).toHaveValue("hello");
     expect(quantityField).toHaveValue(5);
   });
@@ -558,6 +560,72 @@ describe("FormPanelView — compact single-counter-field layout", () => {
     await waitFor(() => expect(control).toHaveAttribute("aria-valuenow", "0"));
     await waitFor(() => expect(control).toHaveAttribute("aria-invalid", "true"));
     expect(control).toHaveAccessibleDescription(/delta must be positive/i);
+  });
+
+  // HEL-1818: a compact counter's definite rejection is rendered and announced exactly once -- in the
+  // always-mounted assertive region -- and the control is described by that region. "Once" is scoped
+  // to the panel container (not the document), excluding any toast region.
+  it("HEL-1818: a rejected compact counter step renders and announces the message exactly once", async () => {
+    submitFormPanelMock.mockRejectedValueOnce(
+      axiosErrorWith(400, { fieldErrors: [{ field: "delta", reason: "delta must be positive" }] }),
+    );
+    const control = await renderCompact();
+    const panel = document.querySelector(".form-panel-view__compact-counter") as HTMLElement;
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+    await waitFor(() => expect(control).toHaveAttribute("aria-invalid", "true"));
+
+    const alert = panel.querySelector(".form-panel-view__alert") as HTMLElement;
+    expect(alert).toHaveTextContent("delta must be positive");
+    expect(panel.textContent?.match(/delta must be positive/g)).toHaveLength(1);
+    const alertsWithMessage = Array.from(panel.querySelectorAll('[role="alert"]')).filter((el) =>
+      el.textContent?.includes("delta must be positive"),
+    );
+    expect(alertsWithMessage).toEqual([alert]);
+    expect(panel.querySelector(".ui-form-field__error")).toBeNull();
+    expect(alert.id).not.toBe("");
+    expect(control.getAttribute("aria-describedby")).toContain(alert.id);
+    expect(control).toHaveAccessibleDescription("delta must be positive");
+    // The polite region stays mounted with its role.
+    expect(panel.querySelector('p[role="status"].form-panel-view__status')).not.toBeNull();
+  });
+
+  it("HEL-1818: a repeated identical rejection empties the alert at the next step's start and refills it, still once", async () => {
+    submitFormPanelMock.mockRejectedValueOnce(
+      axiosErrorWith(400, { fieldErrors: [{ field: "delta", reason: "delta must be positive" }] }),
+    );
+    const control = await renderCompact();
+    const panel = document.querySelector(".form-panel-view__compact-counter") as HTMLElement;
+    const alert = panel.querySelector(".form-panel-view__alert") as HTMLElement;
+
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+    await waitFor(() => expect(alert).toHaveTextContent("delta must be positive"));
+
+    // Hold the second submit pending so the emptied alert is observable before it is refilled.
+    let rejectSecond!: (e: unknown) => void;
+    submitFormPanelMock.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectSecond = reject;
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+    await waitFor(() => expect(submitFormPanelMock).toHaveBeenCalledTimes(2));
+    expect(alert.textContent).toBe("");
+    expect(panel.textContent?.match(/delta must be positive/g) ?? []).toHaveLength(0);
+
+    await act(async () => {
+      rejectSecond(
+        axiosErrorWith(400, {
+          fieldErrors: [{ field: "delta", reason: "delta must be positive" }],
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(alert).toHaveTextContent("delta must be positive"));
+    expect(panel.textContent?.match(/delta must be positive/g)).toHaveLength(1);
+    expect(panel.querySelector(".ui-form-field__error")).toBeNull();
+    expect(control).toHaveAccessibleDescription("delta must be positive");
   });
 
   // ── HEL-1169 tasks.md Section 2 — implementation-verifying tests ──────────────────────────
