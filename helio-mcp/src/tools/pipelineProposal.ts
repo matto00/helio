@@ -144,10 +144,13 @@ export function registerPipelineProposalTools(server: McpServer, api: HelioApi):
         OUTPUT_CONFIG_KEYS_DOC +
         " " +
         INSIGHT_CREATE_READS_DOC +
-        " Read-only-checks a given `sourceId` resolves among your data sources and " +
-        "that an inline source supplies a non-blank `name` and its matching `config`, returning " +
-        "{ proposal, warnings, applyReady }. Every SQL step/source in the pipeline must remain " +
-        "read-only (non-SELECT is rejected at apply time, never re-validated here). Review the " +
+        " Runs apply's pre-write checks as a dry run (writes nothing): a given `sourceId` resolves " +
+        "among your data sources, an inline source supplies a non-blank `name` and its matching " +
+        "`config` (a SQL source/step must be read-only, a non-SELECT is rejected here), step and " +
+        "Output checks, and an Output `fieldMapping` naming real columns. Each inline rest/sql root " +
+        "makes one live schema fetch to read its columns, charged to the source-fetch rate limit " +
+        "(429 when exhausted); a failed fetch's error text is truncated to 500 characters. Returns " +
+        "{ proposal, warnings, applyReady }. Review the " +
         "proposal (by inspection, or with analyze_pipeline_proposal), then apply it with " +
         "apply_pipeline_proposal.",
       inputSchema: pipelineProposalInputSchema,

@@ -11,7 +11,8 @@ import spray.json.JsObject
 import scala.concurrent.{ExecutionContext, Future}
 
 /** HEL-1638: the propose-time dry run of `PipelineService.create`'s pre-write checks for a request whose roots are
- *  already resolved to schemas. Writes nothing. Order mirrors `PipelineCreateWrites.checkedCreate`: request-only preflight
+ *  already resolved to schemas. Writes nothing. Callers run [[preflight]], then resolve the root schemas (the charged
+ *  fetches), then [[checkOutputs]]. Order mirrors `PipelineCreateWrites.checkedCreate`: request-only preflight
  *  ([[PipelineCreatePreflight.run]]), cross-owner/upsert ownership, then each Output's `fieldMapping` slot and
  *  column-at-node check through [[PipelineOutputSchemas]] -- the same functions `createTransactional` calls.
  *
@@ -40,13 +41,6 @@ private[services] final class PipelineCreateDryRun(dataSourceRepo: DataSourceRep
     PipelineStepOwnership.resolveSecondarySourceSchemas(req.steps.map(s => s.`type` -> s.config.compactPrint), dataSourceRepo.findByIdOwned(_, user)).map { secondary =>
       val schemas = PipelineOutputSchemas.outputNodeSchemas(req.steps, indices.steps, rootSchemas, secondary)
       firstOutputProblem(req, indices, fetchErrors, schemas)
-    }
-
-  def check(req: CreatePipelineRequest, rootSchemas: Vector[Vector[SchemaField]], fetchErrors: Map[Int, String], user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
-    preflight(req, user).flatMap {
-      case Left(err)         => Future.successful(Left(err))
-      case Right(None)       => Future.successful(Right(()))
-      case Right(Some(idxs)) => checkOutputs(req, idxs, rootSchemas, fetchErrors, user)
     }
 
   private def firstOutputProblem(
