@@ -3,7 +3,7 @@
 Method as HEL-1807 (`calibrate-anchored.mjs`, carried into this change with group I added): this desktop, node 22 / V8,
 `nice -n 19`, best of 7 (groups G/H/I) or 5 passes, the cost from the real `compileJavaRegex(...).work`, the shipped
 `workExceedsBudget` (decision) plus `RegExp.exec` (exec) over the frame, frames sized to the budget (4.00e6). One group per
-Bash call. Logs: `calibration-logs/`. "before" is main's code (`d3059b611`), "after" is this change. Noise on this shared
+Bash call. Logs: `calibration-logs/` (gitignored `*.log`; kept in the main checkout under `.concertino/runs/HEL-1823/evidence/`). "before" is main's code (`d3059b611`), "after" is this change. Noise on this shared
 desktop is about 1 ms between runs, up to 4 ms in a bad moment (see "Rerun").
 
 ## The change

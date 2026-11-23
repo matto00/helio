@@ -1,3 +1,0 @@
-- `frontend/src/features/pipelines/evaluator/regexInputCost.ts` — anchored stage-2 bound uses the exact unit length (`unitLength`: `isWellFormed` gate + code-unit count of unpaired surrogates) and skips counting when `lengthBound` already exceeds the budget
-- `frontend/src/features/pipelines/evaluator/regexInputCost.test.ts` — group-H worst-shape zero-reads tests (BMP and astral body, one more character declined) and the mixed pair/lone decision-equality property test
-- `openspec/changes/anchored-surrogate-stage2-bound/` — proposal/design/tasks/ticket, red-run.txt, mutations.txt, calibrate-anchored.mjs (group I added), calibration.md and logs, e2e-green-run.txt
