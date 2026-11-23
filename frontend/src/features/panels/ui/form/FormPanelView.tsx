@@ -3,7 +3,7 @@
 // the established loading/failure states while doing so, then renders one `FormFieldControl` per
 // authored field plus a submit button, submit-time validation, and success/error/network states.
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { flushSync } from "react-dom";
 
 import "./FormPanel.css";
@@ -64,6 +64,8 @@ export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanel
 
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
   const [alertText, setAlertText] = useState("");
+  // HEL-1818 — the compact counter's rejection text lives only in the alert region; the control is described by it.
+  const alertId = useId();
   const [statusText, setStatusText] = useState("");
   // A pending focus move, consumed (and cleared) by the effect below once the triggering
   // render — with `aria-invalid="true"` freshly painted onto the right control — has committed.
@@ -393,8 +395,9 @@ export function FormPanelView({ title, panelId, config, formOwnerId }: FormPanel
             onImmediateStep={(direction) => void handleImmediateStep(direction)}
             busy={pendingCount > 0}
             tallyCaption={isFormOwner ? undefined : COUNTER_TALLY_CAPTION}
+            errorDescriptionId={alertId}
           />
-          <p role="alert" className="form-panel-view__alert">
+          <p id={alertId} role="alert" className="form-panel-view__alert">
             {alertText}
           </p>
           <p role="status" className="form-panel-view__status">

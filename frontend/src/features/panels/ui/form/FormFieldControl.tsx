@@ -49,6 +49,10 @@ interface FormFieldControlProps {
   /** HEL-1788 design.md D4 — meaningful only for `control: "counter"`: a caption rendered under the counter and
    *  appended to the spinbutton's accessible description (after any error/hint id, never replacing it). */
   tallyCaption?: string;
+  /** HEL-1818 design.md D2 — when set and `error` is non-null, the error text is rendered elsewhere (an external
+   *  always-mounted region with this id): `FormField` renders no error paragraph, the control stays invalid, and its
+   *  `aria-describedby` points at this id instead of the field's own error id. No effect while `error` is null. */
+  errorDescriptionId?: string;
 }
 
 export function FormFieldControl({
@@ -63,6 +67,7 @@ export function FormFieldControl({
   onImmediateStep,
   busy,
   tallyCaption,
+  errorDescriptionId,
 }: FormFieldControlProps) {
   const controlId = useId();
   const errorId = useId();
@@ -70,7 +75,14 @@ export function FormFieldControl({
   const captionId = useId();
   const label = field.label ?? field.sourceField;
   const required = declared ? isFieldRequired(field, declared) : false;
-  const baseDescribedBy = error ? errorId : field.helpText ? hintId : undefined;
+  const externalError = Boolean(error) && errorDescriptionId !== undefined;
+  const baseDescribedBy = error
+    ? externalError
+      ? errorDescriptionId
+      : errorId
+    : field.helpText
+      ? hintId
+      : undefined;
   const showCaption = field.control === "counter" && Boolean(tallyCaption);
   const describedBy = showCaption
     ? [baseDescribedBy, captionId].filter(Boolean).join(" ")
@@ -88,7 +100,7 @@ export function FormFieldControl({
     <FormField
       label={label}
       htmlFor={controlId}
-      error={error}
+      error={externalError ? null : error}
       errorId={errorId}
       hint={field.helpText}
       hintId={hintId}
