@@ -1,0 +1,4 @@
+STRESS-ACTIVE cpu throttle 1x, preview release delay 0ms after tap start
+PROBE STALE early centre (319,312) late centre (65,343); element at the early point after reflow: span.pipeline-detail-page__step-card-diff-chip pipeline-detail-page__step-card-diff-chip--added
+PROBE STALE tap at the pre-reflow point opened the panel: false
+  ✓  1 [dev] › e2e/probe-hel1826-t2.spec.ts:18:5 › probe: trigger position over time and a tap racing the header reflow (7.4s)

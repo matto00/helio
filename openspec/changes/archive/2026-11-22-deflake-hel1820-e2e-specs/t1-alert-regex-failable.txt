@@ -1,0 +1,52 @@
+T1 failable check: probe copy whose route.fulfill returns a different message than the spec asserts
+--- e2e/hel1791-compact-counter-stack-height.spec.ts	2026-11-22 17:51:12.580471723 -0800
++++ e2e/probe-hel1826-1791-msg.spec.ts	2026-11-22 18:13:56.471717065 -0800
+@@ -384,7 +384,7 @@
+         await route.fulfill({
+           status: 400,
+           contentType: "application/json",
+-          body: JSON.stringify({ message: "HEL1804 rejected step" }),
++          body: JSON.stringify({ message: "HEL1826 a different message" }),
+         });
+       });
+       const alert = await expectRegionInFlow(
+Running 6 tests using 1 worker
+(node:615762) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:615762) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [dev] › e2e/probe-hel1826-1791-msg.spec.ts:177:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light (5.6s)
+  ✓  2 [dev] › e2e/probe-hel1826-1791-msg.spec.ts:177:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark (4.8s)
+  ✓  3 [dev] › e2e/probe-hel1826-1791-msg.spec.ts:177:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light (5.5s
+  ✓  4 [dev] › e2e/probe-hel1826-1791-msg.spec.ts:177:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark (5.2s)
+  ✓  5 [dev] › e2e/probe-hel1826-1791-msg.spec.ts:256:7 › HEL-1791 compact counter height in the panel stack › per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) (9.6s)
+  ✘  6 [dev] › e2e/probe-hel1826-1791-msg.spec.ts:298:7 › HEL-1791 compact counter height in the panel stack › owner: a status message and an alert message render in flow in the same live regions (7.4s)
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  1) [dev] › e2e/probe-hel1826-1791-msg.spec.ts:298:7 › HEL-1791 compact counter height in the panel stack › owner: a status message and an alert message render in flow in the same live regions 
+    Error: alert message: text
+    [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveText[2m([22m[32mexpected[39m[2m)[22m failed
+    Locator: locator('.mobile-panel-stack__item--form').filter({ has: getByRole('spinbutton', { name: 'Widgets' }) }).locator('.form-panel-view__alert')
+    Expected pattern: [32m/HEL1804 rejected step/[39m
+    Received string:  [31m"HEL1826 a different message"[39m
+    Timeout: 5000ms
+    Call log:
+    [2m  - alert message: text with timeout 5000ms[22m
+    [2m  - waiting for locator('.mobile-panel-stack__item--form').filter({ has: getByRole('spinbutton', { name: 'Widgets' }) }).locator('.form-panel-view__alert')[22m
+    [2m    2 × locator resolved to <p role="alert" class="form-panel-view__alert"></p>[22m
+    [2m      - unexpected value ""[22m
+    [2m    7 × locator resolved to <p role="alert" class="form-panel-view__alert">HEL1826 a different message</p>[22m
+    [2m      - unexpected value "HEL1826 a different message"[22m
+      339 |         return {
+      340 |           async verify(what: string) {
+    > 341 |             await expect(region, `${what}: text`).toHaveText(text);
+          |                                                   ^
+      342 |             await expect(region, `${what}: visible`).toBeVisible();
+      343 |             await expect(region, `${what}: role`).toHaveAttribute("role", role);
+      344 |             const r = await handle!.evaluate((el, parentSel) => {
+        at Object.verify (/home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/probe-hel1826-1791-msg.spec.ts:341:51)
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/probe-hel1826-1791-msg.spec.ts:396:19
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/probe-hel1826-1791-msg-HEL-fc1b1-ow-in-the-same-live-regions-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/probe-hel1826-1791-msg-HEL-fc1b1-ow-in-the-same-live-regions-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────

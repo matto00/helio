@@ -1,0 +1,31 @@
+STRESS-ACTIVE cpu throttle 1x, preview release delay 0ms after tap start
+PROBE DELAY=0 RATE=1 OPENED=true
+1787ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+1916ms trigger@(65,343) header=[step-preview__title,step-preview__count,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 1x, preview release delay 10ms after tap start
+PROBE DELAY=10 RATE=1 OPENED=true
+1563ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+1681ms trigger@(65,343) header=[step-preview__title,step-preview__count,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 1x, preview release delay 20ms after tap start
+PROBE DELAY=20 RATE=1 OPENED=true
+1702ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+1820ms trigger@(65,343) header=[step-preview__title,step-preview__count,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 1x, preview release delay 30ms after tap start
+PROBE DELAY=30 RATE=1 OPENED=true
+1562ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+1685ms trigger@(65,343) header=[step-preview__title,step-preview__count,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 1x, preview release delay 45ms after tap start
+PROBE DELAY=45 RATE=1 OPENED=true
+1561ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 1x, preview release delay 60ms after tap start
+PROBE DELAY=60 RATE=1 OPENED=true
+1822ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 1x, preview release delay 80ms after tap start
+PROBE DELAY=80 RATE=1 OPENED=true
+1539ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 1x, preview release delay 100ms after tap start
+PROBE DELAY=100 RATE=1 OPENED=true
+1608ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]
+STRESS-ACTIVE cpu throttle 1x, preview release delay 140ms after tap start
+PROBE DELAY=140 RATE=1 OPENED=true
+1566ms trigger@(319,312) header=[step-preview__title,pipeline-detail-page__step-card-diff,output-schema-disclosure__trigger]

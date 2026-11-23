@@ -1,0 +1,17 @@
+# HEL-1826 generic stress generator: copies a spec and adds a file-level beforeEach that applies CDP
+# Emulation.setCPUThrottlingRate=<rate> to the test's `page` and logs STRESS-ACTIVE (evidence the stress ran).
+# usage: stress-throttle.py <src spec> <dst spec> <rate>
+import sys
+src, dst, rate = sys.argv[1], sys.argv[2], int(sys.argv[3])
+s = open(src).read()
+hook = f'''
+test.beforeEach(async ({{ page }}) => {{
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Emulation.setCPUThrottlingRate", {{ rate: {rate} }});
+  console.log("STRESS-ACTIVE cpu throttle {rate}x: " + test.info().title.slice(0, 50));
+}});
+'''
+marker = 'test.describe("'
+i = s.index(marker)
+s = s[:i] + hook + "\n" + s[i:]
+open(dst, 'w').write(s)

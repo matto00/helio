@@ -1,0 +1,203 @@
+T2 mutation (app CSS, uncommitted, reverted): the Output schema panel is placed off screen
+diff --git a/frontend/src/features/pipelines/ui/OutputSchemaDisclosure.css b/frontend/src/features/pipelines/ui/OutputSchemaDisclosure.css
+index 9680c10e1..fec6f14ca 100644
+--- a/frontend/src/features/pipelines/ui/OutputSchemaDisclosure.css
++++ b/frontend/src/features/pipelines/ui/OutputSchemaDisclosure.css
+@@ -58,3 +58,4 @@
+   /* HEL-830: 5px -> 4px, nearest step */
+   gap: var(--space-1);
+ }
++.output-schema-disclosure__panel { left: 5000px !important; }
+
+Running 8 tests using 1 worker
+(node:78040) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78040) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:39:7 › HEL-1582 phone pipeline page (live) › the sheet composes HEL-1584's Modal motion: one entrance, no transform at rest, a held exit with no flash, an anchored popover, under Full, Subtle
+  ✓  2 [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:201:7 › HEL-1582 phone pipeline page (live) › AC4 (C8): tapping the Analyze with AI "Move output field 2 up" button moves that field up, at the sheet's real hit area (5.0s)
+  ✘  3 [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:244:9 › HEL-1582 phone pipeline page (live) › the "N fields" panel opens fully on screen, above the sheet, with a real filter hit area, on a 3-step pipeline with a 17-column source at 375x812
+(node:84565) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:84565) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  4 [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:244:9 › HEL-1582 phone pipeline page (live) › the "N fields" panel opens fully on screen, above the sheet, with a real filter hit area, on a 3-step pipeline with a 17-column source at 390x844
+(node:84796) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:84796) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  5 [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:320:7 › HEL-1582 phone pipeline page (live) › desktop (1440x900): the "N fields" panel opens on the side of its trigger with room, fully inside the viewport (4.2s)
+(node:84931) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:84931) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  6 [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:352:7 › HEL-1582 phone pipeline page (live) › AC4 guard can fail: a shrunk tab and a removed hit expander are caught by the same probe (3.9s)
+┌─────────┬─────────┬────────────────────────┬───────────┬─────────┬─────────┬───────────┬─────────────────┐
+│ (index) │ theme   │ control                │ state     │ surface │ text    │ indicator │ verdict         │
+├─────────┼─────────┼────────────────────────┼───────────┼─────────┼─────────┼───────────┼─────────────────┤
+│ 0       │ [32m'dark'[39m  │ [32m'tab (inactive)'[39m       │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'14.16'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 1       │ [32m'dark'[39m  │ [32m'tab (inactive)'[39m       │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 2       │ [32m'dark'[39m  │ [32m'tab (inactive)'[39m       │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 3       │ [32m'dark'[39m  │ [32m'step row'[39m             │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'14.16'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 4       │ [32m'dark'[39m  │ [32m'step row'[39m             │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'16.80'[39m │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 5       │ [32m'dark'[39m  │ [32m'step row'[39m             │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'16.80'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 6       │ [32m'dark'[39m  │ [32m'add step row'[39m         │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'14.16'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 7       │ [32m'dark'[39m  │ [32m'add step row'[39m         │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 8       │ [32m'dark'[39m  │ [32m'add step row'[39m         │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 9       │ [32m'dark'[39m  │ [32m'Dry run pill'[39m         │ [32m'hover'[39m   │ [32m'1.234'[39m │ [32m'13.62'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 10      │ [32m'dark'[39m  │ [32m'Dry run pill'[39m         │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'15.43'[39m │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 11      │ [32m'dark'[39m  │ [32m'Dry run pill'[39m         │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'15.43'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 12      │ [32m'dark'[39m  │ [32m'Run pipeline pill'[39m    │ [32m'hover'[39m   │ [32m'8.515'[39m │ [32m'8.03'[39m  │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 13      │ [32m'dark'[39m  │ [32m'Run pipeline pill'[39m    │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'6.49'[39m  │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 14      │ [32m'dark'[39m  │ [32m'Run pipeline pill'[39m    │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'6.49'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 15      │ [32m'dark'[39m  │ [32m'back link'[39m            │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 16      │ [32m'dark'[39m  │ [32m'back link'[39m            │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 17      │ [32m'dark'[39m  │ [32m'back link'[39m            │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 18      │ [32m'dark'[39m  │ [32m'actions menu trigger'[39m │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 19      │ [32m'dark'[39m  │ [32m'actions menu trigger'[39m │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 20      │ [32m'dark'[39m  │ [32m'actions menu trigger'[39m │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 21      │ [32m'dark'[39m  │ [32m'source name button'[39m   │ [32m'hover'[39m   │ [32m'1.133'[39m │ [32m'15.63'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 22      │ [32m'dark'[39m  │ [32m'source name button'[39m   │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'17.70'[39m │ [32m'4.96'[39m    │ [32m'pass'[39m          │
+│ 23      │ [32m'dark'[39m  │ [32m'source name button'[39m   │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'17.70'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 24      │ [32m'dark'[39m  │ [32m'source menu trigger'[39m  │ [32m'hover'[39m   │ [32m'1.133'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 25      │ [32m'dark'[39m  │ [32m'source menu trigger'[39m  │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'4.96'[39m    │ [32m'pass'[39m          │
+│ 26      │ [32m'dark'[39m  │ [32m'source menu trigger'[39m  │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 27      │ [32m'dark'[39m  │ [32m'output card'[39m          │ [32m'hover'[39m   │ [32m'1.133'[39m │ [32m'13.62'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 28      │ [32m'dark'[39m  │ [32m'output card'[39m          │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'15.43'[39m │ [32m'4.96'[39m    │ [32m'pass'[39m          │
+│ 29      │ [32m'dark'[39m  │ [32m'output card'[39m          │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'15.43'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 30      │ [32m'dark'[39m  │ [32m'new output button'[39m    │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'14.16'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 31      │ [32m'dark'[39m  │ [32m'new output button'[39m    │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 32      │ [32m'dark'[39m  │ [32m'new output button'[39m    │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 33      │ [32m'dark'[39m  │ [32m'schedule chip'[39m        │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'14.16'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 34      │ [32m'dark'[39m  │ [32m'schedule chip'[39m        │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 35      │ [32m'dark'[39m  │ [32m'schedule chip'[39m        │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 36      │ [32m'light'[39m │ [32m'tab (inactive)'[39m       │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 37      │ [32m'light'[39m │ [32m'tab (inactive)'[39m       │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 38      │ [32m'light'[39m │ [32m'tab (inactive)'[39m       │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 39      │ [32m'light'[39m │ [32m'step row'[39m             │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 40      │ [32m'light'[39m │ [32m'step row'[39m             │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'14.96'[39m │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 41      │ [32m'light'[39m │ [32m'step row'[39m             │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'14.96'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 42      │ [32m'light'[39m │ [32m'add step row'[39m         │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 43      │ [32m'light'[39m │ [32m'add step row'[39m         │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 44      │ [32m'light'[39m │ [32m'add step row'[39m         │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 45      │ [32m'light'[39m │ [32m'Dry run pill'[39m         │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 46      │ [32m'light'[39m │ [32m'Dry run pill'[39m         │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'14.20'[39m │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 47      │ [32m'light'[39m │ [32m'Dry run pill'[39m         │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'14.20'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 48      │ [32m'light'[39m │ [32m'Run pipeline pill'[39m    │ [32m'hover'[39m   │ [32m'1.981'[39m │ [32m'8.21'[39m  │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 49      │ [32m'light'[39m │ [32m'Run pipeline pill'[39m    │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'6.49'[39m  │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 50      │ [32m'light'[39m │ [32m'Run pipeline pill'[39m    │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'6.49'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 51      │ [32m'light'[39m │ [32m'back link'[39m            │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 52      │ [32m'light'[39m │ [32m'back link'[39m            │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 53      │ [32m'light'[39m │ [32m'back link'[39m            │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 54      │ [32m'light'[39m │ [32m'actions menu trigger'[39m │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 55      │ [32m'light'[39m │ [32m'actions menu trigger'[39m │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 56      │ [32m'light'[39m │ [32m'actions menu trigger'[39m │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 57      │ [32m'light'[39m │ [32m'source name button'[39m   │ [32m'hover'[39m   │ [32m'1.150'[39m │ [32m'17.81'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 58      │ [32m'light'[39m │ [32m'source name button'[39m   │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'20.48'[39m │ [32m'3.48'[39m    │ [32m'pass'[39m          │
+│ 59      │ [32m'light'[39m │ [32m'source name button'[39m   │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'20.48'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 60      │ [32m'light'[39m │ [32m'source menu trigger'[39m  │ [32m'hover'[39m   │ [32m'1.150'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 61      │ [32m'light'[39m │ [32m'source menu trigger'[39m  │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'3.48'[39m    │ [32m'pass'[39m          │
+│ 62      │ [32m'light'[39m │ [32m'source menu trigger'[39m  │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 63      │ [32m'light'[39m │ [32m'output card'[39m          │ [32m'hover'[39m   │ [32m'1.150'[39m │ [32m'14.20'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 64      │ [32m'light'[39m │ [32m'output card'[39m          │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'16.33'[39m │ [32m'3.48'[39m    │ [32m'pass'[39m          │
+│ 65      │ [32m'light'[39m │ [32m'output card'[39m          │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'16.33'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 66      │ [32m'light'[39m │ [32m'new output button'[39m    │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 67      │ [32m'light'[39m │ [32m'new output button'[39m    │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 68      │ [32m'light'[39m │ [32m'new output button'[39m    │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 69      │ [32m'light'[39m │ [32m'schedule chip'[39m        │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 70      │ [32m'light'[39m │ [32m'schedule chip'[39m        │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 71      │ [32m'light'[39m │ [32m'schedule chip'[39m        │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+└─────────┴─────────┴────────────────────────┴───────────┴─────────┴─────────┴───────────┴─────────────────┘
+  ✓  7 [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:520:7 › HEL-1582 phone pipeline page (live) › phone hover, focus and pressed states of the new controls clear the state-surface floor (1.10), text 4.5:1 and non-text 3:1, in both themes (and 
+{
+  "dark": {
+    "dryRest": "rgb(26, 24, 22)",
+    "dryHover": "rgb(38, 35, 32)",
+    "dryVsRest": 1.1327997421191345,
+    "runRest": "rgb(249, 115, 22)",
+    "runHover": "rgb(250, 146, 73)"
+  },
+  "light": {
+    "dryRest": "rgb(239, 236, 230)",
+    "dryHover": "rgb(255, 255, 255)",
+    "dryVsRest": 1.1790493202689154,
+    "runRest": "rgb(249, 115, 22)",
+    "runHover": "rgb(250, 149, 78)"
+  }
+}
+  ✓  8 [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:619:7 › HEL-1582 phone pipeline page (live) › HEL-1669: the Dry run hover is distinct from its rest fill (>= 1.10) and the Run pill rests on --app-accent / hovers on --app-accent-strong, in b
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  1) [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:244:9 › HEL-1582 phone pipeline page (live) › the "N fields" panel opens fully on screen, above the sheet, with a real filter hit area, on a 3-step pipeline with a 17-column source at 375x812 
+    Error: dark preview tab: right inside the viewport
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+    Expected: <= [32m375[39m
+    Received:    [31m5335[39m
+      275 |           expect(geometry.top, `${cell}: top inside the viewport`).toBeGreaterThanOrEqual(0);
+      276 |           expect(geometry.left, `${cell}: left inside the viewport`).toBeGreaterThanOrEqual(0);
+    > 277 |           expect(geometry.right, `${cell}: right inside the viewport`).toBeLessThanOrEqual(
+          |                                                                        ^
+      278 |             geometry.vw,
+      279 |           );
+      280 |           expect(geometry.bottom, `${cell}: bottom inside the viewport`).toBeLessThanOrEqual(
+        at checkPanel (/home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:277:72)
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:302:9
+    Error Context: test-results/hel1582-mobile-pipeline-mo-edd81-17-column-source-at-375x812-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1582-mobile-pipeline-mo-edd81-17-column-source-at-375x812-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1582-mobile-pipeline-mo-edd81-17-column-source-at-375x812-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  2) [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:244:9 › HEL-1582 phone pipeline page (live) › the "N fields" panel opens fully on screen, above the sheet, with a real filter hit area, on a 3-step pipeline with a 17-column source at 390x844 
+    Error: dark preview tab: right inside the viewport
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+    Expected: <= [32m390[39m
+    Received:    [31m5350[39m
+      275 |           expect(geometry.top, `${cell}: top inside the viewport`).toBeGreaterThanOrEqual(0);
+      276 |           expect(geometry.left, `${cell}: left inside the viewport`).toBeGreaterThanOrEqual(0);
+    > 277 |           expect(geometry.right, `${cell}: right inside the viewport`).toBeLessThanOrEqual(
+          |                                                                        ^
+      278 |             geometry.vw,
+      279 |           );
+      280 |           expect(geometry.bottom, `${cell}: bottom inside the viewport`).toBeLessThanOrEqual(
+        at checkPanel (/home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:277:72)
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:302:9
+    Error Context: test-results/hel1582-mobile-pipeline-mo-4ca35-17-column-source-at-390x844-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1582-mobile-pipeline-mo-4ca35-17-column-source-at-390x844-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1582-mobile-pipeline-mo-4ca35-17-column-source-at-390x844-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  3) [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:320:7 › HEL-1582 phone pipeline page (live) › desktop (1440x900): the "N fields" panel opens on the side of its trigger with room, fully inside the viewport 
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+    Expected: <= [32m1440[39m
+    Received:    [31m5448[39m
+      347 |     expect(p.bottom).toBeLessThanOrEqual(900);
+      348 |     expect(p.left).toBeGreaterThanOrEqual(0);
+    > 349 |     expect(p.right).toBeLessThanOrEqual(1440);
+          |                     ^
+      350 |   });
+      351 |
+      352 |   test("AC4 guard can fail: a shrunk tab and a removed hit expander are caught by the same probe", async ({
+        at /home/matt/Development/helio/.claude/worktrees/task/deflake-hel1820-e2e-specs/HEL-1826/e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:349:21
+    Error Context: test-results/hel1582-mobile-pipeline-mo-1723f-m-fully-inside-the-viewport-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1582-mobile-pipeline-mo-1723f-m-fully-inside-the-viewport-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1582-mobile-pipeline-mo-1723f-m-fully-inside-the-viewport-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  3 failed
+    [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:244:9 › HEL-1582 phone pipeline page (live) › the "N fields" panel opens fully on screen, above the sheet, with a real filter hit area, on a 3-step pipeline with a 17-column source at 375x812 
+    [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:244:9 › HEL-1582 phone pipeline page (live) › the "N fields" panel opens fully on screen, above the sheet, with a real filter hit area, on a 3-step pipeline with a 17-column source at 390x844 
+    [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:320:7 › HEL-1582 phone pipeline page (live) › desktop (1440x900): the "N fields" panel opens on the side of its trigger with room, fully inside the viewport 
+  5 passed (2.3m)
+
+after revert: git status --short
+ M e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts
+ M e2e/hel1791-compact-counter-stack-height.spec.ts
+?? e2e/probe-hel1826-1582-stress.spec.ts
+?? e2e/probe-hel1826-1791-stress.spec.ts
+?? e2e/probe-hel1826-t2.spec.ts
+?? openspec/changes/deflake-hel1820-e2e-specs/t1-mutation.txt
+?? openspec/changes/deflake-hel1820-e2e-specs/t1-plain.txt
+?? openspec/changes/deflake-hel1820-e2e-specs/t1-stress.txt
+?? openspec/changes/deflake-hel1820-e2e-specs/t2-mutation.txt

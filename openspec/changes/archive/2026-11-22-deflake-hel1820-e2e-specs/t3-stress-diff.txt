@@ -1,0 +1,25 @@
+--- e2e/hel1572-appearance-preferences.spec.ts	2026-11-22 15:07:52.693667326 -0800
++++ e2e/probe-hel1826-1572-stress.spec.ts	2026-11-22 15:08:00.925022587 -0800
+@@ -138,6 +138,22 @@
+   );
+ }
+ 
++test.beforeEach(async ({ page }) => {
++  let held = false;
++  await page.route("**/api/users/me/preferences", async (route) => {
++    const body = route.request().postData() ?? "";
++    if (route.request().method() === "PATCH" && body.includes('"mono"') && !held) {
++      held = true;
++      console.log("STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms");
++      await new Promise((r) => setTimeout(r, 300));
++    }
++    await route.continue();
++  });
++  const cdp = await page.context().newCDPSession(page);
++  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
++  console.log("STRESS-ACTIVE cpu throttle 4x");
++});
++
+ test.describe("HEL-1572 type style", () => {
+   test("re-renders headings with no reload and survives a fresh browser context (another device)", async ({
+     page,

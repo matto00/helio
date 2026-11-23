@@ -1,0 +1,41 @@
+--- e2e/hel1791-compact-counter-stack-height.spec.ts	2026-11-22 17:51:12.580471723 -0800
++++ e2e/probe-hel1826-1791-stress.spec.ts	2026-11-22 18:12:46.425198185 -0800
+@@ -37,6 +37,11 @@
+ 
+ async function newActor(browser: Browser, label: string): Promise<Actor> {
+   const context = await browser.newContext({ baseURL: BASE_URL });
++  context.on("page", async (p) => {
++    const cdp = await context.newCDPSession(p);
++    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
++    console.log("STRESS-ACTIVE cpu throttle 4x on a page of " + label);
++  });
+   await registerUser(context.request, { prefix: "hel1791", label, displayName: "HEL1791" });
+   return { context, id: await currentUserId(context.request) };
+ }
+@@ -138,6 +143,26 @@
+     });
+   });
+ 
++  test.beforeEach(async () => {
++    if (!test.info().title.includes("status message and an alert")) return;
++    let burned = false;
++    await owner.context.route(/\/api\/panels\/[^/]+\/submit$/, async (route) => {
++      if (!burned) {
++        burned = true;
++        let ok = 0;
++        for (let i = 0; i < 400; i++) {
++          const r = await owner.context.request.get("/api/auth/me");
++          if (r.status() === 429) break;
++          ok++;
++        }
++        console.log(
++          `STRESS-ACTIVE burn: spent ${ok} remaining owner requests, owner budget now exhausted`,
++        );
++      }
++      await route.fallback();
++    });
++  });
++
+   test.afterAll(async () => {
+     const api = owner.context.request;
+     await api.delete(`/api/dashboards/${dashboardId}`, { headers: CSRF });

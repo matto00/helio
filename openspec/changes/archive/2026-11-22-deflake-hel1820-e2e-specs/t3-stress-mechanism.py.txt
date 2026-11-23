@@ -1,0 +1,30 @@
+# HEL-1826 stress generator for hel1572 (T3). usage: stress1572.py <src spec> <dst spec> <delay_ms> [--throttle N]
+# Mechanism: the page's FIRST PATCH /api/users/me/preferences whose body sets typeStyle "mono" is held for <delay_ms>
+# before being forwarded, so a later Serif click's PATCH reaches the backend first. This is the CI trace's
+# interleaving (Mono request 467 ms in flight when the Serif request was sent and answered in 243 ms), made
+# deterministic. Optional --throttle N also applies CDP CPU throttling to the test's page.
+import sys
+src, dst, delay = sys.argv[1], sys.argv[2], int(sys.argv[3])
+throttle = int(sys.argv[sys.argv.index("--throttle") + 1]) if "--throttle" in sys.argv else 0
+s = open(src).read()
+th = f'''
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Emulation.setCPUThrottlingRate", {{ rate: {throttle} }});
+  console.log("STRESS-ACTIVE cpu throttle {throttle}x");''' if throttle else ""
+hook = f'''
+test.beforeEach(async ({{ page }}) => {{
+  let held = false;
+  await page.route("**/api/users/me/preferences", async (route) => {{
+    const body = route.request().postData() ?? "";
+    if (route.request().method() === "PATCH" && body.includes('"mono"') && !held) {{
+      held = true;
+      console.log("STRESS-ACTIVE holding the first typeStyle=mono PATCH for {delay} ms");
+      await new Promise((r) => setTimeout(r, {delay}));
+    }}
+    await route.continue();
+  }});{th}
+}});
+'''
+marker = 'test.describe("'
+i = s.index(marker)
+open(dst, 'w').write(s[:i] + hook + "\n" + s[i:])

@@ -289,7 +289,15 @@ test.describe("HEL-1582 phone pipeline page (live)", () => {
 
         // (a) Preview tab, default state (no scrolling).
         await page.getByRole("tab", { name: "Preview" }).tap();
-        await expect(page.getByRole("region", { name: /^Rows after step/ })).toBeVisible();
+        const rows = page.getByRole("region", { name: /^Rows after step/ });
+        await expect(rows).toBeVisible();
+        // HEL-1826: the header's row count arrives with the preview response and reflows the header, moving the
+        // "N fields" trigger from the right end of the first line to the line below. A tap aimed before that lands on
+        // the neighbouring "+ column" chip and opens nothing (measured: t2-stale-tap.txt, CI trace tap point 319,312).
+        await expect(
+          rows.locator(".step-preview__count"),
+          `${theme}: preview header settled`,
+        ).toBeVisible();
         await page.locator(".mobile-body .output-schema-disclosure__trigger").first().tap();
         await checkPanel("preview tab");
         await page.keyboard.press("Escape");

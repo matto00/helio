@@ -1,0 +1,220 @@
+=== run 1/1 16:43:09 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.3m)
+=== run 1 exit=0
+=== run 2/3 16:46:28 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.2m)
+=== run 2 exit=0
+=== run 3/3 16:49:43 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.5m)
+=== run 3 exit=0
+=== run 4/5 16:53:24 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.2m)
+=== run 4 exit=0
+=== run 5/5 16:56:35 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.2m)
+=== run 5 exit=0
+=== run 6/7 16:59:50 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.2m)
+=== run 6 exit=0
+=== run 7/7 17:03:04 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.4m)
+=== run 7 exit=0
+=== run 8/9 17:06:31 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.3m)
+=== run 8 exit=0
+=== run 9/9 17:09:49 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.3m)
+=== run 9 exit=0
+=== run 10/11 17:13:05 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.2m)
+=== run 10 exit=0
+=== run 11/11 17:16:20 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.2m)
+=== run 11 exit=0
+=== run 12/13 17:19:33 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.3m)
+=== run 12 exit=0
+=== run 13/13 17:22:54 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.3m)
+=== run 13 exit=0
+=== run 14/15 17:26:14 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.6m)
+=== run 14 exit=0
+=== run 15/15 17:29:48 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.1m)
+=== run 15 exit=0
+=== run 16/17 17:32:58 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.3m)
+=== run 16 exit=0
+=== run 17/17 17:36:14 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.2m)
+=== run 17 exit=0
+=== run 18/19 17:39:28 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.2m)
+=== run 18 exit=0
+=== run 19/19 17:42:42 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.2m)
+=== run 19 exit=0
+=== run 20/20 17:45:52 e2e/probe-hel1826-1582-stress.spec.ts 
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+      1 STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+      1 STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+      1 STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+      1 STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+      2 STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+      1 STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+  8 passed (3.3m)
+=== run 20 exit=0

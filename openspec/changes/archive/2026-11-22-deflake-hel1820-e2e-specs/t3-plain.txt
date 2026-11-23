@@ -1,0 +1,80 @@
+=== run 1/11 15:11:30 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (39.2s)
+=== run 1 exit=0
+=== run 2/11 15:12:10 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (38.7s)
+=== run 2 exit=0
+=== run 3/11 15:12:49 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (39.3s)
+=== run 3 exit=0
+=== run 4/11 15:13:28 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (39.1s)
+=== run 4 exit=0
+=== run 5/11 15:14:08 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (39.8s)
+=== run 5 exit=0
+=== run 6/11 15:14:48 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (39.9s)
+=== run 6 exit=0
+=== run 7/11 15:15:29 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (43.3s)
+=== run 7 exit=0
+=== run 8/11 15:16:13 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (48.0s)
+=== run 8 exit=0
+=== run 9/11 15:17:01 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (40.0s)
+=== run 9 exit=0
+=== run 10/11 15:17:42 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (40.4s)
+=== run 10 exit=0
+=== run 11/11 15:18:22 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (40.7s)
+=== run 11 exit=0
+=== run 12/20 15:19:07 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (39.0s)
+=== run 12 exit=0
+=== run 13/20 15:19:47 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (38.2s)
+=== run 13 exit=0
+=== run 14/20 15:20:25 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (41.0s)
+=== run 14 exit=0
+=== run 15/20 15:21:07 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (46.0s)
+=== run 15 exit=0
+=== run 16/20 15:21:53 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (39.0s)
+=== run 16 exit=0
+=== run 17/20 15:22:33 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (38.7s)
+=== run 17 exit=0
+=== run 18/20 15:23:12 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (38.7s)
+=== run 18 exit=0
+=== run 19/20 15:23:51 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (40.9s)
+=== run 19 exit=0
+=== run 20/20 15:24:33 e2e/hel1572-appearance-preferences.spec.ts 
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (40.7s)
+=== run 20 exit=0

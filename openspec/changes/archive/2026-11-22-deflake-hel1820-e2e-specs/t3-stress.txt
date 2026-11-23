@@ -1,0 +1,120 @@
+=== run 1/7 15:25:14 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.3m)
+=== run 1 exit=0
+=== run 2/7 15:26:32 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.4m)
+=== run 2 exit=0
+=== run 3/7 15:27:59 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.2m)
+=== run 3 exit=0
+=== run 4/7 15:29:10 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.2m)
+=== run 4 exit=0
+=== run 5/7 15:30:25 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.3m)
+=== run 5 exit=0
+=== run 6/7 15:31:40 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.2m)
+=== run 6 exit=0
+=== run 7/7 15:32:51 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.2m)
+=== run 7 exit=0
+=== run 8/14 15:34:05 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.3m)
+=== run 8 exit=0
+=== run 9/14 15:35:25 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.6m)
+=== run 9 exit=0
+=== run 10/14 15:36:59 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.4m)
+=== run 10 exit=0
+=== run 11/14 15:38:21 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.2m)
+=== run 11 exit=0
+=== run 12/14 15:39:34 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.2m)
+=== run 12 exit=0
+=== run 13/14 15:40:45 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.2m)
+=== run 13 exit=0
+=== run 14/14 15:41:59 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.5m)
+=== run 14 exit=0
+=== run 15/20 15:43:33 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.3m)
+=== run 15 exit=0
+=== run 16/20 15:44:52 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.2m)
+=== run 16 exit=0
+=== run 17/20 15:46:04 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.1m)
+=== run 17 exit=0
+=== run 18/20 15:47:13 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.1m)
+=== run 18 exit=0
+=== run 19/20 15:48:22 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.1m)
+=== run 19 exit=0
+=== run 20/20 15:49:30 e2e/probe-hel1826-1572-stress.spec.ts 
+     15 STRESS-ACTIVE cpu throttle 4x
+      1 STRESS-ACTIVE holding the first typeStyle=mono PATCH for 300 ms
+userCleanup: removed 0 of 15 conversation folders, 0 failed
+  15 passed (1.2m)
+=== run 20 exit=0

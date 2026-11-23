@@ -1,0 +1,127 @@
+
+Running 8 tests using 1 worker
+
+(node:4187771) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:4187771) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+STRESS-ACTIVE cpu throttle 4x: the sheet composes HEL-1584's Modal motion: one en
+[HEL-1300 e2e] throwaway user: hel1582-sheet-motion-1795387889135-25103@example.test
+  ✓  1 [dev] › e2e/probe-hel1826-1582-stress.spec.ts:45:7 › HEL-1582 phone pipeline page (live) › the sheet composes HEL-1584's Modal motion: one entrance, no transform at rest, a held exit with no flash, an anchored popover, under Full, Subtle and Off in both themes (1.6m)
+STRESS-ACTIVE cpu throttle 4x: AC4 (C8): tapping the Analyze with AI "Move output
+[HEL-1300 e2e] throwaway user: hel1582-ai-move-1795387983615-2726@example.test
+  ✓  2 [dev] › e2e/probe-hel1826-1582-stress.spec.ts:207:7 › HEL-1582 phone pipeline page (live) › AC4 (C8): tapping the Analyze with AI "Move output field 2 up" button moves that field up, at the sheet's real hit area (10.2s)
+STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+[HEL-1300 e2e] throwaway user: hel1582-panel375-1795387993803-16931@example.test
+  ✓  3 [dev] › e2e/probe-hel1826-1582-stress.spec.ts:250:9 › HEL-1582 phone pipeline page (live) › the "N fields" panel opens fully on screen, above the sheet, with a real filter hit area, on a 3-step pipeline with a 17-column source at 375x812 (28.6s)
+STRESS-ACTIVE cpu throttle 4x: the "N fields" panel opens fully on screen, above 
+[HEL-1300 e2e] throwaway user: hel1582-panel390-1795388022448-69831@example.test
+  ✓  4 [dev] › e2e/probe-hel1826-1582-stress.spec.ts:250:9 › HEL-1582 phone pipeline page (live) › the "N fields" panel opens fully on screen, above the sheet, with a real filter hit area, on a 3-step pipeline with a 17-column source at 390x844 (28.1s)
+STRESS-ACTIVE cpu throttle 4x: desktop (1440x900): the "N fields" panel opens on 
+[HEL-1300 e2e] throwaway user: hel1582-panel-desktop-1795388050581-49581@example.test
+  ✓  5 [dev] › e2e/probe-hel1826-1582-stress.spec.ts:318:7 › HEL-1582 phone pipeline page (live) › desktop (1440x900): the "N fields" panel opens on the side of its trigger with room, fully inside the viewport (7.1s)
+STRESS-ACTIVE cpu throttle 4x: AC4 guard can fail: a shrunk tab and a removed hit
+[HEL-1300 e2e] throwaway user: hel1582-touch-mutation-1795388057699-38503@example.test
+  ✓  6 [dev] › e2e/probe-hel1826-1582-stress.spec.ts:350:7 › HEL-1582 phone pipeline page (live) › AC4 guard can fail: a shrunk tab and a removed hit expander are caught by the same probe (6.1s)
+STRESS-ACTIVE cpu throttle 4x: phone hover, focus and pressed states of the new c
+[HEL-1300 e2e] throwaway user: hel1582-contrast-1795388063779-22054@example.test
+┌─────────┬─────────┬────────────────────────┬───────────┬─────────┬─────────┬───────────┬─────────────────┐
+│ (index) │ theme   │ control                │ state     │ surface │ text    │ indicator │ verdict         │
+├─────────┼─────────┼────────────────────────┼───────────┼─────────┼─────────┼───────────┼─────────────────┤
+│ 0       │ [32m'dark'[39m  │ [32m'tab (inactive)'[39m       │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'14.16'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 1       │ [32m'dark'[39m  │ [32m'tab (inactive)'[39m       │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 2       │ [32m'dark'[39m  │ [32m'tab (inactive)'[39m       │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 3       │ [32m'dark'[39m  │ [32m'step row'[39m             │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'14.16'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 4       │ [32m'dark'[39m  │ [32m'step row'[39m             │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'16.80'[39m │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 5       │ [32m'dark'[39m  │ [32m'step row'[39m             │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'16.80'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 6       │ [32m'dark'[39m  │ [32m'add step row'[39m         │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'14.16'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 7       │ [32m'dark'[39m  │ [32m'add step row'[39m         │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 8       │ [32m'dark'[39m  │ [32m'add step row'[39m         │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 9       │ [32m'dark'[39m  │ [32m'Dry run pill'[39m         │ [32m'hover'[39m   │ [32m'1.234'[39m │ [32m'13.62'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 10      │ [32m'dark'[39m  │ [32m'Dry run pill'[39m         │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'15.43'[39m │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 11      │ [32m'dark'[39m  │ [32m'Dry run pill'[39m         │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'15.43'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 12      │ [32m'dark'[39m  │ [32m'Run pipeline pill'[39m    │ [32m'hover'[39m   │ [32m'8.515'[39m │ [32m'8.03'[39m  │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 13      │ [32m'dark'[39m  │ [32m'Run pipeline pill'[39m    │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'6.49'[39m  │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 14      │ [32m'dark'[39m  │ [32m'Run pipeline pill'[39m    │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'6.49'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 15      │ [32m'dark'[39m  │ [32m'back link'[39m            │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 16      │ [32m'dark'[39m  │ [32m'back link'[39m            │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 17      │ [32m'dark'[39m  │ [32m'back link'[39m            │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 18      │ [32m'dark'[39m  │ [32m'actions menu trigger'[39m │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 19      │ [32m'dark'[39m  │ [32m'actions menu trigger'[39m │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 20      │ [32m'dark'[39m  │ [32m'actions menu trigger'[39m │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 21      │ [32m'dark'[39m  │ [32m'source name button'[39m   │ [32m'hover'[39m   │ [32m'1.133'[39m │ [32m'15.63'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 22      │ [32m'dark'[39m  │ [32m'source name button'[39m   │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'17.70'[39m │ [32m'4.96'[39m    │ [32m'pass'[39m          │
+│ 23      │ [32m'dark'[39m  │ [32m'source name button'[39m   │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'17.70'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 24      │ [32m'dark'[39m  │ [32m'source menu trigger'[39m  │ [32m'hover'[39m   │ [32m'1.133'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 25      │ [32m'dark'[39m  │ [32m'source menu trigger'[39m  │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'4.96'[39m    │ [32m'pass'[39m          │
+│ 26      │ [32m'dark'[39m  │ [32m'source menu trigger'[39m  │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 27      │ [32m'dark'[39m  │ [32m'output card'[39m          │ [32m'hover'[39m   │ [32m'1.133'[39m │ [32m'13.62'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 28      │ [32m'dark'[39m  │ [32m'output card'[39m          │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'15.43'[39m │ [32m'4.96'[39m    │ [32m'pass'[39m          │
+│ 29      │ [32m'dark'[39m  │ [32m'output card'[39m          │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'15.43'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 30      │ [32m'dark'[39m  │ [32m'new output button'[39m    │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'14.16'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 31      │ [32m'dark'[39m  │ [32m'new output button'[39m    │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 32      │ [32m'dark'[39m  │ [32m'new output button'[39m    │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 33      │ [32m'dark'[39m  │ [32m'schedule chip'[39m        │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'14.16'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 34      │ [32m'dark'[39m  │ [32m'schedule chip'[39m        │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 35      │ [32m'dark'[39m  │ [32m'schedule chip'[39m        │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 36      │ [32m'light'[39m │ [32m'tab (inactive)'[39m       │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 37      │ [32m'light'[39m │ [32m'tab (inactive)'[39m       │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 38      │ [32m'light'[39m │ [32m'tab (inactive)'[39m       │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 39      │ [32m'light'[39m │ [32m'step row'[39m             │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 40      │ [32m'light'[39m │ [32m'step row'[39m             │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'14.96'[39m │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 41      │ [32m'light'[39m │ [32m'step row'[39m             │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'14.96'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 42      │ [32m'light'[39m │ [32m'add step row'[39m         │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 43      │ [32m'light'[39m │ [32m'add step row'[39m         │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 44      │ [32m'light'[39m │ [32m'add step row'[39m         │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 45      │ [32m'light'[39m │ [32m'Dry run pill'[39m         │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 46      │ [32m'light'[39m │ [32m'Dry run pill'[39m         │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'14.20'[39m │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 47      │ [32m'light'[39m │ [32m'Dry run pill'[39m         │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'14.20'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 48      │ [32m'light'[39m │ [32m'Run pipeline pill'[39m    │ [32m'hover'[39m   │ [32m'1.981'[39m │ [32m'8.21'[39m  │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 49      │ [32m'light'[39m │ [32m'Run pipeline pill'[39m    │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'6.49'[39m  │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 50      │ [32m'light'[39m │ [32m'Run pipeline pill'[39m    │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'6.49'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 51      │ [32m'light'[39m │ [32m'back link'[39m            │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 52      │ [32m'light'[39m │ [32m'back link'[39m            │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 53      │ [32m'light'[39m │ [32m'back link'[39m            │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 54      │ [32m'light'[39m │ [32m'actions menu trigger'[39m │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 55      │ [32m'light'[39m │ [32m'actions menu trigger'[39m │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 56      │ [32m'light'[39m │ [32m'actions menu trigger'[39m │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 57      │ [32m'light'[39m │ [32m'source name button'[39m   │ [32m'hover'[39m   │ [32m'1.150'[39m │ [32m'17.81'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 58      │ [32m'light'[39m │ [32m'source name button'[39m   │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'20.48'[39m │ [32m'3.48'[39m    │ [32m'pass'[39m          │
+│ 59      │ [32m'light'[39m │ [32m'source name button'[39m   │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'20.48'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 60      │ [32m'light'[39m │ [32m'source menu trigger'[39m  │ [32m'hover'[39m   │ [32m'1.150'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 61      │ [32m'light'[39m │ [32m'source menu trigger'[39m  │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'3.48'[39m    │ [32m'pass'[39m          │
+│ 62      │ [32m'light'[39m │ [32m'source menu trigger'[39m  │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 63      │ [32m'light'[39m │ [32m'output card'[39m          │ [32m'hover'[39m   │ [32m'1.150'[39m │ [32m'14.20'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 64      │ [32m'light'[39m │ [32m'output card'[39m          │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'16.33'[39m │ [32m'3.48'[39m    │ [32m'pass'[39m          │
+│ 65      │ [32m'light'[39m │ [32m'output card'[39m          │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'16.33'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 66      │ [32m'light'[39m │ [32m'new output button'[39m    │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 67      │ [32m'light'[39m │ [32m'new output button'[39m    │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 68      │ [32m'light'[39m │ [32m'new output button'[39m    │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 69      │ [32m'light'[39m │ [32m'schedule chip'[39m        │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 70      │ [32m'light'[39m │ [32m'schedule chip'[39m        │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 71      │ [32m'light'[39m │ [32m'schedule chip'[39m        │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+└─────────┴─────────┴────────────────────────┴───────────┴─────────┴─────────┴───────────┴─────────────────┘
+  ✓  7 [dev] › e2e/probe-hel1826-1582-stress.spec.ts:518:7 › HEL-1582 phone pipeline page (live) › phone hover, focus and pressed states of the new controls clear the state-surface floor (1.10), text 4.5:1 and non-text 3:1, in both themes (and the measurement can fail) (13.8s)
+STRESS-ACTIVE cpu throttle 4x: HEL-1669: the Dry run hover is distinct from its r
+[HEL-1300 e2e] throwaway user: hel1582-hover-distinct-1795388077611-80796@example.test
+{
+  "dark": {
+    "dryRest": "rgb(26, 24, 22)",
+    "dryHover": "rgb(38, 35, 32)",
+    "dryVsRest": 1.1327997421191345,
+    "runRest": "rgb(249, 115, 22)",
+    "runHover": "rgb(250, 146, 73)"
+  },
+  "light": {
+    "dryRest": "rgb(239, 236, 230)",
+    "dryHover": "rgb(255, 255, 255)",
+    "dryVsRest": 1.1790493202689154,
+    "runRest": "rgb(249, 115, 22)",
+    "runHover": "rgb(250, 149, 78)"
+  }
+}
+  ✓  8 [dev] › e2e/probe-hel1826-1582-stress.spec.ts:617:7 › HEL-1582 phone pipeline page (live) › HEL-1669: the Dry run hover is distinct from its rest fill (>= 1.10) and the Run pill rests on --app-accent / hovers on --app-accent-strong, in both themes (5.2s)
+userCleanup: removed 0 of 8 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 8 recorded throwaway user(s)
+
+  8 passed (3.2m)

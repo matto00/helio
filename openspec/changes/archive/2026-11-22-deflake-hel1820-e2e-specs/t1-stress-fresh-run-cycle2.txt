@@ -1,0 +1,27 @@
+
+Running 6 tests using 1 worker
+
+(node:612191) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:612191) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[HEL-1300 e2e] throwaway user: hel1791-owner-1795399967454-13514@example.test
+[HEL-1300 e2e] throwaway user: hel1791-editor-1795399967712-77480@example.test
+[HEL-1300 e2e] throwaway user: hel1791-measurer-1795399967955-38625@example.test
+STRESS-ACTIVE cpu throttle 4x on a page of owner
+  ✓  1 [dev] › e2e/probe-hel1826-1791-stress.spec.ts:202:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light (12.1s)
+STRESS-ACTIVE cpu throttle 4x on a page of owner
+  ✓  2 [dev] › e2e/probe-hel1826-1791-stress.spec.ts:202:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark (11.9s)
+STRESS-ACTIVE cpu throttle 4x on a page of editor
+  ✓  3 [dev] › e2e/probe-hel1826-1791-stress.spec.ts:202:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light (12.0s)
+STRESS-ACTIVE cpu throttle 4x on a page of editor
+  ✓  4 [dev] › e2e/probe-hel1826-1791-stress.spec.ts:202:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark (12.0s)
+STRESS-ACTIVE cpu throttle 4x on a page of measurer
+  ✓  5 [dev] › e2e/probe-hel1826-1791-stress.spec.ts:281:7 › HEL-1791 compact counter height in the panel stack › per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) (15.2s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-live-regions-1795400032284-58582@example.test
+STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+  ✓  6 [dev] › e2e/probe-hel1826-1791-stress.spec.ts:323:7 › HEL-1791 compact counter height in the panel stack › owner: a status message and an alert message render in flow in the same live regions (3.9s)
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 4 recorded throwaway user(s)
+
+  6 passed (1.2m)
