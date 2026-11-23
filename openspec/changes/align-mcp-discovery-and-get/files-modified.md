@@ -1,0 +1,29 @@
+- `backend/src/main/resources/db/migration/V147__mcp_refresh_families.sql` — new owner-only RLS table of refresh-family state (hash of current token id), FK cascade from api_tokens
+- `backend/src/main/scala/com/helio/infrastructure/persistence/auth/McpRefreshFamilyRepository.scala` — create, atomic CAS rotate, reuse deletes the PAT in the same transaction
+- `backend/src/main/scala/com/helio/services/auth/McpRefreshFamilyService.scala` — PAT-only guard, hash/resource validation, outcome mapping, reuse audit event
+- `backend/src/main/scala/com/helio/api/routes/auth/McpRefreshFamilyRoutes.scala` — `POST /api/mcp-refresh-families` and `/:id/rotate`
+- `backend/src/main/scala/com/helio/api/protocols/auth/McpRefreshFamilyProtocol.scala` — request/response case classes and spray formats
+- `backend/src/main/scala/com/helio/api/protocols/IdParsing.scala` — UUID-only `McpRefreshFamilyIdSegment`
+- `backend/src/main/scala/com/helio/domain/model/model.scala` — `McpRefreshFamilyId` value class
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — mixes in the new protocol
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — wires service and routes in the authenticated tree
+- `backend/src/test/scala/com/helio/api/routes/mcp/McpRefreshFamilyRoutesSpec.scala` — route, RLS, concurrency, cascade, audit and schema tests on a non-BYPASSRLS role
+- `backend/src/test/scala/com/helio/infrastructure/persistence/RlsPolicyGuardSpec.scala` — `mcp_refresh_families` added to the `rlsTables` allowlist
+- `schemas/mcp/mcp-refresh-family-conflict-response.schema.json` — request/response contract shared by the backend spec and helio-mcp seam test
+- `schemas/mcp/mcp-refresh-family-create-request.schema.json` — request/response contract shared by the backend spec and helio-mcp seam test
+- `schemas/mcp/mcp-refresh-family-create-response.schema.json` — request/response contract shared by the backend spec and helio-mcp seam test
+- `schemas/mcp/mcp-refresh-family-rotate-request.schema.json` — request/response contract shared by the backend spec and helio-mcp seam test
+- `schemas/mcp/mcp-refresh-family-rotate-response.schema.json` — request/response contract shared by the backend spec and helio-mcp seam test
+- `schemas/README.md` — lists the new `mcp` domain directory
+- `helio-mcp/src/oauth/seal.ts` — `refresh` seal kind, 1 h access TTL, 30 d refresh TTL
+- `helio-mcp/src/oauth/familyClient.ts` — backend client for the two family routes with D3/D5 status mapping
+- `helio-mcp/src/oauth/provider.ts` — refresh issuance at code exchange, `exchangeRefreshToken` with rotation
+- `helio-mcp/src/httpApp.ts` — own `/.well-known/oauth-authorization-server` handler with the explicit grant list; `familyTimeoutMs` option
+- `helio-mcp/src/testing/httpHarness.ts` — stub backend implements the family routes (CAS rotate, reuse deletes the PAT), refresh-capable flow helper
+- `helio-mcp/src/oauth/refreshFlow.test.ts` — metadata, issuance (D3 status table), rotation, reuse, binding, expiry, backend failure tests
+- `helio-mcp/src/oauth/familySeam.test.ts` — helio-mcp's request bodies validate against `schemas/mcp`
+- `helio-mcp/src/oauth/oauthFlow.test.ts` — expires_in is now 3600
+- `helio-mcp/src/httpApp.test.ts` — one-hour expiry; `WWW-Authenticate` asserted on the unauthenticated GET/DELETE 401
+- `helio-mcp/README.md` — refresh behaviour, lifetimes, revocation, 401 vs 405, release order
+- `backend/src/test/scala/com/helio/api/http/ExistenceNotLeakedRoutesSpec.scala` — pins `McpRefreshFamilyService.scala -> 2` Forbidden producers (session caller refused, not an oracle)
+- `docs/user-reference-inventory.md` — documents the two new `mcp_refresh_families` foreign keys

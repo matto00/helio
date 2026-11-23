@@ -4,6 +4,9 @@ import org.apache.pekko.http.scaladsl.server.PathMatcher1
 import org.apache.pekko.http.scaladsl.server.PathMatchers.Segment
 import com.helio.domain.model._
 
+import java.util.UUID
+import scala.util.Try
+
 /** Path matchers that produce value-class IDs at the route boundary.
  *
  *  Use these in `pathPrefix` / `path` directives instead of raw `Segment`
@@ -20,6 +23,9 @@ object IdParsing {
   val PipelineRunIdSegment: PathMatcher1[PipelineRunId]     = Segment.map(PipelineRunId(_))
   val UserIdSegment: PathMatcher1[UserId]                   = Segment.map(UserId(_))
   val ApiTokenIdSegment: PathMatcher1[ApiTokenId]           = Segment.map(ApiTokenId(_))
+  /** A segment that is not a UUID does not match, so it falls through to the router's 404. */
+  val McpRefreshFamilyIdSegment: PathMatcher1[McpRefreshFamilyId] =
+    Segment.flatMap(s => Try(UUID.fromString(s)).toOption.map(u => McpRefreshFamilyId(u.toString)))
   val ImageUploadIdSegment: PathMatcher1[ImageUploadId]     = Segment.map(ImageUploadId(_))
   val AlertRuleIdSegment: PathMatcher1[AlertRuleId]         = Segment.map(AlertRuleId(_))
   val AlertEventIdSegment: PathMatcher1[AlertEventId]       = Segment.map(AlertEventId(_))

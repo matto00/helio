@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/mcp/mcp-refresh-family-create-response.schema.json",
+  "title": "McpRefreshFamilyCreateResponse",
+  "description": "201 body: the new family id and its expiry, which equals the PAT's own expiry (90 days from now when the PAT never expires).",
+  "type": "object",
+  "properties": {
+    "familyId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": ["familyId", "expiresAt"],
+  "additionalProperties": false
+}

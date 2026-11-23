@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/mcp/mcp-refresh-family-rotate-request.schema.json",
+  "title": "McpRefreshFamilyRotateRequest",
+  "description": "POST /api/mcp-refresh-families/:id/rotate body (HEL-1713). presentedJtiHash is the hash of the token id being redeemed, nextJtiHash that of the token id that replaces it.",
+  "type": "object",
+  "properties": {
+    "clientIdHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "resource": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "presentedJtiHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nextJtiHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "required": ["clientIdHash", "resource", "presentedJtiHash", "nextJtiHash"],
+  "additionalProperties": false
+}

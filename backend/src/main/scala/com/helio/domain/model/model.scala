@@ -38,6 +38,9 @@ final case class AuthenticatedUser(
 
 final case class ApiTokenId(value: String) extends AnyVal
 
+/** A refresh-token family of the helio-mcp connector (HEL-1713); the value is a UUID. */
+final case class McpRefreshFamilyId(value: String) extends AnyVal
+
 /** Durable Personal Access Token (HEL-148 agent-native layer, Phase 1).
  *  `tokenHash` is the SHA-256 hex of the raw `helio_pat_<random>` credential;
  *  the raw token is returned once at creation and never stored.
