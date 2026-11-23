@@ -12,6 +12,7 @@ import { stepRenderKey } from "../../state/stepTree";
 import type { Lane } from "../../state/stepTree";
 import type { Step } from "../../types/step";
 import { StepCardFocused } from "../StepCardFocused";
+import { VIEWER_COPY, copyFor } from "../viewerCopy";
 import type { PipelinePageState } from "../spine/PipelineSpineLayout";
 import { StepPreviewTable } from "../spine/StepPreviewTable";
 import type { SpineStepActions } from "../spine/useSpineStepActions";
@@ -57,19 +58,20 @@ export function MobileStepSheet({
 }) {
   const step = open?.step;
   const draftSchema = step ? presentation.inputSchemaFor(step) : null;
+  // HEL-1794: a viewer's menu has no items; an empty menu is not rendered.
+  const menuItems = open
+    ? actions.menuItemsFor(open.step, open.lane, open.index, focusSheetActionsTrigger)
+    : [];
   return (
     <BottomSheet
       open={open !== undefined}
-      title="Edit step"
-      ariaLabel="Step editor"
+      title={copyFor(VIEWER_COPY.sheetTitle, page.canEdit)}
+      ariaLabel={copyFor(VIEWER_COPY.sheetAriaLabel, page.canEdit)}
       className="mobile-step-sheet"
       onClosed={onClosed}
       headerActions={
-        open ? (
-          <ActionsMenu
-            label={`Step actions for ${open.step.label}`}
-            items={actions.menuItemsFor(open.step, open.lane, open.index, focusSheetActionsTrigger)}
-          />
+        open && menuItems.length > 0 ? (
+          <ActionsMenu label={`Step actions for ${open.step.label}`} items={menuItems} />
         ) : null
       }
     >
@@ -96,6 +98,7 @@ export function MobileStepSheet({
             savedError={stepSaveErrors[step.id]}
             structuralBlockedReason={presentation.structuralBlockedReason}
             draftPreviewError={presentation.previewErrorFor(step.id)}
+            readOnly={!page.canEdit}
           />
           <StepPreviewTable
             key={`preview:${step.id}`}

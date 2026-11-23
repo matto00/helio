@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { MutableRefObject } from "react";
+import type { MutableRefObject, SetStateAction } from "react";
 
 import { newClientId } from "../state/draftOps";
 import type { DraftAnchor, DraftOp, DraftOutputNode } from "../state/draftOps";
@@ -45,6 +45,7 @@ export function usePipelineDraft({
   outputsStatus,
   pipelineId,
   ready,
+  editable,
 }: {
   baseSteps: Step[];
   baseStepsRef: MutableRefObject<Step[]>;
@@ -55,12 +56,20 @@ export function usePipelineDraft({
   pipelineId?: string;
   /** The saved steps of `pipelineId` are loaded, so a kept draft can be re-applied over them. */
   ready: boolean;
+  /** HEL-1794 (design.md D2): false for a viewer or a not-yet-known role: every overlay mutator is then a no-op. `discard`, the
+   *  re-base and the kept-draft restore are never guarded. */
+  editable: boolean;
 }) {
   const [overlay, setOverlay] = useState<DraftOverlay>(EMPTY_OVERLAY);
   const overlayRef = useRef(overlay);
   useLayoutEffect(() => {
     overlayRef.current = overlay;
   }, [overlay]);
+  // HEL-1794 (design.md D2): read through a ref so every mutator keeps a stable identity across a role change.
+  const editableRef = useRef(editable);
+  useLayoutEffect(() => {
+    editableRef.current = editable;
+  }, [editable]);
   // The Output part of the replay, prune and counting waits for the page's own Outputs fetch (D15): until then `outputsForDraft`
   // is `null` and Output ops/edits are carried through untouched.
   const outputsLoaded = outputsStatus === "loaded";
@@ -164,30 +173,36 @@ export function usePipelineDraft({
   }, [droppedNow, pipelineId, baseStepsRef, outputsLoaded, restoredTick, outs]);
   const clearDropped = useCallback(() => setDroppedCount(0), []);
 
+  const setOverlayIfEditable = useCallback((update: SetStateAction<DraftOverlay>) => {
+    if (editableRef.current) setOverlay(update);
+  }, []);
   const setConfig = useCallback(
-    (stepId: string, config: PipelineStepConfig) =>
-      setOverlay((prev) =>
+    (stepId: string, config: PipelineStepConfig) => {
+      setOverlayIfEditable((prev) =>
         withConfig(baseStepsRef.current, prev, stepId, config, staleRestoredRef.current, outs()),
-      ),
-    [baseStepsRef, outs],
+      );
+    },
+    [baseStepsRef, outs, setOverlayIfEditable],
   );
   const setEnabled = useCallback(
-    (stepId: string, enabled: boolean) =>
-      setOverlay((prev) =>
+    (stepId: string, enabled: boolean) => {
+      setOverlayIfEditable((prev) =>
         withEnabled(baseStepsRef.current, prev, stepId, enabled, staleRestoredRef.current, outs()),
-      ),
-    [baseStepsRef, outs],
+      );
+    },
+    [baseStepsRef, outs, setOverlayIfEditable],
   );
   const deleteStep = useCallback(
-    (stepId: string) =>
-      setOverlay((prev) =>
+    (stepId: string) => {
+      setOverlayIfEditable((prev) =>
         withDeleted(baseStepsRef.current, prev, stepId, staleRestoredRef.current, outs()),
-      ),
-    [baseStepsRef, outs],
+      );
+    },
+    [baseStepsRef, outs, setOverlayIfEditable],
   );
   const insertStep = useCallback(
     (type: string, config: PipelineStepConfig, anchor: DraftAnchor) =>
-      setOverlay((prev) =>
+      setOverlayIfEditable((prev) =>
         withOp(
           baseStepsRef.current,
           prev,
@@ -196,11 +211,11 @@ export function usePipelineDraft({
           outs(),
         ),
       ),
-    [baseStepsRef, outs],
+    [baseStepsRef, outs, setOverlayIfEditable],
   );
   const addLaneStep = useCallback(
     (type: string, config: PipelineStepConfig, parent: string) =>
-      setOverlay((prev) =>
+      setOverlayIfEditable((prev) =>
         withOp(
           baseStepsRef.current,
           prev,
@@ -209,12 +224,12 @@ export function usePipelineDraft({
           outs(),
         ),
       ),
-    [baseStepsRef, outs],
+    [baseStepsRef, outs, setOverlayIfEditable],
   );
   /** A copy of the step as the draft shows it now (its kind, edited config and enabled flag are captured in the op). */
   const duplicateStep = useCallback(
     (stepId: string) =>
-      setOverlay((prev) => {
+      setOverlayIfEditable((prev) => {
         const source = replayOverlay(baseStepsRef.current, prev).steps.find((s) => s.id === stepId);
         if (!source) return prev;
         return withOp(
@@ -232,11 +247,11 @@ export function usePipelineDraft({
           outs(),
         );
       }),
-    [baseStepsRef, outs],
+    [baseStepsRef, outs, setOverlayIfEditable],
   );
   const reorderTrunk = useCallback(
     (rootId: string, trunk: string[]) =>
-      setOverlay((prev) =>
+      setOverlayIfEditable((prev) =>
         withOp(
           baseStepsRef.current,
           prev,
@@ -245,7 +260,7 @@ export function usePipelineDraft({
           outs(),
         ),
       ),
-    [baseStepsRef, outs],
+    [baseStepsRef, outs, setOverlayIfEditable],
   );
   /** HEL-1733: an Output created on `node`; returns its client id. */
   const createOutput = useCallback(
@@ -256,7 +271,7 @@ export function usePipelineDraft({
       config: Record<string, unknown>,
     ): string => {
       const clientId = newClientId();
-      setOverlay((prev) =>
+      setOverlayIfEditable((prev) =>
         withOp(
           baseStepsRef.current,
           prev,
@@ -267,12 +282,12 @@ export function usePipelineDraft({
       );
       return clientId;
     },
-    [baseStepsRef, outs],
+    [baseStepsRef, outs, setOverlayIfEditable],
   );
   /** Records the WHOLE resulting name/config of a saved or created Output. */
   const editOutput = useCallback(
     (outputId: string, edit: OutputEdit) =>
-      setOverlay((prev) =>
+      setOverlayIfEditable((prev) =>
         withOutputEdit(
           baseStepsRef.current,
           prev,
@@ -282,11 +297,11 @@ export function usePipelineDraft({
           outs(),
         ),
       ),
-    [baseStepsRef, outs],
+    [baseStepsRef, outs, setOverlayIfEditable],
   );
   const deleteOutput = useCallback(
     (outputId: string) =>
-      setOverlay((prev) =>
+      setOverlayIfEditable((prev) =>
         withOp(
           baseStepsRef.current,
           prev,
@@ -295,13 +310,13 @@ export function usePipelineDraft({
           outs(),
         ),
       ),
-    [baseStepsRef, outs],
+    [baseStepsRef, outs, setOverlayIfEditable],
   );
   /** HEL-1734: adds `sourceId` to the draft as a new last root; returns the draft root's client id. */
   const addRoot = useCallback(
     (sourceId: string, dataSourceName: string): string => {
       const clientId = newClientId();
-      setOverlay((prev) =>
+      setOverlayIfEditable((prev) =>
         withRootAdd(
           baseStepsRef.current,
           prev,
@@ -312,23 +327,23 @@ export function usePipelineDraft({
       );
       return clientId;
     },
-    [baseStepsRef, outs],
+    [baseStepsRef, outs, setOverlayIfEditable],
   );
   /** HEL-1734: removes a root (saved, or one the draft added) from the draft. */
   const removeRoot = useCallback(
     (rootId: string) =>
-      setOverlay((prev) =>
+      setOverlayIfEditable((prev) =>
         withRootRemove(baseStepsRef.current, prev, rootId, staleRestoredRef.current, outs()),
       ),
-    [baseStepsRef, outs],
+    [baseStepsRef, outs, setOverlayIfEditable],
   );
   /** Several ops in ONE update (a shape, the aggregate tail): never half in the draft, one render, one kept-draft write. */
   const appendOps = useCallback(
     (ops: DraftOp[]) =>
-      setOverlay((prev) =>
+      setOverlayIfEditable((prev) =>
         withOps(baseStepsRef.current, prev, ops, staleRestoredRef.current, outs()),
       ),
-    [baseStepsRef, outs],
+    [baseStepsRef, outs, setOverlayIfEditable],
   );
   const discard = useCallback(() => {
     keptOutputsBaseRef.current = null;

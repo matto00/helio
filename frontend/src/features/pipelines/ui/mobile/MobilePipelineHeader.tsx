@@ -45,31 +45,37 @@ export function MobilePipelineHeader({
     page.draftOutputBlockReason ??
     (inDraft && trunkSteps.length > 0 && anchorStep === undefined ? page.draftBlockReason : null);
 
+  // HEL-1794: a viewer (and a not-yet-known role) is offered only what is not an edit: no rename, source, shape or schedule entry.
+  const canEdit = page.canEdit;
   const items: ActionsMenuItem[] = [
-    { label: "Rename", onClick: () => page.setEditingOutputName(true) },
-    ...(onlyRootSource
-      ? [{ label: "Edit source", onClick: () => page.handleEditSource(onlyRootSource.id) }]
-      : []),
-    {
-      label: "Add source",
-      onClick: actions.openAddRoot,
-    },
-    {
-      label: "Add Outputs from a shape",
-      disabled: shapeReason !== null,
-      reason: shapeReason ?? undefined,
-      onClick: () => actions.openShapePicker(lastTrunkStepId),
-    },
-    {
-      label: schedule === null ? "Set schedule" : "Edit schedule",
-      onClick: () => page.setScheduleOpen(true),
-    },
-    ...(schedule !== null
+    ...(canEdit
       ? [
+          { label: "Rename", onClick: () => page.setEditingOutputName(true) },
+          ...(onlyRootSource
+            ? [{ label: "Edit source", onClick: () => page.handleEditSource(onlyRootSource.id) }]
+            : []),
           {
-            label: schedule.enabled ? "Pause schedule" : "Resume schedule",
-            onClick: () => page.handleToggleScheduleEnabled(!schedule.enabled),
+            label: "Add source",
+            onClick: actions.openAddRoot,
           },
+          {
+            label: "Add Outputs from a shape",
+            disabled: shapeReason !== null,
+            reason: shapeReason ?? undefined,
+            onClick: () => actions.openShapePicker(lastTrunkStepId),
+          },
+          {
+            label: schedule === null ? "Set schedule" : "Edit schedule",
+            onClick: () => page.setScheduleOpen(true),
+          },
+          ...(schedule !== null
+            ? [
+                {
+                  label: schedule.enabled ? "Pause schedule" : "Resume schedule",
+                  onClick: () => page.handleToggleScheduleEnabled(!schedule.enabled),
+                },
+              ]
+            : []),
         ]
       : []),
     ...(page.isOwner ? [{ label: "Share", onClick: () => page.setShareOpen(true) }] : []),
@@ -85,7 +91,7 @@ export function MobilePipelineHeader({
         <Link to="/pipelines" className="mobile-header__back" aria-label="Back to pipelines">
           <ChevronLeft aria-hidden="true" size={ICON_SIZE.md} />
         </Link>
-        {page.editingOutputName ? (
+        {page.editingOutputName && canEdit ? (
           <TextField
             className="mobile-header__name-input"
             value={page.outputName}
@@ -99,7 +105,7 @@ export function MobilePipelineHeader({
             {displayName}
           </span>
         )}
-        <ActionsMenu label="Pipeline actions" items={items} />
+        {items.length > 0 && <ActionsMenu label="Pipeline actions" items={items} />}
       </div>
 
       {showEditRow && (
@@ -185,7 +191,9 @@ export function MobilePipelineHeader({
             />
           )}
         </div>
-        <SpineScheduleChip schedule={schedule} onOpen={() => page.setScheduleOpen(true)} />
+        {canEdit && (
+          <SpineScheduleChip schedule={schedule} onOpen={() => page.setScheduleOpen(true)} />
+        )}
       </div>
     </header>
   );

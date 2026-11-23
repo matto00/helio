@@ -93,6 +93,7 @@ export const PipelineDetailDialogs = memo(function PipelineDetailDialogs({
           }}
           draft={sheetDraft}
           isPipelineOwner={page.isOwner}
+          readOnly={!page.canEdit}
         />
       )}
 
@@ -102,6 +103,7 @@ export const PipelineDetailDialogs = memo(function PipelineDetailDialogs({
           key={page.historyOutput.id}
           output={page.historyOutput}
           onClose={page.handleCloseOutputHistory}
+          readOnly={!page.canEdit}
         />
       )}
 
@@ -131,7 +133,8 @@ export const PipelineDetailDialogs = memo(function PipelineDetailDialogs({
         <PipelineScheduleDialog
           pipelineId={id}
           schedule={page.pipelineSchedule}
-          open={page.scheduleOpen}
+          // HEL-1794: only a caller who can edit opens it (the chip and menu entries are hidden for a viewer too).
+          open={page.scheduleOpen && page.canEdit}
           onClose={closeSchedule}
         />
       )}

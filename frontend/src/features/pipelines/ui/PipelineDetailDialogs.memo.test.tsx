@@ -54,6 +54,7 @@ function page(over: Record<string, unknown> = {}): PipelinePageState {
     handleUpdateOutput: noop,
     handleDeleteOutput: noop,
     runRole: "owner",
+    canEdit: true,
     isOwner: true,
     ...over,
   } as unknown as PipelinePageState;
@@ -92,6 +93,18 @@ describe("PipelineDetailDialogs comparator (HEL-1809)", () => {
     rerender(<PipelineDetailDialogs page={page({ pipelineSchedule: { enabled: true } })} />);
     const last = schedule.mock.calls[schedule.mock.calls.length - 1][0] as { schedule: unknown };
     expect(last.schedule).toEqual({ enabled: true });
+  });
+
+  it("HEL-1794: a role flip (canEdit) reaches the dialogs: the open sheet turns read-only and the schedule dialog closes", () => {
+    const open = { outputSheet: OPEN, scheduleOpen: true };
+    const { rerender } = render(<PipelineDetailDialogs page={page(open)} />);
+    const lastSchedule = () =>
+      schedule.mock.calls[schedule.mock.calls.length - 1][0] as { open: boolean };
+    expect((lastSheet() as { readOnly?: boolean }).readOnly).toBe(false);
+    expect(lastSchedule().open).toBe(true);
+    rerender(<PipelineDetailDialogs page={page({ ...open, canEdit: false })} />);
+    expect((lastSheet() as { readOnly?: boolean }).readOnly).toBe(true);
+    expect(lastSchedule().open).toBe(false);
   });
 
   it("an edit that changes only the volatile fields renders the dialogs no more", () => {

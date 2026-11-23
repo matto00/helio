@@ -495,7 +495,7 @@ for (const theme of ["light", "dark"] as const) {
       }));
       await viewer.page.goto(`/pipelines/${world.pipeline}`);
       await viewer.page.getByRole("button", { name: "Open Orders table output" }).click();
-      const viewerSheet = viewer.page.getByRole("dialog", { name: /^Edit Orders table/ });
+      const viewerSheet = viewer.page.getByRole("dialog", { name: "Orders table", exact: true });
       await expect(viewerSheet).toBeVisible();
       await viewerSheet.getByText("Ask about this Output").click();
       await askField(viewerSheet).fill(QUESTION);

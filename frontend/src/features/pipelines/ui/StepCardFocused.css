@@ -117,3 +117,17 @@
   font-size: var(--text-xs);
   color: var(--app-text-muted);
 }
+
+/* HEL-1794: a viewer reads the configuration. The fieldset stays `disabled` (nothing can be edited or focused to edit), but the
+   shared disabled recipe (`inputs.css`: opacity 0.55, not-allowed) would dim every value; here the values keep full strength and
+   a plain cursor so they stay readable (value-text contrast >= 4.5:1, measured in e2e). Existing tokens only. */
+.step-focused__fieldset--readonly {
+  cursor: default;
+}
+
+.step-focused__fieldset--readonly .ui-input:disabled,
+.step-focused__fieldset--readonly .ui-select__trigger:disabled,
+.step-focused__fieldset--readonly .ui-textarea:disabled {
+  opacity: 1;
+  cursor: default;
+}

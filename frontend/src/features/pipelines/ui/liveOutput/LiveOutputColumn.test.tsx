@@ -85,6 +85,7 @@ interface Setup {
   truncated?: boolean;
   runStatus?: string | null;
   selectedStepId?: string | null;
+  canEdit?: boolean;
 }
 
 function parts(setup: Setup = {}) {
@@ -96,6 +97,7 @@ function parts(setup: Setup = {}) {
     draftOutputs: outputs,
     runStatus: setup.runStatus ?? null,
     runIsDry: false,
+    canEdit: setup.canEdit ?? true,
   } as unknown as PipelinePageState;
   const presentation = {
     hasDraft: setup.hasDraft ?? false,
@@ -267,6 +269,12 @@ describe("LiveOutputColumn", () => {
     expect(screen.getByText("No Output yet. Add one from the spine.")).toBeInTheDocument();
     expect(fetchHistory).not.toHaveBeenCalled();
     expect(getOutputRows).not.toHaveBeenCalled();
+  });
+
+  it("tells a viewer 'No Output yet.' without inviting an add (HEL-1794)", () => {
+    renderWithStore(column({ outputs: [], canEdit: false }));
+    expect(screen.getByText("No Output yet.")).toBeInTheDocument();
+    expect(screen.queryByText(/Add one from the spine/)).toBeNull();
   });
 
   it("lists every Output in a selector, follows the selected step, and honours an explicit pick", async () => {

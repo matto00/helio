@@ -43,6 +43,7 @@ export function StepCardFocused({
   savedError,
   structuralBlockedReason = null,
   draftPreviewError = null,
+  readOnly = false,
 }: FocusedStepCardProps) {
   const stepCardState = useStepCardState(step, onConfigChange);
   const warningsHeadingId = useId();
@@ -83,35 +84,37 @@ export function StepCardFocused({
             {warningCount > 1 && <span aria-hidden="true">{warningCount}</span>}
           </span>
         )}
-        <div className="step-focused__actions">
-          <button
-            type="button"
-            className="step-focused__action"
-            aria-label={step.enabled ? "Disable step" : "Enable step"}
-            aria-pressed={!step.enabled}
-            onClick={() => onToggleEnabled(step.id, !step.enabled)}
-          >
-            {step.enabled ? "Disable" : "Enable"}
-          </button>
-          <button
-            type="button"
-            className="step-focused__action"
-            aria-label="Duplicate step"
-            disabled={isDuplicating || (structuralBlockedReason !== null && isDraft)}
-            title={isDraft ? (structuralBlockedReason ?? undefined) : undefined}
-            onClick={() => onDuplicate(step.id)}
-          >
-            Duplicate
-          </button>
-          <button
-            type="button"
-            className="step-focused__action step-focused__action--danger"
-            aria-label="Remove step"
-            onClick={() => onRemove(step.id)}
-          >
-            Remove
-          </button>
-        </div>
+        {!readOnly && (
+          <div className="step-focused__actions">
+            <button
+              type="button"
+              className="step-focused__action"
+              aria-label={step.enabled ? "Disable step" : "Enable step"}
+              aria-pressed={!step.enabled}
+              onClick={() => onToggleEnabled(step.id, !step.enabled)}
+            >
+              {step.enabled ? "Disable" : "Enable"}
+            </button>
+            <button
+              type="button"
+              className="step-focused__action"
+              aria-label="Duplicate step"
+              disabled={isDuplicating || (structuralBlockedReason !== null && isDraft)}
+              title={isDraft ? (structuralBlockedReason ?? undefined) : undefined}
+              onClick={() => onDuplicate(step.id)}
+            >
+              Duplicate
+            </button>
+            <button
+              type="button"
+              className="step-focused__action step-focused__action--danger"
+              aria-label="Remove step"
+              onClick={() => onRemove(step.id)}
+            >
+              Remove
+            </button>
+          </div>
+        )}
       </header>
 
       {warningCount > 0 && (
@@ -130,7 +133,10 @@ export function StepCardFocused({
         )}
         {/* A step being created has no server row yet: edits made on its temp id would be lost,
             so the editor is disabled until the create resolves (HEL-1294). */}
-        <fieldset className="step-focused__fieldset" disabled={isCreating}>
+        <fieldset
+          className={`step-focused__fieldset${readOnly ? " step-focused__fieldset--readonly" : ""}`}
+          disabled={isCreating || readOnly}
+        >
           <StepOpEditor
             step={step}
             allSteps={allSteps}

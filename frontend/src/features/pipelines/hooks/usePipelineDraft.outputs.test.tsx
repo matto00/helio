@@ -38,6 +38,7 @@ function mount(initial: Props) {
         outputsStatus: p.status,
         pipelineId: "pipe-1",
         ready: p.ready,
+        editable: true,
       }),
     { initialProps: initial },
   );

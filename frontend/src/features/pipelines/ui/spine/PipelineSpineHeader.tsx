@@ -54,23 +54,38 @@ export interface SpineHeaderProps {
   onRun: () => void;
   /** HEL-1661: which run entries to offer. A viewer gets none (and "View only"); `pending` reserves their room. */
   runRole: PipelineRunRole;
+  /** HEL-1794: the page offers edit affordances (`page.canEdit`). False: the name is text, no schedule chip, no edit menu items. */
+  canEdit?: boolean;
   /** HEL-1631: the client-only draft. While `hasDraft`, Discard replaces Dry run and Save & run replaces Run. */
   draft: { hasDraft: boolean; saving: boolean; onDiscard: () => void; onSaveAndRun: () => void };
 }
 
 // HEL-1809: memoised; the layout keeps every prop's identity stable across an edit that does not touch the header.
-export const PipelineSpineHeader = memo(function PipelineSpineHeader(props: SpineHeaderProps) {
+export const PipelineSpineHeader = memo(function PipelineSpineHeader({
+  canEdit = true,
+  ...props
+}: SpineHeaderProps) {
   const { pipelineName, outputName, editingName, updateStatus, isConfirmingCancel, schedule, run } =
     props;
   const runBusy = run.runStatus === "queued" || run.runStatus === "running";
   const canRun = canRunFromUi(props.runRole);
 
   // Built fresh each render: item gating stays readable beside the JSX it used to live next to.
+  // HEL-1794: a viewer (and a not-yet-known role) is offered no rename, source or schedule entry.
   const items: ActionsMenuItem[] = [
-    { label: "Rename", onClick: () => props.setEditingName(true) },
-    ...(props.onEditOnlySource ? [{ label: "Edit source", onClick: props.onEditOnlySource }] : []),
-    { label: schedule === null ? "Set schedule" : "Edit schedule", onClick: props.onEditSchedule },
-    ...(schedule !== null
+    ...(canEdit ? [{ label: "Rename", onClick: () => props.setEditingName(true) }] : []),
+    ...(canEdit && props.onEditOnlySource
+      ? [{ label: "Edit source", onClick: props.onEditOnlySource }]
+      : []),
+    ...(canEdit
+      ? [
+          {
+            label: schedule === null ? "Set schedule" : "Edit schedule",
+            onClick: props.onEditSchedule,
+          },
+        ]
+      : []),
+    ...(canEdit && schedule !== null
       ? [
           {
             label: schedule.enabled ? "Pause schedule" : "Resume schedule",
@@ -91,7 +106,7 @@ export const PipelineSpineHeader = memo(function PipelineSpineHeader(props: Spin
         <span className="spine-header__crumb-sep" aria-hidden="true">
           /
         </span>
-        {editingName ? (
+        {editingName && canEdit ? (
           <TextField
             className="spine-header__name-input"
             value={outputName}
@@ -100,7 +115,7 @@ export const PipelineSpineHeader = memo(function PipelineSpineHeader(props: Spin
             onBlur={() => props.setEditingName(false)}
             autoFocus
           />
-        ) : (
+        ) : canEdit ? (
           <button
             type="button"
             className="spine-header__name"
@@ -110,6 +125,14 @@ export const PipelineSpineHeader = memo(function PipelineSpineHeader(props: Spin
           >
             {outputName || pipelineName}
           </button>
+        ) : (
+          // HEL-1794: read-only, the same size and mono face as the button, no action.
+          <span
+            className="spine-header__name spine-header__name--static"
+            title={outputName || pipelineName}
+          >
+            {outputName || pipelineName}
+          </span>
         )}
       </nav>
 
@@ -193,7 +216,7 @@ export const PipelineSpineHeader = memo(function PipelineSpineHeader(props: Spin
       {props.runRole === "viewer" && <SpineViewOnly />}
 
       <div className="spine-header__trailing">
-        <SpineScheduleChip schedule={schedule} onOpen={props.onEditSchedule} />
+        {canEdit && <SpineScheduleChip schedule={schedule} onOpen={props.onEditSchedule} />}
         {props.draft.hasDraft ? (
           <>
             <button

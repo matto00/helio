@@ -1,0 +1,64 @@
+- `e2e/hel1661-viewer-run-controls.spec.ts` — e2e: viewer/editor spec (red first) / updated viewer copy assertion
+- `e2e/hel1794-viewer-read-only.spec.ts` — e2e: viewer/editor spec (red first) / updated viewer copy assertion
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.keys.test.tsx` — jest: viewer read-only coverage / existing test adapted to the role gate (menu awaits the role, page stub has canEdit)
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts` — role hoisted above the draft; exposes page.canEdit
+- `frontend/src/features/pipelines/hooks/usePipelineDetailSaveWiring.ts` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/hooks/usePipelineDetailStepActions.ts` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/hooks/usePipelineDirtyAndOwner.ts` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/hooks/usePipelineDraftRouting.ts` — editable guard on every routed edit handler (D2)
+- `frontend/src/features/pipelines/hooks/usePipelineDraftRouting.viewer.test.tsx` — jest: viewer read-only coverage / existing test adapted to the role gate (menu awaits the role, page stub has canEdit)
+- `frontend/src/features/pipelines/hooks/usePipelineDraft.ts` — editable guard on every overlay mutator (D2); discard/rebase/restore unguarded
+- `frontend/src/features/pipelines/hooks/usePipelineDraft.viewer.test.tsx` — jest: viewer read-only coverage / existing test adapted to the role gate (menu awaits the role, page stub has canEdit)
+- `frontend/src/features/pipelines/hooks/usePipelineRunAndSaveActions.ts` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/hooks/usePipelineRunRole.canEdit.test.ts` — jest: viewer read-only coverage / existing test adapted to the role gate (menu awaits the role, page stub has canEdit)
+- `frontend/src/features/pipelines/hooks/usePipelineRunRole.ts` — canEditFromUi (owner/editor only)
+- `frontend/src/features/pipelines/hooks/usePipelineSourceScheduleActions.ts` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/ui/liveOutput/LiveOutputColumn.test.tsx` — jest: viewer read-only coverage / existing test adapted to the role gate (menu awaits the role, page stub has canEdit)
+- `frontend/src/features/pipelines/ui/liveOutput/LiveOutputColumn.tsx` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/ui/mobile/MobilePipelineHeader.tsx` — same on phone; empty menu not rendered
+- `frontend/src/features/pipelines/ui/mobile/MobilePreviewTab.tsx` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/ui/mobile/MobileStepSheet.tsx` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/ui/mobile/PipelineMobileLayout.tsx` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/ui/mobile/PipelineMobileLayout.viewerReadOnly.test.tsx` — jest: viewer read-only coverage / existing test adapted to the role gate (menu awaits the role, page stub has canEdit)
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorFooter.tsx` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.css` — read-only presentation (full-strength values, plain cursor)
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.tsx` — readOnly: fenced fields, title = name
+- `frontend/src/features/pipelines/ui/outputEditor/OutputSheetPreviewCard.tsx` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/ui/outputHistory/OutputHistoryModal.test.tsx` — jest: viewer read-only coverage / existing test adapted to the role gate (menu awaits the role, page stub has canEdit)
+- `frontend/src/features/pipelines/ui/outputHistory/OutputHistoryModal.tsx` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/ui/PipelineDetailDialogs.tsx` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.test.tsx` — jest: viewer read-only coverage / existing test adapted to the role gate (menu awaits the role, page stub has canEdit)
+- `frontend/src/features/pipelines/ui/spine/draftBlocks.test.tsx` — jest: viewer read-only coverage / existing test adapted to the role gate (menu awaits the role, page stub has canEdit)
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineHeader.css` — read-only presentation (full-strength values, plain cursor)
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineHeader.tsx` — name as text, edit menu items and schedule chip omitted for !canEdit
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineLayout.tsx` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineLayout.viewerReadOnly.test.tsx` — jest: viewer read-only coverage / existing test adapted to the role gate (menu awaits the role, page stub has canEdit)
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineLayout.viewerRunControls.test.tsx` — jest: viewer read-only coverage / existing test adapted to the role gate (menu awaits the role, page stub has canEdit)
+- `frontend/src/features/pipelines/ui/spine/PipelineSpine.tsx` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/ui/spine/SpineOutputs.memoComparators.test.tsx` — jest: viewer read-only coverage / existing test adapted to the role gate (menu awaits the role, page stub has canEdit)
+- `frontend/src/features/pipelines/ui/spine/SpineOutputs.tsx` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/ui/spine/SpineSourceCard.tsx` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/ui/spine/SpineStatusStrip.tsx` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/ui/spine/SpineStepRow.tsx` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/ui/spine/useSpineStepActions.tsx` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/ui/StepCardFocused.css` — read-only presentation (full-strength values, plain cursor)
+- `frontend/src/features/pipelines/ui/StepCardFocused.tsx` — readOnly: no actions, disabled fieldset + readonly modifier
+- `frontend/src/features/pipelines/ui/stepCardTypes.ts` — thread canEdit/readOnly through to the control it gates (D3)
+- `frontend/src/features/pipelines/ui/viewerCopy.ts` — viewer copy table (D3)
+- `openspec/changes/pipeline-viewer-read-only/design.md` — change artifacts
+- `openspec/changes/pipeline-viewer-read-only/mutations.md` — change artifacts
+- `openspec/changes/pipeline-viewer-read-only/.openspec.yaml` — change artifacts
+- `openspec/changes/pipeline-viewer-read-only/proposal.md` — change artifacts
+- `openspec/changes/pipeline-viewer-read-only/specs/pipeline-detail-mobile-layout/spec.md` — change artifacts
+- `openspec/changes/pipeline-viewer-read-only/specs/pipeline-detail-spine-layout/spec.md` — change artifacts
+- `openspec/changes/pipeline-viewer-read-only/tasks.md` — change artifacts
+- `openspec/changes/pipeline-viewer-read-only/ticket.md` — change artifacts
+- `e2e/hel1746-ask-ui.spec.ts` — the viewer branch finds its Output sheet by the bare Output name (the viewer title no longer says "Edit"); the owner-branch `/^Edit ...` lookups are unchanged
+- `frontend/src/features/pipelines/ui/viewerCopy.test.ts` — pins the no-selection description (viewer and editor) and that no viewer variant invites an edit or run
+- `frontend/src/features/pipelines/hooks/usePipelineDraft.dropped.test.tsx` — passes the now-required `editable: true` to `usePipelineDraft`
+- `frontend/src/features/pipelines/hooks/usePipelineDraft.outputs.test.tsx` — passes the now-required `editable: true` to `usePipelineDraft`
+- `frontend/src/features/pipelines/hooks/usePipelineDraftRouting.outputs.test.tsx` — passes the now-required `editable: true` to `usePipelineDraftRouting`
+- `frontend/src/features/pipelines/hooks/usePipelineRunAndSaveActions.sessionEpoch.test.tsx` — passes the now-required `canEdit: true`
+- `frontend/src/features/pipelines/hooks/usePipelineRunAndSaveActions.viewer.test.tsx` — passes `canEdit` and adds the rename-save guard test
+- `frontend/src/features/pipelines/ui/PipelineDetailDialogs.memo.test.tsx` — adds the `canEdit` role-flip test (sheet read-only, schedule dialog closed)
+- `frontend/src/features/pipelines/ui/spine/PipelineSpine.test.tsx` — adds the viewer vs editor per-root empty-line test (`canEdit` on the harness)

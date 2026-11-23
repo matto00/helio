@@ -14,6 +14,7 @@ import type { StepDeepLink } from "../../hooks/useStepDeepLink";
 import { STEP_PARAM, useAddedStepId } from "../../hooks/useStepSelection";
 import { useDisplayedOutputNodeIds } from "../../hooks/useDisplayedOutputNodeIds";
 import { usePipelineDraftPresentation } from "../../hooks/usePipelineDraftPresentation";
+import { canRunFromUi } from "../../hooks/usePipelineRunRole";
 import { useStepSaveSeam } from "../../hooks/useStepSaveSeam";
 import { resolveStepParam } from "../../state/resolveStepParam";
 import { createInFlightDedupe } from "../../state/inFlightDedupe";
@@ -68,6 +69,7 @@ export function PipelineMobileLayout({
     onReorderSteps: page.handleReorderSteps,
     structuralBlockedReason: page.draftBlockReason,
     outputBlockedReason: page.draftOutputBlockReason,
+    canEdit: page.canEdit,
   });
   // The Preview tab's chosen step lives here so the draft transport knows which step's rows to ask the server for.
   const [previewChosenId, setPreviewChosenId] = useState<string | null>(null);
@@ -179,6 +181,7 @@ export function PipelineMobileLayout({
         <SpineStatusStrip
           costVerdict={page.costVerdict}
           onRunToUpdate={page.handleRunToUpdate}
+          canRun={canRunFromUi(page.runRole)}
           truncationNotice={truncationNotice}
         />
 
@@ -230,6 +233,7 @@ export function PipelineMobileLayout({
                 onAddOutput={page.handleAddOutput}
                 onOpenOutput={page.handleOpenOutput}
                 onOpenOutputHistory={page.handleOpenOutputHistory}
+                canEdit={page.canEdit}
               />
             ))}
           {tab === "preview" &&

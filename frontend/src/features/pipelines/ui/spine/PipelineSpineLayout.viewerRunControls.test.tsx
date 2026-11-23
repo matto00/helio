@@ -153,8 +153,13 @@ describe("desktop run controls by caller role", () => {
       await renderSpinePageSettled(store);
       fireEvent.click(screen.getByRole("button", { name: "Open Out one output" }));
       const dialog = await screen.findByRole("dialog");
+      // HEL-1794: the viewer's paragraph no longer invites a run; the editor's keeps the "Run the pipeline" line.
       expect(
-        await within(dialog).findByText(/hasn.t been included in a saved run yet/),
+        await within(dialog).findByText(
+          role === "viewer"
+            ? /This Output has no rows yet/
+            : /hasn.t been included in a saved run yet/,
+        ),
       ).toBeVisible();
       expect(within(dialog).queryAllByRole("button", { name: "Run pipeline" })).toHaveLength(
         expected,

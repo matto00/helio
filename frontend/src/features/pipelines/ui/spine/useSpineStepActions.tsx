@@ -41,6 +41,8 @@ export interface SpineStepActionsArgs {
   structuralBlockedReason?: string | null;
   /** HEL-1733: while a draft exists and the page's Outputs are not loaded, "Add output" waits with this reason. */
   outputBlockedReason?: string | null;
+  /** HEL-1794: false (a viewer, or a role not yet known) = no row menu items and no drag reorder. */
+  canEdit?: boolean;
 }
 
 export interface SpineStepActions {
@@ -75,6 +77,7 @@ export function useSpineStepActions({
   onReorderSteps,
   structuralBlockedReason = null,
   outputBlockedReason = null,
+  canEdit = true,
 }: SpineStepActionsArgs): SpineStepActions {
   const blocked = structuralBlockedReason !== null;
   const reason = structuralBlockedReason ?? undefined;
@@ -129,6 +132,8 @@ export function useSpineStepActions({
     restoreFocus?: () => void,
   ): ActionsMenuItem[] {
     const items: ActionsMenuItem[] = [];
+    // HEL-1794: a viewer (or a role not yet known) has no row menu: nothing in it is not an edit.
+    if (!canEdit) return items;
     const isTrunk = lane.parentStepId === undefined;
     if (isTrunk) {
       const laneLabel = rootNameOf(lane.rootId);

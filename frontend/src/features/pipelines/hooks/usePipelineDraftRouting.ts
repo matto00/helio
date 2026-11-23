@@ -56,12 +56,15 @@ export function usePipelineDraftRouting({
   draftSteps,
   sources,
   handlers,
+  editable,
 }: {
   draft: PipelineDraft;
   roots: PipelineRoot[];
   draftSteps: Step[];
   sources: readonly DataSource[];
   handlers: ImmediateStepHandlers;
+  /** HEL-1794 (design.md D2): false = every edit handler returns at once (no write, no overlay op). */
+  editable: boolean;
 }) {
   const {
     handleAddRootNow,
@@ -81,35 +84,40 @@ export function usePipelineDraftRouting({
   const { setConfig, setEnabled, deleteStep } = draft;
   const handleStepConfigChange = useCallback(
     (stepId: string, config: PipelineStepConfig) => {
+      if (!editable) return;
       if (isTempStepId(stepId)) handleTempStepConfigChange(stepId, config);
       else setConfig(stepId, config);
     },
-    [handleTempStepConfigChange, setConfig],
+    [editable, handleTempStepConfigChange, setConfig],
   );
   const handleRemoveStep = useCallback(
     (stepId: string) => {
+      if (!editable) return;
       if (isTempStepId(stepId)) handleRemoveSavedStep(stepId);
       else deleteStep(stepId);
     },
-    [handleRemoveSavedStep, deleteStep],
+    [editable, handleRemoveSavedStep, deleteStep],
   );
   const handleToggleStepEnabled = useCallback(
     (stepId: string, enabled: boolean): Promise<void> => {
+      if (!editable) return Promise.resolve();
       if (isTempStepId(stepId)) return handleToggleTempStepEnabled(stepId, enabled);
       setEnabled(stepId, enabled);
       return Promise.resolve();
     },
-    [handleToggleTempStepEnabled, setEnabled],
+    [editable, handleToggleTempStepEnabled, setEnabled],
   );
 
   const { insertStep, addLaneStep, duplicateStep, reorderTrunk } = draft;
   const inDraft = draft.hasDraft;
   const handleAddStep = useLatestCallback((opType: OpType) => {
+    if (!editable) return;
     const rootId = roots[0]?.id;
     if (!inDraft || rootId === undefined) return handleAddStepNow(opType);
     insertStep(opType.id, defaultConfigFor(opType.id), { append: rootId });
   });
   const handleInsertStep = useLatestCallback((opType: OpType, index: number): Promise<void> => {
+    if (!editable) return Promise.resolve();
     const rootId = roots[0]?.id;
     if (!inDraft || rootId === undefined) return handleInsertStepNow(opType, index);
     // Anchored over the DRAFT lane (temp steps skipped), never `stepsRef`'s length: an index into a draft holding new steps can
@@ -124,6 +132,7 @@ export function usePipelineDraftRouting({
   });
   const handleAddLaneStep = useLatestCallback(
     (opType: OpType, parentStepId: string): Promise<void> => {
+      if (!editable) return Promise.resolve();
       if (!inDraft) return handleAddLaneStepNow(opType, parentStepId);
       if (!isTempStepId(parentStepId))
         addLaneStep(opType.id, defaultConfigFor(opType.id), parentStepId);
@@ -131,10 +140,12 @@ export function usePipelineDraftRouting({
     },
   );
   const handleDuplicateStep = useLatestCallback((stepId: string) => {
+    if (!editable) return;
     if (!inDraft) return handleDuplicateStepNow(stepId);
     if (!isTempStepId(stepId)) duplicateStep(stepId);
   });
   const handleReorderSteps = useLatestCallback((newOrder: Step[]): void | Promise<void> => {
+    if (!editable) return;
     if (!inDraft) return handleReorderStepsNow(newOrder);
     for (const root of roots) {
       const before = liveTrunkIds(draftSteps, root.id);
@@ -148,12 +159,14 @@ export function usePipelineDraftRouting({
   // ── HEL-1734: adding and removing a source (a root) are draft entries while a draft exists ──
   const { addRoot, removeRoot } = draft;
   const handleAddRoot = useLatestCallback((sourceId: string): Promise<void> => {
+    if (!editable) return Promise.resolve();
     if (!inDraft) return handleAddRootNow(sourceId);
     if (sourceId === "") return Promise.resolve();
     addRoot(sourceId, sources.find((s) => s.id === sourceId)?.name ?? "Source");
     return Promise.resolve();
   });
   const handleRemoveRoot = useLatestCallback((rootId: string): Promise<void> => {
+    if (!editable) return Promise.resolve();
     if (!inDraft) return handleRemoveRootNow(rootId);
     removeRoot(rootId);
     return Promise.resolve();
@@ -174,6 +187,7 @@ export function usePipelineDraftRouting({
   };
   const handleCreateOutput = useLatestCallback(
     (payload: Parameters<OutputActions["create"]>[0]): void | Promise<void> => {
+      if (!editable) return;
       if (!inDraft) return outputActionsNow.create(payload);
       createOutput(nodeFor(payload.nodeStepId), payload.kind, payload.name.trim(), payload.config);
     },
@@ -184,6 +198,7 @@ export function usePipelineDraftRouting({
       output: Output,
       payload: { name: string; config?: Record<string, unknown> },
     ): void | Promise<void> => {
+      if (!editable) return;
       if (!inDraft) return outputActionsNow.update(output, payload);
       if (payload.name.trim() === "") throw new Error("An Output needs a name.");
       editOutput(output.id, {
@@ -193,12 +208,14 @@ export function usePipelineDraftRouting({
     },
   );
   const handleDeleteOutput = useLatestCallback((output: Output): void | Promise<void> => {
+    if (!editable) return;
     if (!inDraft) return outputActionsNow.remove(output);
     deleteOutput(output.id);
   });
 
   const handleInstantiateShape = useLatestCallback(
     (expansion: ExpandPipelineShapeResponse, anchorStepId?: string): Promise<void> => {
+      if (!editable) return Promise.resolve();
       if (!inDraft) return handleInstantiateShapeNow(expansion, anchorStepId);
       if (anchorStepId !== undefined && isTempStepId(anchorStepId)) return Promise.resolve();
       const rootId = roots[0]?.id;
@@ -239,6 +256,7 @@ export function usePipelineDraftRouting({
       aggregateConfig: AggregateConfig,
       outputPayload: { kind: string; name: string; config: Record<string, unknown> },
     ): Promise<Output> => {
+      if (!editable) return Promise.reject(new Error("This pipeline is view only."));
       if (!inDraft)
         return handleAddOutputViaAggregateTailNow(parentStepId, aggregateConfig, outputPayload);
       if (isTempStepId(parentStepId))

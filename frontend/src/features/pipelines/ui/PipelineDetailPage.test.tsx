@@ -374,8 +374,8 @@ const renderDetailPageSettled = (id = "pipe-1", store = makeStore()) =>
 
 /** The page's single actions menu, in the header. Holds "Rename"/"Edit source"/"Add source"/"Add Outputs from a
  *  shape"/"Edit schedule"/"Set schedule"/"Pause schedule" and (owner) "Share"; run history is the Runs tab. */
-function openPipelineActionsMenu() {
-  fireEvent.click(screen.getByRole("button", { name: "Pipeline actions" }));
+async function openPipelineActionsMenu() {
+  fireEvent.click(await screen.findByRole("button", { name: "Pipeline actions" }));
 }
 
 /** Opens the phone's Runs tab, which shows the run history inline (the desktop opens a modal) — used throughout
@@ -2429,24 +2429,24 @@ describe("PipelineDetailPage — Share menu item (HEL-719)", () => {
     jest.clearAllMocks();
   });
 
-  it("is present in the actions menu when the current user owns the pipeline", () => {
+  it("is present in the actions menu when the current user owns the pipeline", async () => {
     const store = makeStore([], { currentPipeline: ownedPipeline }, "user-1");
     renderDetailPage("pipe-1", store);
-    openPipelineActionsMenu();
+    await openPipelineActionsMenu();
     expect(screen.getByRole("menuitem", { name: "Share" })).toBeInTheDocument();
   });
 
-  it("is absent from the actions menu when the current user does not own the pipeline", () => {
+  it("is absent from the actions menu when the current user does not own the pipeline", async () => {
     const store = makeStore([], { currentPipeline: ownedPipeline }, "someone-else");
     renderDetailPage("pipe-1", store);
-    openPipelineActionsMenu();
+    await openPipelineActionsMenu();
     expect(screen.queryByRole("menuitem", { name: "Share" })).not.toBeInTheDocument();
   });
 
-  it("opens the share dialog when activated", () => {
+  it("opens the share dialog when activated", async () => {
     const store = makeStore([], { currentPipeline: ownedPipeline }, "user-1");
     renderDetailPage("pipe-1", store);
-    openPipelineActionsMenu();
+    await openPipelineActionsMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Share" }));
     expect(screen.getByRole("dialog", { name: /share/i })).toBeInTheDocument();
   });
@@ -2461,10 +2461,10 @@ describe("PipelineDetailPage — pinned footer actions + header actions menu", (
     expect(await screen.findByRole("button", { name: "Run pipeline" })).toBeInTheDocument();
   });
 
-  it("Run history is reachable only through the Runs tab — not a button, and not an actions menu item", () => {
+  it("Run history is reachable only through the Runs tab — not a button, and not an actions menu item", async () => {
     renderDetailPage();
     expect(screen.queryByRole("button", { name: "Run history" })).not.toBeInTheDocument();
-    openPipelineActionsMenu();
+    await openPipelineActionsMenu();
     expect(screen.queryByRole("menuitem", { name: "Run history" })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Runs" })).toBeInTheDocument();
   });
@@ -2472,9 +2472,9 @@ describe("PipelineDetailPage — pinned footer actions + header actions menu", (
   // HEL-908 task 8.2 — `PipelinePreviewModal` was deleted, superseded by
   // per-Output previews (the Output editor sheet / Outputs rail thumbnails);
   // "Preview" no longer exists as a header action.
-  it("does not offer a 'Preview' action -- PipelinePreviewModal was deleted", () => {
+  it("does not offer a 'Preview' action -- PipelinePreviewModal was deleted", async () => {
     renderDetailPage();
-    openPipelineActionsMenu();
+    await openPipelineActionsMenu();
     expect(screen.queryByRole("menuitem", { name: "Preview" })).not.toBeInTheDocument();
   });
 });
@@ -3503,17 +3503,17 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
     jest.clearAllMocks();
   });
 
-  it("Edit source menu item is present when the bound source is in sources.items", () => {
+  it("Edit source menu item is present when the bound source is in sources.items", async () => {
     const store = makeStore([ownedSource], { currentPipeline: pipelineWithOutputType });
     renderDetailPage("pipe-1", store);
-    openPipelineActionsMenu();
+    await openPipelineActionsMenu();
     expect(screen.getByRole("menuitem", { name: "Edit source" })).toBeInTheDocument();
   });
 
-  it("Edit source menu item is absent when the bound source is not in sources.items", () => {
+  it("Edit source menu item is absent when the bound source is not in sources.items", async () => {
     const store = makeStore([], { currentPipeline: pipelineWithOutputType });
     renderDetailPage("pipe-1", store);
-    openPipelineActionsMenu();
+    await openPipelineActionsMenu();
     expect(screen.queryByRole("menuitem", { name: "Edit source" })).not.toBeInTheDocument();
   });
 
@@ -3521,10 +3521,10 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
   // set `sources.selectedSourceId` and land on `/sources`, relying on that
   // page to resolve the selection — the page is a section overview now, so a
   // bare `/sources` would show the list rather than the source being edited.
-  it("activating Edit source navigates to that source's detail route", () => {
+  it("activating Edit source navigates to that source's detail route", async () => {
     const store = makeStore([ownedSource], { currentPipeline: pipelineWithOutputType });
     renderDetailPage("pipe-1", store);
-    openPipelineActionsMenu();
+    await openPipelineActionsMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Edit source" }));
     expect(screen.getByText("Source Detail Page")).toBeInTheDocument();
     expect(screen.queryByText("Sources Page")).not.toBeInTheDocument();
@@ -3533,10 +3533,10 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
   // HEL-908 task 8.1 — "Edit type" (DataType-bound) was retired from the
   // header's actions menu, replaced by the Outputs-count/last-run-status
   // group; not gated on `dataTypes.items` ownership at all any more.
-  it("does not offer an 'Edit type' action regardless of dataTypes.items ownership", () => {
+  it("does not offer an 'Edit type' action regardless of dataTypes.items ownership", async () => {
     const store = makeStore([], { currentPipeline: pipelineWithOutputType });
     renderDetailPage("pipe-1", store);
-    openPipelineActionsMenu();
+    await openPipelineActionsMenu();
     expect(screen.queryByRole("menuitem", { name: "Edit type" })).not.toBeInTheDocument();
   });
 
@@ -3544,14 +3544,14 @@ describe("PipelineDetailPage Edit Source / Edit Type buttons (HEL-260)", () => {
   // (or otherwise reaches a pipeline they don't own) but does not own the
   // bound source — the Edit source menu item must be absent, since pipeline
   // access confers no standing over the underlying DataSource.
-  it("shared pipeline without source ownership shows no Edit source menu item", () => {
+  it("shared pipeline without source ownership shows no Edit source menu item", async () => {
     const sharedPipeline: PipelineSummary = {
       ...pipelineWithOutputType,
       ownerId: "someone-else",
     };
     const store = makeStore([], { currentPipeline: sharedPipeline });
     renderDetailPage("pipe-1", store);
-    openPipelineActionsMenu();
+    await openPipelineActionsMenu();
     expect(screen.queryByRole("menuitem", { name: "Edit source" })).not.toBeInTheDocument();
   });
 });
@@ -3603,7 +3603,7 @@ describe("PipelineDetailPage schedule bar (HEL-416)", () => {
     await waitFor(() => {
       expect(screen.getByText("Every 15m")).toBeInTheDocument();
     });
-    openPipelineActionsMenu();
+    await openPipelineActionsMenu();
     expect(screen.getByRole("menuitem", { name: "Edit schedule" })).toBeInTheDocument();
   });
 
@@ -3621,7 +3621,7 @@ describe("PipelineDetailPage schedule bar (HEL-416)", () => {
 
     // The schedule chip shows the loaded schedule; enable/disable lives in the actions menu.
     await screen.findByText("Every 15m");
-    openPipelineActionsMenu();
+    await openPipelineActionsMenu();
     fireEvent.click(screen.getByRole("menuitem", { name: "Pause schedule" }));
 
     await waitFor(() => {
@@ -3637,7 +3637,7 @@ describe("PipelineDetailPage schedule bar (HEL-416)", () => {
   it("activating 'Set schedule' opens the schedule dialog", async () => {
     renderDetailPage("pipe-1");
 
-    openPipelineActionsMenu();
+    await openPipelineActionsMenu();
     const setScheduleItem = await screen.findByRole("menuitem", { name: "Set schedule" });
     fireEvent.click(setScheduleItem);
 
@@ -3686,7 +3686,7 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     expect(await screen.findByText(/^Add your first transformation step/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "+ Add step" })).toBeInTheDocument();
     // On the phone the shape picker is an item of the header's actions menu.
-    openPipelineActionsMenu();
+    await openPipelineActionsMenu();
     expect(screen.getByRole("menuitem", { name: "Add Outputs from a shape" })).toBeInTheDocument();
   });
 
@@ -3707,7 +3707,7 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     expect(
       await screen.findByRole("button", { name: "+ Add transformation step" }),
     ).toBeInTheDocument();
-    openPipelineActionsMenu();
+    await openPipelineActionsMenu();
     expect(screen.getByRole("menuitem", { name: "Add Outputs from a shape" })).toBeInTheDocument();
   });
 
@@ -3921,7 +3921,7 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     // against the transient empty-state render before steps finish loading.
     await findStepRow(/Select fields/i);
 
-    openPipelineActionsMenu();
+    await openPipelineActionsMenu();
     expect(screen.getByRole("menuitem", { name: "Add Outputs from a shape" })).toBeEnabled();
   });
 });

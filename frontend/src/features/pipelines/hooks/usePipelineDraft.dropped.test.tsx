@@ -35,6 +35,7 @@ function mount(initial: Step[]) {
         outputsStatus: "loaded",
         pipelineId: "pipe-1",
         ready: true,
+        editable: true,
       }),
     { initialProps: { steps: initial } },
   );

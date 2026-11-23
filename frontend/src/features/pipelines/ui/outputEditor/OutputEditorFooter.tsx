@@ -15,6 +15,8 @@ interface OutputEditorFooterProps {
   /** True while an unusable draft blocks Save: a conditional-format rule the server would reject (HEL-1307),
    *  a histogram bin-count draft (HEL-1311), or a reference-mark draft. */
   saveBlocked?: boolean;
+  /** HEL-1794: a viewer sees "Close" only (no Delete, Add as tail, Save). */
+  readOnly?: boolean;
 }
 
 export function OutputEditorFooter({
@@ -28,7 +30,18 @@ export function OutputEditorFooter({
   onAddTailWithAggregate,
   onSave,
   saveBlocked = false,
+  readOnly = false,
 }: OutputEditorFooterProps) {
+  if (readOnly) {
+    // HEL-1794: a viewer can only leave the sheet.
+    return (
+      <div className="output-editor-sheet__footer">
+        <button type="button" className="ui-modal-btn ui-modal-btn--secondary" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="output-editor-sheet__footer">
       {!isCreate && (

@@ -10,17 +10,20 @@ import { HistoryRows } from "./HistoryRows";
 import { historyRowRules } from "./historyRowRules";
 import { HistoryScrubber } from "./HistoryScrubber";
 import { HistorySummary } from "./HistorySummary";
+import { VIEWER_COPY, copyFor } from "../viewerCopy";
 import { HISTORY_VIEW_LIMIT, useOutputHistoryView } from "./useOutputHistoryView";
 
 interface OutputHistoryModalProps {
   output: Output;
   onClose: () => void;
+  /** HEL-1794: a viewer's empty state does not invite a run. */
+  readOnly?: boolean;
 }
 
 /** HEL-1277 — one Output's recorded runs: a scrubber over the retained points, the selected point's
  *  summary (and chart, for a chart Output), and its stored rows with a changed-rows highlight
  *  against the next-older retained point when both runs stored them. */
-export function OutputHistoryModal({ output, onClose }: OutputHistoryModalProps) {
+export function OutputHistoryModal({ output, onClose, readOnly = false }: OutputHistoryModalProps) {
   const view = useOutputHistoryView(output.id);
   // Memoized so TableRenderer's own memo over its rules is not defeated by a fresh array per render.
   const rules = useMemo(() => historyRowRules(output), [output]);
@@ -48,7 +51,7 @@ export function OutputHistoryModal({ output, onClose }: OutputHistoryModalProps)
             variant="sidebar"
             icon={<History />}
             title="No runs recorded for this Output yet"
-            description="Run the pipeline to start recording this Output's history."
+            description={copyFor(VIEWER_COPY.historyEmpty, !readOnly)}
           />
         )}
         {loadState === "ready" && selected && (

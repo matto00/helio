@@ -57,6 +57,13 @@
   cursor: pointer;
 }
 
+/* HEL-1794: the read-only name (a viewer): the button's face and size without its affordance. */
+.spine-header__name--static {
+  display: block;
+  line-height: var(--control-sm);
+  cursor: default;
+}
+
 @media (hover: hover) {
   .spine-header__name:hover {
     background: var(--app-surface-raised);

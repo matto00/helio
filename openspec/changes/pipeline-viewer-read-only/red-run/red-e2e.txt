@@ -1,0 +1,111 @@
+# red-e2e.txt: HEL-1794 e2e/hel1794-viewer-read-only.spec.ts on the inert stubs (full file, lane DB helio_hel1794, 2 workers).
+Result: 2 failed (viewer desktop, viewer phone), 1 passed (editor control: it must pass on main too).
+
+Failing soft assertions by label (count):
+   18  desktop/dark
+   17  desktop/light
+   11  desktop/dark (step open)
+   10  desktop/light (step open)
+   10  phone/dark
+    9  phone/light
+    8  phone/dark (step open)
+    7  phone/light (step open)
+    1  desktop/light (page): controls outside the viewer allow-list
+    1  desktop/light: Rename
+    1  desktop/light: Set schedule
+    1  desktop/light: schedule
+    1  desktop/light (menu open): controls outside the viewer allow-list
+    1  desktop/light (step open): controls outside the viewer allow-list
+    1  desktop/light: the field value is unchanged
+    1  desktop/light: no kept draft
+    1  desktop/light (output sheet): controls outside the viewer allow-list
+    1  desktop/light: write requests during the viewer flow
+    1  desktop/dark (page): controls outside the viewer allow-list
+    1  desktop/dark: Rename
+    1  desktop/dark: Set schedule
+    1  desktop/dark: schedule
+    1  desktop/dark (menu open): controls outside the viewer allow-list
+    1  desktop/dark (step open): controls outside the viewer allow-list
+    1  desktop/dark: the field value is unchanged
+    1  desktop/dark: no kept draft
+    1  desktop/dark (output sheet): controls outside the viewer allow-list
+    1  phone/light (page): controls outside the viewer allow-list
+    1  phone/light: Rename
+    1  phone/light: Set schedule
+    1  phone/light: Add source
+    1  phone/light: schedule
+    1  phone/light (menu open): controls outside the viewer allow-list
+    1  phone/light (step open): controls outside the viewer allow-list
+    1  phone/light: the field value is unchanged
+    1  phone/light: no kept draft
+    1  phone/light (output sheet): controls outside the viewer allow-list
+    1  phone/light: write requests during the viewer flow
+    1  phone/dark (page): controls outside the viewer allow-list
+    1  phone/dark: Rename
+    1  phone/dark: Set schedule
+    1  phone/dark: Add source
+    1  phone/dark: schedule
+    1  phone/dark (menu open): controls outside the viewer allow-list
+    1  phone/dark (step open): controls outside the viewer allow-list
+    1  phone/dark: the field value is unchanged
+    1  phone/dark: no kept draft
+    1  phone/dark (output sheet): controls outside the viewer allow-list
+
+Offending controls found by the allow-list scan (desktop/light page, verbatim):
+desktop/light (page): controls outside the viewer allow-list
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 16
+
+    - Array []
+    + Array [
+    +   "button \"Edit pipeline name\"",
+    +   "button \"Add schedule\"",
+    +   "button \"Source actions for hel1661-orders\"",
+    +   "button \"Add source\"",
+    +   "span \"\"",
+    +   "button \"Step actions for Compute column\"",
+    +   "button \"+ Add transformation step\"",
+    +   "button \"Add Outputs from a shape\"",
+    +   "button \"New output\"",
+    +   "button \"Disable step\"",
+    +   "button \"Duplicate step\"",
+    +   "button \"Remove step\"",
+    +   "input \"Output field name\"",
+    +   "input \"Expression\"",
+    + ]
+
+      124 |       `${where}: controls outside the viewer allow-list`,
+      125 |     )
+    > 126 |     .toEqual([]);
+          |      ^
+      127 | }
+      128 |
+      129 | function watchWrites(page: Page): string[] {
+        at expectOnlyAllowed (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:126:6)
+        at viewerFlow (/home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:206:3)
+        at /home/matt/Development/helio/.claude/worktrees/feature/pipeline-viewer-read-only/HEL-1794/e2e/hel1794-viewer-read-only.spec.ts:294:9
+
+    Error: desktop/light: Rename
+
+    expect(locator).toHaveCount(exp
+Write requests during the viewer flow on main:
+desktop/light: write requests during the viewer flow
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "POST /api/pipeline-steps/abe9d76e-18e4-4686-9055-b920655d0244/duplicate",
+    + ]
+
+      256 |
+      257 |   await page.screenshot({ path: evidencePath("HEL-1794", `viewer-${label}-${theme}.png`) });
+    > 258 |   soft(writes, `${where}: write requests during the viewer flow`).toEqual([]);
+          |                                                                   ^
+      259 |   soft(await keptDraft(page

@@ -23,6 +23,8 @@ type UsePipelineRunAndSaveActionsArgs = {
   setIsConfirmingCancel: Dispatch<SetStateAction<boolean>>;
   /** HEL-1661: a viewer cannot run; the handlers return early for one (their run entries are not rendered either). */
   runRole: PipelineRunRole;
+  /** HEL-1794: false for a viewer or an unknown role: the rename save returns at once. */
+  canEdit: boolean;
 };
 
 /**
@@ -40,6 +42,7 @@ export function usePipelineRunAndSaveActions({
   isDirty,
   setIsConfirmingCancel,
   runRole,
+  canEdit,
 }: UsePipelineRunAndSaveActionsArgs) {
   const mayRun = runRole !== "viewer";
   // HEL-908 Cycle 13 -- `submitPipelineRun`'s own HTTP response already
@@ -111,14 +114,14 @@ export function usePipelineRunAndSaveActions({
   }, [id, mayRun, runToUpdateAction]);
 
   const handleSave = useCallback(async () => {
-    if (!id) return;
+    if (!id || !canEdit) return;
     try {
       await dispatch(updatePipeline({ id, name: outputName })).unwrap();
       void navigate("/pipelines");
     } catch {
       // updateError is shown via Redux state
     }
-  }, [dispatch, id, outputName, navigate]);
+  }, [dispatch, id, canEdit, outputName, navigate]);
 
   const handleCancel = useCallback(() => {
     if (isDirty) {

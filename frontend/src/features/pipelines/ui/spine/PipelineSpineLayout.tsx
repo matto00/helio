@@ -13,6 +13,7 @@ import { PageStatus } from "../../../../shared/ui/PageStatus";
 import { useDisplayedOutputNodeIds } from "../../hooks/useDisplayedOutputNodeIds";
 import { useLatestCallback } from "../../hooks/useLatestCallback";
 import { usePipelineDraftPresentation } from "../../hooks/usePipelineDraftPresentation";
+import { canRunFromUi } from "../../hooks/usePipelineRunRole";
 import { useStepSaveSeam } from "../../hooks/useStepSaveSeam";
 import type { usePipelineDetailPage } from "../../hooks/usePipelineDetailPage";
 import { selectAfterRemoval, useStepSelection } from "../../hooks/useStepSelection";
@@ -24,6 +25,7 @@ import { stepRenderKey } from "../../state/stepTree";
 import { PipelineDraftNotices } from "../PipelineDraftNotices";
 import { PipelineRiverSkeleton } from "../PipelineRiverSkeleton";
 import { StepCardFocused } from "../StepCardFocused";
+import { VIEWER_COPY, copyFor } from "../viewerCopy";
 import { LiveOutputColumn } from "../liveOutput/LiveOutputColumn";
 import { useThreeColumnLayout } from "../liveOutput/useThreeColumnLayout";
 import { PipelineSpine } from "./PipelineSpine";
@@ -77,6 +79,7 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
     onReorderSteps: page.handleReorderSteps,
     structuralBlockedReason: page.draftBlockReason,
     outputBlockedReason: page.draftOutputBlockReason,
+    canEdit: page.canEdit,
   });
   // The explicit Output pick lives here so the displayed Output's node rides on the draft request (HEL-1705).
   const [outputPick, setOutputPick] = useState<OutputPick | null>(null);
@@ -214,6 +217,7 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
           onDryRun={onDryRun}
           onRun={onRun}
           runRole={page.runRole}
+          canEdit={page.canEdit}
           draft={headerDraft}
         />
         <div className="spine-notice-slot">
@@ -223,6 +227,7 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
           <SpineStatusStrip
             costVerdict={page.costVerdict}
             onRunToUpdate={page.handleRunToUpdate}
+            canRun={canRunFromUi(page.runRole)}
             truncationNotice={truncationNotice}
           />
         </div>
@@ -270,11 +275,15 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
                 onAddOutput={page.handleAddOutput}
                 onOpenOutput={page.handleOpenOutput}
                 onOpenOutputHistory={page.handleOpenOutputHistory}
+                canEdit={page.canEdit}
               />
             )}
           </aside>
 
-          <section className="spine-body__main" aria-label="Step editor and preview">
+          <section
+            className="spine-body__main"
+            aria-label={copyFor(VIEWER_COPY.editorRegionLabel, page.canEdit)}
+          >
             {selectedStep ? (
               <>
                 <div className="spine-body__editor">
@@ -302,6 +311,7 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
                     savedError={stepSaveErrors[selectedStep.id]}
                     structuralBlockedReason={presentation.structuralBlockedReason}
                     draftPreviewError={presentation.previewErrorFor(selectedStep.id)}
+                    readOnly={!page.canEdit}
                   />
                 </div>
                 <StepPreviewTable
@@ -326,11 +336,15 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
                   <EmptyState
                     variant="main"
                     icon={<GitBranch />}
-                    title={steps.length === 0 ? "Nothing to edit yet" : "Select a step"}
+                    title={
+                      steps.length === 0
+                        ? copyFor(VIEWER_COPY.editorEmptyTitle, page.canEdit)
+                        : "Select a step"
+                    }
                     description={
                       steps.length === 0
-                        ? "Add a step on the left, then edit it here and see the rows it produces."
-                        : "Pick a step on the left to edit it and see the rows it produces."
+                        ? copyFor(VIEWER_COPY.editorEmptyDescription, page.canEdit)
+                        : copyFor(VIEWER_COPY.editorPickDescription, page.canEdit)
                     }
                   />
                 </div>
