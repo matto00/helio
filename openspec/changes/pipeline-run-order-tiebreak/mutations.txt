@@ -1,0 +1,129 @@
+# Re-recorded in cycle 2: M04-M08 redone one at a time against the correct lines (cycle 1 had M05-M08 shifted by one site). Each entry shows the diff of the mutated line (the other hunks in those diffs are the then-uncommitted cycle-2 cleanups, not part of the mutation).
+
+## M01 newestN (deleteOldRunsInternal)
+['[info] Tests: succeeded 25, failed 1, canceled 0, ignored 0, pending 0']
+  RED: should keep the greatest id of a tie older than the 24 h window (newestN), greater id last inserted first
+
+## M02 capped (deleteOldRunsInternal)
+['[info] Tests: succeeded 25, failed 1, canceled 0, ignored 0, pending 0']
+  RED: should keep the greatest id of a tie at the RetentionMaxRuns cap, greater id last inserted first
+
+## M03 keepIds (deleteOldDryRunsInternal)
+['[info] Tests: succeeded 25, failed 1, canceled 0, ignored 0, pending 0']
+  RED: should keep the greatest id of tied dry runs, greater id last inserted first
+
+## M04 listByPipeline
+diff --git a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala
+index 9ad6bed65..ee27a6e27 100644
+--- a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala
++++ b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala
+@@ -37 +36,0 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+-
+@@ -563 +562 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+-    ctx.withUserContext(user.id.value)(query.sortBy(r => (r.startedAt.desc, r.id.desc)).result).map(_.toVector)
++    ctx.withUserContext(user.id.value)(query.sortBy(_.startedAt.desc).result).map(_.toVector)
+@@ -658,0 +658 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
++      // `%05d` sorts correctly up to 99,999 results per run, far above any real assertion count.
+
+['[info] Tests: succeeded 25, failed 1, canceled 0, ignored 0, pending 0']
+  RED: should list newest-first by (started_at, id) descending, greater id last inserted first -- listByPipeline (RLS pool)
+
+## M05 listByPipelineInternal
+diff --git a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala
+index 9ad6bed65..7e37acf4c 100644
+--- a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala
++++ b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala
+@@ -37 +36,0 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+-
+@@ -573 +572 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+-        .sortBy(r => (r.startedAt.desc, r.id.desc))
++        .sortBy(_.startedAt.desc)
+@@ -658,0 +658 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
++      // `%05d` sorts correctly up to 99,999 results per run, far above any real assertion count.
+
+['[info] Tests: succeeded 24, failed 2, canceled 0, ignored 0, pending 0']
+  RED: should list the same -- listByPipelineInternal, greater id last inserted first
+  RED: should agree on the latest run when runs share a started_at, greater id last inserted first
+
+## M06 latestRunInternal
+diff --git a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala
+index 9ad6bed65..aca076188 100644
+--- a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala
++++ b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala
+@@ -37 +36,0 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+-
+@@ -589 +588 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+-        .sortBy(r => (r.startedAt.desc, r.id.desc))
++        .sortBy(_.startedAt.desc)
+@@ -658,0 +658 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
++      // `%05d` sorts correctly up to 99,999 results per run, far above any real assertion count.
+
+['[info] Tests: succeeded 24, failed 2, canceled 0, ignored 0, pending 0']
+  RED: should pick the greatest id -- latestRunInternal, greater id last inserted first
+  RED: should agree on the latest run when runs share a started_at, greater id last inserted first
+
+## M07 latestNonDryRunInternal
+diff --git a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala
+index 9ad6bed65..e15f59894 100644
+--- a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala
++++ b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala
+@@ -37 +36,0 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+-
+@@ -602 +601 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+-        .sortBy(r => (r.startedAt.desc, r.id.desc))
++        .sortBy(_.startedAt.desc)
+@@ -658,0 +658 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
++      // `%05d` sorts correctly up to 99,999 results per run, far above any real assertion count.
+
+['[info] Tests: succeeded 25, failed 1, canceled 0, ignored 0, pending 0']
+  RED: should pick the greatest non-dry id -- latestNonDryRunInternal, greater id last inserted first
+
+## M08 latestRunIdsInternalBatch
+diff --git a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala
+index 9ad6bed65..4111a21d7 100644
+--- a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala
++++ b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala
+@@ -37 +36,0 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+-
+@@ -658,0 +658 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
++      // `%05d` sorts correctly up to 99,999 results per run, far above any real assertion count.
+@@ -701 +701 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+-          .sortBy(r => (r.startedAt.desc, r.id.desc))
++          .sortBy(_.startedAt.desc)
+
+['[info] Tests: succeeded 23, failed 3, canceled 0, ignored 0, pending 0']
+  RED: should pick the greatest id per pipeline -- latestRunIdsInternalBatch, greater id first inserted first
+  RED: should pick the greatest id per pipeline -- latestRunIdsInternalBatch, greater id last inserted first
+  RED: should agree on the latest run when runs share a started_at, greater id last inserted first
+
+## M09 reaper row-value
+['[info] Tests: succeeded 25, failed 1, canceled 0, ignored 0, pending 0']
+  RED: should leave last_run_* alone when a tied run with a greater id exists (that run is the latest)
+
+## M10 Home ORDER BY
+['[info] Tests: succeeded 25, failed 1, canceled 0, ignored 0, pending 0']
+  RED: should list newest-first -- HomeSummaryRepository.load (RLS pool), greater id last inserted first
+
+## M11 listAssertionsByRun
+['[info] Tests: succeeded 24, failed 2, canceled 0, ignored 0, pending 0']
+  RED: should order same-created_at rows by id regardless of insert order
+  RED: should order by created_at before id
+
+## M12 listAssertionsByRunsInternalBatch
+['[info] Tests: succeeded 24, failed 2, canceled 0, ignored 0, pending 0']
+  RED: should order same-created_at rows by id regardless of insert order
+  RED: should order by created_at before id
+
+## M13 listAssertionsByRunInternal
+['[info] Tests: succeeded 24, failed 2, canceled 0, ignored 0, pending 0']
+  RED: should order same-created_at rows by id regardless of insert order
+  RED: should order by created_at before id
+
+## M14 assertion ids back to UUID.randomUUID()
+['[info] Tests: succeeded 25, failed 1, canceled 0, ignored 0, pending 0']
+  RED: should return rows inserted by insertAssertions in evaluation order (12 rows), with batch-prefixed 5-digit-index ids
+
+## M15 assertion reads drop id (created_at only)
+['[info] Tests: succeeded 25, failed 1, canceled 0, ignored 0, pending 0']
+  RED: should order same-created_at rows by id regardless of insert order
+

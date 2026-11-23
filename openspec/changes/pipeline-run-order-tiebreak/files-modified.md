@@ -1,0 +1,5 @@
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala` — `started_at DESC, id DESC` on every run read/retention query, row-value reaper comparison, assertion reads order `created_at, id` (new `createdAt` column outside `*`), `insertAssertions` ids `<batch UUID>-<5-digit index>`, ordering-contract comment
+- `backend/src/main/scala/com/helio/infrastructure/persistence/home/HomeSummaryRepository.scala` — Home runs query adds `r.id DESC` tie-break
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunOrderTiebreakSpec.scala` — new spec: forced-tie tests per read (both insertion orders), retention, reaper, assertions, routes, RLS pool
+- `openspec/changes/pipeline-run-order-tiebreak/tasks.md` — tasks ticked, evidence section
+- `openspec/changes/pipeline-run-order-tiebreak/{red-run-1,red-run-2,mutations,explain-analyze}.txt` — red/mutation/EXPLAIN evidence
