@@ -10,6 +10,8 @@ import path from "path";
 // expected, allowed literal (no spacing token maps to it) — not something
 // these guards flag.
 
+import { expectTapExpander, findMediaBlock, findRuleBody } from "./tapTargetTestUtils";
+
 const CSS_PATH = path.join(__dirname, "toast.css");
 const css = fs.readFileSync(CSS_PATH, "utf-8");
 
@@ -175,5 +177,21 @@ describe("Subtle drops the toast slide (HEL-1573)", () => {
       const body = code.slice(start, code.indexOf("\n}\n", start) + 3);
       expect(body).not.toMatch(/transform/);
     }
+  });
+});
+
+describe("toast.css — in-toast link and run action clear the 44px touch floor (HEL-1172, DESIGN.md §3)", () => {
+  const mobile = findMediaBlock(css, "max-width: 768px), (pointer: coarse");
+
+  it("each gets the sized ::after expander", () => {
+    expectTapExpander(mobile, ".toast__link");
+    expectTapExpander(mobile, ".toast__action");
+  });
+
+  it("the touch-gated row spacing reaches the tiling point (27.2px) and the list pads for the overhang", () => {
+    expect(findRuleBody(mobile, ".toast__list")).toMatch(
+      /gap:\s*calc\(var\(--space-6\) \+ var\(--space-1\)\)/,
+    );
+    expect(findRuleBody(mobile, ".toast__list")).toMatch(/padding-block:\s*var\(--space-4\)/);
   });
 });

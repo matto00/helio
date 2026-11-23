@@ -1,0 +1,108 @@
+FAIL src/features/toasts/state/toastsSlice.test.ts
+  ● Test suite failed to run
+    src/features/toasts/state/toastsSlice.test.ts:4:3 - error TS2305: Module '"./toastsSlice"' has no exported member 'consumeToastItemAction'.
+    4   consumeToastItemAction,
+        ~~~~~~~~~~~~~~~~~~~~~~
+    src/features/toasts/state/toastsSlice.test.ts:222:11 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'ToastInput'.
+    222           items: [
+                  ~~~~~
+    src/features/toasts/state/toastsSlice.test.ts:249:28 - error TS2339: Property 'items' does not exist on type 'Toast'.
+    249       expect(next.items[0].items?.[0].action).toBeUndefined();
+                                   ~~~~~
+    src/features/toasts/state/toastsSlice.test.ts:250:28 - error TS2339: Property 'items' does not exist on type 'Toast'.
+    250       expect(next.items[0].items?.[0].linkTo).toBe("/pipelines/a");
+                                   ~~~~~
+    src/features/toasts/state/toastsSlice.test.ts:251:28 - error TS2339: Property 'items' does not exist on type 'Toast'.
+    251       expect(next.items[0].items?.[1].action?.onClick).toBe(runB);
+                                   ~~~~~
+    src/features/toasts/state/toastsSlice.test.ts:287:11 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'ToastInput'.
+    287           items: [{ key: "a", linkLabel: "A", linkTo: "/pipelines/a", text: "t" }],
+                  ~~~~~
+FAIL src/features/panels/ui/form/FormPanelView.test.tsx
+  ● Test suite failed to run
+    src/features/panels/ui/form/FormPanelView.test.tsx:1255:55 - error TS7006: Parameter 't' implicitly has an 'any' type.
+    1255     const toast = store.getState().toasts.items.find((t) => t.items !== undefined);
+                                                               ~
+    src/features/panels/ui/form/FormPanelView.test.tsx:1256:31 - error TS7006: Parameter 'i' implicitly has an 'any' type.
+    1256     expect(toast?.items?.map((i) => [i.key, i.action !== undefined])).toEqual([
+                                       ~
+FAIL src/shared/ui/Toast.items.test.tsx
+  ● Test suite failed to run
+    src/shared/ui/Toast.items.test.tsx:11:3 - error TS2305: Module '"../../features/toasts/state/toastsSlice"' has no exported member 'consumeToastItemAction'.
+    11   consumeToastItemAction,
+         ~~~~~~~~~~~~~~~~~~~~~~
+    src/shared/ui/Toast.items.test.tsx:52:5 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'ToastInput'.
+    52     items: [],
+           ~~~~~
+FAIL src/features/pipelines/services/deniedPipelinesToast.test.ts
+  ● Test suite failed to run
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:85:18 - error TS2339: Property 'items' does not exist on type 'ToastInput'.
+    85     expect(toast.items?.map((i) => i.key)).toEqual(["p1", "p2"]);
+                        ~~~~~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:85:30 - error TS7006: Parameter 'i' implicitly has an 'any' type.
+    85     expect(toast.items?.map((i) => i.key)).toEqual(["p1", "p2"]);
+                                    ~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:86:18 - error TS2339: Property 'items' does not exist on type 'ToastInput'.
+    86     expect(toast.items?.map((i) => i.linkTo)).toEqual(["/pipelines/p1", "/pipelines/p2"]);
+                        ~~~~~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:86:30 - error TS7006: Parameter 'i' implicitly has an 'any' type.
+    86     expect(toast.items?.map((i) => i.linkTo)).toEqual(["/pipelines/p1", "/pipelines/p2"]);
+                                    ~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:87:18 - error TS2339: Property 'items' does not exist on type 'ToastInput'.
+    87     expect(toast.items?.map((i) => i.linkLabel)).toEqual(["Sentiment pipe", "Big pipe"]);
+                        ~~~~~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:87:30 - error TS7006: Parameter 'i' implicitly has an 'any' type.
+    87     expect(toast.items?.map((i) => i.linkLabel)).toEqual(["Sentiment pipe", "Big pipe"]);
+                                    ~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:94:18 - error TS2339: Property 'items' does not exist on type 'ToastInput'.
+    94     expect(toast.items).toHaveLength(2);
+                        ~~~~~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:95:11 - error TS2339: Property 'items' does not exist on type 'ToastInput'.
+    95     toast.items?.forEach((item, i) => {
+                 ~~~~~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:95:27 - error TS7006: Parameter 'item' implicitly has an 'any' type.
+    95     toast.items?.forEach((item, i) => {
+                                 ~~~~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:95:33 - error TS7006: Parameter 'i' implicitly has an 'any' type.
+    95     toast.items?.forEach((item, i) => {
+                                       ~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:105:18 - error TS2339: Property 'items' does not exist on type 'ToastInput'.
+    105     expect(toast.items?.[0].action?.label).toBe("Run to update");
+                         ~~~~~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:106:18 - error TS2339: Property 'items' does not exist on type 'ToastInput'.
+    106     expect(toast.items?.[1].action).toBeUndefined();
+                         ~~~~~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:107:11 - error TS2339: Property 'items' does not exist on type 'ToastInput'.
+    107     toast.items?.[0].action?.onClick();
+                  ~~~~~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:121:18 - error TS2339: Property 'items' does not exist on type 'ToastInput'.
+    121     expect(toast.items).toHaveLength(2);
+                         ~~~~~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:122:18 - error TS2339: Property 'items' does not exist on type 'ToastInput'.
+    122     expect(toast.items?.every((i) => i.action === undefined)).toBe(true);
+                         ~~~~~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:122:32 - error TS7006: Parameter 'i' implicitly has an 'any' type.
+    122     expect(toast.items?.every((i) => i.action === undefined)).toBe(true);
+                                       ~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:130:18 - error TS2339: Property 'items' does not exist on type 'ToastInput'.
+    130     expect(toast.items?.find((i) => i.key === "a/b c")?.linkTo).toBe("/pipelines/a%2Fb%20c");
+                         ~~~~~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:130:31 - error TS7006: Parameter 'i' implicitly has an 'any' type.
+    130     expect(toast.items?.find((i) => i.key === "a/b c")?.linkTo).toBe("/pipelines/a%2Fb%20c");
+                                      ~
+    src/features/pipelines/services/deniedPipelinesToast.test.ts:134:61 - error TS2339: Property 'items' does not exist on type 'ToastInput'.
+    134     expect(buildDeniedPipelinesToast([aiDenial], jest.fn()).items).toBeUndefined();
+                                                                    ~~~~~
+FAIL src/store/store.test.ts
+  ● Test suite failed to run
+    src/store/store.test.ts:4:44 - error TS2307: Cannot find module './serializableCheckPaths' or its corresponding type declarations.
+    4 import { TOAST_IGNORED_ACTION_PATHS } from "./serializableCheckPaths";
+                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    src/store/store.test.ts:99:11 - error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'ToastInput'.
+    99           items: [
+                 ~~~~~
+Test Suites: 5 failed, 6 passed, 11 total
+Tests:       57 passed, 57 total
+Snapshots:   0 total
+Time:        5.37 s
+Ran all test suites matching src/shared/ui/Toast|src/features/panels/ui/form/FormPanelView.test.tsx|src/store/store.test.ts|src/features/toasts|src/features/pipelines/services/denied.

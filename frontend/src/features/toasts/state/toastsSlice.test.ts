@@ -1,6 +1,7 @@
 import {
   DEFAULT_DURATION,
   MAX_VISIBLE_TOASTS,
+  consumeToastItemAction,
   dismissToast,
   pushToast,
   toastsReducer,
@@ -204,6 +205,92 @@ describe("toastsSlice", () => {
       state = toastsReducer(state, pushToast({ variant: "warning", message: "Same text." }));
       state = toastsReducer(state, pushToast({ variant: "error", message: "Same text." }));
       expect(state.items).toHaveLength(2);
+    });
+  });
+
+  // HEL-1172 D1/D2 — per-row items.
+  describe("per-row items (HEL-1172)", () => {
+    const runA = () => undefined;
+    const runB = () => undefined;
+    function pushItemsToast(actions: Array<boolean>) {
+      const state = toastsReducer(
+        undefined,
+        pushToast({
+          variant: "warning",
+          message: "A\nB",
+          duration: 0,
+          items: [
+            {
+              key: "a",
+              linkLabel: "A",
+              linkTo: "/pipelines/a",
+              text: "ta",
+              action: actions[0] ? { label: "Run to update", onClick: runA } : undefined,
+            },
+            {
+              key: "b",
+              linkLabel: "B",
+              linkTo: "/pipelines/b",
+              text: "tb",
+              action: actions[1] ? { label: "Run to update", onClick: runB } : undefined,
+            },
+          ],
+        }),
+      );
+      return state;
+    }
+
+    it("consumeToastItemAction removes only that row's action and keeps the toast and links", () => {
+      const state = pushItemsToast([true, true]);
+      const id = state.items[0].id;
+      const next = toastsReducer(state, consumeToastItemAction({ toastId: id, key: "a" }));
+
+      expect(next.items).toHaveLength(1);
+      expect(next.items[0].items?.[0].action).toBeUndefined();
+      expect(next.items[0].items?.[0].linkTo).toBe("/pipelines/a");
+      expect(next.items[0].items?.[1].action?.onClick).toBe(runB);
+    });
+
+    it("dismisses the toast when the last row action is consumed", () => {
+      let state = pushItemsToast([true, true]);
+      const id = state.items[0].id;
+      state = toastsReducer(state, consumeToastItemAction({ toastId: id, key: "a" }));
+      state = toastsReducer(state, consumeToastItemAction({ toastId: id, key: "b" }));
+      expect(state.items).toHaveLength(0);
+    });
+
+    it("leaves a toast that never had a row action alone", () => {
+      const state = pushItemsToast([false, false]);
+      const id = state.items[0].id;
+      const next = toastsReducer(state, consumeToastItemAction({ toastId: id, key: "a" }));
+      expect(next.items).toHaveLength(1);
+    });
+
+    it("is a no-op for an unknown toast id or row key", () => {
+      const state = pushItemsToast([true, false]);
+      const id = state.items[0].id;
+      expect(toastsReducer(state, consumeToastItemAction({ toastId: "nope", key: "a" }))).toEqual(
+        state,
+      );
+      expect(toastsReducer(state, consumeToastItemAction({ toastId: id, key: "zzz" }))).toEqual(
+        state,
+      );
+    });
+
+    it("a toast with non-empty items is eviction-exempt even with a short duration", () => {
+      let state = toastsReducer(
+        undefined,
+        pushToast({
+          variant: "warning",
+          message: "rows",
+          duration: 4000,
+          items: [{ key: "a", linkLabel: "A", linkTo: "/pipelines/a", text: "t" }],
+        }),
+      );
+      for (let i = 0; i < MAX_VISIBLE_TOASTS + 1; i++) {
+        state = toastsReducer(state, pushToast({ variant: "info", message: `filler ${i}` }));
+      }
+      expect(state.items.some((t) => t.message === "rows")).toBe(true);
     });
   });
 });

@@ -1,0 +1,18 @@
+- `frontend/src/features/toasts/state/toastsSlice.ts` — `ToastListItem`, `Toast.items`, `consumeToastItemAction`, eviction exemption for rows
+- `frontend/src/features/pipelines/services/deniedPipelinesToast.ts` — N>=2 rows (links, per-row run where canRun), persistent; callback takes the pipeline id
+- `frontend/src/features/panels/ui/form/FormPanelView.tsx` — wires the row callback to run + consume
+- `frontend/src/shared/ui/Toast.tsx` — row list rendering, focus after consume, non-modal focus hand-off, pre-entry tracking
+- `frontend/src/shared/ui/toast.css` — scrolling row list, link styling (tokens only)
+- `frontend/src/store/serializableCheckPaths.ts`, `frontend/src/store/store.ts` — ignore `payload.items` closures
+- `frontend/src/features/toasts/README.md` — documents `items`
+- `frontend/src/features/pipelines/services/deniedPipelinesToast.test.ts` — tests
+- `frontend/src/features/toasts/state/toastsSlice.test.ts` — tests
+- `frontend/src/shared/ui/Toast.items.test.tsx` — tests
+- `frontend/src/store/store.test.ts` — tests
+- `frontend/src/features/panels/ui/form/FormPanelView.test.tsx` — tests
+- `frontend/src/shared/ui/toast.css.test.ts` — tests
+- `e2e/hel1172-multi-denial-toast.spec.ts` — e2e
+- `openspec/changes/multi-denial-toast-links/**` — planning artifacts, red run and mutation evidence
+- `frontend/src/shared/ui/ToastRowList.tsx`, `frontend/src/shared/ui/toastFocusHandOff.ts` — cycle 2: row list and D8 focus hand-off split out of `Toast.tsx` (behaviour-preserving, back under budget)
+- `frontend/src/shared/ui/toast.css`, `toast.css.test.ts` — cycle 2: touch-gated 44px `::after` expander for `.toast__link` and `.toast__action` (also the single-pipeline action), tiling gap, list padding; `expectTapExpander` guard
+- `e2e/hel1172-multi-denial-toast.spec.ts` — cycle 2: 390px `bisectHitExtent` tests (multi-row and single-pipeline)

@@ -1,0 +1,63 @@
+=== mutation a canRun guard dropped (src/features/pipelines/services/deniedPipelinesToast.ts: action: p.canRun=>action: true)
+  ● buildDeniedPipelinesToast N>=2 rows (HEL-1172 D3) › a row has a run action only when canRun, and it runs only that pipeline
+  ● buildDeniedPipelinesToast N>=2 rows (HEL-1172 D3) › is persistent even when no pipeline is runnable (every row holds a link)
+Tests:       2 failed, 27 passed, 29 total
+Test Suites: 1 failed, 2 passed, 3 total
+=== mutation b duration 0 dropped N>=2 (src/features/pipelines/services/deniedPipelinesToast.ts: duration: 0, // every row=>// every row)
+  ● buildDeniedPipelinesToast N>=2 rows (HEL-1172 D3) › is persistent and emits one row per pipeline in id order, even when given out of order
+  ● buildDeniedPipelinesToast N>=2 rows (HEL-1172 D3) › is persistent even when no pipeline is runnable (every row holds a link)
+Tests:       2 failed, 15 passed, 17 total
+Test Suites: 1 failed, 1 passed, 2 total
+=== mutation d aria-label removed (src/shared/ui/Toast.tsx: aria-label={`${action.label}: ${item.linkLabel}`}=>)
+  ● focus after a row action is consumed (HEL-1172 D8) › falls to another toast's control when the pre-entry element is gone
+  ● focus after a row action is consumed (HEL-1172 D8) › falls to the main landmark when nothing else can take focus, never body
+  ● focus after a row action is consumed (HEL-1172 D8) › lands on the activated row's own link while other rows remain
+  ● focus after a row action is consumed (HEL-1172 D8) › returns to the control focused before entering the toast when the last action is used
+Tests:       8 failed, 4 passed, 12 total
+Test Suites: 1 failed, 1 total
+  ● ToastViewport per-row items (HEL-1172) › a row whose pipeline cannot be run has the link but no button
+  ● ToastViewport per-row items (HEL-1172) › clicking a row button calls only that row's handler and does not dismiss other rows
+  ● ToastViewport per-row items (HEL-1172) › keeps DOM tab order: link, button, next row's link, button, then dismiss
+  ● ToastViewport per-row items (HEL-1172) › names each run button 'Run to update: <pipeline>' and describes it with the row reason
+=== mutation e focus hand-off removed (row link) (src/shared/ui/Toast.tsx: linkRefs.current[index]?.focus();=>)
+  ● focus after a row action is consumed (HEL-1172 D8) › lands on the activated row's own link while other rows remain
+Tests:       1 failed, 11 passed, 12 total
+Test Suites: 1 failed, 1 total
+=== mutation e2 focus hand-off removed (removal) (src/shared/ui/Toast.tsx: handOffFocusFromRemovedToast(element, preEntry.current, element.closest(".toast-viewport"));=>)
+  ● focus after a row action is consumed (HEL-1172 D8) › falls to another toast's control when the pre-entry element is gone
+  ● focus after a row action is consumed (HEL-1172 D8) › falls to the main landmark when nothing else can take focus, never body
+  ● focus after a row action is consumed (HEL-1172 D8) › returns to the control focused before entering the toast when the last action is used
+Tests:       3 failed, 9 passed, 12 total
+Test Suites: 1 failed, 1 total
+=== mutation f payload.items ignore removed (src/store/serializableCheckPaths.ts: , "payload.items"=>)
+  ● store serializableCheck config (mirrors store.ts) › a toast carrying per-row action closures produces no console.error under the real ignore list
+Tests:       1 failed, 2 passed, 3 total
+Test Suites: 1 failed, 1 total
+=== mutation c dismiss-on-last-consume removed (toastsSlice.ts: dismissal condition made never true)
+  ● focus after a row action is consumed (HEL-1172 D8) › falls to another toast's control when the pre-entry element is gone
+  ● focus after a row action is consumed (HEL-1172 D8) › falls to the main landmark when nothing else can take focus, never body
+  ● focus after a row action is consumed (HEL-1172 D8) › returns to the control focused before entering the toast when the last action is used
+Tests:       4 failed, 42 passed, 46 total
+Test Suites: 2 failed, 1 passed, 3 total
+  ● toastsSlice › per-row items (HEL-1172) › dismisses the toast when the last row action is consumed
+=== cycle 2 mutation g: touch-gated list gap reduced to --space-2 (tiling broken) -> e2e 390px
+  ✘  1 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:197:7 › HEL-1172 multi-denial toast (real backend) › 390px: every in-toast link and run action has a 44px hit region on the y axis (6.5s)
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+    Error: bisected y-axis hit extent must clear the epsilon-adjusted floor (>= 43.75)
+    Expected: >= 43.75
+    Received:    24.5
+  1 failed
+=== cycle 2 mutation h: ::after expander removed from .toast__action -> e2e single-pipeline 390px + unit guard
+  ✘  1 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:221:7 › HEL-1172 multi-denial toast (real backend) › 390px: the single-pipeline toast's 'Run to update' has a 44px hit region (5.4s)
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+    Error: bisected y-axis hit extent must clear the epsilon-adjusted floor (>= 43.75)
+    Expected: >= 43.75
+    Received:    17.5
+  1 failed
+Tests:       1 failed, 11 passed, 12 total
+  ● toast.css — in-toast link and run action clear the 44px touch floor (HEL-1172, DESIGN.md §3) › each gets the sized ::after expander
+=== cycle 2 re-record of mutation e2 against shipped code: handOffFocusFromRemovedToast call removed from useToastFocusHandOff (toastFocusHandOff.ts)
+  ● focus after a row action is consumed (HEL-1172 D8) › falls to another toast's control when the pre-entry element is gone
+  ● focus after a row action is consumed (HEL-1172 D8) › falls to the main landmark when nothing else can take focus, never body
+  ● focus after a row action is consumed (HEL-1172 D8) › returns to the control focused before entering the toast when the last action is used
+Tests:       3 failed, 9 passed, 12 total

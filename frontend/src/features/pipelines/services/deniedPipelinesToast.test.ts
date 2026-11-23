@@ -35,6 +35,8 @@ describe("buildDeniedPipelinesToast (HEL-1096 design.md D3)", () => {
 
     toast.action?.onClick();
     expect(onRunToUpdate).toHaveBeenCalledTimes(1);
+    // HEL-1172 D3: the callback now receives the pipeline id.
+    expect(onRunToUpdate).toHaveBeenCalledWith("p1");
   });
 
   it("a single denial with canRun=false carries no action", () => {
@@ -44,7 +46,7 @@ describe("buildDeniedPipelinesToast (HEL-1096 design.md D3)", () => {
     expect(toast.message).toMatch(/\bAI\b/);
   });
 
-  it("N>1 denied pipelines carry no action, and the message names EVERY pipeline's specific reason", () => {
+  it("N>1 denied pipelines carry no toast-level action, and the message names EVERY pipeline's specific reason", () => {
     const toast = buildDeniedPipelinesToast([aiDenial, rowsDenial], jest.fn());
 
     expect(toast.action).toBeUndefined();
@@ -70,6 +72,75 @@ describe("buildDeniedPipelinesToast (HEL-1096 design.md D3)", () => {
       expect(a.message).toBe(b.message);
     },
   );
+});
+
+// HEL-1172 D3 — N >= 2 denied pipelines produce per-pipeline rows (link + optional run action).
+describe("buildDeniedPipelinesToast N>=2 rows (HEL-1172 D3)", () => {
+  const viewerDenial: DeniedPipelineResponse = { ...rowsDenial, canRun: false };
+
+  it("is persistent and emits one row per pipeline in id order, even when given out of order", () => {
+    const toast = buildDeniedPipelinesToast([rowsDenial, aiDenial], jest.fn());
+
+    expect(toast.duration).toBe(0);
+    expect(toast.items?.map((i) => i.key)).toEqual(["p1", "p2"]);
+    expect(toast.items?.map((i) => i.linkTo)).toEqual(["/pipelines/p1", "/pipelines/p2"]);
+    expect(toast.items?.map((i) => i.linkLabel)).toEqual(["Sentiment pipe", "Big pipe"]);
+  });
+
+  it("each row's text is exactly the reason text that follows 'Name: ' in the message", () => {
+    const toast = buildDeniedPipelinesToast([aiDenial, rowsDenial], jest.fn());
+    const lines = (toast.message ?? "").split("\n");
+
+    expect(toast.items).toHaveLength(2);
+    toast.items?.forEach((item, i) => {
+      expect(item.text.length).toBeGreaterThan(0);
+      expect(lines[i]).toBe(`${item.linkLabel}: ${item.text}`);
+    });
+  });
+
+  it("a row has a run action only when canRun, and it runs only that pipeline", () => {
+    const onRun = jest.fn();
+    const toast = buildDeniedPipelinesToast([aiDenial, viewerDenial], onRun);
+
+    expect(toast.items?.[0].action?.label).toBe("Run to update");
+    expect(toast.items?.[1].action).toBeUndefined();
+    toast.items?.[0].action?.onClick();
+    expect(onRun).toHaveBeenCalledTimes(1);
+    expect(onRun).toHaveBeenCalledWith("p1");
+  });
+
+  it("is persistent even when no pipeline is runnable (every row holds a link)", () => {
+    const toast = buildDeniedPipelinesToast(
+      [
+        { ...aiDenial, canRun: false },
+        { ...rowsDenial, canRun: false },
+      ],
+      jest.fn(),
+    );
+    expect(toast.duration).toBe(0);
+    expect(toast.items).toHaveLength(2);
+    expect(toast.items?.every((i) => i.action === undefined)).toBe(true);
+  });
+
+  it("encodes an id with reserved characters in the link", () => {
+    const toast = buildDeniedPipelinesToast(
+      [{ ...aiDenial, pipelineId: "a/b c" }, rowsDenial],
+      jest.fn(),
+    );
+    expect(toast.items?.find((i) => i.key === "a/b c")?.linkTo).toBe("/pipelines/a%2Fb%20c");
+  });
+
+  it("a single denial carries no rows", () => {
+    expect(buildDeniedPipelinesToast([aiDenial], jest.fn()).items).toBeUndefined();
+  });
+
+  it("identical N>=2 pushes coalesce to one toast", () => {
+    const store = configureStore({ reducer: { toasts: toastsReducer } });
+    for (let i = 0; i < 3; i++) {
+      store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial, rowsDenial], jest.fn())));
+    }
+    expect(store.getState().toasts.items).toHaveLength(1);
+  });
 });
 
 // HEL-1096 Standing Constraint C7 — proves the message built above is what actually LETS
