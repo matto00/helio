@@ -107,6 +107,12 @@ abstract class PipelineApplyProposalSpecBase
     } else Future.successful(Right(JsArray(JsObject("name" -> JsString("alice"), "score" -> JsNumber(1)))))
   })
 
+  /** HEL-1841: the REST driver `ApiRoutes` is built with. A subclass overrides this to run the REAL driver (for example
+   *  against a local server); `connectorRepo` and the credential repo are the fixture's own, for the driver's
+   *  connector-backed fetches. */
+  protected def restDriver(connectorRepo: ConnectorRepository, credentialRepo: ConnectorCredentialRepository): RestApiConnectorDriver =
+    stubConnector
+
   private val stubSessionRepo: UserSessionRepository = new UserSessionRepository {
     override def findValidSession(token: String): Future[Option[AuthenticatedUser]] =
       Future.successful(if (token == session) Some(AuthenticatedUser(UserId(userId))) else None)
@@ -170,11 +176,12 @@ abstract class PipelineApplyProposalSpecBase
     val pipelineRepo     = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     val pipelineStepRepo = new PipelineStepRepository(ctx)(routeEc)
     val pipelineRunRepo  = new PipelineRunRepository(ctx)(routeEc)
-    connectorRepo        = new ConnectorRepository(ctx, new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider()))(routeEc))(routeEc)
+    val credentialRepo   = new ConnectorCredentialRepository(ctx, new EncryptedSecretBackend(new EnvMasterKeyProvider()))(routeEc)
+    connectorRepo        = new ConnectorRepository(ctx, credentialRepo)(routeEc)
 
     routes = new ApiRoutes(
       dashboardRepo, panelRepo, dataSourceRepo, permissionRepo,
-      stubFileSystem, stubConnector,
+      stubFileSystem, restDriver(connectorRepo, credentialRepo),
       userRepo, stubSessionRepo, userPrefRepo, pipelineRepo, pipelineStepRepo,
       new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(routeEc),
       pipelineRunRepo = pipelineRunRepo,

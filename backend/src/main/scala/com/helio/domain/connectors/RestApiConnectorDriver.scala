@@ -364,7 +364,7 @@ class RestApiConnectorDriver(
                   "Failed to parse JSON response"
                 }
               } else {
-                Left(s"HTTP $code: $body")
+                Left(RemoteErrorText.cap(s"HTTP $code: $body"))
               }
             }
           }
@@ -388,7 +388,7 @@ class RestApiConnectorDriver(
               if (code >= 200 && code < 300)
                 Right(())
               else
-                Left(s"HTTP $code: ${entity.data.utf8String}")
+                Left(RemoteErrorText.cap(s"HTTP $code: ${entity.data.utf8String}"))
             }
           }
           .recover { case e =>
