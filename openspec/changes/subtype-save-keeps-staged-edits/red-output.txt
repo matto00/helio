@@ -1,0 +1,177 @@
+FAIL src/features/panels/state/panelsSlice.pendingOverlay.test.ts
+  ● a server panel response keeps a still-pending staged edit (HEL-1828) › updatePanelAppearance.fulfilled shows staged title and appearance over the server copy
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "New title"
+    Received: "Old title"
+
+      108 |       const next = panelsReducer(before, make(serverCopy));
+      109 |
+    > 110 |       expect(next.items[0].title).toBe("New title");
+          |                                   ^
+      111 |       // staged key wins; every other stored key comes from the server copy
+      112 |       expect(next.items[0].appearance).toEqual({
+      113 |         background: "#abcdef",
+
+      at src/features/panels/state/panelsSlice.pendingOverlay.test.ts:110:35
+
+  ● a server panel response keeps a still-pending staged edit (HEL-1828) › updatePanelTitle.fulfilled shows staged title and appearance over the server copy
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "New title"
+    Received: "Old title"
+
+      108 |       const next = panelsReducer(before, make(serverCopy));
+      109 |
+    > 110 |       expect(next.items[0].title).toBe("New title");
+          |                                   ^
+      111 |       // staged key wins; every other stored key comes from the server copy
+      112 |       expect(next.items[0].appearance).toEqual({
+      113 |         background: "#abcdef",
+
+      at src/features/panels/state/panelsSlice.pendingOverlay.test.ts:110:35
+
+  ● a server panel response keeps a still-pending staged edit (HEL-1828) › updatePanelTextContent.fulfilled shows staged title and appearance over the server copy
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "New title"
+    Received: "Old title"
+
+      108 |       const next = panelsReducer(before, make(serverCopy));
+      109 |
+    > 110 |       expect(next.items[0].title).toBe("New title");
+          |                                   ^
+      111 |       // staged key wins; every other stored key comes from the server copy
+      112 |       expect(next.items[0].appearance).toEqual({
+      113 |         background: "#abcdef",
+
+      at src/features/panels/state/panelsSlice.pendingOverlay.test.ts:110:35
+
+  ● a server panel response keeps a still-pending staged edit (HEL-1828) › updatePanelMarkdownContent.fulfilled shows staged title and appearance over the server copy
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "New title"
+    Received: "Old title"
+
+      108 |       const next = panelsReducer(before, make(serverCopy));
+      109 |
+    > 110 |       expect(next.items[0].title).toBe("New title");
+          |                                   ^
+      111 |       // staged key wins; every other stored key comes from the server copy
+      112 |       expect(next.items[0].appearance).toEqual({
+      113 |         background: "#abcdef",
+
+      at src/features/panels/state/panelsSlice.pendingOverlay.test.ts:110:35
+
+  ● a server panel response keeps a still-pending staged edit (HEL-1828) › updatePanelImage.fulfilled shows staged title and appearance over the server copy
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "New title"
+    Received: "Old title"
+
+      108 |       const next = panelsReducer(before, make(serverCopy));
+      109 |
+    > 110 |       expect(next.items[0].title).toBe("New title");
+          |                                   ^
+      111 |       // staged key wins; every other stored key comes from the server copy
+      112 |       expect(next.items[0].appearance).toEqual({
+      113 |         background: "#abcdef",
+
+      at src/features/panels/state/panelsSlice.pendingOverlay.test.ts:110:35
+
+  ● a server panel response keeps a still-pending staged edit (HEL-1828) › updatePanelDivider.fulfilled shows staged title and appearance over the server copy
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "New title"
+    Received: "Old title"
+
+      108 |       const next = panelsReducer(before, make(serverCopy));
+      109 |
+    > 110 |       expect(next.items[0].title).toBe("New title");
+          |                                   ^
+      111 |       // staged key wins; every other stored key comes from the server copy
+      112 |       expect(next.items[0].appearance).toEqual({
+      113 |         background: "#abcdef",
+
+      at src/features/panels/state/panelsSlice.pendingOverlay.test.ts:110:35
+
+  ● a server panel response keeps a still-pending staged edit (HEL-1828) › updatePanelForm.fulfilled shows staged title and appearance over the server copy
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "New title"
+    Received: "Old title"
+
+      108 |       const next = panelsReducer(before, make(serverCopy));
+      109 |
+    > 110 |       expect(next.items[0].title).toBe("New title");
+          |                                   ^
+      111 |       // staged key wins; every other stored key comes from the server copy
+      112 |       expect(next.items[0].appearance).toEqual({
+      113 |         background: "#abcdef",
+
+      at src/features/panels/state/panelsSlice.pendingOverlay.test.ts:110:35
+
+  ● a server panel response keeps a still-pending staged edit (HEL-1828) › updatePanelOutputControls.fulfilled shows staged title and appearance over the server copy
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "New title"
+    Received: "Old title"
+
+      108 |       const next = panelsReducer(before, make(serverCopy));
+      109 |
+    > 110 |       expect(next.items[0].title).toBe("New title");
+          |                                   ^
+      111 |       // staged key wins; every other stored key comes from the server copy
+      112 |       expect(next.items[0].appearance).toEqual({
+      113 |         background: "#abcdef",
+
+      at src/features/panels/state/panelsSlice.pendingOverlay.test.ts:110:35
+
+  ● a server panel response keeps a still-pending staged edit (HEL-1828) › updatePanelsBatch.fulfilled shows staged title and appearance over the server copy
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "New title"
+    Received: "Old title"
+
+      108 |       const next = panelsReducer(before, make(serverCopy));
+      109 |
+    > 110 |       expect(next.items[0].title).toBe("New title");
+          |                                   ^
+      111 |       // staged key wins; every other stored key comes from the server copy
+      112 |       expect(next.items[0].appearance).toEqual({
+      113 |         background: "#abcdef",
+
+      at src/features/panels/state/panelsSlice.pendingOverlay.test.ts:110:35
+
+FAIL src/features/panels/ui/detailModal/PanelDetailModal.subtypeSaveKeepsStaged.test.tsx
+  ● PanelDetailModal subtype save keeps staged edits (HEL-1828) › shows the new title after the controls save resolves and after the batch flush; sends it exactly once
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "New title"
+    Received: "Old title"
+
+      133 |     );
+      134 |     // after the controls save resolved: the server copy landed, the staged title must still be shown
+    > 135 |     expect(store.getState().panels.items[0].title).toBe("New title");
+          |                                                    ^
+      136 |     expect(await screen.findByRole("dialog", { name: "New title settings" })).toBeInTheDocument();
+      137 |     expect(store.getState().panels.pendingPanelUpdates["p1"]).toEqual({ title: "New title" });
+      138 |
+
+      at Object.<anonymous> (src/features/panels/ui/detailModal/PanelDetailModal.subtypeSaveKeepsStaged.test.tsx:135:52)
+
+Test Suites: 2 failed, 4 passed, 6 total
+Tests:       10 failed, 70 passed, 80 total
+Snapshots:   0 total
+Time:        2.972 s, estimated 5 s
+Ran all test suites matching src/features/panels/state/panelsSlice|src/features/panels/ui/detailModal/PanelDetailModal.subtypeSaveKeepsStaged.

@@ -1,0 +1,26 @@
+FAIL src/features/panels/state/panelsSlice.pendingOverlay.test.ts
+  ● a server panel response keeps a still-pending staged edit (HEL-1828) › updatePanelDivider.fulfilled shows staged title and appearance over the server copy
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "New title"
+    Received: "Old title"
+
+      108 |       const next = panelsReducer(before, make(serverCopy));
+      109 |
+    > 110 |       expect(next.items[0].title).toBe("New title");
+          |                                   ^
+      111 |       // staged key wins; every other stored key comes from the server copy
+      112 |       expect(next.items[0].appearance).toEqual({
+      113 |         background: "#abcdef",
+
+      at src/features/panels/state/panelsSlice.pendingOverlay.test.ts:110:35
+
+
+Test Suites: 1 failed, 4 passed, 5 total
+Tests:       1 failed, 78 passed, 79 total
+Snapshots:   0 total
+Time:        5.003 s
+Ran all test suites matching src/features/panels/state/panelsSlice.
+
+NOTE: mutation = updatePanelDivider.fulfilled reverted to the pre-fix whole-panel replace; only its test went red.

@@ -1,0 +1,4 @@
+- `frontend/src/features/panels/state/panelsSlice.ts` — withPendingOverlay + replacePanelFromServer helpers; eight single-panel fulfilled cases and updatePanelsBatch.fulfilled re-apply pending staged edits
+- `frontend/src/features/panels/state/panelsSlice.pendingOverlay.test.ts` — per-replacer slice tests (staged survives, verbatim when nothing pending)
+- `frontend/src/features/panels/ui/detailModal/PanelDetailModal.subtypeSaveKeepsStaged.test.tsx` — live-store modal test: title kept after controls save and flush, sent once
+- `openspec/changes/subtype-save-keeps-staged-edits/{replacer-inventory,red-output,mutation-output}.txt` — evidence

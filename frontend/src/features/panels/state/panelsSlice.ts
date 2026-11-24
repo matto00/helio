@@ -99,6 +99,29 @@ interface PanelsState {
   panelSaveSeq?: number;
 }
 
+/** HEL-1828: the staged edit shown over a panel: `fields` shallow-merged onto it, with `appearance` merged key by key
+ *  (the shallow mirror of the server's partial-appearance merge, HEL-1615). Shared by staging and by every reducer that
+ *  replaces a panel with a server copy, so the two cannot drift. */
+function withPendingOverlay(panel: Panel, fields: PanelUpdateFields | undefined): Panel {
+  if (!fields) return panel;
+  return {
+    ...panel,
+    ...fields,
+    ...(fields.appearance ? { appearance: { ...panel.appearance, ...fields.appearance } } : {}),
+  } as Panel;
+}
+
+/** HEL-1828: replaces the local copy of `serverPanel` and re-applies that panel's still-pending staged update on top, so
+ *  a save response that does not yet carry a staged title/appearance never reverts it on screen. Never writes
+ *  `pendingPanelUpdates`: the batch flush still sends each staged field exactly once. */
+function replacePanelFromServer(state: PanelsState, serverPanel: Panel): void {
+  state.items = state.items.map((panel) =>
+    panel.id === serverPanel.id
+      ? withPendingOverlay(serverPanel, state.pendingPanelUpdates[serverPanel.id])
+      : panel,
+  );
+}
+
 const initialState: PanelsState = {
   items: [],
   loadedDashboardId: null,
@@ -143,16 +166,9 @@ const panelsSlice = createSlice({
       };
       // Title / appearance / type are common to every subtype; the spread
       // narrows correctly at runtime even though TS sees the union shape.
+      // Applied with the INCREMENT (`fields`): earlier staged values are already in the item.
       state.items = state.items.map((panel) =>
-        panel.id === panelId
-          ? ({
-              ...panel,
-              ...fields,
-              ...(fields.appearance
-                ? { appearance: { ...panel.appearance, ...fields.appearance } }
-                : {}),
-            } as Panel)
-          : panel,
+        panel.id === panelId ? withPendingOverlay(panel, fields) : panel,
       );
     },
     clearPendingPanelUpdates(state) {
@@ -300,14 +316,10 @@ const panelsSlice = createSlice({
         state.error = action.payload ?? "Failed to load panels.";
       })
       .addCase(updatePanelAppearance.fulfilled, (state, action) => {
-        state.items = state.items.map((panel) =>
-          panel.id === action.payload.id ? action.payload : panel,
-        );
+        replacePanelFromServer(state, action.payload);
       })
       .addCase(updatePanelTitle.fulfilled, (state, action) => {
-        state.items = state.items.map((panel) =>
-          panel.id === action.payload.id ? action.payload : panel,
-        );
+        replacePanelFromServer(state, action.payload);
       })
       .addCase(createPanel.rejected, (state, action) => {
         state.error = action.payload ?? "Failed to create panel.";
@@ -329,38 +341,30 @@ const panelsSlice = createSlice({
         state.error = action.payload ?? "Failed to duplicate panel.";
       })
       .addCase(updatePanelTextContent.fulfilled, (state, action) => {
-        state.items = state.items.map((panel) =>
-          panel.id === action.payload.id ? action.payload : panel,
-        );
+        replacePanelFromServer(state, action.payload);
       })
       .addCase(updatePanelMarkdownContent.fulfilled, (state, action) => {
-        state.items = state.items.map((panel) =>
-          panel.id === action.payload.id ? action.payload : panel,
-        );
+        replacePanelFromServer(state, action.payload);
       })
       .addCase(updatePanelImage.fulfilled, (state, action) => {
-        state.items = state.items.map((panel) =>
-          panel.id === action.payload.id ? action.payload : panel,
-        );
+        replacePanelFromServer(state, action.payload);
       })
       .addCase(updatePanelDivider.fulfilled, (state, action) => {
-        state.items = state.items.map((panel) =>
-          panel.id === action.payload.id ? action.payload : panel,
-        );
+        replacePanelFromServer(state, action.payload);
       })
       .addCase(updatePanelForm.fulfilled, (state, action) => {
-        state.items = state.items.map((panel) =>
-          panel.id === action.payload.id ? action.payload : panel,
-        );
+        replacePanelFromServer(state, action.payload);
       })
       .addCase(updatePanelOutputControls.fulfilled, (state, action) => {
-        state.items = state.items.map((panel) =>
-          panel.id === action.payload.id ? action.payload : panel,
-        );
+        replacePanelFromServer(state, action.payload);
       })
       .addCase(updatePanelsBatch.fulfilled, (state, action) => {
-        const updatedById = new Map(action.payload.panels.map((p) => [p.id, p]));
-        state.items = state.items.map((panel) => updatedById.get(panel.id) ?? panel);
+        // HEL-1828: `pendingPanelUpdates` still holds the SENT snapshot here (the flush clears it after this reducer),
+        // so overlaying it is idempotent for the sent fields and keeps an edit staged during the round trip on screen.
+        // Assumes the server stores every staged shape verbatim (title, scalar appearance keys): a future stager
+        // sending `null` or a partial `chart` would leave the overlaid value in `items` after `clearSent`, until the
+        // panel's next server copy.
+        for (const serverPanel of action.payload.panels) replacePanelFromServer(state, serverPanel);
         state.lastSavedAt = Date.now();
         state.panelSaveSeq = (state.panelSaveSeq ?? 0) + 1;
       })
