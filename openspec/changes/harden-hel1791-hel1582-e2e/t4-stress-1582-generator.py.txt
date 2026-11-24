@@ -1,0 +1,24 @@
+# HEL-1830 task 4.2: CPU throttle 4x generator for the hel1582 motion-and-states spec (mechanism: CDP
+# Emulation.setCPUThrottlingRate on every page the spec uses). usage: python3 gen.py <src> <dst> <rate>
+# Pages come from (a) the `page` fixture (a beforeEach throttles it) and (b) `const page = await context.newPage();`
+# in the two browser.newContext tests (throttled right after creation). Each throttled page logs STRESS-ACTIVE.
+import sys
+src, dst, rate = sys.argv[1], sys.argv[2], int(sys.argv[3])
+s = open(src).read()
+hook = f'''  test.beforeEach(async ({{ page }}) => {{
+    const cdp0 = await page.context().newCDPSession(page);
+    await cdp0.send("Emulation.setCPUThrottlingRate", {{ rate: {rate} }});
+    console.log("STRESS-ACTIVE cpu throttle {rate}x on the fixture page");
+  }});
+'''
+old = 'test.describe("HEL-1582 phone pipeline page (live)", () => {\n'
+assert s.count(old) == 1
+s = s.replace(old, old + hook, 1)
+old = '    const page = await context.newPage();\n'
+n = s.count(old)
+assert n == 2, n
+s = s.replace(old, old + f'''    const cdpN = await context.newCDPSession(page);
+    await cdpN.send("Emulation.setCPUThrottlingRate", {{ rate: {rate} }});
+    console.log("STRESS-ACTIVE cpu throttle {rate}x on a context page");
+''')
+open(dst, 'w').write(s)

@@ -1,0 +1,17 @@
+HEL-1830 task 3.1 probe, STALE mode: hold the sheet's steps/:id/preview response, record the trigger centre, release, wait for the reflow, touch the recorded point, then (fixed counterpart) touch the settled centre after .step-preview__count is visible.
+
+STRESS-ACTIVE size=375x812 cpu throttle 1x mode=stale hold-delay=-1
+PROBE STALE count present before release: false; early centre (188,439) late centre (249,439); element at the early point after reflow: span.step-preview__count
+PROBE STALE tap at the pre-reflow point opened the panel: false
+PROBE FIXED tap at the settled centre (249,439) after the count is visible opened the panel: true
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+  1 passed (9.4s)
+
+STRESS-ACTIVE size=390x844 cpu throttle 1x mode=stale hold-delay=-1
+PROBE STALE count present before release: false; early centre (188,439) late centre (249,439); element at the early point after reflow: span.step-preview__count
+PROBE STALE tap at the pre-reflow point opened the panel: false
+PROBE FIXED tap at the settled centre (249,439) after the count is visible opened the panel: true
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+  1 passed (9.1s)
+
+Note (as in HEL-1826): there is no natural red for the race itself; the coordinate stand-in above is the stale-tap evidence.

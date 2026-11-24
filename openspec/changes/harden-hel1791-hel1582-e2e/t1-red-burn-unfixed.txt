@@ -1,0 +1,54 @@
+HEL-1830 task 2.2 deterministic red: UNFIXED spec + burn mechanism (t1-instrument-unfixed.py.txt --burn): right before the dark owner theme test's first page load the shared owner's remaining /api budget is spent (GET /api/auth/me until 429). STRESS-ACTIVE line below is the proof the stress ran.
+
+Running 6 tests using 1 worker
+[HEL-1300 e2e] throwaway user: hel1791-owner-1795485245183-2729@example.test
+[HEL-1300 e2e] throwaway user: hel1791-editor-1795485245436-23623@example.test
+[HEL-1300 e2e] throwaway user: hel1791-measurer-1795485245677-43904@example.test
+REQUEST-COUNT w0 after beforeAll(seeding) principal=owner charged-total=17 max-60s=17 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: the compact counter card shows value, both buttons wi" principal=owner charged-total=63 max-60s=63 uncharged=1 count429=0
+  ✓  1 [dev] › e2e/zz-probe1791-burn.spec.ts:203:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light (5.6s)
+STRESS-ACTIVE burn: spent 57 remaining owner requests before the dark owner theme test, 429 Retry-After=51s
+REQUEST-COUNT w0 cumulative after "owner: the compact counter card shows value, both buttons wi" principal=owner charged-total=122 max-60s=122 uncharged=1 count429=2
+  ✘  2 [dev] › e2e/zz-probe1791-burn.spec.ts:203:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark (23.2s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-1795485276111-20159@example.test
+[HEL-1300 e2e] throwaway user: hel1791-editor-1795485276367-7224@example.test
+[HEL-1300 e2e] throwaway user: hel1791-measurer-1795485276607-41831@example.test
+REQUEST-COUNT w1 after beforeAll(seeding) principal=owner charged-total=17 max-60s=17 uncharged=1 count429=0
+  ✓  3 [dev] › e2e/zz-probe1791-burn.spec.ts:203:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light (5.6s)
+  ✓  4 [dev] › e2e/zz-probe1791-burn.spec.ts:203:11 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark (5.3s)
+REQUEST-COUNT w1 cumulative after "per-kind stack heights at 390/768/1100 (recorded; other kind" principal=owner charged-total=17 max-60s=17 uncharged=1 count429=0
+  ✓  5 [dev] › e2e/zz-probe1791-burn.spec.ts:282:7 › HEL-1791 compact counter height in the panel stack › per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) (9.4s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-live-regions-1795485298061-77316@example.test
+REQUEST-COUNT w1 cumulative after "owner: a status message and an alert message render in flow " principal=owner charged-total=17 max-60s=17 uncharged=1 count429=0
+REQUEST-COUNT w1 cumulative after "owner: a status message and an alert message render in flow " principal=owner-live-regions charged-total=16 max-60s=16 uncharged=1 count429=0
+  ✓  6 [dev] › e2e/zz-probe1791-burn.spec.ts:324:7 › HEL-1791 compact counter height in the panel stack › owner: a status message and an alert message render in flow in the same live regions (2.5s)
+userCleanup: removed 0 of 7 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 7 recorded throwaway user(s)
+  1) [dev] › e2e/zz-probe1791-burn.spec.ts:203:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark 
+    Error: expect(locator).toHaveCount(expected) failed
+    Locator:  locator('.crossfade__layer:not(.crossfade__skeleton) .mobile-panel-stack__item')
+    Expected: 7
+    Received: 0
+    Timeout:  20000ms
+    Call log:
+      - Expect "toHaveCount" with timeout 20000ms
+      - waiting for locator('.crossfade__layer:not(.crossfade__skeleton) .mobile-panel-stack__item')
+        24 × locator resolved to 0 elements
+           - unexpected value "0"
+      181 |     await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
+      182 |     await page.goto(`/dashboards/${target.id}`);
+    > 183 |     await expect(page.locator(LIVE_STACK_ITEMS)).toHaveCount(target.items, { timeout: 20_000 });
+          |                                                  ^
+      184 |     await expect(page.getByLabel("Loading panels")).toHaveCount(0);
+      185 |     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      186 |     await page.evaluate(() => document.fonts.ready.then(() => undefined));
+        at openStack (/home/matt/Development/helio/.claude/worktrees/task/hel1791-hel1582-e2e-hardening/hel-1830/e2e/zz-probe1791-burn.spec.ts:183:50)
+        at /home/matt/Development/helio/.claude/worktrees/task/hel1791-hel1582-e2e-hardening/hel-1830/e2e/zz-probe1791-burn.spec.ts:209:13
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/zz-probe1791-burn-HEL-1791-65282-s-with-no-inner-scroll-dark-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/zz-probe1791-burn-HEL-1791-65282-s-with-no-inner-scroll-dark-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  1 failed
+    [dev] › e2e/zz-probe1791-burn.spec.ts:203:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark 
+  5 passed (56.3s)

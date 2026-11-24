@@ -1,0 +1,12 @@
+HEL-1830 task 2.1 probe: does an APIRequestContext request fire the BrowserContext "request" event?
+Probe spec (temporary, deleted after the run): registerUser(context.request); context.request.get("/api/auth/me");
+page.request.get("/api/auth/me"); page.goto("/dashboards"); log every /api/ request seen by context.on("request").
+
+Output (npx playwright test e2e/zz-probe-ctxreq.spec.ts --workers=1, lane servers dev 7262 / backend 10169):
+PROBE-CTX-EVENTS ["GET /api/auth/me","GET /api/dashboard-folders","GET /api/dashboards","GET /api/data-sources","GET /api/pipelines"]
+  1 passed (3.5s)
+
+Reading: sent were POST /api/auth/register, GET /api/auth/me (context.request), GET /api/auth/me (page.request) and the
+page's own loads. Only the page's own requests appear (the single GET /api/auth/me is the app's own bootstrap call).
+So neither context.request.* nor page.request.* fires context "request": setup calls must be counted by wrapping
+`fetch` on the actor's request context, page traffic via context.on("request"). No double count is possible.

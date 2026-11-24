@@ -1,0 +1,16 @@
+HEL-1830 task 4.3
+$ npx eslint --max-warnings 0 <3 changed e2e files>
+exit=0
+$ npx prettier --check <3 files>
+Checking formatting...
+All matched files use Prettier code style!
+exit=0
+$ npm run typecheck
+
+
+> helio-frontend@0.0.0 typecheck
+> tsc --noEmit
+
+exit=0
+$ npx tsc --noEmit -p e2e/tsconfig.json
+exit=0

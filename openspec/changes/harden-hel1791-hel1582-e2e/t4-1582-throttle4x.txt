@@ -1,0 +1,21 @@
+HEL-1830 task 4.2: hel1582 motion-and-states spec under CDP CPU throttle 4x (generator t4-stress-1582-generator.py.txt), 5 runs, nice -n 19. Per-run STRESS-ACTIVE count: 8 fixture pages + 2 context pages.
+run 1 exit=0   8 passed (3.7m) 
+run 2 exit=0   8 passed (3.6m) 
+run 3 exit=0   8 passed (3.6m) 
+run 4 exit=0   8 passed (3.8m) 
+run 5 exit=0   8 passed (3.6m) 
+--- run 1
+      2 STRESS-ACTIVE cpu throttle 4x on a context page
+      8 STRESS-ACTIVE cpu throttle 4x on the fixture page
+--- run 2
+      2 STRESS-ACTIVE cpu throttle 4x on a context page
+      8 STRESS-ACTIVE cpu throttle 4x on the fixture page
+--- run 3
+      2 STRESS-ACTIVE cpu throttle 4x on a context page
+      8 STRESS-ACTIVE cpu throttle 4x on the fixture page
+--- run 4
+      2 STRESS-ACTIVE cpu throttle 4x on a context page
+      8 STRESS-ACTIVE cpu throttle 4x on the fixture page
+--- run 5
+      2 STRESS-ACTIVE cpu throttle 4x on a context page
+      8 STRESS-ACTIVE cpu throttle 4x on the fixture page

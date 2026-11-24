@@ -1,0 +1,42 @@
+HEL-1830 task 6.3 isolation control (generator t6-editor-control-generator.py.txt) on the FIXED spec: the light editor's budget is burned before its context closes; the dark editor test (own principal) stays green.
+
+Running 10 tests using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1791-board-owner-1795508685302-87330@example.test
+[HEL-1300 e2e] throwaway user: hel1791-measurer-1795508685544-64522@example.test
+[HEL-1300 e2e] throwaway user: hel1791-owner-light-390-1795508686641-90350@example.test
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+  ✓   1 [dev] › e2e/zz-edcontrol.spec.ts:297:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px (3.5s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-light-768-1795508690132-51597@example.test
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+  ✓   2 [dev] › e2e/zz-edcontrol.spec.ts:297:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px (3.1s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-light-1100-1795508693192-91747@example.test
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+  ✓   3 [dev] › e2e/zz-edcontrol.spec.ts:297:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px (3.0s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-dark-390-1795508696233-59259@example.test
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+  ✓   4 [dev] › e2e/zz-edcontrol.spec.ts:297:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px (3.1s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-dark-768-1795508699290-29082@example.test
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+  ✓   5 [dev] › e2e/zz-edcontrol.spec.ts:297:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px (3.0s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-dark-1100-1795508702341-36838@example.test
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+  ✓   6 [dev] › e2e/zz-edcontrol.spec.ts:297:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px (2.9s)
+[HEL-1300 e2e] throwaway user: hel1791-editor-light-1795508705243-95195@example.test
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor-light charged-total=40 max-60s=40 uncharged=1 count429=0
+STRESS-ACTIVE burn: spent 79 remaining requests of the LIGHT editor principal before its context closes (kept open); 429 Retry-After=52s
+  ✓   7 [dev] › e2e/zz-edcontrol.spec.ts:327:9 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light (9.0s)
+[HEL-1300 e2e] throwaway user: hel1791-editor-dark-1795508714215-17653@example.test
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor-dark charged-total=41 max-60s=41 uncharged=1 count429=0
+STRESS-ACTIVE burn still live after the dark editor test: light editor GET /api/auth/me -> 429
+  ✓   8 [dev] › e2e/zz-edcontrol.spec.ts:327:9 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark (6.0s)
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=37 max-60s=37 uncharged=1 count429=0
+  ✓   9 [dev] › e2e/zz-edcontrol.spec.ts:374:7 › HEL-1791 compact counter height in the panel stack › per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) (9.5s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-live-regions-1795508729666-51070@example.test
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+REQUEST-COUNT afterAll principal=board-owner charged-total=19 max-60s=19 uncharged=1 count429=0
+  ✓  10 [dev] › e2e/zz-edcontrol.spec.ts:417:7 › HEL-1791 compact counter height in the panel stack › owner: a status message and an alert message render in flow in the same live regions (2.5s)
+userCleanup: removed 0 of 11 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 11 recorded throwaway user(s)
+
+  10 passed (47.7s)

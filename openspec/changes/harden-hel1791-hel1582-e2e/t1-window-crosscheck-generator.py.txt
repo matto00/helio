@@ -1,0 +1,33 @@
+# HEL-1830 task 2.1 one-window cross-check: copies the FIXED hel1791 spec; in the owner-dark-390 test, after the geometry
+# check, records the principal's charged count and the time of its FIRST charged request, then spends GET /api/auth/me
+# until 429 and logs the remaining count, the 429's Retry-After and the window age (60 - Retry-After) against the elapsed
+# time since the first charged request. usage: crosscheck.py <src spec> <dst spec>
+import sys
+s = open(sys.argv[1]).read()
+old = '''            await checkCounterCard(page, "owner", theme, width, {
+              id: ownBoard.dashboardId,
+              items: 7,
+            });
+'''
+assert old in s
+s = s.replace(old, old + '''            if (theme === "dark" && width === 390) {
+              const before = own.counted.counter.report().total;
+              const first = own.counted.counter.firstChargedAt()!;
+              let remaining = 0;
+              let retryAfter = -1;
+              for (let i = 0; i < 400; i++) {
+                const r = await api.get("/api/auth/me");
+                if (r.status() === 429) {
+                  retryAfter = Number(r.headers()["retry-after"]);
+                  break;
+                }
+                remaining++;
+              }
+              const elapsed = (Date.now() - first) / 1000;
+              const age = 60 - retryAfter;
+              console.log(
+                `CROSSCHECK charged-before=${before} remaining-after=${remaining} sum=${before + remaining} (limit 120, diff ${120 - before - remaining}) retry-after=${retryAfter}s window-age=${age}s elapsed-since-first-charged=${elapsed.toFixed(1)}s age-vs-elapsed-diff=${(elapsed - age).toFixed(1)}s rollover=${elapsed >= 60}`,
+              );
+            }
+''', 1)
+open(sys.argv[2], 'w').write(s)

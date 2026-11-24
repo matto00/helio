@@ -1,0 +1,59 @@
+# HEL-1830 stress generator for the FIXED hel1791 spec. usage: stress1791.py <src spec> <dst spec> [--control] [--throttle N]
+#  --throttle N (mechanism B, HEL-1826's t2-t3-stress-throttle idea): CDP Emulation.setCPUThrottlingRate=N on every page
+#     of every actor context; each page logs `STRESS-ACTIVE cpu throttle Nx on a page of <label>`.
+#  --control (isolation control, Decision 3): each LIGHT owner test keeps its principal open; right before the DARK owner
+#     test of the SAME width loads its first page, that light principal's remaining /api budget is spent
+#     (GET /api/auth/me until 429; `STRESS-ACTIVE burn ... Retry-After`). The dark test, a different principal on its
+#     own board, must stay green; the light principal is probed again after the dark test (still 429) to prove the
+#     burn was live for the whole dark test.
+import sys
+src, dst = sys.argv[1], sys.argv[2]
+control = "--control" in sys.argv
+throttle = int(sys.argv[sys.argv.index("--throttle") + 1]) if "--throttle" in sys.argv else 0
+s = open(src).read()
+if throttle:
+    old = '  const counted = attachContextApiCounter(context);\n'
+    assert old in s
+    s = s.replace(old, old + f'''  context.on("page", async (p) => {{
+    const cdp = await context.newCDPSession(p);
+    await cdp.send("Emulation.setCPUThrottlingRate", {{ rate: {throttle} }});
+    console.log("STRESS-ACTIVE cpu throttle {throttle}x on a page of " + label);
+  }});
+''', 1)
+if control:
+    s = s.replace('let board: Board;\n', 'let board: Board;\nconst LIGHT: Record<number, Actor> = {};\n', 1)
+    old = '''        const own = await newActor(browser, `owner-${theme}-${width}`);
+        const api = own.context.request;
+'''
+    assert old in s
+    s = s.replace(old, old + '''        if (theme === "dark") {
+          const light = LIGHT[width];
+          let ok = 0;
+          let retryAfter = "?";
+          for (let i = 0; i < 400; i++) {
+            const r = await light.context.request.get("/api/auth/me");
+            if (r.status() === 429) {
+              retryAfter = r.headers()["retry-after"] ?? "?";
+              break;
+            }
+            ok++;
+          }
+          console.log(`STRESS-ACTIVE burn: spent ${ok} remaining requests of the LIGHT ${width}px owner principal right before the dark ${width}px owner test's first page load; 429 Retry-After=${retryAfter}s`);
+        } else {
+          LIGHT[width] = own;
+        }
+''', 1)
+    old = '          await own.context.close();\n        }\n      });\n    }\n  }\n'
+    assert old in s
+    s = s.replace(old, '''          if (theme === "dark") {
+            const after = await LIGHT[width].context.request.get("/api/auth/me");
+            console.log(`STRESS-ACTIVE burn still live after the dark ${width}px test: light principal GET /api/auth/me -> ${after.status()}`);
+            await LIGHT[width].context.close();
+          }
+          if (theme === "dark") await own.context.close();
+        }
+      });
+    }
+  }
+''', 1)
+open(dst, 'w').write(s)

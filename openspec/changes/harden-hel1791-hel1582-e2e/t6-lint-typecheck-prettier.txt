@@ -1,0 +1,9 @@
+HEL-1830 task 6.5
+eslint exit=0
+Checking formatting...
+All matched files use Prettier code style!
+prettier exit=0
+tsc e2e exit=0
+> tsc --noEmit
+
+typecheck exit=0

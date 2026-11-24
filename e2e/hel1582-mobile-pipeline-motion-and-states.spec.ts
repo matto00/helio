@@ -310,6 +310,13 @@ test.describe("HEL-1582 phone pipeline page (live)", () => {
         await sheet(page).evaluate((el) =>
           Promise.all(el.getAnimations().map((x) => x.finished.catch(() => undefined))),
         );
+        // HEL-1830: the sheet mounts its own StepPreviewTable, which fetches the step's preview afresh; its row count
+        // arrives with that response and moves the trigger sideways (centre x 188 -> 249 at 375/390 wide), so a tap aimed
+        // before it lands on the count and opens nothing (measured: t2b-stale-tap.txt).
+        await expect(
+          sheet(page).locator(".step-preview__count"),
+          `${theme}: sheet preview header settled`,
+        ).toBeVisible();
         await sheet(page).locator(".output-schema-disclosure__trigger").first().tap();
         await checkPanel("step sheet");
         await page.keyboard.press("Escape");

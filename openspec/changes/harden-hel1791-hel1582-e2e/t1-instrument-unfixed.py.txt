@@ -1,0 +1,48 @@
+# HEL-1830 task 2.1/2.2: generates a TEMPORARY instrumented copy of the UNFIXED hel1791 spec (the counter is test
+# instrumentation, not the fix). usage: instrument1791.py <src spec> <dst spec> [--burn]
+#  - every actor gets attachContextApiCounter (page traffic via context "request", setup calls via the wrapped
+#    context.request.fetch); an afterEach logs every actor's cumulative `REQUEST-COUNT` line, and beforeAll's end logs
+#    the seeding cost.
+#  - --burn (HEL-1826 mechanism A adapted): right before the DARK owner theme test's first page load, spend the shared
+#    owner's remaining /api budget (GET /api/auth/me until 429) and log STRESS-ACTIVE with the count and Retry-After.
+import sys
+src, dst = sys.argv[1], sys.argv[2]
+burn = "--burn" in sys.argv
+s = open(src).read()
+s = s.replace('import { currentUserId, registerUser } from "./support/auth";',
+ 'import { attachContextApiCounter, type ContextApiCounter } from "./support/apiRequestCounter";\nimport { currentUserId, registerUser } from "./support/auth";', 1)
+s = s.replace('interface Actor {', 'const COUNTERS: Record<string, ContextApiCounter> = {};\n\ninterface Actor {', 1)
+old = '  const context = await browser.newContext({ baseURL: BASE_URL });\n'
+assert old in s
+s = s.replace(old, old + '  COUNTERS[label] = attachContextApiCounter(context);\n', 1)
+end_before_all = '\n  });\n\n  test.afterAll(async () => {'
+assert end_before_all in s
+s = s.replace(end_before_all, '''
+    console.log(`REQUEST-COUNT w${test.info().workerIndex} after beforeAll(seeding) principal=owner ${COUNTERS.owner.line()}`);
+  });
+
+  test.afterEach(async () => {
+    const t = test.info();
+    for (const [label, c] of Object.entries(COUNTERS))
+      console.log(`REQUEST-COUNT w${t.workerIndex} cumulative after "${t.title.slice(0, 60)}" principal=${label} ${c.line()}`);
+  });
+
+  test.afterAll(async () => {''', 1)
+if burn:
+    s = s.replace('  test.afterEach(async () => {', '''  test.beforeEach(async () => {
+    if (!test.info().title.startsWith("owner: the compact counter card") || !test.info().title.endsWith("dark")) return;
+    let ok = 0;
+    let retryAfter = "?";
+    for (let i = 0; i < 400; i++) {
+      const r = await owner.context.request.get("/api/auth/me");
+      if (r.status() === 429) {
+        retryAfter = r.headers()["retry-after"] ?? "?";
+        break;
+      }
+      ok++;
+    }
+    console.log(`STRESS-ACTIVE burn: spent ${ok} remaining owner requests before the dark owner theme test, 429 Retry-After=${retryAfter}s`);
+  });
+
+  test.afterEach(async () => {''', 1)
+open(dst, 'w').write(s)

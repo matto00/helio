@@ -1,0 +1,28 @@
+# HEL-1830 task 6.1 (red first): burn mechanism for the PRE-fold-in hel1791 spec, where both editor theme tests share one
+# `editor` principal. usage: editor_burn.py <src spec> <dst spec>
+# Right before the DARK editor test's first page load, the shared editor's remaining /api budget is spent
+# (GET /api/auth/me until 429, Retry-After logged as `STRESS-ACTIVE burn ...`). The dark test then cannot load the board.
+import sys
+src, dst = sys.argv[1], sys.argv[2]
+s = open(src).read()
+old = '''    test(`editor: the compact counter card shows value, both buttons and the caption with no inner scroll, ${theme}`, async () => {
+      const page = await editor.context.newPage();
+'''
+assert s.count(old) == 1
+s = s.replace(old, '''    test(`editor: the compact counter card shows value, both buttons and the caption with no inner scroll, ${theme}`, async () => {
+      if (theme === "dark") {
+        let ok = 0;
+        let retryAfter = "?";
+        for (let i = 0; i < 400; i++) {
+          const r = await editor.context.request.get("/api/auth/me");
+          if (r.status() === 429) {
+            retryAfter = r.headers()["retry-after"] ?? "?";
+            break;
+          }
+          ok++;
+        }
+        console.log(`STRESS-ACTIVE burn: spent ${ok} remaining shared-editor requests before the dark editor test, 429 Retry-After=${retryAfter}s`);
+      }
+      const page = await editor.context.newPage();
+''', 1)
+open(dst, 'w').write(s)

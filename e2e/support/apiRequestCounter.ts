@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
 
 // HEL-1620: counts every `/api` request one test user makes, the same traffic the backend's per-user
 // rate limiter (RATE_LIMIT_REQUESTS_PER_WINDOW, default 120 per 60 s, keyed by session user id) charges.
@@ -17,6 +17,8 @@ interface Entry {
   method: string;
   template: string;
   status: number | null;
+  /** False for a request the limiter never charges (no session cookie, or answered by `page.route`). */
+  charged: boolean;
 }
 
 export interface ApiCounterReport {
@@ -24,6 +26,8 @@ export interface ApiCounterReport {
   maxWindow: number;
   count429: number;
   top: [string, number][];
+  /** Requests recorded but not charged to the principal (see `Entry.charged`); not part of `total`/`maxWindow`. */
+  uncharged: number;
 }
 
 /** Collapses ids so equal routes group: UUIDs, numbers and long hex ids become `:id`, query strings drop. */
@@ -47,26 +51,33 @@ export function maxSlidingWindow(times: number[], windowMs = WINDOW_MS): number 
 export class ApiRequestCounter {
   private readonly entries: Entry[] = [];
 
-  record(method: string, url: string, status: number | null = null): Entry | null {
+  record(method: string, url: string, status: number | null = null, charged = true): Entry | null {
     const { pathname } = new URL(url, "http://localhost");
     if (!pathname.startsWith("/api/")) return null;
-    const entry = { at: Date.now(), method, template: pathTemplate(pathname), status };
+    const entry = { at: Date.now(), method, template: pathTemplate(pathname), status, charged };
     this.entries.push(entry);
     return entry;
   }
 
   report(topN = 8): ApiCounterReport {
     const byKey = new Map<string, number>();
-    for (const e of this.entries) {
+    const charged = this.entries.filter((e) => e.charged);
+    for (const e of charged) {
       const key = `${e.method} ${e.template}`;
       byKey.set(key, (byKey.get(key) ?? 0) + 1);
     }
     return {
-      total: this.entries.length,
-      maxWindow: maxSlidingWindow(this.entries.map((e) => e.at).sort((a, b) => a - b)),
-      count429: this.entries.filter((e) => e.status === 429).length,
+      total: charged.length,
+      maxWindow: maxSlidingWindow(charged.map((e) => e.at).sort((a, b) => a - b)),
+      count429: charged.filter((e) => e.status === 429).length,
+      uncharged: this.entries.length - charged.length,
       top: [...byKey.entries()].sort((a, b) => b[1] - a[1]).slice(0, topN),
     };
+  }
+
+  /** When the first charged request started (ms epoch), or null: a fixed window opens there. */
+  firstChargedAt(): number | null {
+    return this.entries.find((e) => e.charged)?.at ?? null;
   }
 
   /** One line for logs and assertion messages, with the breakdown. */
@@ -100,4 +111,55 @@ export function attachApiRequestCounter(page: Page): ApiRequestCounter {
     return res;
   }) as typeof api.fetch;
   return counter;
+}
+
+/** The routes whose requests carry no session cookie, so the per-principal limiter has no principal to charge. */
+const UNCHARGED_PATHS = new Set(["/api/auth/register"]); // e2e-user-cleanup: reviewed — a path name the counter excludes, nothing is posted here
+
+export interface ContextApiCounter {
+  counter: ApiRequestCounter;
+  /** Marks a request `page.route` answered itself (it never reached the server, so the limiter never saw it). */
+  markFulfilled(request: object): void;
+  /** One line: `charged-total=<n> max-60s=<n> uncharged=<n> count429=<n>`. */
+  line(): string;
+}
+
+/**
+ * HEL-1830: counts the `/api` requests one BROWSER CONTEXT (one principal) makes. Probed 2026-11-23
+ * (`t1-probe-context-request-events.txt`): neither `context.request.*` nor `page.request.*` fires the context's
+ * `request` event, so the page's own traffic comes from `context.on("request")` and the setup calls from wrapping
+ * `fetch` on the context's `APIRequestContext` (get/post/put/patch/delete all delegate to it): each request is counted
+ * exactly once. Attach BEFORE the first call on `context.request`. `POST /api/auth/register` carries no session cookie
+ * and is recorded as uncharged.
+ */
+export function attachContextApiCounter(context: BrowserContext): ContextApiCounter {
+  const counter = new ApiRequestCounter();
+  const byRequest = new WeakMap<object, Entry | null>();
+  context.on("request", (r) => byRequest.set(r, counter.record(r.method(), r.url())));
+  context.on("response", (r) => {
+    const entry = byRequest.get(r.request());
+    if (entry) entry.status = r.status();
+  });
+  const api = context.request;
+  const original = api.fetch.bind(api);
+  api.fetch = (async (target: Parameters<typeof original>[0], options?: { method?: string }) => {
+    const url = typeof target === "string" ? target : target.url();
+    const method = options?.method ?? (typeof target === "string" ? "GET" : target.method());
+    const { pathname } = new URL(url, "http://localhost");
+    const entry = counter.record(method.toUpperCase(), url, null, !UNCHARGED_PATHS.has(pathname));
+    const res = await original(target, options);
+    if (entry) entry.status = res.status();
+    return res;
+  }) as typeof api.fetch;
+  return {
+    counter,
+    markFulfilled(request) {
+      const entry = byRequest.get(request);
+      if (entry) entry.charged = false;
+    },
+    line() {
+      const r = counter.report();
+      return `charged-total=${r.total} max-60s=${r.maxWindow} uncharged=${r.uncharged} count429=${r.count429}`;
+    },
+  };
 }

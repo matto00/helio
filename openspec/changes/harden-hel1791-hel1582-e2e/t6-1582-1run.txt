@@ -1,0 +1,2 @@
+HEL-1830 task 6.4: one full hel1582 run (untouched by the fold-in), 2 workers, nice -n 19.
+  8 passed (2.6m)

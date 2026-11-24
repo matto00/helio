@@ -1,0 +1,4 @@
+- `e2e/hel1791-compact-counter-stack-height.spec.ts` -- one principal and board per (theme, width) owner test, run-terminal wait, explicit openStack targets, each editor theme test is its own principal granted on the beforeAll board, REQUEST-COUNT logging for every principal incl. the board owner
+- `e2e/support/apiRequestCounter.ts` -- context-level /api request counter (charged vs uncharged, sliding 60 s max)
+- `e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts` -- bounded wait for the sheet preview's `.step-preview__count` before tap (b)
+- `openspec/changes/harden-hel1791-hel1582-e2e/` -- design/tasks/root-cause and committed .txt evidence (red, probe, mutation, 20x, CPU 4x, isolation control, lint/typecheck/prettier)

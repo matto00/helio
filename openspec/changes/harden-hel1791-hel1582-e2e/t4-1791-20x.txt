@@ -1,0 +1,248 @@
+HEL-1830 task 4.1: 20x full hel1791 spec, 2 workers, nice -n 19, lane servers 7262/10169, 1x CPU. Per-run summary then every REQUEST-COUNT line.
+run 1 exit=0   10 passed (50.6s) 
+run 2 exit=0   10 passed (45.4s) 
+run 3 exit=0   10 passed (45.5s) 
+run 4 exit=0   10 passed (45.0s) 
+run 5 exit=0   10 passed (46.4s) 
+run 6 exit=0   10 passed (48.2s) 
+run 7 exit=0   10 passed (47.9s) 
+run 8 exit=0   10 passed (44.1s) 
+run 9 exit=0   10 passed (44.7s) 
+run 10 exit=0   10 passed (48.7s) 
+run 11 exit=0   10 passed (54.9s) 
+run 12 exit=0   10 passed (54.4s) 
+run 13 exit=0   10 passed (54.3s) 
+run 14 exit=0   10 passed (54.7s) 
+run 15 exit=0   10 passed (54.8s) 
+run 16 exit=0   10 passed (54.4s) 
+run 17 exit=0   10 passed (48.9s) 
+run 18 exit=0   10 passed (48.9s) 
+run 19 exit=0   10 passed (49.2s) 
+run 20 exit=0   10 passed (49.3s) 
+--- run 1
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=74 max-60s=74 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=37 max-60s=37 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 2
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=40 max-60s=40 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=72 max-60s=72 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=37 max-60s=37 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 3
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=74 max-60s=74 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=38 max-60s=38 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 4
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=74 max-60s=74 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=37 max-60s=37 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 5
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=40 max-60s=40 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=72 max-60s=72 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=37 max-60s=37 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 6
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=74 max-60s=74 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=37 max-60s=37 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 7
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=73 max-60s=73 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=38 max-60s=38 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 8
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=40 max-60s=40 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=73 max-60s=73 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=38 max-60s=38 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 9
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=40 max-60s=40 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=72 max-60s=72 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=38 max-60s=38 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 10
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=74 max-60s=74 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=37 max-60s=37 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 11
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=40 max-60s=40 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=72 max-60s=72 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=38 max-60s=38 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 12
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=40 max-60s=40 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=73 max-60s=73 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=37 max-60s=37 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 13
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=74 max-60s=74 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=37 max-60s=37 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 14
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=74 max-60s=74 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=37 max-60s=37 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 15
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=74 max-60s=74 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=37 max-60s=37 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 16
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=74 max-60s=74 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=37 max-60s=37 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 17
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=74 max-60s=74 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=37 max-60s=37 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 18
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=74 max-60s=74 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=37 max-60s=37 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 19
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=74 max-60s=74 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=37 max-60s=37 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+--- run 20
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=74 max-60s=74 uncharged=1 count429=0
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=36 max-60s=36 uncharged=1 count429=0
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+
+1x 20 runs (principal-group: max max-60s, max charged-total, sum count429)
+  editor 74 74 0
+  measurer 38 38 0
+  owner-live-regions 13 13 0
+  owner-owner-theme 30 30 0
+4x 5 runs (principal-group: max max-60s, max charged-total, sum count429)

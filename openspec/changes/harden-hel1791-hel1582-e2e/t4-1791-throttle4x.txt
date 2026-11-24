@@ -1,0 +1,116 @@
+HEL-1830 task 4.2: hel1791 spec under CDP CPU throttle 4x on every page (generator t1-stress-generator.py.txt --throttle 4), 5 runs, 2 workers, nice -n 19. STRESS-ACTIVE lines prove the throttle.
+run 1 exit=0   10 passed (1.4m) 
+run 2 exit=0   10 passed (1.5m) 
+run 3 exit=0   10 passed (1.6m) 
+run 4 exit=0   10 passed (1.4m) 
+run 5 exit=0   10 passed (1.4m) 
+--- run 1
+STRESS-ACTIVE cpu throttle 4x on a page of owner-light-390
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-light-768
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-light-1100
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=31 max-60s=31 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-dark-390
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-dark-768
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-dark-1100
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=31 max-60s=31 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of editor
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of editor
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=80 max-60s=80 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of measurer
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=36 max-60s=35 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=14 max-60s=14 uncharged=2 count429=0
+--- run 2
+STRESS-ACTIVE cpu throttle 4x on a page of owner-light-390
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-light-768
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-light-1100
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=31 max-60s=31 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-dark-390
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-dark-768
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-dark-1100
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=31 max-60s=31 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of editor
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of editor
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=80 max-60s=79 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of measurer
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=36 max-60s=35 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=14 max-60s=14 uncharged=2 count429=0
+--- run 3
+STRESS-ACTIVE cpu throttle 4x on a page of owner-light-390
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-light-768
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-light-1100
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=31 max-60s=31 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-dark-390
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-dark-768
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-dark-1100
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=31 max-60s=31 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of editor
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=39 max-60s=39 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of editor
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=72 max-60s=71 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of measurer
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=36 max-60s=35 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=14 max-60s=14 uncharged=2 count429=0
+--- run 4
+STRESS-ACTIVE cpu throttle 4x on a page of owner-light-390
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-light-768
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-light-1100
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=31 max-60s=31 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-dark-390
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-dark-768
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-dark-1100
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=31 max-60s=31 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of editor
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of editor
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=80 max-60s=79 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of measurer
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=36 max-60s=35 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=14 max-60s=14 uncharged=2 count429=0
+--- run 5
+STRESS-ACTIVE cpu throttle 4x on a page of owner-light-390
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-light-768
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-light-1100
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=31 max-60s=31 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-dark-390
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-dark-768
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-dark-1100
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=31 max-60s=31 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of editor
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of editor
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=80 max-60s=79 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of measurer
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=36 max-60s=35 uncharged=1 count429=0
+STRESS-ACTIVE cpu throttle 4x on a page of owner-live-regions
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=14 max-60s=14 uncharged=2 count429=0
+
+  editor 80 80 0
+  measurer 35 36 0
+  owner-live-regions 14 14 0
+  owner-owner-theme 31 31 0

@@ -1,0 +1,26 @@
+HEL-1830 task 2.3 isolation control (NOT a red/green pair; Decision 3): generator t1-stress-generator.py.txt --control on the FIXED spec. The remaining budget of each LIGHT owner principal is spent right before the dark owner test of the same width loads its first page; the dark test (own principal, own board) stays green. 'burn still live' = the light principal still answered 429 after the dark test.
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+  ✓   1 [dev] › e2e/zz-control1791.spec.ts:296:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px (3.3s)
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+  ✓   2 [dev] › e2e/zz-control1791.spec.ts:296:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px (3.2s)
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+  ✓   3 [dev] › e2e/zz-control1791.spec.ts:296:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px (3.3s)
+STRESS-ACTIVE burn: spent 84 remaining requests of the LIGHT 390px owner principal right before the dark 390px owner test's first page load; 429 Retry-After=47s
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+STRESS-ACTIVE burn still live after the dark 390px test: light principal GET /api/auth/me -> 429
+  ✓   4 [dev] › e2e/zz-control1791.spec.ts:296:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px (6.9s)
+STRESS-ACTIVE burn: spent 84 remaining requests of the LIGHT 768px owner principal right before the dark 768px owner test's first page load; 429 Retry-After=44s
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+STRESS-ACTIVE burn still live after the dark 768px test: light principal GET /api/auth/me -> 429
+  ✓   5 [dev] › e2e/zz-control1791.spec.ts:296:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px (6.7s)
+STRESS-ACTIVE burn: spent 83 remaining requests of the LIGHT 1100px owner principal right before the dark 1100px owner test's first page load; 429 Retry-After=40s
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+STRESS-ACTIVE burn still live after the dark 1100px test: light principal GET /api/auth/me -> 429
+  ✓   6 [dev] › e2e/zz-control1791.spec.ts:296:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px (6.8s)
+  ✓   7 [dev] › e2e/zz-control1791.spec.ts:345:9 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light (6.0s)
+  ✓   8 [dev] › e2e/zz-control1791.spec.ts:345:9 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark (5.8s)
+  ✓   9 [dev] › e2e/zz-control1791.spec.ts:358:7 › HEL-1791 compact counter height in the panel stack › per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) (10.0s)
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+  ✓  10 [dev] › e2e/zz-control1791.spec.ts:401:7 › HEL-1791 compact counter height in the panel stack › owner: a status message and an alert message render in flow in the same live regions (2.6s)
+userCleanup: removed 0 of 10 conversation folders, 0 failed
+  10 passed (57.1s)
