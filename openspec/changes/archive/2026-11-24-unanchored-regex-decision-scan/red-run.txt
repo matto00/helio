@@ -1,0 +1,70 @@
+FAIL src/features/pipelines/evaluator/regexUnanchoredScan.test.ts (13.934 s)
+  ● unanchored exact scan reads code units, not code points (red on main) › (x) on cyr + one trailing lone high surrogate (group H): admitted at exactly the budget with zero codePointAt
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 0
+    Received: 3999000
+
+      89 |       const { value, hit } = counting(() => workExceedsBudget(texts, work));
+      90 |       expect(value).toBe(false);
+    > 91 |       expect(hit.codePointAt).toBe(0);
+         |                               ^
+      92 |     },
+      93 |   );
+      94 |
+
+
+  ● unanchored exact scan reads code units, not code points (red on main) › (x) on surrogate-free cyr: admitted at exactly the budget with zero codePointAt
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 0
+    Received: 4000000
+
+      89 |       const { value, hit } = counting(() => workExceedsBudget(texts, work));
+      90 |       expect(value).toBe(false);
+    > 91 |       expect(hit.codePointAt).toBe(0);
+         |                               ^
+      92 |     },
+      93 |   );
+      94 |
+
+
+  ● unanchored exact scan reads code units, not code points (red on main) › ([^a]+) on its own non-members + one CJK tag: admitted at exactly the budget with zero codePointAt
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 0
+    Received: 3999000
+
+      89 |       const { value, hit } = counting(() => workExceedsBudget(texts, work));
+      90 |       expect(value).toBe(false);
+    > 91 |       expect(hit.codePointAt).toBe(0);
+         |                               ^
+      92 |     },
+      93 |   );
+      94 |
+
+
+  ● stage 1 skips its per-cell surrogate test when the scan is certain (red on main) › runs no stage-1 test on a frame whose length-only sum is already over the budget
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 0
+    Received: 501
+
+      146 |       const { value, hit } = counting(() => l.mod.workExceedsBudget(texts, work));
+      147 |       expect(value).toBe(false);
+    > 148 |       expect(hit.test).toBe(0);
+          |                        ^
+      149 |       expect(l.counted()).toBe(0);
+      150 |     } finally {
+      151 |       l.restore();
+
+
+Test Suites: 1 failed, 2 passed, 3 total
+Tests:       4 failed, 73 passed, 77 total
+Snapshots:   0 total
+Time:        14.551 s
+Ran all test suites matching src/features/pipelines/evaluator/regexUnanchoredScan.test.ts|src/features/pipelines/evaluator/regexCellWork.test.ts|src/features/pipelines/evaluator/regexInputCost.test.ts.

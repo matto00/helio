@@ -154,6 +154,11 @@ export const MODULE_STATE_NOT_USER_DATA: readonly { id: string; reason: string }
     reason: "Memo of translated regular expressions keyed by pattern text; holds no row data.",
   },
   {
+    id: "features/pipelines/evaluator/regexInputCost.ts#bmpTables",
+    reason:
+      "Memo of character-class membership tables keyed by compiled pattern ranges; holds no row data.",
+  },
+  {
     id: "features/pipelines/evaluator/scalaGroup.ts#f32",
     reason: "Scratch buffer for number bit-casting; holds no user data.",
   },

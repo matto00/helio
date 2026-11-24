@@ -1,0 +1,9 @@
+M1 scan reads codePointAt again => Tests:       3 failed, 17 passed, 20 total 
+M2 pair treated as non-member => Tests:       7 failed, 13 passed, 20 total 
+M3 pair high unit looked up in table => Tests:       4 failed, 16 passed, 20 total 
+M4 unpaired surrogate charged 1 unit => Tests:       13 failed, 7 passed, 20 total 
+M5 table range end exclusive => Tests:       10 failed, 10 passed, 20 total 
+M6 table skips first range => Tests:       10 failed, 10 passed, 20 total 
+M7 D2 pre-check with 2 x text.length => Tests:       2 failed, 18 passed, 20 total 
+M8 D2 pre-check deleted (D3 kept) => Tests:       1 failed, 19 passed, 20 total 
+M9 D3 drops the lone count => Tests:       7 failed, 13 passed, 20 total 
