@@ -1,0 +1,14 @@
+HEL-1842 red rate (recorded BEFORE any fix; spec unmodified on this branch)
+
+Conditions: [dev] project, lane servers via start-servers.sh (DEV 7274 / BACKEND 10181, lane DB helio_hel1842),
+Playwright --workers=2 --repeat-each=N on e2e/hel1172-multi-denial-toast.spec.ts:105, no CPU throttle, warm servers
+(cold start and throttle were NOT needed: the cause is data ordering, see root-cause.md).
+
+Run 1 (red-run-warm.txt, unmodified spec): 4 failed / 12 runs, all four at line 146
+  (Beta link expected focused, Received: inactive) -- identical to CI.
+Run 2 (probe-run.txt + probe-order.txt, spec + a read-only probe line logging row order before the Tabs): 6 failed / 8 runs.
+  Probe: failed iff DOM row order was Beta,Alpha (6 of 6); passed iff Alpha,Beta (2 of 2).
+Pooled: 10 failed / 20. Measured p ~= 0.5 (design D5a: use the conservative lower run-1 figure p = 4/12 = 1/3).
+
+Acceptance arithmetic (D5a): N_post >= ceil(3/p) = ceil(3 / (1/3)) = 9 (p=1/2 gives 6). Post-fix N will be 24 under the
+same conditions, so P(0 failures | defect unchanged, p=1/3) = (2/3)^24 ~= 6e-5.

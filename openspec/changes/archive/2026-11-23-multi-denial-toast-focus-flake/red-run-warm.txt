@@ -1,0 +1,177 @@
+
+Running 12 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795476845788-7824@example.com
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795476845788-24419@example.com
+  ✓   1 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (14.7s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795476860510-15451@example.com
+  ✘   2 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (19.5s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795476865524-38110@example.com
+  ✓   4 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.4s)
+  ✘   3 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (17.9s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795476878262-33682@example.com
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795476878897-74213@example.com
+  ✓   5 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.8s)
+  ✓   6 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.7s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795476891417-84389@example.com
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795476891930-56977@example.com
+  ✓   7 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.3s)
+  ✓   8 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.1s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795476904231-34757@example.com
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795476904411-54861@example.com
+  ✓  10 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.3s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795476916994-60698@example.com
+  ✘   9 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (17.4s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795476921878-59782@example.com
+  ✓  11 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (11.9s)
+  ✘  12 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (16.8s)
+userCleanup: removed 0 of 12 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 12 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeFocused[2m()[22m failed
+
+    Locator:  locator('.toast--warning').filter({ has: locator('.toast__list') }).getByRole('link', { name: 'HEL-1172 Beta' })
+    Expected: focused
+    Received: inactive
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeFocused" with timeout 5000ms[22m
+    [2m  - waiting for locator('.toast--warning').filter({ has: locator('.toast__list') }).getByRole('link', { name: 'HEL-1172 Beta' })[22m
+    [2m    9 × locator resolved to <a class="toast__link" data-discover="true" href="/pipelines/7619e49a-70cd-4d69-b021-f301fbcdf838">HEL-1172 Beta</a>[22m
+    [2m      - unexpected value "inactive"[22m
+
+
+      144 |     await expect(runAlpha).toBeFocused();
+      145 |     await page.keyboard.press("Tab");
+    > 146 |     await expect(toast.getByRole("link", { name: "HEL-1172 Beta" })).toBeFocused();
+          |                                                                      ^
+      147 |     await page.keyboard.press("Tab");
+      148 |     await expect(runBeta).toBeFocused();
+      149 |
+        at /home/matt/Development/helio/.claude/worktrees/bug/multi-denial-toast-focus-flake/HEL-1842/e2e/hel1172-multi-denial-toast.spec.ts:146:70
+
+    Error Context: test-results/hel1172-multi-denial-toast-f612a-e-focus-never-drops-to-body-dev-repeat1/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-f612a-e-focus-never-drops-to-body-dev-repeat1/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-f612a-e-focus-never-drops-to-body-dev-repeat1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeFocused[2m()[22m failed
+
+    Locator:  locator('.toast--warning').filter({ has: locator('.toast__list') }).getByRole('link', { name: 'HEL-1172 Beta' })
+    Expected: focused
+    Received: inactive
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeFocused" with timeout 5000ms[22m
+    [2m  - waiting for locator('.toast--warning').filter({ has: locator('.toast__list') }).getByRole('link', { name: 'HEL-1172 Beta' })[22m
+    [2m    9 × locator resolved to <a class="toast__link" data-discover="true" href="/pipelines/0a98ff0c-7dd3-4ab3-a845-d949095e387d">HEL-1172 Beta</a>[22m
+    [2m      - unexpected value "inactive"[22m
+
+
+      144 |     await expect(runAlpha).toBeFocused();
+      145 |     await page.keyboard.press("Tab");
+    > 146 |     await expect(toast.getByRole("link", { name: "HEL-1172 Beta" })).toBeFocused();
+          |                                                                      ^
+      147 |     await page.keyboard.press("Tab");
+      148 |     await expect(runBeta).toBeFocused();
+      149 |
+        at /home/matt/Development/helio/.claude/worktrees/bug/multi-denial-toast-focus-flake/HEL-1842/e2e/hel1172-multi-denial-toast.spec.ts:146:70
+
+    Error Context: test-results/hel1172-multi-denial-toast-f612a-e-focus-never-drops-to-body-dev-repeat2/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-f612a-e-focus-never-drops-to-body-dev-repeat2/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-f612a-e-focus-never-drops-to-body-dev-repeat2/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeFocused[2m()[22m failed
+
+    Locator:  locator('.toast--warning').filter({ has: locator('.toast__list') }).getByRole('link', { name: 'HEL-1172 Beta' })
+    Expected: focused
+    Received: inactive
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeFocused" with timeout 5000ms[22m
+    [2m  - waiting for locator('.toast--warning').filter({ has: locator('.toast__list') }).getByRole('link', { name: 'HEL-1172 Beta' })[22m
+    [2m    9 × locator resolved to <a class="toast__link" data-discover="true" href="/pipelines/3d43d827-b5ab-4c07-95a6-e9f2a305e96a">HEL-1172 Beta</a>[22m
+    [2m      - unexpected value "inactive"[22m
+
+
+      144 |     await expect(runAlpha).toBeFocused();
+      145 |     await page.keyboard.press("Tab");
+    > 146 |     await expect(toast.getByRole("link", { name: "HEL-1172 Beta" })).toBeFocused();
+          |                                                                      ^
+      147 |     await page.keyboard.press("Tab");
+      148 |     await expect(runBeta).toBeFocused();
+      149 |
+        at /home/matt/Development/helio/.claude/worktrees/bug/multi-denial-toast-focus-flake/HEL-1842/e2e/hel1172-multi-denial-toast.spec.ts:146:70
+
+    Error Context: test-results/hel1172-multi-denial-toast-f612a-e-focus-never-drops-to-body-dev-repeat8/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-f612a-e-focus-never-drops-to-body-dev-repeat8/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-f612a-e-focus-never-drops-to-body-dev-repeat8/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeFocused[2m()[22m failed
+
+    Locator:  locator('.toast--warning').filter({ has: locator('.toast__list') }).getByRole('link', { name: 'HEL-1172 Beta' })
+    Expected: focused
+    Received: inactive
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeFocused" with timeout 5000ms[22m
+    [2m  - waiting for locator('.toast--warning').filter({ has: locator('.toast__list') }).getByRole('link', { name: 'HEL-1172 Beta' })[22m
+    [2m    9 × locator resolved to <a class="toast__link" data-discover="true" href="/pipelines/7c00c00a-103f-4a60-9b66-e3d30aa6c8c5">HEL-1172 Beta</a>[22m
+    [2m      - unexpected value "inactive"[22m
+
+
+      144 |     await expect(runAlpha).toBeFocused();
+      145 |     await page.keyboard.press("Tab");
+    > 146 |     await expect(toast.getByRole("link", { name: "HEL-1172 Beta" })).toBeFocused();
+          |                                                                      ^
+      147 |     await page.keyboard.press("Tab");
+      148 |     await expect(runBeta).toBeFocused();
+      149 |
+        at /home/matt/Development/helio/.claude/worktrees/bug/multi-denial-toast-focus-flake/HEL-1842/e2e/hel1172-multi-denial-toast.spec.ts:146:70
+
+    Error Context: test-results/hel1172-multi-denial-toast-f612a-e-focus-never-drops-to-body-dev-repeat11/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-f612a-e-focus-never-drops-to-body-dev-repeat11/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-f612a-e-focus-never-drops-to-body-dev-repeat11/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4 failed
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body 
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body 
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body 
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body 
+  8 passed (1.6m)

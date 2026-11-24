@@ -1,0 +1,39 @@
+CI artifact evidence (run 45281484916, PR #1252, e2e (7), both attempts; error-context.md page snapshot at failure):
+
+attempt 1 (artifact 14871566019) and attempt 2 (14872153232) both show, under region Notifications, list 'Pipelines not updated':
+      - img [ref=e189]
+      - list "Pipelines not updated" [ref=e192]:
+        - listitem [ref=e193]:
+          - link "HEL-1172 Beta" [ref=e194] [cursor=pointer]:
+            - /url: /pipelines/0551b620-4bc5-4090-8a9d-3eac8eab09b3
+          - generic [ref=e195]: This pipeline has too many steps to update automatically.
+          - 'button "Run to update: HEL-1172 Beta" [ref=e196] [cursor=pointer]': Run to update
+        - listitem [ref=e197]:
+          - link "HEL-1172 Alpha" [ref=e198] [cursor=pointer]:
+            - /url: /pipelines/cb15cb7d-5fa5-4753-bc19-de10ae59b28c
+          - generic [ref=e199]: This pipeline has too many steps to update automatically.
+          - 'button "Run to update: HEL-1172 Alpha" [ref=e200] [cursor=pointer]': Run to update
+      - button "Dismiss notification" [active] [ref=e201] [cursor=pointer]:
+        - img [ref=e202] [cursor=pointer]
+  - status [ref=e205]:
+    - generic [ref=e206]: "HEL-1172 Beta: This pipeline has too many steps to update automatically. HEL-1172 Alpha: This pipeline has too many steps to update automatically."
+
+attempt 2 same lines:
+      - img [ref=e189]
+      - list "Pipelines not updated" [ref=e192]:
+        - listitem [ref=e193]:
+          - link "HEL-1172 Beta" [ref=e194] [cursor=pointer]:
+            - /url: /pipelines/27bdd08c-e6b2-47c7-8afa-0404ce89a42a
+          - generic [ref=e195]: This pipeline has too many steps to update automatically.
+          - 'button "Run to update: HEL-1172 Beta" [ref=e196] [cursor=pointer]': Run to update
+        - listitem [ref=e197]:
+          - link "HEL-1172 Alpha" [ref=e198] [cursor=pointer]:
+            - /url: /pipelines/83e2ecd1-26d2-4d43-8a48-b69f79f4ca65
+          - generic [ref=e199]: This pipeline has too many steps to update automatically.
+          - 'button "Run to update: HEL-1172 Alpha" [ref=e200] [cursor=pointer]': Run to update
+      - button "Dismiss notification" [active] [ref=e201] [cursor=pointer]:
+        - img [ref=e202] [cursor=pointer]
+  - status [ref=e205]:
+    - generic [ref=e206]: "HEL-1172 Beta: This pipeline has too many steps to update automatically. HEL-1172 Alpha: This pipeline has too many steps to update automatically."
+
+Reading: DOM row order was Beta, then Alpha. Focus at failure: 'Dismiss notification' [active] (Alpha link -> Alpha run -> Dismiss, since Alpha was the LAST row). Beta link (0551b620...) sorts before Alpha (cb15cb7d...) by id, matching buildDeniedPipelinesToast's sort by pipelineId.

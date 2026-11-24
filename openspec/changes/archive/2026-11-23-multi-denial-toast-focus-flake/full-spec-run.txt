@@ -1,0 +1,17 @@
+
+Running 5 tests using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477744464-49959@example.com
+  ✓  1 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (11.9s)
+[HEL-1300 e2e] throwaway user: hel1172-link-1795477755844-69861@example.com
+  ✓  2 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:184:7 › HEL-1172 multi-denial toast (real backend) › a row's pipeline link opens that pipeline's page (6.0s)
+[HEL-1300 e2e] throwaway user: hel1172-storm-1795477761803-83313@example.com
+  ✓  3 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:194:7 › HEL-1172 multi-denial toast (real backend) › rapid identical writes leave one toast (6.0s)
+[HEL-1300 e2e] throwaway user: hel1172-touch-1795477767779-87054@example.com
+  ✓  4 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:210:7 › HEL-1172 multi-denial toast (real backend) › 390px: every in-toast link and run action has a 44px hit region on the y axis (6.2s)
+[HEL-1300 e2e] throwaway user: hel1172-touch-single-1795477773982-44177@example.com
+  ✓  5 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:234:7 › HEL-1172 multi-denial toast (real backend) › 390px: the single-pipeline toast's 'Run to update' has a 44px hit region (5.0s)
+userCleanup: removed 0 of 5 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 5 recorded throwaway user(s)
+
+  5 passed (35.5s)
