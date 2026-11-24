@@ -65,6 +65,7 @@ function renderSheet(output: Output | null) {
     <MemoryRouter>
       <Provider store={store}>
         <OutputEditorSheet
+          readOnly={false}
           open
           onClose={jest.fn()}
           pipelineId="p-1"

@@ -1,0 +1,65 @@
+# HEL-1839 task 3.1 red run: defaults still fail-open (before 1.3)
+FAILED  RunHistoryList (canRun) shows the viewer empty copy
+FAILED  RunHistoryModal (canRun forwarded) shows the viewer empty copy
+FAILED  OutputHistoryModal (readOnly) shows the viewer empty copy
+FAILED  OutputSheetPreviewCard (readOnly) shows the viewer never-run copy
+FAILED  SpineStatusStrip (canRun) offers no Run to update
+FAILED  useSpineStepActions (canEdit) offers no row menu item
+FAILED  PipelineSpineHeader (canEdit) shows the name as text, with no rename or schedule entry
+FAILED  PipelineSpine (canEdit) offers no Add source and tells the viewer copy
+FAILED  SpineSourceCard (readOnly) has no source actions menu or Edit source name button
+FAILED  SpineOutputs (readOnly) offers no New output
+FAILED  OutputEditorFooter (readOnly) offers Close only
+FAILED  OutputEditorSheet (readOnly) shows no Save or Delete and a disabled name field
+FAILED  StepCardFocused (readOnly) has no step actions and a disabled configuration
+FAILED  StepCardFocused (isOwner) disables the owner-only existing-dataset target; readOnly={false} so only isOwner decides
+passed 0 failed 14
+FAILED  the real sources have no fail-open default and no undefaulted optional role prop
+PASSED  fail-open default canEdit = true
+PASSED  fail-open default canRun = true
+PASSED  fail-open default editable = true
+PASSED  fail-open default isOwner = true
+PASSED  fail-open default readOnly = false
+PASSED  an optional role prop with no default, and a runRole that is optional at all
+PASSED  an interface file is backed only by its mapped consumer, not by a default elsewhere
+passed 7 failed 1
+  ● role defaults are fail-closed across features/pipelines (guard, HEL-1839) › the real sources have no fail-open default and no undefaulted optional role prop
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 28
+
+    - Array []
+    + Array [
+    +   "hooks/usePipelineDraftSave.ts: optional `runRole` has no fail-closed default",
+    +   "ui/RunHistoryModal.tsx: fail-open default",
+    +   "ui/RunHistoryModal.tsx: optional `canRun` has no fail-closed default",
+    +   "ui/StepCardFocused.tsx: fail-open default",
+    +   "ui/outputEditor/OutputEditorFooter.tsx: fail-open default",
+    +   "ui/outputEditor/OutputEditorFooter.tsx: optional `readOnly` has no fail-closed default",
+    +   "ui/outputEditor/OutputEditorSheet.tsx: fail-open default",
+    +   "ui/outputEditor/OutputEditorSheet.tsx: optional `readOnly` has no fail-closed default",
+    +   "ui/outputEditor/OutputSheetPreviewCard.tsx: fail-open default",
+    +   "ui/outputEditor/OutputSheetPreviewCard.tsx: optional `readOnly` has no fail-closed default",
+    +   "ui/outputHistory/OutputHistoryModal.tsx: fail-open default",
+    +   "ui/outputHistory/OutputHistoryModal.tsx: optional `readOnly` has no fail-closed default",
+    +   "ui/spine/PipelineSpine.tsx: fail-open default",
+    +   "ui/spine/PipelineSpine.tsx: optional `canEdit` has no fail-closed default",
+    +   "ui/spine/PipelineSpineHeader.tsx: fail-open default",
+    +   "ui/spine/PipelineSpineHeader.tsx: optional `canEdit` has no fail-closed default",
+    +   "ui/spine/SpineOutputs.tsx: fail-open default",
+    +   "ui/spine/SpineOutputs.tsx: optional `readOnly` has no fail-closed default",
+    +   "ui/spine/SpineSourceCard.tsx: fail-open default",
+    +   "ui/spine/SpineSourceCard.tsx: optional `readOnly` has no fail-closed default",
+    +   "ui/spine/SpineStatusStrip.tsx: fail-open default",
+    +   "ui/spine/SpineStatusStrip.tsx: optional `canRun` has no fail-closed default",
+    +   "ui/spine/useSpineStepActions.tsx: fail-open default",
+    +   "ui/spine/useSpineStepActions.tsx: optional `canEdit` has no fail-closed default",
+    +   "ui/stepCardTypes.ts: optional `isOwner` has no fail-closed default",
+    +   "ui/stepCardTypes.ts: optional `readOnly` has no fail-closed default",
+    + ]
+
+      57 |     const files = sourcesUnder(ROOT);
+      58 |     expect(Object.keys(files).length).toBeGreaterThan(100);
+    > 59 |     expect(violationsIn(files)).toEqual([]);

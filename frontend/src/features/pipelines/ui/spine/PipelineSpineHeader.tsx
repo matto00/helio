@@ -62,7 +62,7 @@ export interface SpineHeaderProps {
 
 // HEL-1809: memoised; the layout keeps every prop's identity stable across an edit that does not touch the header.
 export const PipelineSpineHeader = memo(function PipelineSpineHeader({
-  canEdit = true,
+  canEdit = false,
   ...props
 }: SpineHeaderProps) {
   const { pipelineName, outputName, editingName, updateStatus, isConfirmingCancel, schedule, run } =

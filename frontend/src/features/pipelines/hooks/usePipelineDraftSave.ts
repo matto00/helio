@@ -39,8 +39,8 @@ type SaveArgs = {
   refreshRunHistoryAfterRun: () => void;
   refreshVisibleOutputPreviews: (pipelineId: string, outputIds?: readonly string[]) => void;
   onRunNow?: () => void;
-  /** HEL-1661: a viewer cannot run, so Save & run and its cascade confirmation return early for one. */
-  runRole?: PipelineRunRole;
+  /** HEL-1661: a viewer cannot run, so Save & run and its cascade confirmation return early for one. Required (HEL-1839): a caller must say who it is. */
+  runRole: PipelineRunRole;
 };
 
 /**

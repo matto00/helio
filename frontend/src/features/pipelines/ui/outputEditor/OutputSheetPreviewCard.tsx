@@ -26,7 +26,7 @@ export function OutputSheetPreviewCard({
   neverMaterialized,
   fieldTypes,
   onRunPipeline,
-  readOnly = false,
+  readOnly = true,
 }: OutputSheetPreviewCardProps) {
   const {
     chartType,

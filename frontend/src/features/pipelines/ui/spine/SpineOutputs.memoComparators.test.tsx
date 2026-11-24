@@ -45,6 +45,7 @@ const props = (over: Record<string, unknown> = {}) => {
     onOpenOutput: noop,
     onOpenHistory: noop,
     onAddOutput: noop,
+    readOnly: false,
     ...over,
   };
 };

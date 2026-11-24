@@ -1,0 +1,7 @@
+# CR1 settled: viewer on phone x6, contrast-phone-light.json after each run
+run 1:   1 passed (12.6s) | light output name=14.198 kind=14.198
+run 2:   1 passed (10.6s) | light output name=14.198 kind=14.198
+run 3:   1 passed (10.5s) | light output name=14.198 kind=14.198
+run 4:   1 passed (11.1s) | light output name=14.198 kind=14.198
+run 5:   1 passed (10.5s) | light output name=14.198 kind=14.198
+run 6:   1 passed (10.5s) | light output name=14.198 kind=14.198

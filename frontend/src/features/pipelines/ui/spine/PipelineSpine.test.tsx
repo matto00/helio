@@ -68,7 +68,7 @@ function Harness({
   getAnalyzeWarnings = () => [],
   refuse = false,
   onReorderSteps,
-  canEdit,
+  canEdit = true,
 }: HarnessProps) {
   const [steps, setSteps] = useState<Step[]>(initialSteps);
   const laneGraph = useMemo(() => buildLaneGraph(steps, roots), [steps, roots]);
@@ -89,6 +89,7 @@ function Harness({
     onAddRoot: jest.fn(),
     onInstantiateShape: jest.fn(async () => {}),
     onReorderSteps: reorder,
+    canEdit,
   });
   return (
     <>

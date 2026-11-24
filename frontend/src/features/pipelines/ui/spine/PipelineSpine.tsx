@@ -103,7 +103,7 @@ export function PipelineSpine({
   onAddOutput,
   onOpenOutput,
   onOpenOutputHistory,
-  canEdit = true,
+  canEdit = false,
 }: PipelineSpineProps) {
   const phone = variant === "phone";
   // Stable, so the memoised Outputs section is not re-rendered by a new closure on every edit.

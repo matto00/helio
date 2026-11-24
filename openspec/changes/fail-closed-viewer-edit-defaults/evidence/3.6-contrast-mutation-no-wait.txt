@@ -1,0 +1,7 @@
+# CR1 mutation: the animation wait disabled (0 && Promise.all), same 6 runs
+run 1:   1 passed (11.4s) | light output name=9.709 kind=12.126
+run 2:   1 passed (11.2s) | light output name=8.017 kind=11.093
+run 3:   1 passed (10.5s) | light output name=9.710 kind=11.091
+run 4:   1 passed (10.9s) | light output name=8.015 kind=11.085
+run 5:   1 passed (10.9s) | light output name=8.012 kind=11.090
+run 6:   1 passed (11.0s) | light output name=9.712 kind=11.093

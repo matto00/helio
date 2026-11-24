@@ -12,7 +12,7 @@ export function SpineStatusStrip({
   costVerdict,
   onRunToUpdate,
   truncationNotice,
-  canRun = true,
+  canRun = false,
 }: {
   costVerdict: CostVerdict | null;
   onRunToUpdate: () => void;

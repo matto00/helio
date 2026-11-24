@@ -30,7 +30,7 @@ export function OutputEditorFooter({
   onAddTailWithAggregate,
   onSave,
   saveBlocked = false,
-  readOnly = false,
+  readOnly = true,
 }: OutputEditorFooterProps) {
   if (readOnly) {
     // HEL-1794: a viewer can only leave the sheet.

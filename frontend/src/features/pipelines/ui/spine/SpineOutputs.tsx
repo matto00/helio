@@ -44,7 +44,7 @@ function SpineOutputsView({
   onAddOutput,
   blockedReason = null,
   editedOutputIds,
-  readOnly = false,
+  readOnly = true,
 }: SpineOutputsProps) {
   const phone = variant === "phone";
   const stepLabelById = new Map(steps.map((s) => [s.id, s.label]));

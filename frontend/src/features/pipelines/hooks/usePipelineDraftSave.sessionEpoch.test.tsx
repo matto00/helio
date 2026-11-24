@@ -77,6 +77,7 @@ function setup() {
         setSseActive: jest.fn(),
         refreshRunHistoryAfterRun: jest.fn(),
         refreshVisibleOutputPreviews: jest.fn(),
+        runRole: "owner",
       }),
     { wrapper },
   );

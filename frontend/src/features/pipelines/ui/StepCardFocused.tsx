@@ -26,7 +26,7 @@ const EMPTY_ALL_STEPS: FocusedStepCardProps["allSteps"] = [];
 export function StepCardFocused({
   step,
   allSteps = EMPTY_ALL_STEPS,
-  isOwner = true,
+  isOwner = false,
   stepNumber,
   onRemove,
   analyzeColumns,
@@ -43,7 +43,7 @@ export function StepCardFocused({
   savedError,
   structuralBlockedReason = null,
   draftPreviewError = null,
-  readOnly = false,
+  readOnly = true,
 }: FocusedStepCardProps) {
   const stepCardState = useStepCardState(step, onConfigChange);
   const warningsHeadingId = useId();

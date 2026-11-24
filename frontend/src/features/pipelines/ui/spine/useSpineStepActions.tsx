@@ -77,7 +77,7 @@ export function useSpineStepActions({
   onReorderSteps,
   structuralBlockedReason = null,
   outputBlockedReason = null,
-  canEdit = true,
+  canEdit = false,
 }: SpineStepActionsArgs): SpineStepActions {
   const blocked = structuralBlockedReason !== null;
   const reason = structuralBlockedReason ?? undefined;

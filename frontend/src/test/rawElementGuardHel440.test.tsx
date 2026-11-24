@@ -122,7 +122,7 @@ describe("HEL-440 raw-element guard — migrated rename controls", () => {
   });
 
   it("PipelineSpineHeader: the 'Pipeline name' rename control carries TextField's ui-input class", () => {
-    renderWithStore(<PipelineSpineHeader {...pipelineHeaderNoopProps} />);
+    renderWithStore(<PipelineSpineHeader {...pipelineHeaderNoopProps} canEdit />);
 
     const input = screen.getByRole("textbox", { name: "Pipeline name" });
     expect(input).toHaveClass("ui-input");

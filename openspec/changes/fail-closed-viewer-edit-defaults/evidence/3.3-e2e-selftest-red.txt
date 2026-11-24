@@ -1,0 +1,51 @@
+
+Running 4 tests using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1794-owner-desktop-1795542183067-27114@example.test
+[HEL-1300 e2e] throwaway user: hel1661-editor-desktop-1795542185279-68059@example.test
+[HEL-1300 e2e] throwaway user: hel1661-viewer-desktop-1795542185945-56794@example.test
+  ✓  1 [dev] › e2e/hel1794-viewer-read-only.spec.ts:321:9 › HEL-1794 viewer read-only pipeline page (live) › viewer on desktop: no edit control, no write request, no draft, light and dark (10.6s)
+[HEL-1300 e2e] throwaway user: hel1794-owner-phone-1795542193347-98707@example.test
+[HEL-1300 e2e] throwaway user: hel1661-editor-phone-1795542195190-95492@example.test
+[HEL-1300 e2e] throwaway user: hel1661-viewer-phone-1795542195468-37366@example.test
+  ✓  2 [dev] › e2e/hel1794-viewer-read-only.spec.ts:321:9 › HEL-1794 viewer read-only pipeline page (live) › viewer on phone: no edit control, no write request, no draft, light and dark (10.1s)
+[HEL-1300 e2e] throwaway user: hel1794-owner-selftest-1795542203469-91140@example.test
+[HEL-1300 e2e] throwaway user: hel1661-editor-selftest-1795542205233-99792@example.test
+[HEL-1300 e2e] throwaway user: hel1661-viewer-selftest-1795542205498-44587@example.test
+  ✘  3 [dev] › e2e/hel1794-viewer-read-only.spec.ts:354:7 › HEL-1794 viewer read-only pipeline page (live) › scan self-test: an enabled link and summary in a disabled fieldset are reported, a disabled input is not (5.4s)
+[HEL-1300 e2e] throwaway user: hel1794-owner-editor-1795542209842-20052@example.test
+[HEL-1300 e2e] throwaway user: hel1661-editor-control-1795542211597-7986@example.test
+[HEL-1300 e2e] throwaway user: hel1661-viewer-control-1795542211860-23546@example.test
+  ✓  4 [dev] › e2e/hel1794-viewer-read-only.spec.ts:392:7 › HEL-1794 viewer read-only pipeline page (live) › editor keeps every edit control on desktop and phone, and typing creates a draft (11.1s)
+userCleanup: removed 0 of 12 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 12 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/hel1794-viewer-read-only.spec.ts:354:7 › HEL-1794 viewer read-only pipeline page (live) › scan self-test: an enabled link and summary in a disabled fieldset are reported, a disabled input is not 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoContain[2m([22m[32mexpected[39m[2m) // indexOf[22m
+
+    Expected value: [32m"planted-link"[39m
+    Received array: [31m["Pipelines", "Pipeline actions", "Step 1: Compute column", "Open hel1661-out output", "Output actions for hel1661-out"][39m
+
+      383 |       return run().map((f) => f.name);
+      384 |     }, scanInPage.toString());
+    > 385 |     expect(found).toContain("planted-link");
+          |                   ^
+      386 |     expect(found).toContain("planted-summary");
+      387 |     expect(found).not.toContain("planted-input");
+      388 |     await editor.context.close();
+
+    Error Context: test-results/hel1794-viewer-read-only-H-c2098-ted-a-disabled-input-is-not-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1794-viewer-read-only-H-c2098-ted-a-disabled-input-is-not-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1794-viewer-read-only-H-c2098-ted-a-disabled-input-is-not-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [dev] › e2e/hel1794-viewer-read-only.spec.ts:354:7 › HEL-1794 viewer read-only pipeline page (live) › scan self-test: an enabled link and summary in a disabled fieldset are reported, a disabled input is not 
+  3 passed (38.5s)

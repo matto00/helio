@@ -209,6 +209,7 @@ describe("[guard] usePipelineDraftSave returned keys", () => {
           refreshRunHistoryAfterRun: jest.fn(),
           refreshVisibleOutputPreviews: jest.fn(),
           onRunNow: jest.fn(),
+          runRole: "owner",
         }),
       {
         wrapper: ({ children }: { children: ReactNode }) => <MemoryRouter>{children}</MemoryRouter>,

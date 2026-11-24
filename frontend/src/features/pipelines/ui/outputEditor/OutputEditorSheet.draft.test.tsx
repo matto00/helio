@@ -65,6 +65,7 @@ function renderSheet(
     <MemoryRouter>
       <Provider store={store}>
         <OutputEditorSheet
+          readOnly={false}
           open
           onClose={onClose}
           pipelineId="pipe-1"
@@ -207,6 +208,7 @@ describe("the sheet in a draft: the rest of the typed-schema cases (HEL-1733 D5)
       <MemoryRouter>
         <Provider store={store}>
           <OutputEditorSheet
+            readOnly={false}
             open
             onClose={jest.fn()}
             pipelineId="pipe-1"

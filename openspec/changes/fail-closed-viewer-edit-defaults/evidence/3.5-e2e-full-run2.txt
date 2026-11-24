@@ -1,0 +1,6 @@
+  ✓  1 [dev] › e2e/hel1794-viewer-read-only.spec.ts:338:9 › HEL-1794 viewer read-only pipeline page (live) › viewer on desktop: no edit control, no write request, no draft, light and dark (9.9s)
+  ✓  2 [dev] › e2e/hel1794-viewer-read-only.spec.ts:338:9 › HEL-1794 viewer read-only pipeline page (live) › viewer on phone: no edit control, no write request, no draft, light and dark (9.9s)
+  ✓  3 [dev] › e2e/hel1794-viewer-read-only.spec.ts:371:7 › HEL-1794 viewer read-only pipeline page (live) › scan self-test: an enabled link and summary in a disabled fieldset are reported, a disabled input is not (5.0s)
+  ✓  4 [dev] › e2e/hel1794-viewer-read-only.spec.ts:409:7 › HEL-1794 viewer read-only pipeline page (live) › editor keeps every edit control on desktop and phone, and typing creates a draft (9.6s)
+userCleanup: removed 0 of 12 conversation folders, 0 failed
+  4 passed (35.0s)

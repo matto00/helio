@@ -1,0 +1,24 @@
+# HEL-1839 task 3.4: e2e scan self-test under mutations of scan() itself
+## unmutated
+  ✓  1 [dev] › e2e/hel1794-viewer-read-only.spec.ts:361:7 › HEL-1794 viewer read-only pipeline page (live) › scan self-test: an enabled link and summary in a disabled fieldset are reported, a disabled input is not (5.6s)
+userCleanup: removed 0 of 3 conversation folders, 0 failed
+  1 passed (6.2s)
+## (a) restore the fieldset[disabled] ancestry skip
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+1
+  ✘  1 [dev] › e2e/hel1794-viewer-read-only.spec.ts:361:7 › HEL-1794 viewer read-only pipeline page (live) › scan self-test: an enabled link and summary in a disabled fieldset are reported, a disabled input is not (5.6s)
+userCleanup: removed 0 of 3 conversation folders, 0 failed
+    Expected value: "planted-link"
+    Received array: ["Pipelines", "Pipeline actions", "Step 1: Compute column", "Open hel1661-out output", "Output actions for hel1661-out"]
+  1 failed
+## (b) drop summary from SELECTOR
+0
+  ✘  1 [dev] › e2e/hel1794-viewer-read-only.spec.ts:361:7 › HEL-1794 viewer read-only pipeline page (live) › scan self-test: an enabled link and summary in a disabled fieldset are reported, a disabled input is not (5.8s)
+userCleanup: removed 0 of 3 conversation folders, 0 failed
+    Expected value: "planted-summary"
+    Received array: ["Pipelines", "Pipeline actions", "Step 1: Compute column", "Open hel1661-out output", "Output actions for hel1661-out", "planted-link"]
+  1 failed
+## restored
+  ✓  1 [dev] › e2e/hel1794-viewer-read-only.spec.ts:361:7 › HEL-1794 viewer read-only pipeline page (live) › scan self-test: an enabled link and summary in a disabled fieldset are reported, a disabled input is not (5.5s)
+userCleanup: removed 0 of 3 conversation folders, 0 failed
+  1 passed (6.1s)
