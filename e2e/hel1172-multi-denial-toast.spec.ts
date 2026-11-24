@@ -138,14 +138,27 @@ test.describe("HEL-1172 multi-denial toast (real backend)", () => {
     await page.waitForTimeout(5500);
     await expect(toast).toHaveCount(1);
 
-    // Keyboard order: Alpha link -> Alpha run -> Beta link -> Beta run.
-    await toast.getByRole("link", { name: "HEL-1172 Alpha" }).focus();
+    // Keyboard order: first row's link -> its run -> second row's link -> its run. Rows are sorted by pipeline id
+    // (buildDeniedPipelinesToast), and ids are server-generated UUIDs, so which of Alpha/Beta comes first varies per
+    // run (HEL-1842); the expected order is derived from the ids, and the DOM order is asserted to match it.
+    const alphaFirst = alpha.id.localeCompare(beta.id) < 0;
+    const rows = alphaFirst
+      ? [
+          { name: "HEL-1172 Alpha", run: runAlpha },
+          { name: "HEL-1172 Beta", run: runBeta },
+        ]
+      : [
+          { name: "HEL-1172 Beta", run: runBeta },
+          { name: "HEL-1172 Alpha", run: runAlpha },
+        ];
+    await expect(toast.locator(".toast__link")).toHaveText(rows.map((r) => r.name));
+    await toast.getByRole("link", { name: rows[0].name }).focus();
     await page.keyboard.press("Tab");
-    await expect(runAlpha).toBeFocused();
+    await expect(rows[0].run).toBeFocused();
     await page.keyboard.press("Tab");
-    await expect(toast.getByRole("link", { name: "HEL-1172 Beta" })).toBeFocused();
+    await expect(toast.getByRole("link", { name: rows[1].name })).toBeFocused();
     await page.keyboard.press("Tab");
-    await expect(runBeta).toBeFocused();
+    await expect(rows[1].run).toBeFocused();
 
     // Enter on Beta's run: only Beta runs, its action goes, focus lands on Beta's own link.
     await form.getByRole("button", { name: "Submit" }).focus();

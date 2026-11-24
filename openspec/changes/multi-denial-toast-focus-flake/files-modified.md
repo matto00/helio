@@ -1,0 +1,2 @@
+- `e2e/hel1172-multi-denial-toast.spec.ts` — keyboard-order step derives row order from pipeline ids (the product sort) and asserts DOM order, then real-Tab sequence over that order
+- `openspec/changes/multi-denial-toast-focus-flake/*.txt|root-cause.md` — red/green/mutation evidence and root cause
