@@ -2,7 +2,7 @@ package com.helio.services.dashboards
 
 import com.helio.services.proposals.{ProposalLayoutSupport, ProposalPanelSupport}
 import com.helio.services.auth.AccessChecker
-import com.helio.services.panels.{OutputControlsValidator, PanelService}
+import com.helio.services.panels.{FormPlacementRule, OutputControlsValidator, PanelService}
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.api.protocols.proposals.{ProposalPanel, ReplaceDashboardContentsRequest}
@@ -94,7 +94,7 @@ final class DashboardContentsService(
     buildPanels(dashboardId, panels, user).flatMap {
       case Left(err) => Future.successful(Left(err))
       case Right(built) =>
-        val layout = ProposalLayoutSupport.buildLayout(panels, built.map(_.id))
+        val layout = ProposalLayoutSupport.buildLayout(panels, built.map(_.id), minRows = built.map(FormPlacementRule.minRowsFor))
         dashboardRepo.replaceContents(dashboardId, built, layout).map {
           case None         => Left(ServiceError.NotFound("Dashboard not found"))
           case Some(result @ (_, newPanels)) =>

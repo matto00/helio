@@ -1,0 +1,4 @@
+[info] Run completed in 3 minutes, 25 seconds.
+[info] Suites: completed 238, aborted 0
+[info] Tests: succeeded 4311, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.

@@ -3,7 +3,7 @@ package com.helio.infrastructure.persistence.panels
 import com.helio.api.protocols.panels.PanelBatchItem
 import com.helio.domain.model._
 import com.helio.domain.panels._
-import com.helio.services.panels.{CreatePlacement, PlacedLayouts, PlacementSizes}
+import com.helio.services.panels.{CreatePlacement, FormPlacementRule, PlacedLayouts, PlacementSizes}
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
@@ -69,8 +69,10 @@ trait PanelMutationOps { self: PanelRepository =>
               lastUpdated = now,
               ownerId     = UUID.fromString(ownerId.value)
             )
+            // Read from the in-transaction source row (the copy has its type and config), not a pre-read.
+            val minH = FormPlacementRule.minRowsFor(rowToDomain(source))
             val plan = (layout: DashboardLayout) =>
-              Vector(PanelId(newRow.id) -> CreatePlacement.duplicateSizes(layout, PanelId(source.id), kindDefault))
+              Vector(PanelId(newRow.id) -> CreatePlacement.duplicateSizes(layout, PanelId(source.id), kindDefault, minH))
             PanelLayoutPlacement
               .insertAndAppend(DashboardId(source.dashboardId), table += newRow, plan)
               .map(placed => Option((rowToDomain(newRow), placed.head)))

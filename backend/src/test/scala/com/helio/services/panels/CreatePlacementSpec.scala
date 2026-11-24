@@ -54,5 +54,17 @@ class CreatePlacementSpec extends AnyWordSpec with Matchers {
     "fall back to the kind default when the source is orphaned everywhere" in {
       CreatePlacement.duplicateSizes(emptyLayout, id("s"), PlacementSizes.ContentDefault) shouldBe PlacementSizes.ContentDefault
     }
+
+    "floor every breakpoint's height at minH (a 4-row source becomes 5; a taller one is kept)" in {
+      val layout = DashboardLayout(
+        Vector(item("s", 0, 0, 6, 4)), Vector(item("s", 0, 0, 5, 7)), Vector.empty, Vector.empty
+      )
+      val sizes = CreatePlacement.duplicateSizes(layout, id("s"), PlacementSizes.ContentDefault, minH = 5)
+      List(sizes.lg, sizes.md, sizes.sm, sizes.xs).map(_.h) shouldBe List(5, 7, 5, 5)
+    }
+
+    "leave the height alone with the default minH" in {
+      CreatePlacement.duplicateSizes(lgOnly, id("s"), PlacementSizes.ContentDefault).lg.h shouldBe 4
+    }
   }
 }

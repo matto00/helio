@@ -1,0 +1,58 @@
+HEL-1834 mutation evidence: each mutation applied alone, the named specs run, then reverted (files restored byte-for-byte).
+
+== dup-floor
+[info] - should give a duplicate of a 4-row multi-field form 5 rows in every breakpoint, leaving the source and others unchanged *** FAILED ***
+[info] - should floor every breakpoint's height at minH (a 4-row source becomes 5; a taller one is kept) *** FAILED ***
+[info] Tests: succeeded 30, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+
+== dup-minH-wiring
+[info] - should give a duplicate of a 4-row multi-field form 5 rows in every breakpoint, leaving the source and others unchanged *** FAILED ***
+[info] Tests: succeeded 31, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+
+== proposal-wiring
+[info] - should grow an authored 4-row multi-field form to 5 rows in lg when the space below is free *** FAILED ***
+[info] Tests: succeeded 31, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+
+== contents-wiring
+[info] - should grow an authored 4-row multi-field form to 5 rows in lg when the space below is free *** FAILED ***
+[info] Tests: succeeded 31, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+
+== lift-ignores-free
+[info] - should keep the authored 4 rows when another authored panel sits directly below, and not move that panel *** FAILED ***
+[info] - should keep 4 rows, and leave the neighbour where it is, when an authored panel sits directly below *** FAILED ***
+[info] - should resolve two stacked sub-minimum forms deterministically: the lower is lifted, the upper keeps 4 *** FAILED ***
+[info] Tests: succeeded 29, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
+
+== counter-not-exempt
+[info] - should keep a duplicate of a 4-row compact counter at 4 rows *** FAILED ***
+[info] - should keep an authored 4-row compact counter at 4 rows *** FAILED ***
+[info] - should keep an authored 4-row compact counter at 4 rows *** FAILED ***
+[info] - should be 5 for a non-counter form and 1 for a compact counter *** FAILED ***
+[info] Tests: succeeded 28, failed 4, canceled 0, ignored 0, pending 0
+[info] *** 4 TESTS FAILED ***
+
+== predicate-nonempty
+[info] - should be false for two fields even when one is a counter *** FAILED ***
+[info] Tests: succeeded 31, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+
+== free-ignores-cols
+[info] - should ignore an item beside the target (touching columns) or further below than the grown height *** FAILED ***
+[info] - should grow when the panel below is in other columns *** FAILED ***
+[info] Tests: succeeded 30, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+
+== guard-import
+[info] - should GUARD: dashboard import *** FAILED ***
+[info] Tests: succeeded 31, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+
+== guard-dashdup
+[info] - should GUARD: dashboard duplicate *** FAILED ***
+[info] Tests: succeeded 31, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***

@@ -1,0 +1,44 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.13.0.3)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/form-min-rows-duplicate-proposal/HEL-1834/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/form-min-rows-duplicate-proposal/HEL-1834/backend/)
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/bug/form-min-rows-duplicate-proposal/HEL-1834/backend/target/out/jvm/scala-2.13.15/helio-backend/test-classes ...
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+23:08:01,088 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+
+[info] FormMinRowsPathsSpec:
+| hel1456_repair_ghost_layout_items |
++-----------------------------------+
+| 0                                 |
++-----------------------------------+
+
+[info] POST /api/panels/:id/duplicate
+[info] - should give a duplicate of a 4-row multi-field form 5 rows in every breakpoint, leaving the source and others unchanged *** FAILED ***
+[info]   4 was not equal to 5 (FormMinRowsPathsSpec.scala:105)
+[info] - should keep a duplicate of a 4-row compact counter at 4 rows
+[info] POST /api/dashboards/apply-proposal
+[info] - should grow an authored 4-row multi-field form to 5 rows in lg when the space below is free *** FAILED ***
+[info]   4 was not equal to 5 (FormMinRowsPathsSpec.scala:125)
+[info] - should keep the authored 4 rows when another authored panel sits directly below, and not move that panel
+[info] - should keep an authored 4-row compact counter at 4 rows
+[info] PUT /api/dashboards/:id/contents
+[info] - should grow an authored 4-row multi-field form to 5 rows in lg when the space below is free *** FAILED ***
+[info]   4 was not equal to 5 (FormMinRowsPathsSpec.scala:150)
+[info] - should keep an authored 4-row compact counter at 4 rows
+[info] GUARD: paths the owner ruled out keep a saved 4-row form at 4 rows
+[info] - should GUARD: dashboard import
+[info] - should GUARD: dashboard duplicate
+[info] [hel1468-guard] ScalaTest summary: failed=3 aborted=0 unreadable=0
+[info] Run completed in 4 seconds, 409 milliseconds.
+[info] Total number of tests run: 9
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 6, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.panels.FormMinRowsPathsSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 5 s, cache 93%, 27 disk cache hits, 2 onsite tasks

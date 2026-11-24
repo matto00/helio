@@ -1,0 +1,95 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.13.0.3)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/form-min-rows-duplicate-proposal/HEL-1834/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/form-min-rows-duplicate-proposal/HEL-1834/backend/)
+[info] compiling 7 Scala sources to /home/matt/Development/helio/.claude/worktrees/bug/form-min-rows-duplicate-proposal/HEL-1834/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+[info] done compiling
+[info] compiling 5 Scala sources to /home/matt/Development/helio/.claude/worktrees/bug/form-min-rows-duplicate-proposal/HEL-1834/backend/target/out/jvm/scala-2.13.15/helio-backend/test-classes ...
+[info] done compiling
+[info] PanelCreatePlacementSpec:
+[info] POST /api/panels
+[info] - should store an item in lg, md, sm and xs for every panel kind, valid and non-overlapping
+[info] - should give a text panel the client's per-breakpoint default size at the origin of an empty dashboard
+[info] - should return the stored per-breakpoint items in the response
+[info] - should keep the Output default size, scaled per breakpoint, byte-identical to before
+[info] - should store both placements when two panels are created concurrently
+[info] - should leave a stored layout that the layout PATCH validator accepts unchanged, after every create path
+[info] - should never overlap an existing item even when a breakpoint was stored with items below another's bottom
+[info] POST /api/panels/batch
+[info] - should store and return an item per breakpoint for every created panel, stacked in request order
+[info] - should leave the stored layout unchanged when the batch is rejected
+[info] POST /api/panels/:id/duplicate
+[info] - should store and return an item below the existing ones and keep the source size
+[info] - should scale the source's lg size into a breakpoint where the source has no item
+[info] - should use the kind default size when the source is orphaned everywhere
+[info] POST /api/dashboards/apply-proposal
+[info] - should give a panel with no authored placement an item in every breakpoint and keep the authored one
+[info] panel create under row-level security
+[info] - should run on an app pool that is neither superuser nor BYPASSRLS, with RLS forced on dashboards and panels
+[info] - should store the panel and its four items for an editor grantee
+[info] - should store a batch and a duplicate with their items for an editor grantee
+[info] - should write nothing for a caller with no grant
+[info] - should write nothing for a viewer grantee
+[info] an orphan carried by a dashboard duplicate or import
+[info] - should stay faithful in a dashboard duplicate and be accepted by the owner repair appended
+[info] - should stay faithful in an export-then-import and be accepted by the owner repair appended
+[info] FormPlacementRuleSpec:
+[info] FormPanelConfig.isCompactCounter
+[info] - should be false for zero fields and for the Empty config
+[info] - should be true for exactly one counter field
+[info] - should be false for one non-counter field
+[info] - should be false for two fields even when one is a counter
+[info] FormPlacementRule.minRowsFor
+[info] - should be 5 for a non-counter form and 1 for a compact counter
+[info] FormPlacementRule.isSpaceBelowFree
+[info] - should be true when nothing else is on the rows below in the target's columns
+[info] - should be false when another item occupies the row directly below in an overlapping column
+[info] - should ignore an item beside the target (touching columns) or further below than the grown height
+[info] - should ignore the target itself by panel id
+[info] FirstRunLayoutValiditySpec:
+[info] the streamer persona dashboard
+[info] - should validate at lg and derive valid md/sm/xs layouts
+[info] the founder persona dashboard
+[info] - should validate at lg and derive valid md/sm/xs layouts
+[info] the ops persona dashboard
+[info] - should validate at lg and derive valid md/sm/xs layouts
+[info] the finance persona dashboard
+[info] - should validate at lg and derive valid md/sm/xs layouts
+[info] ProposalLayoutSupportMinRowsSpec:
+[info] ProposalLayoutSupport.buildLayout with minRows
+[info] - should grow an authored 4-row item to 5 when nothing is below it
+[info] - should keep 4 rows, and leave the neighbour where it is, when an authored panel sits directly below
+[info] - should grow when the panel below is in other columns
+[info] - should keep an item with no floor (minRows 1) at its authored height
+[info] - should append an unauthored panel below the lifted bottom, and stay valid at every breakpoint
+[info] - should resolve two stacked sub-minimum forms deterministically: the lower is lifted, the upper keeps 4
+[info] FormMinRowsPathsSpec:
+[info] POST /api/panels/:id/duplicate
+[info] - should give a duplicate of a 4-row multi-field form 5 rows in every breakpoint, leaving the source and others unchanged
+[info] - should keep a duplicate of a 4-row compact counter at 4 rows
+[info] POST /api/dashboards/apply-proposal
+[info] - should grow an authored 4-row multi-field form to 5 rows in lg when the space below is free
+[info] - should keep the authored 4 rows when another authored panel sits directly below, and not move that panel
+[info] - should keep an authored 4-row compact counter at 4 rows
+[info] PUT /api/dashboards/:id/contents
+[info] - should grow an authored 4-row multi-field form to 5 rows in lg when the space below is free
+[info] - should keep an authored 4-row compact counter at 4 rows
+[info] GUARD: paths the owner ruled out keep a saved 4-row form at 4 rows
+[info] - should GUARD: dashboard import
+[info] - should GUARD: dashboard duplicate
+[info] CreatePlacementSpec:
+[info] CreatePlacement.append
+[info] - should stack panels at x = 0 below each breakpoint's own bottom, counting earlier panels of the same call
+[info] - should give the content default 4/4/3/2 columns by 5 rows
+[info] - should scale an lg size per breakpoint, never wider than the grid and never below 1
+[info] CreatePlacement.duplicateSizes
+[info] - should prefer the source's stored item, clamping its width to the grid
+[info] - should scale the source's lg item where the source has no item at a breakpoint
+[info] - should fall back to the kind default when the source is orphaned everywhere
+[info] - should floor every breakpoint's height at minH (a 4-row source becomes 5; a taller one is kept)
+[info] - should leave the height alone with the default minH
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Run completed in 12 seconds, 650 milliseconds.
+[info] Total number of tests run: 56
+[info] Suites: completed 6, aborted 0
+[info] Tests: succeeded 56, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
