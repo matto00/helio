@@ -1,4 +1,4 @@
-import { patchDashboardTabsRequest } from "../../auth/services/authService";
+import { patchShellPreferencesRequest } from "../../auth/services/authService";
 import {
   cancelTabsWrite,
   flushTabsWrite,
@@ -11,11 +11,11 @@ import { openTabInBackground, tabViewed } from "./dashboardTabsSlice";
 import { handlePageHidden } from "./tabsBrowserTriggers";
 
 jest.mock("../../auth/services/authService", () => ({
-  patchDashboardTabsRequest: jest.fn().mockResolvedValue(undefined),
+  patchShellPreferencesRequest: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock("./dashboardChangesService", () => ({ fetchDashboardChanges: jest.fn() }));
 
-const patchMock = jest.mocked(patchDashboardTabsRequest);
+const patchMock = jest.mocked(patchShellPreferencesRequest);
 const wire = (ids: string[]) =>
   toTabsWire(
     ids.map((id) => tab(id)),
@@ -26,7 +26,7 @@ describe("tab set persistence (design D2)", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     patchMock.mockReset();
-    patchMock.mockResolvedValue(undefined);
+    patchMock.mockResolvedValue({ accentColor: null, zoomLevels: {} });
     cancelTabsWrite();
   });
   afterEach(() => {
@@ -42,7 +42,9 @@ describe("tab set persistence (design D2)", () => {
     await jest.advanceTimersByTimeAsync(TABS_WRITE_DEBOUNCE_MS + 1);
     expect(patchMock).toHaveBeenCalledTimes(1);
     expect(
-      (patchMock.mock.calls[0][0] as { tabs: { id: string }[] }).tabs.map((t) => t.id),
+      (
+        patchMock.mock.calls[0][0] as { dashboardTabs: { tabs: { id: string }[] } }
+      ).dashboardTabs.tabs.map((t) => t.id),
     ).toEqual(["a", "b", "c"]);
   });
 

@@ -1,0 +1,23 @@
+=== M1 drop drain-on-failure
+  ● preferencesSaveQueue (HEL-1829) › a failed in-flight request still drains the trailing one
+  ● saveAssistantModelPreference rollback (HEL-1829 D6) › (a) X in flight, then Y, then X: the first X failing does not roll back; the trailing X succeeds -> X local and sent
+  ● saveAssistantModelPreference rollback (HEL-1829 D6) › (b) X in flight, Y queued; X fails (no rollback), Y fails -> restored to P, never X
+Tests:       3 failed, 13 passed, 16 total
+=== M2 drop the merge (send only the last patch)
+  ● preference saves are ordered (HEL-1829) › a held appearance save plus a density save and an assistant-model save: one trailing request carrying every key
+  ● preferencesSaveQueue (HEL-1829) › a rejected coalesced request fails every rider with no re-send (D3a)
+  ● preferencesSaveQueue (HEL-1829) › coalesces a burst behind one in-flight request into ONE trailing request: latest per key, null kept
+Tests:       3 failed, 13 passed, 16 total
+=== M3 drop the generation check
+  ● preferencesSaveQueue (HEL-1829) › sign-out (D5) › A in flight, reset, B#1 sent at once, B#2 queued, A settles: B#2 waits for B#1
+Tests:       1 failed, 15 passed, 16 total
+=== M4 keepalive !ok treated as saved
+  ● preferencesSaveQueue (HEL-1829) › keepalive (D4, D4a) › sends with fetch keepalive when nothing is in flight, and classifies a non-ok response as failed
+Tests:       1 failed, 15 passed, 16 total
+=== M5 D6 restore previous instead of confirmed
+  ● saveAssistantModelPreference rollback (HEL-1829 D6) › a superseded caller never records its own value as confirmed
+  ● saveAssistantModelPreference rollback (HEL-1829 D6) › (b) X in flight, Y queued; X fails (no rollback), Y fails -> restored to P, never X
+Tests:       2 failed, 14 passed, 16 total
+=== M6 D6 value-equality instead of sequence
+  ● saveAssistantModelPreference rollback (HEL-1829 D6) › (a) X in flight, then Y, then X: the first X failing does not roll back; the trailing X succeeds -> X local and sent
+Tests:       1 failed, 15 passed, 16 total

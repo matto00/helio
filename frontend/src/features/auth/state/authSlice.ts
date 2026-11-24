@@ -8,10 +8,10 @@ import {
   logoutRequest,
   mfaVerifyRequest,
   oauthCallbackRequest,
-  patchShellPreferencesRequest,
   registerRequest,
   updateUserPreferencesRequest,
 } from "../services/authService";
+import { queuePreferencesPatch } from "../services/preferencesSaveQueue";
 import type {
   AuthResponse,
   LoginResult,
@@ -176,11 +176,9 @@ export const updateUserPreferences = createAsyncThunk<
 export const saveShellPreferences = createAsyncThunk<void, ShellPreferencesPatch>(
   "auth/saveShellPreferences",
   async (patch) => {
-    try {
-      await patchShellPreferencesRequest(patch);
-    } catch {
-      // Keep the local value; the next change or the next load reconciles.
-    }
+    // HEL-1829: queued behind any other preference save. A failure resolves as `failed` (never throws): the local
+    // value stays, and the next change or the next load reconciles.
+    await queuePreferencesPatch(patch);
   },
 );
 
@@ -191,11 +189,7 @@ export const saveAppearancePreferences = createAsyncThunk<void, AppearancePrefer
   "auth/saveAppearancePreferences",
   async (patch) => {
     const body: PreferencesPatch = patch;
-    try {
-      await patchShellPreferencesRequest(body);
-    } catch {
-      // Keep the local value; the next change or the next load reconciles.
-    }
+    await queuePreferencesPatch(body);
   },
 );
 

@@ -1,0 +1,11 @@
+- `frontend/src/features/auth/services/preferencesSaveQueue.ts` — new: the one serialiser (in-flight marker, merged trailing patch, keepalive, generation-based session reset)
+- `frontend/src/features/auth/services/preferencesSaveQueue.test.ts` — new: queue-level tests (coalescing, drain on failure, D3a, D4a, ordering, sign-out generation sequence)
+- `frontend/src/features/auth/services/authService.ts` — removed `patchDashboardTabsRequest`; `patchShellPreferencesRequest` now only called by the queue
+- `frontend/src/features/auth/state/authSlice.ts` — `saveShellPreferences`/`saveAppearancePreferences` go through the queue
+- `frontend/src/features/settings/state/saveAssistantModelPreference.ts` — queue + D6 sequence-token rollback to last server-confirmed value
+- `frontend/src/features/settings/state/saveAssistantModelPreference.test.ts` — new: D6 cases (a), (b), (c) and superseded caller
+- `frontend/src/features/auth/state/preferenceSaveOrdering.test.ts` — new: red-first test through the existing writers with the first PATCH held
+- `frontend/src/features/dashboards/tabs/tabsPersistence.ts` — tabs flush (normal and keepalive) through the queue
+- `frontend/src/features/dashboards/tabs/tabsPersistence.test.ts`, `activeTabSnapshot.test.ts` — assert against the queue's sender
+- `e2e/hel1572-appearance-preferences.spec.ts` — rapid toggling (held and unheld), in-flight bound, env-gated CPU throttle
+- `openspec/changes/serialise-preference-saves/evidence/*.txt` — red, mutation, 20x, 20x@4x and regression transcripts

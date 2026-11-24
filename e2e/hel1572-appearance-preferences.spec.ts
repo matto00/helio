@@ -41,8 +41,8 @@ async function fontFamily(page: Page, selector: string): Promise<string> {
 /** Clicks a type-style radio and waits for ITS save (the page's own `PATCH /api/users/me/preferences` carrying that
  *  style) to be answered. HEL-1826: each click sends an independent, unordered PATCH, so clicking Serif while the Mono
  *  request was still in flight let the slower Mono write land last (CI: Mono 467 ms in flight, Serif sent and answered
- *  in 243 ms; the server kept "mono"). This test is about the style applying and persisting, not write ordering, so it
- *  lets each save finish before the next change. The app's lack of write ordering is reported separately. */
+ *  in 243 ms; the server kept "mono"). HEL-1829 serialised the saves; this helper stays for the tests that are about
+ *  the style applying and persisting, while "rapid changes" below toggles without waiting for any save. */
 async function selectTypeStyle(page: Page, name: RegExp, style: "serif" | "mono") {
   const saved = page
     .waitForResponse(
@@ -143,6 +143,59 @@ async function probe(page: Page) {
   );
 }
 
+/** HEL-1829: env-gated CPU throttling (`HEL1829_CPU_THROTTLE=4`), the hel1683 precedent. */
+async function maybeThrottleCpu(page: Page): Promise<void> {
+  const raw = process.env.HEL1829_CPU_THROTTLE;
+  if (raw === undefined || raw === "" || raw === "1") return;
+  if (!/^[2-9]$|^[1-9][0-9]+$/.test(raw)) {
+    throw new Error(`HEL1829_CPU_THROTTLE must be an integer >= 1 (e.g. 4), got "${raw}"`);
+  }
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: Number(raw) });
+}
+
+interface PreferencePatchTrace {
+  peakInFlight: () => number;
+  styleRequests: () => number;
+  releaseHeld: () => void;
+}
+
+/** Observes every `PATCH /api/users/me/preferences` (any key), counting how many are in flight at once. With `hold`,
+ *  the first PATCH that carries a type style is held BEFORE it reaches the server until `releaseHeld()`, which is the
+ *  HEL-1826 ordering (an earlier choice arriving after a later one). */
+async function tracePreferencePatches(page: Page, hold: boolean): Promise<PreferencePatchTrace> {
+  let inFlight = 0;
+  let peak = 0;
+  let styleRequests = 0;
+  let held = false;
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/users/me/preferences", async (route) => {
+    if (route.request().method() !== "PATCH") return route.fallback();
+    const carriesStyle = (route.request().postData() ?? "").includes("typeStyle");
+    if (carriesStyle) styleRequests += 1;
+    inFlight += 1;
+    peak = Math.max(peak, inFlight);
+    try {
+      if (hold && carriesStyle && !held) {
+        held = true;
+        await gate;
+      }
+      const response = await route.fetch();
+      await route.fulfill({ response });
+    } finally {
+      inFlight -= 1;
+    }
+  });
+  return {
+    peakInFlight: () => peak,
+    styleRequests: () => styleRequests,
+    releaseHeld: () => release(),
+  };
+}
+
 test.describe("HEL-1572 type style", () => {
   test("re-renders headings with no reload and survives a fresh browser context (another device)", async ({
     page,
@@ -190,6 +243,43 @@ test.describe("HEL-1572 type style", () => {
     expect(await fontFamily(other, "h1.page-title")).toMatch(/^Fraunces/);
     await ctx.close();
   });
+
+  for (const hold of [true, false]) {
+    test(`rapid type-style changes without waiting for any save end on the last choice (${hold ? "first PATCH held" : "no hold"})`, async ({
+      page,
+      request,
+    }) => {
+      await maybeThrottleCpu(page);
+      await registerAndLogin(page, request, { ...AUTH, label: hold ? "rapid-held" : "rapid" });
+      await page.goto("/settings");
+      await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
+      const trace = await tracePreferencePatches(page, hold);
+
+      await page.getByRole("radio", { name: /^Markets.*Mono$/ }).click();
+      await page.getByRole("radio", { name: /Sans \+ mono/ }).click();
+      await page.getByRole("radio", { name: /Serif headings/ }).click();
+      await expect(page.locator("html")).toHaveAttribute("data-type-style", "serif");
+      trace.releaseHeld();
+
+      await expect
+        .poll(
+          async () => (await (await request.get("/api/auth/me")).json()).preferences?.typeStyle,
+          {
+            timeout: 15_000,
+          },
+        )
+        .toBe("serif");
+      // Settle: nothing later may overwrite it.
+      await page.waitForTimeout(1500);
+      expect((await (await request.get("/api/auth/me")).json()).preferences?.typeStyle).toBe(
+        "serif",
+      );
+      expect(trace.peakInFlight(), "preference PATCHes in flight at once").toBeLessThanOrEqual(1);
+      // With the first PATCH held, the other two choices must coalesce into ONE trailing request. Without a hold a
+      // fast first save may settle between clicks, so only the in-flight bound above applies.
+      if (hold) expect(trace.styleRequests(), "type-style PATCHes sent").toBeLessThanOrEqual(2);
+    });
+  }
 
   test("no flash: cached reload applies the style before React's first DOM, and the first heading is already serif", async ({
     page,

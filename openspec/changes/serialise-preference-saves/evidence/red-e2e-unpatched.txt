@@ -1,0 +1,71 @@
+
+Running 2 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795478778645-5615@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795478778646-87826@example.test
+  ✘  1 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (7.3s)
+  ✘  2 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (20.4s)
+userCleanup: removed 0 of 2 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 2 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) › Expect "poll toBe" 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m"serif"[39m
+    Received: [31m"mono"[39m
+
+    Call Log:
+    - Timeout 15000ms exceeded while waiting on the predicate
+
+      262 |       trace.releaseHeld();
+      263 |
+    > 264 |       await expect
+          |       ^
+      265 |         .poll(
+      266 |           async () => (await (await request.get("/api/auth/me")).json()).preferences?.typeStyle,
+      267 |           {
+        at /home/matt/Development/helio/.claude/worktrees/bug/serialise-preference-saves/HEL-1829/e2e/hel1572-appearance-preferences.spec.ts:264:7
+
+    Error Context: test-results/hel1572-appearance-prefere-e5fdc-st-choice-first-PATCH-held--dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1572-appearance-prefere-e5fdc-st-choice-first-PATCH-held--dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1572-appearance-prefere-e5fdc-st-choice-first-PATCH-held--dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) 
+
+    Error: type-style PATCHes sent
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m2[39m
+    Received:    [31m3[39m
+
+      276 |       );
+      277 |       expect(trace.peakInFlight(), "preference PATCHes in flight at once").toBeLessThanOrEqual(1);
+    > 278 |       expect(trace.styleRequests(), "type-style PATCHes sent").toBeLessThanOrEqual(2);
+          |                                                                ^
+      279 |     });
+      280 |   }
+      281 |
+        at /home/matt/Development/helio/.claude/worktrees/bug/serialise-preference-saves/HEL-1829/e2e/hel1572-appearance-preferences.spec.ts:278:64
+
+    Error Context: test-results/hel1572-appearance-prefere-4be01-on-the-last-choice-no-hold--dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1572-appearance-prefere-4be01-on-the-last-choice-no-hold--dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1572-appearance-prefere-4be01-on-the-last-choice-no-hold--dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) 
+    [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) 

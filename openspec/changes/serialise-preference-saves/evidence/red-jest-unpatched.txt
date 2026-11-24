@@ -1,0 +1,41 @@
+FAIL src/features/auth/state/preferenceSaveOrdering.test.ts (8.265 s)
+  ● preference saves are ordered (HEL-1829) › rapid Mono -> Sans -> Serif with the first PATCH held ends stored as serif, at most 2 requests, 1 in flight
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "serif"
+    Received: "mono"
+
+      75 |     await tick();
+      76 |
+    > 77 |     expect(server.stored.typeStyle).toBe("serif");
+         |                                     ^
+      78 |     expect(server.bodies.length).toBeLessThanOrEqual(2);
+      79 |     expect(server.maxInFlight()).toBe(1);
+      80 |   });
+
+      at Object.<anonymous> (src/features/auth/state/preferenceSaveOrdering.test.ts:77:37)
+
+  ● preference saves are ordered (HEL-1829) › a held appearance save plus an assistant-model save and a motion save: one trailing request carrying every key
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 2
+    Received length: 3
+    Received array:  [{"typeStyle": "mono"}, {"density": "compact"}, {"assistantModel": "claude-opus-5-5"}]
+
+       98 |     });
+       99 |     // Red is on request count and concurrency only: per-key server merge means different keys cannot overwrite.
+    > 100 |     expect(server.bodies).toHaveLength(2);
+          |                           ^
+      101 |     expect(server.maxInFlight()).toBe(1);
+      102 |   });
+      103 | });
+
+      at Object.<anonymous> (src/features/auth/state/preferenceSaveOrdering.test.ts:100:27)
+
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 2 total
+Snapshots:   0 total
+Time:        8.855 s
+Ran all test suites matching src/features/auth/state/preferenceSaveOrdering.test.ts.

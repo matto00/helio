@@ -1,0 +1,87 @@
+
+Running 40 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480017612-90757@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480017612-1399@example.test
+  ✓   1 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (10.1s)
+  ✓   2 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (10.6s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480028067-55712@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480028361-36370@example.test
+  ✓   4 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (10.0s)
+  ✓   3 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (10.5s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480039015-59810@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480039068-15835@example.test
+  ✓   6 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (8.6s)
+  ✓   5 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (8.7s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480048026-49973@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480048026-66653@example.test
+  ✓   8 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (8.7s)
+  ✓   7 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (8.9s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480057149-7667@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480057209-37623@example.test
+  ✓  10 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (8.8s)
+  ✓   9 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (9.1s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480066491-87291@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480066556-40146@example.test
+  ✓  12 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (8.8s)
+  ✓  11 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (9.1s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480075790-57564@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480075882-15836@example.test
+  ✓  14 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (8.8s)
+  ✓  13 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (8.9s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480085167-42355@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480085170-32510@example.test
+  ✓  16 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (9.0s)
+  ✓  15 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (9.0s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480094577-9805@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480094614-15444@example.test
+  ✓  18 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (8.8s)
+  ✓  17 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (9.0s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480103772-2139@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480103823-8283@example.test
+  ✓  20 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (8.9s)
+  ✓  19 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (9.1s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480113179-43176@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480113235-46254@example.test
+  ✓  22 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (9.0s)
+  ✓  21 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (9.1s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480122677-69406@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480122677-17322@example.test
+  ✓  24 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (8.8s)
+  ✓  23 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (8.9s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480131811-81968@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480131871-42400@example.test
+  ✓  26 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (8.6s)
+  ✓  25 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (8.7s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480140852-17223@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480140901-1514@example.test
+  ✓  28 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (8.4s)
+  ✓  27 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (8.7s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480149765-84526@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480149826-71106@example.test
+  ✓  30 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (8.5s)
+  ✓  29 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (8.7s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480158743-58560@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480158791-30400@example.test
+  ✓  32 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (8.5s)
+  ✓  31 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (8.7s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480167692-92075@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480167755-71701@example.test
+  ✓  33 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (8.6s)
+  ✓  34 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (8.5s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480176741-88556@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480176741-58663@example.test
+  ✓  36 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (8.6s)
+  ✓  35 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (8.7s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480185667-4166@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480185719-59137@example.test
+  ✓  38 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (8.6s)
+  ✓  37 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (8.8s)
+[HEL-1300 e2e] throwaway user: hel1572-rapid-held-1795480194730-77937@example.test
+[HEL-1300 e2e] throwaway user: hel1572-rapid-1795480194796-85796@example.test
+  ✓  40 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (no hold) (8.6s)
+  ✓  39 [dev] › e2e/hel1572-appearance-preferences.spec.ts:248:9 › HEL-1572 type style › rapid type-style changes without waiting for any save end on the last choice (first PATCH held) (8.8s)
+userCleanup: removed 0 of 40 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 40 recorded throwaway user(s)
+
+  40 passed (3.1m)
