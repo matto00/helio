@@ -147,9 +147,16 @@ class AssistantConversationRoutesTierSpec
 
     def sizedMessage(target: Int): String = {
       def total(n: Int) = ClaudeTokenEstimator.estimate(Seq(ClaudeMessage(ClaudeRole.User, AssistantSystemPrompt.text), ClaudeMessage(ClaudeRole.User, "word " * n)))
-      var k = target
-      while (total(k) > target) k -= 1
-      while (total(k + 1) <= target) k += 1
+      // Largest k with total(k) <= target, by bisection (each total() tokenizes the whole input, so a one-word walk is O(n^2)).
+      var lo = 0
+      var hi = target + 1
+      require(total(lo) <= target && total(hi) > target, s"bisection seed does not bracket target $target: total(0)=${total(lo)}, total($hi)=${total(hi)}")
+      while (hi - lo > 1) {
+        val mid = lo + (hi - lo) / 2
+        if (total(mid) <= target) lo = mid else hi = mid
+      }
+      val k = lo
+      require(total(k) <= target && total(k + 1) > target, s"sizedMessage($target) is not the boundary: total($k)=${total(k)}, total(${k + 1})=${total(k + 1)}")
       "word " * k
     }
 

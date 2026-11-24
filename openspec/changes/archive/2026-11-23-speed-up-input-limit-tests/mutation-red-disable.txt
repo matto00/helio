@@ -1,0 +1,16 @@
+# Mutation M1: limit check fully disabled in guardrailRejectTool and guardrailReject (temporary, reverted); both full spec files, NEW helpers
+# diff:
+--- a/backend/src/main/scala/com/helio/infrastructure/ai/ClaudeRequestBuilder.scala
++++ b/backend/src/main/scala/com/helio/infrastructure/ai/ClaudeRequestBuilder.scala
+-    if (estimated > config.maxInputTokens)
++    if (false && estimated > config.maxInputTokens)
+-    if (estimated > config.maxInputTokens)
++    if (false && estimated > config.maxInputTokens)
+
+[info] - should refuse a first request over the input limit with nothing persisted, but keep the work of a turn that grows past it, after which every send is refused *** FAILED ***
+[info]   200 OK was not equal to 422 Unprocessable Content (AssistantConversationRoutesTierSpec.scala:174)
+[info] - should stop mid-turn on the input limit keeping the work so far, while a first-request overrun is still refused (HEL-1637) *** FAILED ***
+[info]   "[final]" was not equal to "[input_budget]" (AssistantServiceFailureBudgetSpec.scala:193)
+[info] Tests: succeeded 15, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+[error] Failed tests:

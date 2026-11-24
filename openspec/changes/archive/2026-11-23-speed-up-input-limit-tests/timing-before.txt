@@ -1,0 +1,22 @@
+# BEFORE: per-test JUnit time (s), full spec files, local, old helpers (ScalaTest summaries below)
+
+[info] Tests: succeeded 11, failed 0, canceled 0, ignored 0, pending 0
+"converse should complete a turn of 6 successful round trips followed by a final answer (HEL-1637)" time="1.146"
+"converse should stop after 3 failed tool calls interleaved with successes with a plain-language message (HEL-1637)" time="0.022"
+"converse should report an unreachable source after 3 test_connection ok:false results, never raw JSON (HEL-1637)" time="0.045"
+"converse should use the proposal wording when a proposal was captured before the budget ran out (HEL-1637)" time="0.026"
+"converse should make a third failure on round trip 12 a failure_budget stop, not hop_ceiling (HEL-1637)" time="0.027"
+"converse should complete after 2 failures then a final answer and report both counts (HEL-1637)" time="0.009"
+"converse should report hop_ceiling with its message and keep the dangling tool_use at the 12 round-trip ceiling (HEL-1637)" time="0.028"
+"converse should send alternating roles ending with a user turn on the next turn after a failure-budget stop (HEL-1637)" time="0.012"
+"converse should stop mid-turn on the input limit keeping the work so far, while a first-request overrun is still refused (HEL-1637)" time="72.461"
+"converse should count only this turn's failed calls, never the synthetic results that repair a previous turn's dangling tool_use (HEL-1637)" time="0.004"
+"converse should word the stop by the failed tools: proposals and workspace reads (HEL-1637)" time="0.01"
+
+[info] Tests: succeeded 6, failed 0, canceled 0, ignored 0, pending 0
+"Tier gating should deny a free-tier user 403 TIER_FORBIDDEN on every endpoint in the family, with nothing persisted" time="0.277"
+"Tier gating should a beta-tier user under the cap converses normally, then gets 429 CHAT_LIMIT_REACHED once at the cap -- no model call, no turns persisted for the denied attempt" time="0.284"
+"Tier gating should a beta-tier user at the cap can still list conversations and read one (200)" time="0.024"
+"Tier gating should an owner-tier user converses successfully with no cap, past the beta limit, and writes no assistant_daily_usage row" time="0.052"
+"POST /assistant-conversations/:id/converse budgets (HEL-1637) should charge a beta turn of 7 round trips exactly the model weight once" time="0.569"
+"POST /assistant-conversations/:id/converse budgets (HEL-1637) should refuse a first request over the input limit with nothing persisted, but keep the work of a turn that grows past it, after which every send is refused" time="73.384"
