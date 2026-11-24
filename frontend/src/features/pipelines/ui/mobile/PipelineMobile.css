@@ -166,6 +166,13 @@
   }
 }
 
+/* HEL-1837: the grantee's read-only chip is state, not a control: no hover wash (and no 44px tap overlay, below). */
+@media (hover: hover) {
+  .mobile-header__status .spine-header__chip--static:hover {
+    background: transparent;
+  }
+}
+
 /* Secondary text button (Save, Cancel, Discard, Keep editing). */
 .mobile-btn {
   position: relative;
@@ -539,6 +546,10 @@
     right: 0;
     height: 44px;
     transform: translateY(-50%);
+  }
+
+  .mobile-header__status .spine-header__chip--static::after {
+    content: none;
   }
 }
 

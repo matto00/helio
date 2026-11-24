@@ -29,8 +29,8 @@ import {
 //  3. A viewer cannot create a draft: the first configuration field cannot be edited, no grip exists, and neither "Discard draft",
 //     a draft chip nor a kept-draft key appears.
 //  4. The editor on the same pipeline keeps the controls, and typing into a field creates a draft.
-// The owner also PUTs a schedule: a grantee never receives it from the server (owner-only routes), so the viewer must see no
-// schedule control even though one exists.
+// The owner also PUTs a schedule. HEL-1837 (read all, owner writes): the grantee now receives it, so the viewer sees it as a
+// read-only chip (a span, not a control) and still no schedule write control.
 
 /** Soft assertions with a short timeout: one run reports EVERY offending control instead of stopping at the first. */
 const soft = expect.configure({ soft: true, timeout: 2_000 });
@@ -251,6 +251,13 @@ async function viewerFlow(
   const where = `${label}/${theme}`;
 
   await soft(page.getByText("View only").first(), where).toBeVisible();
+  // HEL-1837: the schedule is visible, as non-interactive text.
+  const scheduleChip = page.locator(".spine-header__chip", { hasText: "Every 15m" });
+  await soft(scheduleChip, `${where}: read-only schedule chip`).toBeVisible();
+  soft(
+    await scheduleChip.evaluate((el) => el.tagName.toLowerCase()),
+    `${where}: the chip is not a button`,
+  ).toBe("span");
   await expectNoEditControls(page, where);
   await expectOnlyAllowed(page, `${where} (page)`, stepRow);
   await checkMenu(page, where, stepRow);
@@ -350,7 +357,7 @@ test.describe("HEL-1794 viewer read-only pipeline page (live)", () => {
       const editor = await collaborator(browser, baseURL, `editor-${label}`);
       const viewer = await collaborator(browser, baseURL, `viewer-${label}`);
       const pipelineId = await seedSharedPipeline(page, editor, viewer);
-      // The owner schedules the pipeline: the viewer must still see no schedule control (grantees never receive it).
+      // The owner schedules the pipeline: the viewer sees it read-only and still no schedule write control (HEL-1837).
       const put = await page.request.put(`/api/pipelines/${pipelineId}/schedule`, {
         data: { kind: "interval", expression: "15m", timezone: "UTC", enabled: true },
         headers: CSRF,
@@ -426,7 +433,8 @@ test.describe("HEL-1794 viewer read-only pipeline page (live)", () => {
     // Desktop.
     await openPipeline(p, pipelineId, "light", DESKTOP);
     await expect(p.getByRole("button", { name: "Edit pipeline name" })).toBeVisible();
-    await expect(p.getByRole("button", { name: "Add schedule" })).toBeVisible();
+    // HEL-1837: a schedule write is owner-only, so an editor is offered no "Add schedule".
+    await expect(p.getByRole("button", { name: "Add schedule" })).toHaveCount(0);
     await expect(p.getByRole("button", { name: "Add source" })).toBeVisible();
     await expect(p.getByRole("button", { name: "+ Add transformation step" })).toBeVisible();
     await expect(p.getByRole("button", { name: "New output" })).toBeVisible();

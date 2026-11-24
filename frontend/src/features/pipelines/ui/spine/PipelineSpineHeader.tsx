@@ -54,7 +54,7 @@ export interface SpineHeaderProps {
   onRun: () => void;
   /** HEL-1661: which run entries to offer. A viewer gets none (and "View only"); `pending` reserves their room. */
   runRole: PipelineRunRole;
-  /** HEL-1794: the page offers edit affordances (`page.canEdit`). False: the name is text, no schedule chip, no edit menu items. */
+  /** HEL-1794: the page offers edit affordances (`page.canEdit`). False: the name is text, no edit menu items. Schedule writes are owner-only (HEL-1837). */
   canEdit?: boolean;
   /** HEL-1631: the client-only draft. While `hasDraft`, Discard replaces Dry run and Save & run replaces Run. */
   draft: { hasDraft: boolean; saving: boolean; onDiscard: () => void; onSaveAndRun: () => void };
@@ -77,7 +77,7 @@ export const PipelineSpineHeader = memo(function PipelineSpineHeader({
     ...(canEdit && props.onEditOnlySource
       ? [{ label: "Edit source", onClick: props.onEditOnlySource }]
       : []),
-    ...(canEdit
+    ...(canEdit && props.isOwner
       ? [
           {
             label: schedule === null ? "Set schedule" : "Edit schedule",
@@ -85,7 +85,7 @@ export const PipelineSpineHeader = memo(function PipelineSpineHeader({
           },
         ]
       : []),
-    ...(canEdit && schedule !== null
+    ...(canEdit && props.isOwner && schedule !== null
       ? [
           {
             label: schedule.enabled ? "Pause schedule" : "Resume schedule",
@@ -216,7 +216,12 @@ export const PipelineSpineHeader = memo(function PipelineSpineHeader({
       {props.runRole === "viewer" && <SpineViewOnly />}
 
       <div className="spine-header__trailing">
-        {canEdit && <SpineScheduleChip schedule={schedule} onOpen={props.onEditSchedule} />}
+        {/* HEL-1837: read all, owner writes. Everyone else sees a read-only chip (nothing when there is no schedule). */}
+        <SpineScheduleChip
+          schedule={schedule}
+          onOpen={props.onEditSchedule}
+          readOnly={!(canEdit && props.isOwner)}
+        />
         {props.draft.hasDraft ? (
           <>
             <button

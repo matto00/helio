@@ -64,6 +64,11 @@ export function MobilePipelineHeader({
             reason: shapeReason ?? undefined,
             onClick: () => actions.openShapePicker(lastTrunkStepId),
           },
+        ]
+      : []),
+    // HEL-1837: read all, owner writes: the schedule entries are the owner's alone.
+    ...(canEdit && page.isOwner
+      ? [
           {
             label: schedule === null ? "Set schedule" : "Edit schedule",
             onClick: () => page.setScheduleOpen(true),
@@ -191,9 +196,11 @@ export function MobilePipelineHeader({
             />
           )}
         </div>
-        {canEdit && (
-          <SpineScheduleChip schedule={schedule} onOpen={() => page.setScheduleOpen(true)} />
-        )}
+        <SpineScheduleChip
+          schedule={schedule}
+          onOpen={() => page.setScheduleOpen(true)}
+          readOnly={!(canEdit && page.isOwner)}
+        />
       </div>
     </header>
   );

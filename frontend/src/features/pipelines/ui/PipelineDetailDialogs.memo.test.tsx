@@ -107,6 +107,16 @@ describe("PipelineDetailDialogs comparator (HEL-1809)", () => {
     expect(lastSchedule().open).toBe(false);
   });
 
+  it("HEL-1837: the schedule dialog opens for the owner only, even for an editor who can edit", () => {
+    const open = { scheduleOpen: true };
+    const { rerender } = render(<PipelineDetailDialogs page={page(open)} />);
+    const lastSchedule = () =>
+      schedule.mock.calls[schedule.mock.calls.length - 1][0] as { open: boolean };
+    expect(lastSchedule().open).toBe(true);
+    rerender(<PipelineDetailDialogs page={page({ ...open, isOwner: false })} />);
+    expect(lastSchedule().open).toBe(false);
+  });
+
   it("an edit that changes only the volatile fields renders the dialogs no more", () => {
     const { rerender } = render(<PipelineDetailDialogs page={page()} />);
     const before = schedule.mock.calls.length;

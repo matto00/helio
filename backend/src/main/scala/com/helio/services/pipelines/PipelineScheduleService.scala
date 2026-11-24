@@ -14,9 +14,10 @@ import scala.util.matching.Regex
 
 /** Business logic for `/api/pipelines/:id/schedule` (mirrors
  *  `AlertRuleService`'s shape). Storage-only (HEL-414) — no firing/polling
- *  happens here (HEL-415). Every method ACL-gates against
- *  `pipelineRepo.findByIdOwned` first, mirroring `AlertRuleService.create`'s
- *  target-ownership check. */
+ *  happens here (HEL-415). HEL-1837, read all / owner writes: `find` admits the
+ *  owner and any editor/viewer grantee (`pipelineRepo.findByIdShared`); `put`
+ *  and `delete` ACL-gate against `pipelineRepo.findByIdOwned`, so a grantee
+ *  gets the same `NotFound` the owner-only pipeline rename/delete give. */
 final class PipelineScheduleService(
     scheduleRepo: PipelineScheduleRepository,
     pipelineRepo: PipelineRepository,
@@ -36,10 +37,11 @@ final class PipelineScheduleService(
     scheduleRepo.listEnabledWithSources(user)
 
   def find(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineSchedule]] =
-    pipelineRepo.findByIdOwned(pipelineId, user).flatMap {
+    pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
       case None => Future.successful(Left(ServiceError.NotFound("Pipeline not found")))
       case Some(_) =>
-        scheduleRepo.findByPipelineId(pipelineId, user).map {
+        // Safe: access confirmed by findByIdShared above. Use internal variant (the owner-JOIN read hides a grantee's view).
+        scheduleRepo.findByPipelineIdInternal(pipelineId).map {
           case Some(schedule) => Right(schedule)
           case None           => Left(ServiceError.NotFound("Pipeline schedule not found"))
         }

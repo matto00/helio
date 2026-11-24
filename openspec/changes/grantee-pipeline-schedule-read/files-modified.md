@@ -1,0 +1,24 @@
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineScheduleRepository.scala` — HEL-1837 read all, owner writes
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineScheduleService.scala` — HEL-1837 read all, owner writes
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineScheduleRoutesSpec.scala` — HEL-1837 read all, owner writes
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineScheduleServiceSpec.scala` — HEL-1837 read all, owner writes
+- `CLAUDE.md` — HEL-1837 read all, owner writes
+- `e2e/hel1794-viewer-read-only.spec.ts` — HEL-1837 read all, owner writes
+- `e2e/hel1837-grantee-schedule-chip.spec.ts` — HEL-1837 read all, owner writes
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts` — HEL-1837 read all, owner writes
+- `frontend/src/features/pipelines/hooks/usePipelineSourceScheduleActions.ts` — HEL-1837 read all, owner writes
+- `frontend/src/features/pipelines/ui/mobile/MobilePipelineHeader.tsx` — HEL-1837 read all, owner writes
+- `frontend/src/features/pipelines/ui/mobile/PipelineMobileLayout.granteeSchedule.test.tsx` — HEL-1837 read all, owner writes
+- `frontend/src/features/pipelines/ui/mobile/PipelineMobileLayout.test.tsx` — HEL-1837 read all, owner writes
+- `frontend/src/features/pipelines/ui/PipelineDetailDialogs.memo.test.tsx` — HEL-1837 read all, owner writes
+- `frontend/src/features/pipelines/ui/PipelineDetailDialogs.tsx` — HEL-1837 read all, owner writes
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.spine.test.tsx` — HEL-1837 read all, owner writes
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.test.tsx` — HEL-1837 read all, owner writes
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineHeader.tsx` — HEL-1837 read all, owner writes
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineLayout.granteeSchedule.test.tsx` — HEL-1837 read all, owner writes
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineLayout.viewerReadOnly.test.tsx` — HEL-1837 read all, owner writes
+- `frontend/src/features/pipelines/ui/spine/SpineScheduleChip.test.tsx` — HEL-1837 read all, owner writes
+- `frontend/src/features/pipelines/ui/spine/SpineScheduleChip.tsx` — HEL-1837 read all, owner writes
+- `schemas/pipelines/pipeline-schedule.schema.json` — HEL-1837 read all, owner writes
+- `frontend/src/features/pipelines/ui/mobile/PipelineMobile.css` — HEL-1837 cycle 2 read-only chip static modifier (commit 80bf27cb7; declared at Delivery by the orchestrator)
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineHeader.css` — HEL-1837 cycle 2 read-only chip static modifier (commit 80bf27cb7; declared at Delivery by the orchestrator)

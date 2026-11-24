@@ -47,6 +47,13 @@ class PipelineScheduleRoutesSpec
   private val ownerBId = UUID.randomUUID().toString
   private val userA    = AuthenticatedUser(UserId(ownerAId))
   private val userB    = AuthenticatedUser(UserId(ownerBId))
+  // HEL-1837: grantees (editor / viewer) and a stranger with no grant.
+  private val editorId   = UUID.randomUUID().toString
+  private val viewerId   = UUID.randomUUID().toString
+  private val strangerId = UUID.randomUUID().toString
+  private val editor     = AuthenticatedUser(UserId(editorId))
+  private val viewer     = AuthenticatedUser(UserId(viewerId))
+  private val stranger   = AuthenticatedUser(UserId(strangerId))
 
   override def beforeAll(): Unit = {
     embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
@@ -74,8 +81,19 @@ class PipelineScheduleRoutesSpec
     import PostgresProfile.api._
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($ownerAId::uuid, ${s"a-$ownerAId@helio.test"}, now())""",
-      sqlu"""INSERT INTO users (id, email, created_at) VALUES ($ownerBId::uuid, ${s"b-$ownerBId@helio.test"}, now())"""
+      sqlu"""INSERT INTO users (id, email, created_at) VALUES ($ownerBId::uuid, ${s"b-$ownerBId@helio.test"}, now())""",
+      sqlu"""INSERT INTO users (id, email, created_at) VALUES ($editorId::uuid, ${s"e-$editorId@helio.test"}, now())""",
+      sqlu"""INSERT INTO users (id, email, created_at) VALUES ($viewerId::uuid, ${s"v-$viewerId@helio.test"}, now())""",
+      sqlu"""INSERT INTO users (id, email, created_at) VALUES ($strangerId::uuid, ${s"s-$strangerId@helio.test"}, now())"""
     )))
+  }
+
+  private def grant(pipelineId: String, granteeId: String, role: String): Unit = {
+    import PostgresProfile.api._
+    await(db.run(
+      sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
+             VALUES ('pipeline', $pipelineId, $granteeId::uuid, $role, now())"""
+    ))
   }
 
   private def seedPipeline(ownerId: String): String = {
@@ -268,6 +286,101 @@ class PipelineScheduleRoutesSpec
 
     "return 404 for an unknown pipeline id" in {
       Delete(s"/pipelines/${UUID.randomUUID().toString}/schedule") ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+  }
+
+  // HEL-1837: read all, owner writes. A grantee's PUT/DELETE is the same 404 the owner-only pipeline rename/delete give.
+  "pipeline schedule access by role (HEL-1837)" should {
+
+    def scheduledPipelineWithGrants(): String = {
+      val pid = seedPipeline(ownerAId)
+      Put(s"/pipelines/$pid/schedule", putBody(expression = "0 9 * * 1-5")) ~> routesFor(userA) ~> check {
+        status should (be(StatusCodes.OK) or be(StatusCodes.Created))
+      }
+      grant(pid, editorId, "editor")
+      grant(pid, viewerId, "viewer")
+      pid
+    }
+
+    "owner reads, writes and deletes" in {
+      val pid = scheduledPipelineWithGrants()
+      Get(s"/pipelines/$pid/schedule") ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[PipelineScheduleResponse].expression shouldBe "0 9 * * 1-5"
+      }
+      Put(s"/pipelines/$pid/schedule", putBody(expression = "0 10 * * *")) ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      Delete(s"/pipelines/$pid/schedule") ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.NoContent
+      }
+    }
+
+    for ((label, who) <- Seq("editor" -> editor, "viewer" -> viewer)) {
+      s"$label GET returns 200 with the same body as the owner and no owner or grantee id" in {
+        val pid = scheduledPipelineWithGrants()
+        val ownerBody = Get(s"/pipelines/$pid/schedule") ~> routesFor(userA) ~> check { responseAs[String].parseJson.asJsObject }
+        Get(s"/pipelines/$pid/schedule") ~> routesFor(who) ~> check {
+          status shouldBe StatusCodes.OK
+          val body = responseAs[String].parseJson.asJsObject
+          body shouldBe ownerBody
+          body.fields.keySet.exists(k => k.toLowerCase.contains("owner") || k.toLowerCase.contains("grantee")) shouldBe false
+          body.compactPrint should not include ownerAId
+        }
+      }
+
+      s"$label GET on a shared pipeline with no schedule is 404" in {
+        val pid = seedPipeline(ownerAId)
+        grant(pid, who.id.value, label)
+        Get(s"/pipelines/$pid/schedule") ~> routesFor(who) ~> check {
+          status shouldBe StatusCodes.NotFound
+        }
+      }
+
+      s"$label PUT is 404 and leaves the schedule unchanged" in {
+        val pid = scheduledPipelineWithGrants()
+        Put(s"/pipelines/$pid/schedule", putBody(expression = "0 1 * * *")) ~> routesFor(who) ~> check {
+          status shouldBe StatusCodes.NotFound
+        }
+        Get(s"/pipelines/$pid/schedule") ~> routesFor(userA) ~> check {
+          responseAs[PipelineScheduleResponse].expression shouldBe "0 9 * * 1-5"
+        }
+      }
+
+      s"$label PUT creates nothing on a pipeline with no schedule" in {
+        val pid = seedPipeline(ownerAId)
+        grant(pid, who.id.value, label)
+        Put(s"/pipelines/$pid/schedule", putBody()) ~> routesFor(who) ~> check {
+          status shouldBe StatusCodes.NotFound
+        }
+        Get(s"/pipelines/$pid/schedule") ~> routesFor(userA) ~> check {
+          status shouldBe StatusCodes.NotFound
+        }
+      }
+
+      s"$label DELETE is 404 and the schedule still exists" in {
+        val pid = scheduledPipelineWithGrants()
+        Delete(s"/pipelines/$pid/schedule") ~> routesFor(who) ~> check {
+          status shouldBe StatusCodes.NotFound
+        }
+        Get(s"/pipelines/$pid/schedule") ~> routesFor(userA) ~> check {
+          status shouldBe StatusCodes.OK
+          responseAs[PipelineScheduleResponse].expression shouldBe "0 9 * * 1-5"
+        }
+      }
+    }
+
+    "a stranger with no grant gets 404 on GET, PUT and DELETE" in {
+      val pid = scheduledPipelineWithGrants()
+      Get(s"/pipelines/$pid/schedule") ~> routesFor(stranger) ~> check { status shouldBe StatusCodes.NotFound }
+      Put(s"/pipelines/$pid/schedule", putBody()) ~> routesFor(stranger) ~> check { status shouldBe StatusCodes.NotFound }
+      Delete(s"/pipelines/$pid/schedule") ~> routesFor(stranger) ~> check { status shouldBe StatusCodes.NotFound }
+    }
+
+    "an unknown pipeline id is 404 for a grantee on GET" in {
+      Get(s"/pipelines/${UUID.randomUUID().toString}/schedule") ~> routesFor(editor) ~> check {
         status shouldBe StatusCodes.NotFound
       }
     }
