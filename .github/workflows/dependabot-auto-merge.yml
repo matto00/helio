@@ -1,13 +1,12 @@
 name: Dependabot auto-merge
 
 # Triggered by the CI workflow's completion, NOT by `gh pr merge --auto` or
-# GitHub's native PR auto-merge toggle. This repo has no branch protection /
-# required status checks configured, so both of those merge immediately on
-# request rather than waiting for CI — a real safety hazard. This workflow
-# instead reacts to the `CI` workflow_run's own conclusion, then re-verifies
-# the resolved PR's live head SHA and authenticity before merging, so the
-# gating is enforced by our own trigger condition rather than by asking
-# GitHub's merge API to wait on our behalf. See design.md Decision 1.
+# GitHub's native PR auto-merge toggle (helio never uses `--auto`). The
+# `main - no delete` ruleset requires `ci-complete` (non-strict), so a merge
+# is refused without it; this workflow also gates on the `CI` run's own
+# conclusion and re-verifies the PR's live head SHA and authenticity from
+# GitHub's REST identity fields (`gh pr view` reports `app/dependabot`, not
+# `dependabot[bot]`) before merging exactly the commit CI passed.
 on:
   workflow_run:
     workflows: ["CI"]
@@ -26,7 +25,8 @@ jobs:
   auto-merge:
     if: >
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'pull_request'
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Resolve PR and verify head SHA + authenticity
@@ -35,6 +35,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           REPO: ${{ github.repository }}
+          RUN_ACTOR: ${{ github.event.workflow_run.actor.login }}
         run: |
           set -euo pipefail
 
@@ -47,12 +48,12 @@ jobs:
             exit 0
           fi
 
-          PR_JSON=$(gh pr view "$PR_NUMBER" --repo "$REPO" \
-            --json number,headRefOid,author,baseRefName,labels)
+          PR_JSON=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}")
 
-          LIVE_HEAD=$(echo "$PR_JSON" | jq -r '.headRefOid')
-          AUTHOR_LOGIN=$(echo "$PR_JSON" | jq -r '.author.login')
-          BASE_REF=$(echo "$PR_JSON" | jq -r '.baseRefName')
+          LIVE_HEAD=$(echo "$PR_JSON" | jq -r '.head.sha')
+          AUTHOR_LOGIN=$(echo "$PR_JSON" | jq -r '.user.login')
+          AUTHOR_TYPE=$(echo "$PR_JSON" | jq -r '.user.type')
+          BASE_REF=$(echo "$PR_JSON" | jq -r '.base.ref')
           LABELS=$(echo "$PR_JSON" | jq -r '.labels[].name')
 
           if [ "$LIVE_HEAD" != "$HEAD_SHA" ]; then
@@ -62,6 +63,18 @@ jobs:
 
           if [ "$AUTHOR_LOGIN" != "dependabot[bot]" ]; then
             echo "PR #${PR_NUMBER} author is '${AUTHOR_LOGIN}', not dependabot[bot]; aborting."
+            exit 0
+          fi
+
+          if [ "$AUTHOR_TYPE" != "Bot" ]; then
+            echo "PR #${PR_NUMBER} author type is '${AUTHOR_TYPE}', not Bot; aborting."
+            exit 0
+          fi
+
+          # `actor` (not `triggering_actor`): a human pushing to the Dependabot
+          # branch changes `actor`, and that must not auto-merge.
+          if [ "$RUN_ACTOR" != "dependabot[bot]" ]; then
+            echo "CI run actor is '${RUN_ACTOR}', not dependabot[bot]; aborting."
             exit 0
           fi
 
@@ -105,13 +118,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ steps.resolve.outputs.pr_number }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          # `--auto` is deliberately NOT used: with no branch protection in
-          # this repo, `--auto`/native auto-merge merges immediately without
-          # waiting for CI. The `resolve` step above already confirmed this
-          # exact commit's CI run succeeded, so a direct merge is safe here.
-          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --delete-branch
+          # `--auto` is deliberately NOT used (helio rule). The `resolve` step
+          # confirmed this commit's CI run succeeded; `--match-head-commit`
+          # makes the merge refuse if the head moved since, and the ruleset
+          # still requires `ci-complete`.
+          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --match-head-commit "$HEAD_SHA" --delete-branch
 
       - name: Label major updates for review
         if: >

@@ -1,0 +1,40 @@
+FAIL patch merges
+    expected exactly one merge ["pr","merge","1222","--repo","matto00/helio","--squash","--match-head-commit","aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","--delete-branch"], got []
+      resolve stdout: "PR #1222 author is 'app/dependabot', not dependabot[bot]; aborting.\n"
+FAIL minor merges
+    expected exactly one merge ["pr","merge","1222","--repo","matto00/helio","--squash","--match-head-commit","aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","--delete-branch"], got []
+      resolve stdout: "PR #1222 author is 'app/dependabot', not dependabot[bot]; aborting.\n"
+FAIL major is labelled, never merged
+    expected pr edit ["pr","edit","1222","--repo","matto00/helio","--add-label","major-update"], got []
+      resolve stdout: "PR #1222 author is 'app/dependabot', not dependabot[bot]; aborting.\n"
+FAIL display-form app/dependabot via pr view does not matter
+    expected exactly one merge ["pr","merge","1222","--repo","matto00/helio","--squash","--match-head-commit","aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","--delete-branch"], got []
+      resolve stdout: "PR #1222 author is 'app/dependabot', not dependabot[bot]; aborting.\n"
+FAIL REST human author aborts
+    expected abort line containing "author is 'octocat', not dependabot[bot]"
+      resolve stdout: "PR #1222 author is 'app/dependabot', not dependabot[bot]; aborting.\n"
+FAIL REST type User aborts
+    expected abort line containing "author type is 'User', not Bot"
+      resolve stdout: "PR #1222 author is 'app/dependabot', not dependabot[bot]; aborting.\n"
+FAIL human run actor skipped by job if
+    job should have been skipped by its if:
+      resolve stdout: "PR #1222 author is 'app/dependabot', not dependabot[bot]; aborting.\n"
+    skipped job made gh calls
+      resolve stdout: "PR #1222 author is 'app/dependabot', not dependabot[bot]; aborting.\n"
+FAIL human run actor aborts in-script
+    expected abort line containing "CI run actor is 'octocat', not dependabot[bot]"
+      resolve stdout: "PR #1222 author is 'app/dependabot', not dependabot[bot]; aborting.\n"
+ok   CI failure skipped by job if
+ok   non pull_request event skipped by job if
+ok   head SHA mismatch aborts
+FAIL base not main aborts
+    expected abort line containing "base ref is 'release/x', not main"
+      resolve stdout: "PR #1222 author is 'app/dependabot', not dependabot[bot]; aborting.\n"
+FAIL no semver label aborts
+    expected abort line containing "No dependabot-semver-* label"
+      resolve stdout: "PR #1222 author is 'app/dependabot', not dependabot[bot]; aborting.\n"
+ok   no PR aborts
+ok   static: no --auto in any run
+ok   static: no ${{ inside any run
+skipping mutations: the real workflow does not pass
+10 check(s) failed

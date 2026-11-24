@@ -1,0 +1,25 @@
+ok   patch merges
+ok   minor merges
+ok   major is labelled, never merged
+ok   display-form app/dependabot via pr view does not matter
+ok   REST human author aborts
+ok   REST type User aborts
+ok   human run actor skipped by job if
+ok   human run actor aborts in-script
+ok   CI failure skipped by job if
+ok   non pull_request event skipped by job if
+ok   head SHA mismatch aborts
+ok   base not main aborts
+ok   no semver label aborts
+ok   no PR aborts
+ok   static: no --auto in any run
+ok   static: no ${{ inside any run
+ok   mutation rejected: revert author check
+ok   mutation rejected: drop in-script actor check
+ok   mutation rejected: drop type check
+ok   mutation rejected: drop --match-head-commit
+ok   mutation rejected: add --auto
+ok   mutation rejected: remove actor from job if
+ok   mutation rejected: widen merge if to semver-major
+ok   mutation rejected: drop conclusion from job if
+all dependabot-auto-merge checks passed
