@@ -1,0 +1,23 @@
+$ grep -nE "panel\.id === action\.payload\.id|updatedById" frontend/src/features/panels/state/panelsSlice.ts
+304:          panel.id === action.payload.id ? action.payload : panel,
+309:          panel.id === action.payload.id ? action.payload : panel,
+333:          panel.id === action.payload.id ? action.payload : panel,
+338:          panel.id === action.payload.id ? action.payload : panel,
+343:          panel.id === action.payload.id ? action.payload : panel,
+348:          panel.id === action.payload.id ? action.payload : panel,
+353:          panel.id === action.payload.id ? action.payload : panel,
+358:          panel.id === action.payload.id ? action.payload : panel,
+362:        const updatedById = new Map(action.payload.panels.map((p) => [p.id, p]));
+363:        state.items = state.items.map((panel) => updatedById.get(panel.id) ?? panel);
+
+$ grep -rnE "panel\.id === action\.payload\.id|updatedById" frontend/src --include=*.ts --include=*.tsx (excluding tests)
+frontend/src/features/panels/state/panelsSlice.ts:304:          panel.id === action.payload.id ? action.payload : panel,
+frontend/src/features/panels/state/panelsSlice.ts:309:          panel.id === action.payload.id ? action.payload : panel,
+frontend/src/features/panels/state/panelsSlice.ts:333:          panel.id === action.payload.id ? action.payload : panel,
+frontend/src/features/panels/state/panelsSlice.ts:338:          panel.id === action.payload.id ? action.payload : panel,
+frontend/src/features/panels/state/panelsSlice.ts:343:          panel.id === action.payload.id ? action.payload : panel,
+frontend/src/features/panels/state/panelsSlice.ts:348:          panel.id === action.payload.id ? action.payload : panel,
+frontend/src/features/panels/state/panelsSlice.ts:353:          panel.id === action.payload.id ? action.payload : panel,
+frontend/src/features/panels/state/panelsSlice.ts:358:          panel.id === action.payload.id ? action.payload : panel,
+frontend/src/features/panels/state/panelsSlice.ts:362:        const updatedById = new Map(action.payload.panels.map((p) => [p.id, p]));
+frontend/src/features/panels/state/panelsSlice.ts:363:        state.items = state.items.map((panel) => updatedById.get(panel.id) ?? panel);
