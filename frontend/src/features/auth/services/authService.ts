@@ -53,19 +53,13 @@ export async function updateUserPreferencesRequest(
   return response.data.preferences;
 }
 
-/** `PATCH /api/users/me/preferences` (HEL-1574, HEL-1572): the shell layout and appearance keys. Merges server-side; returns the full
- *  preferences. */
+/** `PATCH /api/users/me/preferences` (HEL-1574, HEL-1572, HEL-1755, HEL-1575): merges server-side; returns the full
+ *  preferences. HEL-1829: only `preferencesSaveQueue` calls this; every writer goes through the queue. */
 export async function patchShellPreferencesRequest(
-  patch: PreferencesPatch,
+  patch: PreferencesPatch & { dashboardTabs?: unknown },
 ): Promise<UserPreferences> {
   const response = await httpClient.patch<UserPreferences>("/api/users/me/preferences", patch);
   return response.data;
-}
-
-/** `PATCH /api/users/me/preferences` with the `dashboardTabs` key (HEL-1575): replaces the saved tab set as a
- *  whole. Resolves to nothing: the response is deliberately not written back (it could clobber newer state). */
-export async function patchDashboardTabsRequest(wire: unknown): Promise<void> {
-  await httpClient.patch("/api/users/me/preferences", { dashboardTabs: wire });
 }
 
 export async function oauthCallbackRequest(code: string, state?: string): Promise<LoginResult> {

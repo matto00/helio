@@ -1,0 +1,13 @@
+
+Running 3 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1575-1795480404994-2035@example.test
+  ✓  2 [dev] › e2e/hel1575-delayed-restore-no-update-loop.spec.ts:14:5 › a reload with a slow browser-store read shows the panels with no update-depth errors (15.0s)
+[HEL-1300 e2e] throwaway user: hel1783-owner-1795480419156-71292@example.test
+[HEL-1300 e2e] throwaway user: hel1783-viewer-1795480419435-83382@example.test
+  ✓  3 [dev] › e2e/hel1783-shared-dashboard-tabs.spec.ts:250:7 › HEL-1783 a grantee's shared dashboard tab is warm and shows data-change dots › warm switch and reload make no panel requests; new data shows the dot and refreshes through the per-panel route (1.2m)
+  ✓  1 [dev] › e2e/hel1575-dashboard-tabs-idle-device.spec.ts:21:7 › HEL-1575 dashboard tabs › an idle, visible device never overwrites the tab set another device saved (two devices, 125 s idle) (2.3m)
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 4 recorded throwaway user(s)
+
+  3 passed (2.3m)

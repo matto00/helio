@@ -11,15 +11,15 @@ import { startTabsBrowserTriggers } from "./tabsBrowserTriggers";
 import { TABS_WRITE_DEBOUNCE_MS } from "./tabsPersistence";
 import { clearWarmState, getWarmStore, setListEntry } from "./warm/warmCache";
 import { WARM_WRITE_DEBOUNCE_MS } from "./warm/warmConfig";
-import { patchDashboardTabsRequest } from "../../auth/services/authService";
+import { patchShellPreferencesRequest } from "../../auth/services/authService";
 
 jest.mock("./dashboardChangesService", () => ({ fetchDashboardChanges: jest.fn() }));
 jest.mock("../../auth/services/authService", () => ({
-  patchDashboardTabsRequest: jest.fn().mockResolvedValue(undefined),
+  patchShellPreferencesRequest: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock("../../panels/services/panelService", () => ({ fetchPanels: jest.fn() }));
 
-const patchMock = jest.mocked(patchDashboardTabsRequest);
+const patchMock = jest.mocked(patchShellPreferencesRequest);
 const panelsA = [outputPanel("pa1", "a", "o1")];
 const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
 

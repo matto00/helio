@@ -3,9 +3,7 @@
 // with a `keepalive` fetch on hidden/pagehide so the last change survives a reload; a failure keeps the
 // local state and shows nothing (the HEL-1574 precedent).
 
-import { API_BASE_URL } from "../../../config/env";
-import { patchDashboardTabsRequest } from "../../auth/services/authService";
-import { CSRF_HEADER, CSRF_HEADER_VALUE } from "../../../services/csrfHeader";
+import { queuePreferencesPatch } from "../../auth/services/preferencesSaveQueue";
 import type { DashboardTab } from "./tabTypes";
 import { declareSessionResetCoverage } from "../../../shared/session/sessionReset";
 
@@ -41,7 +39,7 @@ export function scheduleTabsWrite(wire: TabsWire): void {
   }, TABS_WRITE_DEBOUNCE_MS);
 }
 
-/** Sends the pending write now. `keepalive` uses `fetch` so the request outlives the page. */
+/** Sends the pending write now. `keepalive` sends it with `fetch` so the request outlives the page. */
 export async function flushTabsWrite(options: { keepalive?: boolean } = {}): Promise<void> {
   if (timer !== null) {
     clearTimeout(timer);
@@ -50,21 +48,9 @@ export async function flushTabsWrite(options: { keepalive?: boolean } = {}): Pro
   const wire = pending;
   pending = null;
   if (wire === null) return;
-  try {
-    if (options.keepalive) {
-      await fetch(`${API_BASE_URL}/api/users/me/preferences`, {
-        method: "PATCH",
-        keepalive: true,
-        credentials: "include",
-        headers: { "Content-Type": "application/json", [CSRF_HEADER]: CSRF_HEADER_VALUE },
-        body: JSON.stringify({ dashboardTabs: wire }),
-      });
-    } else {
-      await patchDashboardTabsRequest(wire);
-    }
-  } catch {
-    // Local state stays; the next change (or the next sign-in) reconciles.
-  }
+  // HEL-1829: ordered behind every other preference save; the keepalive flush rides the trailing request when one is
+  // already in flight. A failure resolves as `failed`: local state stays, the next change reconciles.
+  await queuePreferencesPatch({ dashboardTabs: wire }, { keepalive: options.keepalive === true });
 }
 
 /** Drops anything queued (sign-out must never write the previous user's tabs). */
