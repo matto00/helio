@@ -1,0 +1,412 @@
+
+Running 10 tests using 2 workers
+
+[1/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[2/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795561969211-87470@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795561969212-29455@example.com
+
+  1) [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 43
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "active": true,
+    +     "current": "page",
+    +     "icon": Object {
+    +       "bottom": 770,
+    +       "height": 20,
+    +       "left": 91.3125,
+    +       "right": 111.3125,
+    +       "top": 750,
+    +       "width": 20,
+    +     },
+    +     "label": Object {
+    +       "bottom": 766,
+    +       "height": 12,
+    +       "left": 111.3125,
+    +       "right": 183.3125,
+    +       "top": 754,
+    +       "width": 72,
+    +     },
+    +     "labelClientWidth": 72,
+    +     "labelColor": "rgb(242, 239, 233)",
+    +     "labelOpacity": 1,
+    +     "labelScrollWidth": 72,
+    +     "lozenge": Object {
+    +       "bottom": 774,
+    +       "height": 28,
+    +       "left": 79.3125,
+    +       "right": 195.3125,
+    +       "top": 746,
+    +       "width": 116,
+    +     },
+    +     "name": "Dashboards",
+    +     "tab": Object {
+    +       "bottom": 787,
+    +       "height": 54,
+    +       "left": 77.3125,
+    +       "right": 197.3125,
+    +       "top": 733,
+    +       "width": 120,
+    +     },
+    +   },
+    + ]
+
+      560 |       // /chat belongs to no tab.
+      561 |       const g = await navGeometry(page);
+    > 562 |       expect(g.tabs.filter((t) => t.current !== null)).toEqual([]);
+          |                                                        ^
+      563 |     });
+      564 |
+      565 |     test("an owner reaches Usage through the Me menu, which opens above the nav", async ({
+        at /home/matt/Development/helio/.claude/worktrees/task/glass-nav-two-taps-flake/hel-1701/e2e/support/hel1583-glass-nav.ts:562:56
+
+    Error Context: test-results/hel1701-throttled-probe-HE-ee170-en-Browse-all-conversations-dev-repeat1/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1701-throttled-probe-HE-ee170-en-Browse-all-conversations-dev-repeat1/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1701-throttled-probe-HE-ee170-en-Browse-all-conversations-dev-repeat1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[3/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[4/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795561978999-71561@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795561979287-9351@example.com
+
+[5/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+  2) [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 43
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "active": true,
+    +     "current": "page",
+    +     "icon": Object {
+    +       "bottom": 770,
+    +       "height": 20,
+    +       "left": 91.3125,
+    +       "right": 111.3125,
+    +       "top": 750,
+    +       "width": 20,
+    +     },
+    +     "label": Object {
+    +       "bottom": 766,
+    +       "height": 12,
+    +       "left": 111.3125,
+    +       "right": 183.3125,
+    +       "top": 754,
+    +       "width": 72,
+    +     },
+    +     "labelClientWidth": 72,
+    +     "labelColor": "rgb(242, 239, 233)",
+    +     "labelOpacity": 1,
+    +     "labelScrollWidth": 72,
+    +     "lozenge": Object {
+    +       "bottom": 774,
+    +       "height": 28,
+    +       "left": 79.3125,
+    +       "right": 195.3125,
+    +       "top": 746,
+    +       "width": 116,
+    +     },
+    +     "name": "Dashboards",
+    +     "tab": Object {
+    +       "bottom": 787,
+    +       "height": 54,
+    +       "left": 77.3125,
+    +       "right": 197.3125,
+    +       "top": 733,
+    +       "width": 120,
+    +     },
+    +   },
+    + ]
+
+      560 |       // /chat belongs to no tab.
+      561 |       const g = await navGeometry(page);
+    > 562 |       expect(g.tabs.filter((t) => t.current !== null)).toEqual([]);
+          |                                                        ^
+      563 |     });
+      564 |
+      565 |     test("an owner reaches Usage through the Me menu, which opens above the nav", async ({
+        at /home/matt/Development/helio/.claude/worktrees/task/glass-nav-two-taps-flake/hel-1701/e2e/support/hel1583-glass-nav.ts:562:56
+
+    Error Context: test-results/hel1701-throttled-probe-HE-ee170-en-Browse-all-conversations-dev-repeat3/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1701-throttled-probe-HE-ee170-en-Browse-all-conversations-dev-repeat3/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1701-throttled-probe-HE-ee170-en-Browse-all-conversations-dev-repeat3/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[6/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795561989025-11995@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795561989411-47117@example.com
+
+  3) [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 43
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "active": true,
+    +     "current": "page",
+    +     "icon": Object {
+    +       "bottom": 770,
+    +       "height": 20,
+    +       "left": 91.3125,
+    +       "right": 111.3125,
+    +       "top": 750,
+    +       "width": 20,
+    +     },
+    +     "label": Object {
+    +       "bottom": 766,
+    +       "height": 12,
+    +       "left": 111.3125,
+    +       "right": 183.3125,
+    +       "top": 754,
+    +       "width": 72,
+    +     },
+    +     "labelClientWidth": 72,
+    +     "labelColor": "rgb(242, 239, 233)",
+    +     "labelOpacity": 1,
+    +     "labelScrollWidth": 72,
+    +     "lozenge": Object {
+    +       "bottom": 774,
+    +       "height": 28,
+    +       "left": 79.3125,
+    +       "right": 195.3125,
+    +       "top": 746,
+    +       "width": 116,
+    +     },
+    +     "name": "Dashboards",
+    +     "tab": Object {
+    +       "bottom": 787,
+    +       "height": 54,
+    +       "left": 77.3125,
+    +       "right": 197.3125,
+    +       "top": 733,
+    +       "width": 120,
+    +     },
+    +   },
+    + ]
+
+      560 |       // /chat belongs to no tab.
+      561 |       const g = await navGeometry(page);
+    > 562 |       expect(g.tabs.filter((t) => t.current !== null)).toEqual([]);
+          |                                                        ^
+      563 |     });
+      564 |
+      565 |     test("an owner reaches Usage through the Me menu, which opens above the nav", async ({
+        at /home/matt/Development/helio/.claude/worktrees/task/glass-nav-two-taps-flake/hel-1701/e2e/support/hel1583-glass-nav.ts:562:56
+
+    Error Context: test-results/hel1701-throttled-probe-HE-ee170-en-Browse-all-conversations-dev-repeat4/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1701-throttled-probe-HE-ee170-en-Browse-all-conversations-dev-repeat4/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1701-throttled-probe-HE-ee170-en-Browse-all-conversations-dev-repeat4/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  4) [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 43
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "active": true,
+    +     "current": "page",
+    +     "icon": Object {
+    +       "bottom": 770,
+    +       "height": 20,
+    +       "left": 91.3125,
+    +       "right": 111.3125,
+    +       "top": 750,
+    +       "width": 20,
+    +     },
+    +     "label": Object {
+    +       "bottom": 766,
+    +       "height": 12,
+    +       "left": 111.3125,
+    +       "right": 183.3125,
+    +       "top": 754,
+    +       "width": 72,
+    +     },
+    +     "labelClientWidth": 72,
+    +     "labelColor": "rgb(242, 239, 233)",
+    +     "labelOpacity": 1,
+    +     "labelScrollWidth": 72,
+    +     "lozenge": Object {
+    +       "bottom": 774,
+    +       "height": 28,
+    +       "left": 79.3125,
+    +       "right": 195.3125,
+    +       "top": 746,
+    +       "width": 116,
+    +     },
+    +     "name": "Dashboards",
+    +     "tab": Object {
+    +       "bottom": 787,
+    +       "height": 54,
+    +       "left": 77.3125,
+    +       "right": 197.3125,
+    +       "top": 733,
+    +       "width": 120,
+    +     },
+    +   },
+    + ]
+
+      560 |       // /chat belongs to no tab.
+      561 |       const g = await navGeometry(page);
+    > 562 |       expect(g.tabs.filter((t) => t.current !== null)).toEqual([]);
+          |                                                        ^
+      563 |     });
+      564 |
+      565 |     test("an owner reaches Usage through the Me menu, which opens above the nav", async ({
+        at /home/matt/Development/helio/.claude/worktrees/task/glass-nav-two-taps-flake/hel-1701/e2e/support/hel1583-glass-nav.ts:562:56
+
+    Error Context: test-results/hel1701-throttled-probe-HE-ee170-en-Browse-all-conversations-dev-repeat5/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1701-throttled-probe-HE-ee170-en-Browse-all-conversations-dev-repeat5/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1701-throttled-probe-HE-ee170-en-Browse-all-conversations-dev-repeat5/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[7/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[8/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795561999186-65690@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795561999340-90321@example.com
+
+[9/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[10/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795562008498-86744@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795562008783-41978@example.com
+
+  5) [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 43
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "active": true,
+    +     "current": "page",
+    +     "icon": Object {
+    +       "bottom": 770,
+    +       "height": 20,
+    +       "left": 91.3125,
+    +       "right": 111.3125,
+    +       "top": 750,
+    +       "width": 20,
+    +     },
+    +     "label": Object {
+    +       "bottom": 766,
+    +       "height": 12,
+    +       "left": 111.3125,
+    +       "right": 183.3125,
+    +       "top": 754,
+    +       "width": 72,
+    +     },
+    +     "labelClientWidth": 72,
+    +     "labelColor": "rgb(242, 239, 233)",
+    +     "labelOpacity": 1,
+    +     "labelScrollWidth": 72,
+    +     "lozenge": Object {
+    +       "bottom": 774,
+    +       "height": 28,
+    +       "left": 79.3125,
+    +       "right": 195.3125,
+    +       "top": 746,
+    +       "width": 116,
+    +     },
+    +     "name": "Dashboards",
+    +     "tab": Object {
+    +       "bottom": 787,
+    +       "height": 54,
+    +       "left": 77.3125,
+    +       "right": 197.3125,
+    +       "top": 733,
+    +       "width": 120,
+    +     },
+    +   },
+    + ]
+
+      560 |       // /chat belongs to no tab.
+      561 |       const g = await navGeometry(page);
+    > 562 |       expect(g.tabs.filter((t) => t.current !== null)).toEqual([]);
+          |                                                        ^
+      563 |     });
+      564 |
+      565 |     test("an owner reaches Usage through the Me menu, which opens above the nav", async ({
+        at /home/matt/Development/helio/.claude/worktrees/task/glass-nav-two-taps-flake/hel-1701/e2e/support/hel1583-glass-nav.ts:562:56
+
+    Error Context: test-results/hel1701-throttled-probe-HE-ee170-en-Browse-all-conversations-dev-repeat8/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1701-throttled-probe-HE-ee170-en-Browse-all-conversations-dev-repeat8/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1701-throttled-probe-HE-ee170-en-Browse-all-conversations-dev-repeat8/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+userCleanup: removed 0 of 10 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 10 recorded throwaway user(s)
+  5 failed
+    [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations 
+    [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations 
+    [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations 
+    [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations 
+    [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations 
+  5 passed (49.4s)

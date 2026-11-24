@@ -1,0 +1,12 @@
+HEL-1701 CI artifacts (no CI env block included)
+
+Run 45488894333 (PR #1266, 2026-11-24), job 138781572966 (e2e 2, dark):
+  Artifacts listed: e2e-runner-shard-*, playwright-json-shard-* (and jest-timing). They belong to the run's final
+  attempt, the rerun, in which the test PASSED (playwright-json-shard-2: expected 137, unexpected 0, flaky 0).
+  The failed attempt's artifacts are not retrievable: no trace/video/DOM snapshot exists (the config keeps none).
+  Only the job log shows the failure: after toHaveURL(/\/chat$/) passed, navGeometry saw tab "Dashboards" with
+  current: "page".
+Run 39830913828 (2026-10-22), attempt 1, job e2e (6): run is completed, but `actions/runs/<id>/artifacts` lists no
+  artifacts (expired/absent). Only the job log existed; it is the same test (same assertion).
+Conclusion: no CI trace exists; the root cause is established by the local throttled timeline probe
+  (probe-timeline-4x.txt).

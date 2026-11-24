@@ -1,0 +1,92 @@
+
+Running 10 tests using 2 workers
+
+[1/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[2/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795562686486-885@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795562686486-77336@example.com
+
+[3/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[4/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795562696512-6162@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795562696660-47979@example.com
+
+[5/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[6/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795562707602-3350@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795562707793-66544@example.com
+
+[7/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[8/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795562718507-92396@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795562718825-85531@example.com
+
+[9/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[10/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795562730412-88770@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795562730496-58861@example.com
+
+userCleanup: removed 0 of 10 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 10 recorded throwaway user(s)
+  10 passed (56.2s)
+
+Running 10 tests using 2 workers
+
+[1/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[2/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betalight-1795562748153-21960@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betalight-1795562748153-97399@example.com
+
+[3/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[4/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betalight-1795562758386-61616@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betalight-1795562758477-14353@example.com
+
+[5/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[6/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betalight-1795562768760-60196@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betalight-1795562768819-98304@example.com
+
+[7/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[8/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betalight-1795562780215-2691@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betalight-1795562780361-13176@example.com
+
+[9/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[10/10] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betalight-1795562791635-56849@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betalight-1795562791635-73006@example.com
+
+userCleanup: removed 0 of 10 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 10 recorded throwaway user(s)
+  10 passed (54.2s)

@@ -1,0 +1,49 @@
+import { test } from "@playwright/test";
+import { appendFileSync } from "node:fs";
+import { currentUserId } from "./support/auth";
+import { setUserTierForTest } from "./support/historySeed";
+import { openAt } from "./support/hel1583-glass-nav";
+
+// HEL-1701 TEMPORARY probe: per-frame timeline from the Browse-all-conversations click.
+test.describe.configure({ mode: "parallel" });
+const OUT = process.env.HEL1701_PROBE_OUT ?? "/dev/null";
+test("timeline", async ({ page, request }) => {
+  const rate = Number(process.env.HEL1701_CPU_RATE ?? "1");
+  if (rate > 1) {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate });
+  }
+  await openAt(page, request, 375, "dark", "probe");
+  setUserTierForTest(await currentUserId(page.request), "beta");
+  await page.reload();
+  await page.locator(".bottom-nav").waitFor();
+  await page.getByRole("button", { name: "Open assistant" }).click();
+  const link = page.getByRole("link", { name: /Browse all conversations/ });
+  await link.waitFor();
+  await page.evaluate(() => {
+    const w = window as unknown as { __tl: unknown[] };
+    w.__tl = [];
+    const t0 = performance.now();
+    const snap = (src: string) => {
+      const cur = Array.from(document.querySelectorAll(".bottom-nav__tab")).map(
+        (t) => `${t.getAttribute("aria-label")}=${t.getAttribute("aria-current")}`,
+      ).filter((s) => !s.endsWith("=null")).join(",");
+      const h1 = Array.from(document.querySelectorAll("main h1")).map((h) => h.textContent).join("|");
+      const dlg = !!document.querySelector("[role=dialog]");
+      const line = `${src} path=${location.pathname} cur=[${cur}] h1=[${h1}] dialog=${dlg}`;
+      const last = (w.__tl[w.__tl.length - 1] as string | undefined)?.replace(/^\S+ \S+ /, "") ;
+      if (last !== line.replace(/^\S+ /, "")) w.__tl.push(`${(performance.now() - t0).toFixed(0)}ms ${line}`);
+    };
+    const origPush = history.pushState.bind(history);
+    history.pushState = (...a: Parameters<History["pushState"]>) => { origPush(...a); snap("pushState"); };
+    new MutationObserver(() => snap("mut")).observe(document.body, { subtree: true, childList: true, attributes: true });
+    const tick = () => { snap("raf"); requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+    snap("start");
+  });
+  await link.click();
+  await page.waitForURL(/\/chat$/);
+  await page.waitForTimeout(1500);
+  const tl = await page.evaluate(() => (window as unknown as { __tl: string[] }).__tl);
+  appendFileSync(OUT, `--- run rate=${rate}\n${tl.join("\n")}\n`);
+});

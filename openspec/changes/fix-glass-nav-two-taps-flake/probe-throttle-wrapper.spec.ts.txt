@@ -1,0 +1,13 @@
+import { test } from "@playwright/test";
+import { describeGlassNav } from "./support/hel1583-glass-nav";
+
+// HEL-1701 TEMPORARY: runs the unmodified shared glass-nav tests with CDP CPU throttling (HEL1701_CPU_RATE).
+test.describe.configure({ mode: "parallel" });
+test.beforeEach(async ({ page }) => {
+  const rate = Number(process.env.HEL1701_CPU_RATE ?? "1");
+  if (rate > 1) {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate });
+  }
+});
+describeGlassNav(process.env.HEL1701_THEME === "light" ? "light" : "dark");

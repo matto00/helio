@@ -1,0 +1,24 @@
+--- run rate=4
+1ms start path=/dashboards cur=[Dashboards=page] h1=[Dashboards] dialog=false
+67ms pushState path=/chat cur=[Dashboards=page] h1=[Dashboards] dialog=false
+216ms mut path=/chat cur=[] h1=[Assistant] dialog=false
+--- run rate=4
+1ms start path=/dashboards cur=[Dashboards=page] h1=[Dashboards] dialog=false
+56ms pushState path=/chat cur=[Dashboards=page] h1=[Dashboards] dialog=false
+201ms mut path=/chat cur=[] h1=[Assistant] dialog=false
+--- run rate=4
+1ms start path=/dashboards cur=[Dashboards=page] h1=[Dashboards] dialog=false
+54ms pushState path=/chat cur=[Dashboards=page] h1=[Dashboards] dialog=false
+195ms mut path=/chat cur=[] h1=[Assistant] dialog=false
+--- run rate=4
+1ms start path=/dashboards cur=[Dashboards=page] h1=[Dashboards] dialog=false
+63ms pushState path=/chat cur=[Dashboards=page] h1=[Dashboards] dialog=false
+219ms mut path=/chat cur=[] h1=[Assistant] dialog=false
+--- run rate=4
+1ms start path=/dashboards cur=[Dashboards=page] h1=[Dashboards] dialog=false
+60ms pushState path=/chat cur=[Dashboards=page] h1=[Dashboards] dialog=false
+217ms mut path=/chat cur=[] h1=[Assistant] dialog=false
+--- run rate=4
+1ms start path=/dashboards cur=[Dashboards=page] h1=[Dashboards] dialog=false
+141ms pushState path=/chat cur=[Dashboards=page] h1=[Dashboards] dialog=false
+285ms mut path=/chat cur=[] h1=[Assistant] dialog=false

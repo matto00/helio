@@ -1,0 +1,1 @@
+- `e2e/support/hel1583-glass-nav.ts` - two-taps test waits for ChatPage's composer in main before the nav snapshot
