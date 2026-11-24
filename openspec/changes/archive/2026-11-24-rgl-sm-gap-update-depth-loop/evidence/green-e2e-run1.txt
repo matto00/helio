@@ -1,0 +1,10 @@
+
+Running 3 tests using 1 worker
+
+  ✓  1 [dev] › e2e/hel1835-no-update-depth-loop-on-load.spec.ts:79:7 › a full load at sm runs no update-depth loop and writes no layout (7.8s)
+  ✓  2 [dev] › e2e/hel1835-no-update-depth-loop-on-load.spec.ts:79:7 › a full load at md runs no update-depth loop and writes no layout (7.4s)
+  ✓  3 [dev] › e2e/hel1835-no-update-depth-loop-on-load.spec.ts:79:7 › a full load at lg runs no update-depth loop and writes no layout (7.5s)
+userCleanup: removed 0 of 3 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 3 recorded throwaway user(s)
+
+  3 passed (23.5s)
