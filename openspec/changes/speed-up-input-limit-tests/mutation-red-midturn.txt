@@ -1,0 +1,14 @@
+# Mutation M3: mid-turn input_budget stop disabled (a later-hop overrun becomes GuardrailExceeded) in ClaudeClient.sendWithTools (temporary, reverted); both full spec files, NEW helpers
+# diff:
+--- a/backend/src/main/scala/com/helio/infrastructure/ai/ClaudeClient.scala
++++ b/backend/src/main/scala/com/helio/infrastructure/ai/ClaudeClient.scala
+-        case Some(_) if request.stopOnInputBudget && hopsUsed >= 1 =>
++        case Some(_) if false && request.stopOnInputBudget && hopsUsed >= 1 =>
+
+[info] - should stop mid-turn on the input limit keeping the work so far, while a first-request overrun is still refused (HEL-1637) *** FAILED ***
+[info]   expected Right(AssistantTurnResult), got Left(GuardrailExceeded(Estimated input tokens (100008) exceed the configured limit (100000))) (AssistantServiceTestSupport.scala:49)
+[info] - should refuse a first request over the input limit with nothing persisted, but keep the work of a turn that grows past it, after which every send is refused *** FAILED ***
+[info]   422 Unprocessable Content was not equal to 200 OK (AssistantConversationRoutesTierSpec.scala:181)
+[info] Tests: succeeded 15, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+[error] Failed tests:

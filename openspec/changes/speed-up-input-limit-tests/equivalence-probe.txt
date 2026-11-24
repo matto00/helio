@@ -1,0 +1,6 @@
+# Equivalence probe: old linear walk vs new bisection, same totals functions as the two helpers, real estimator.
+# (Probe copy of the bisection logic; the committed helpers additionally require the boundary. Probe source kept in main-checkout scratch, not committed.)
+sized (FailureBudgetSpec) target=99995 oldK=97487 newK=97487 oldTotal=99995 newTotal=99995 nextTotal=99996 identical=true
+sized (FailureBudgetSpec) target=100050 oldK=97542 newK=97542 oldTotal=100050 newTotal=100050 nextTotal=100051 identical=true
+sizedMessage (TierSpec) target=99995 oldK=97490 newK=97490 oldTotal=99995 newTotal=99995 nextTotal=99996 identical=true
+sizedMessage (TierSpec) target=100050 oldK=97545 newK=97545 oldTotal=100050 newTotal=100050 nextTotal=100051 identical=true

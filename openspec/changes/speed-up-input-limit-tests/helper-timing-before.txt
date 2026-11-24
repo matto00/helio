@@ -1,0 +1,5 @@
+# Old helper alone, local (sbt -J-Xmx3g, nice -n 19), real ClaudeTokenEstimator; targets = maxInputTokens(100000)-5 and +50
+old sized (FailureBudgetSpec) target=99995 k=97487 totalCalls=2510 elapsedMs=41554
+old sized (FailureBudgetSpec) target=100050 k=97542 totalCalls=2510 elapsedMs=40475
+old sizedMessage (TierSpec) target=99995 k=97490 totalCalls=2507 elapsedMs=35701
+old sizedMessage (TierSpec) target=100050 k=97545 totalCalls=2507 elapsedMs=34155

@@ -1,0 +1,19 @@
+# Mutation M4: first-request (hop 1) refusal disabled in ClaudeClient.sendWithTools (temporary, reverted); both full spec files, NEW helpers
+# diff:
+--- a/backend/src/main/scala/com/helio/infrastructure/ai/ClaudeClient.scala
++++ b/backend/src/main/scala/com/helio/infrastructure/ai/ClaudeClient.scala
+-        case Some(reason) =>
++        case Some(reason) if hopsUsed >= 1 =>
+-        case None =>
++        case _ =>
+
+[info] - should stop mid-turn on the input limit keeping the work so far, while a first-request overrun is still refused (HEL-1637) *** FAILED ***
+[info]   expected GuardrailExceeded, got Right(AssistantTurnResult(never,None,0,false,false,TokenUsage(8,4,0,0),List(ClaudeToolMessage(user,List(Text(word word word word word word word word word word word word word word word word word word word word word word 
+[info] - should refuse a first request over the input limit with nothing persisted, but keep the work of a turn that grows past it, after which every send is refused *** FAILED ***
+[info]   200 OK was not equal to 422 Unprocessable Content (AssistantConversationRoutesTierSpec.scala:174)
+[info] Tests: succeeded 15, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.assistant.AssistantConversationRoutesTierSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 9 s, cache 93%, 27 disk cache hits, 2 onsite tasks
