@@ -2,7 +2,7 @@ package com.helio.infrastructure.persistence.auth
 
 import com.helio.infrastructure.crypto.TokenHashing
 import com.helio.domain.model.{User, UserId, UserSession, UserTier}
-import com.helio.services.auth.UserTierConfig
+import com.helio.domain.util.EmailNormalizer
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
@@ -46,7 +46,7 @@ class UserRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
       .map(_.map(rowToDomain))
 
   def findByEmail(email: String): Future[Option[User]] =
-    db.run(users.filter(_.email === email).result.headOption)
+    db.run(users.filter(_.email.toLowerCase === EmailNormalizer.normalize(email)).result.headOption)
       .map(_.map(rowToDomain))
 
   def findByGoogleId(googleId: String): Future[Option[User]] =
@@ -67,23 +67,21 @@ class UserRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
     db.run(users += row).map(_ => user)
   }
 
-  /** Creates on first Google login, matches by `google_id` on subsequent logins. `tierConfig`
-   *  (HEL-703, design.md D4) decides tier alongside the existing avatar-refresh precedent: a NEW
-   *  user is assigned `owner` on an allowlist match (else the domain default `free`); a RETURNING
-   *  user whose email now matches the allowlist and whose stored tier is not already `owner` is
-   *  promoted -- and the promotion is persisted in the SAME update as the avatar refresh. The
-   *  allowlist only ever promotes, never demotes (an already-`owner` user whose email later leaves
-   *  the allowlist keeps `owner`). */
+  /** Creates on first Google login, matches by `google_id` on subsequent logins. `ownerEligible`
+   *  (HEL-1852) is computed by `AuthService.completeOAuth` -- true only for a Google-VERIFIED email on
+   *  the owner allowlist -- so this repository never decides Owner itself: a NEW user is created
+   *  `owner` iff eligible (else `free`); a RETURNING user is promoted iff eligible and not already
+   *  `owner`, in the same update as the avatar refresh. Never demotes. */
   def upsertGoogleUser(
       googleId: String,
       email: String,
       displayName: Option[String],
       avatarUrl: Option[String],
-      tierConfig: UserTierConfig
+      ownerEligible: Boolean
   ): Future[(User, Boolean)] = {
     findByGoogleId(googleId).flatMap {
       case Some(existingUser) =>
-        val promoted = tierConfig.isOwnerEmail(email) && existingUser.tier != UserTier.Owner
+        val promoted = ownerEligible && existingUser.tier != UserTier.Owner
         val newTier  = if (promoted) UserTier.Owner else existingUser.tier
         val updateAction = users
           .filter(_.id === UUID.fromString(existingUser.id.value))
@@ -93,7 +91,7 @@ class UserRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
 
       case None =>
         val now  = Instant.now()
-        val tier = if (tierConfig.isOwnerEmail(email)) UserTier.Owner else UserTier.Free
+        val tier = if (ownerEligible) UserTier.Owner else UserTier.Free
         val newUser = User(
           id          = UserId(UUID.randomUUID().toString),
           email       = email,
@@ -117,11 +115,8 @@ class UserRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
     }
   }
 
-  /** Persists a tier change directly (HEL-703) -- used by `AuthService.login`'s allowlist
-   *  promotion, which needs the update to land BEFORE the login response is built (unlike
-   *  `upsertGoogleUser`'s own inline promotion, this is a bare column update with no other side
-   *  effect). A no-op-shaped success for an unknown id -- callers always hold an id they just
-   *  resolved via `findByEmail`/`findById`, so this never needs existence signaling. */
+  /** Persists a tier change directly -- a bare column update (the explicit "manual grant" path;
+   *  no auth path calls it to write `owner` since HEL-1852). A no-op-shaped success for an unknown id. */
   def updateTier(userId: UserId, tier: UserTier): Future[Unit] =
     db.run(users.filter(_.id === UUID.fromString(userId.value)).map(_.tier).update(UserTier.asString(tier)))
       .map(_ => ())

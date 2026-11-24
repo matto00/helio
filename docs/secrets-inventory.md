@@ -16,6 +16,28 @@ should be added here as a new entry rather than documented only in `CLAUDE.md`'s
   old key in the Anthropic console once the new deploy is confirmed healthy. No re-wrap step —
   this key is used directly, not to wrap other key material.
 
+## `helio-owner-emails`
+
+- **What it is**: the owner-email allowlist (`HELIO_OWNER_EMAILS`, comma-separated). A Google
+  sign-in whose email Google reports as verified (`email_verified`) and that matches an entry
+  (trimmed, case-insensitive) is created or promoted to the `owner` tier. Password signup and
+  password login never grant or promote `owner`, and nothing demotes. The same list is the recipient
+  list for beta-access request notifications (`BetaAccessService`). HEL-1852.
+- **Where it lives**: Secret Manager secret `helio-owner-emails`, injected as `HELIO_OWNER_EMAILS` by
+  `.github/workflows/cd-backend.yml`'s `--update-secrets` and `infra/deploy-backend.sh`'s
+  `--set-secrets`. Read by the backend's service account `helio-backend-sa`
+  (`roles/secretmanager.secretAccessor` on this secret only). It is never a literal deploy flag: the
+  repository is public, and `scripts/check-deploy-env-no-emails.mjs` (CI) fails when an address
+  appears in a workflow file or an env-vars flag.
+- **Local dev / CI**: unset, so no one is promoted and beta-access notifications answer `503`.
+- **Rotation**: add a new secret version without echoing it, then roll a new revision (Cloud Run
+  resolves `:latest` at revision start):
+
+  ```bash
+  read -rs LIST && printf '%s' "$LIST" | gcloud secrets versions add helio-owner-emails \
+    --data-file=- --project=helio-493120 && unset LIST
+  ```
+
 ## `helio-resend-api-key`
 
 - **What it is**: Resend API key for the backend's outbound email (`com.helio.infrastructure.email`,

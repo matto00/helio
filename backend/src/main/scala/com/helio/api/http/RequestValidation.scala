@@ -2,27 +2,34 @@ package com.helio.api.http
 
 import com.helio.api.protocols.auth.{CreateApiTokenRequest, LoginRequest, RedeemInviteCodeRequest, RegisterRequest}
 import com.helio.domain.panels.ChartTypes
+import com.helio.domain.util.EmailNormalizer
 
 object RequestValidation {
 
   private val EmailRegex = """^[^@]+@[^@]+\.[^@]+$""".r
   private val MinPasswordLength = 8
 
-  def validateRegisterRequest(req: RegisterRequest): Either[String, RegisterRequest] =
+  /** HEL-1852: returns the request with its email normalised (trimmed, lower-cased) BEFORE format
+   *  validation, and rejects an address that still holds whitespace or a control character. */
+  def validateRegisterRequest(raw: RegisterRequest): Either[String, RegisterRequest] = {
+    val req = raw.copy(email = EmailNormalizer.normalize(raw.email))
     if (req.email.isBlank || req.password.isBlank)
       Left("email and password are required")
-    else if (EmailRegex.findFirstIn(req.email).isEmpty)
+    else if (EmailRegex.findFirstIn(req.email).isEmpty || EmailNormalizer.hasWhitespaceOrControl(req.email))
       Left("invalid email format")
     else if (req.password.length < MinPasswordLength)
       Left(s"password must be at least $MinPasswordLength characters")
     else
       Right(req)
+  }
 
-  def validateLoginRequest(req: LoginRequest): Either[String, LoginRequest] =
+  def validateLoginRequest(raw: LoginRequest): Either[String, LoginRequest] = {
+    val req = raw.copy(email = EmailNormalizer.normalize(raw.email))
     if (req.email.isBlank || req.password.isBlank)
       Left("email and password are required")
     else
       Right(req)
+  }
 
   val MaxExpressionLength  = 500
   val DefaultDashboardName = "Untitled Dashboard"

@@ -56,6 +56,9 @@ jobs:
       - run: npm run check:dependabot:selftest
       - run: npm run check:cloud-run-cpu
       - run: npm run check:cloud-run-cpu:selftest
+      # HEL-1852: the owner-email allowlist is a Secret Manager secret, never a literal deploy flag.
+      - run: npm run check:deploy-env-no-emails
+      - run: npm run check:deploy-env-no-emails:selftest
       # HEL-1339: static guard -- the CI sbt diagnostics/cleanup path may only use recorded PIDs/PGIDs, never a
       # process-name lookup or kill. CI-only (JDK-free, node built-ins), like the guards above.
       - run: npm run check:ci-sbt-guard

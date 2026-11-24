@@ -43,7 +43,8 @@ final case class UserResponse(
 // carries the raw token internally from AuthService to the route layer so
 // the route can build the cookie without widening this wire type).
 final case class AuthResponse(expiresAt: String, user: UserResponse)
-final case class GoogleProfile(sub: String, email: Option[String], name: Option[String], picture: Option[String])
+/** `emailVerified` is Google's `email_verified` claim (HEL-1852); missing or non-true means unverified. */
+final case class GoogleProfile(sub: String, email: Option[String], name: Option[String], picture: Option[String], emailVerified: Boolean = false)
 final case class UserPreferencePayload(zoomLevel: Option[Double], accentColor: Option[String], dashboardId: Option[String])
 final case class UpdateUserPreferenceRequest(fields: Vector[String], user: UserPreferencePayload)
 
@@ -79,7 +80,13 @@ trait AuthProtocol extends SprayJsonSupport with DefaultJsonProtocol {
         sub     = obj.fields("sub").convertTo[String],
         email   = obj.fields.get("email").map(_.convertTo[String]),
         name    = obj.fields.get("name").map(_.convertTo[String]),
-        picture = obj.fields.get("picture").map(_.convertTo[String])
+        picture = obj.fields.get("picture").map(_.convertTo[String]),
+        // Lenient by design: only boolean `true` or the string "true" count; any other shape is unverified.
+        emailVerified = obj.fields.get("email_verified").exists {
+          case JsBoolean(true)   => true
+          case JsString("true") => true
+          case _                 => false
+        }
       )
     }
   }

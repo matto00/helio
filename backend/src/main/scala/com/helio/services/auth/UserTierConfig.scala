@@ -1,8 +1,10 @@
 package com.helio.services.auth
 
+import com.helio.domain.util.EmailNormalizer
+
 /** Env-sourced configuration for account-tier assignment (owner-email allowlist) and the beta-tier
  *  daily chat cap (HEL-703, design.md D4/D6). Constructed once via [[UserTierConfig.fromEnv]] and
- *  threaded explicitly into `AuthService` (register/login/completeOAuth tier assignment) and
+ *  threaded explicitly into `AuthService` (`completeOAuth`'s verified-email owner eligibility, HEL-1852) and
  *  `ChatAccessService` (beta cap enforcement) -- mirrors `ClaudeConfig`/`CookieConfig`'s
  *  fromEnv-once-inject-explicitly convention. Specs construct their own values directly (never via
  *  `fromEnv()`), so allowlist/cap behavior is testable without mutating process env vars. */
@@ -14,8 +16,8 @@ final case class UserTierConfig(ownerEmails: Set[String], betaDailyMessageLimit:
    *  set was pre-normalized by that one caller; a case-mixed literal like `Set("Owner@Example.com")`
    *  must still match `"owner@example.com"`. */
   def isOwnerEmail(email: String): Boolean = {
-    val candidate = email.trim.toLowerCase
-    ownerEmails.exists(_.trim.toLowerCase == candidate)
+    val candidate = EmailNormalizer.normalize(email)
+    ownerEmails.exists(EmailNormalizer.normalize(_) == candidate)
   }
 }
 
@@ -31,7 +33,7 @@ object UserTierConfig {
       ownerEmails = sys.env
         .getOrElse("HELIO_OWNER_EMAILS", "")
         .split(",")
-        .map(_.trim.toLowerCase)
+        .map(EmailNormalizer.normalize)
         .filter(_.nonEmpty)
         .toSet,
       betaDailyMessageLimit = sys.env

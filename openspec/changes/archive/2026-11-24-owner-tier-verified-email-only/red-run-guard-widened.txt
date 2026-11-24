@@ -1,0 +1,35 @@
+# HEL-1852 red run 2: guard widened with the D10 whole-workflow email scan, on the pre-scrub tree
+check-deploy-env-no-emails FAILED (HEL-1852):
+  - .github/workflows/cd-backend.yml: an env-vars flag value contains an email address
+  - .github/workflows/cd-backend.yml: HELIO_OWNER_EMAILS must not be an env-vars entry
+  - .github/workflows/cd-backend.yml: --update-secrets must map HELIO_OWNER_EMAILS=helio-owner-emails:latest
+  - infra/deploy-backend.sh: HELIO_OWNER_EMAILS must not be an env-vars entry
+  - infra/deploy-backend.sh: --set-secrets must map HELIO_OWNER_EMAILS=helio-owner-emails:latest
+  - .github/workflows/cd-backend.yml:101: personal email address (non-allowlisted domain)
+FAIL control: real workflow passes -- got [".github/workflows/cd-backend.yml: an env-vars flag value contains an email a
+FAIL control: real deploy script passes -- got ["infra/deploy-backend.sh: HELIO_OWNER_EMAILS must not be an env-vars ent
+FAIL control: whole repo passes -- got [".github/workflows/cd-backend.yml: an env-vars flag value contains an email addr
+PASS workflow: fake address added to --update-env-vars
+PASS workflow: HELIO_OWNER_EMAILS entry (no @) in --update-env-vars
+PASS workflow: secret mapping removed
+PASS workflow: secret mapping only in a comment does not satisfy
+FAIL workflow: an @ outside the env-vars value is not flagged -- got [".github/workflows/cd-backend.yml: an env-vars fla
+PASS workflow: no flags line
+PASS script: fake address added to --set-env-vars
+PASS script: HELIO_OWNER_EMAILS entry in --set-env-vars
+PASS script: secret mapping removed
+PASS script: mapping only in a comment does not satisfy
+PASS script: no deploy invocation
+PASS emails: personal address in a workflow comment fails
+PASS emails: personal address in a workflow value fails
+PASS emails: personal address in the deploy invocation fails
+PASS emails: personal address in a deploy-script comment is not the invocation
+PASS emails: owner@example.com passes
+PASS emails: owner@example.test passes
+PASS emails: owner@example.org passes
+PASS emails: helio-backend-sa@helio-1.iam.gserviceaccount.com passes
+PASS emails: 123+bot@users.noreply.github.com passes
+PASS emails: the whole-tree scan reports a personal address planted in a workflow
+PASS missing workflow fails
+PASS missing deploy script fails
+4 selftest case(s) failed

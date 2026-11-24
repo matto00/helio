@@ -7,13 +7,16 @@ import com.github.t3hnar.bcrypt._
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.auth.{AuthResponse, GoogleProfile, LoginRequest, RegisterRequest, UserResponse}
 import com.helio.domain.model.{AuditSource, User, UserId, UserSession, UserTier}
+import com.helio.domain.util.EmailNormalizer
 import com.helio.infrastructure.persistence.auth.{UserPreferenceRepository, UserRepository}
 import spray.json.{JsObject, JsString}
 
 import java.security.SecureRandom
+import java.sql.SQLException
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 /** Security-critical service.
  *
@@ -115,9 +118,10 @@ final class AuthService(
           case None =>
             val passwordHash = req.password.bcryptBounded(BCryptWorkFactor)
             val now          = Instant.now()
-            // HEL-703 design.md D4: owner-email allowlist is applied at insert time — a matching
-            // email is assigned `owner` directly, never `free` then promoted.
-            val tier = if (tierConfig.isOwnerEmail(req.email)) UserTier.Owner else UserTier.Free
+            // HEL-1852: a password signup NEVER grants Owner, even for an allowlisted address -- the
+            // address is unverified. Owner comes only from a Google-verified sign-in (`completeOAuth`)
+            // or a manual grant.
+            val tier = UserTier.Free
             val user = User(
               id          = UserId(UUID.randomUUID().toString),
               email       = req.email,
@@ -126,7 +130,7 @@ final class AuthService(
               tier        = tier
             )
             val session = buildSession(user.id, now)
-            for {
+            val registered = for {
               createdUser    <- userRepo.insert(user, Some(passwordHash))
               createdSession <- userRepo.createSession(session)
               result         <- authResultOf(createdSession, createdUser)
@@ -135,7 +139,12 @@ final class AuthService(
               _              <- productEventService.fold(Future.successful(()))(_.recordSignup(createdUser.id))
             } yield {
               audit(Some(createdUser.id), "auth.register")
-              Right(result)
+              Right(result): Either[ServiceError, AuthResult]
+            }
+            // HEL-1852: a concurrent register past the existence check hits the lower(email) unique
+            // index (SQLState 23505); that is a 409, not a 500.
+            registered.recover {
+              case NonFatal(e) if isUniqueViolation(e) => Left(ServiceError.Conflict("email already registered"))
             }
         }
     }
@@ -157,10 +166,9 @@ final class AuthService(
                 auditFailedLogin(req.email)
                 Future.successful(Left(ServiceError.Unauthorized()))
               case Some(hash) if req.password.isBcryptedBounded(hash) =>
-                // HEL-702/HEL-703 merge (design.md D3): tier promotion happens first
-                // (HEL-703 design.md D4), then the MFA gate decides whether a session
-                // is minted immediately or a challenge is returned instead.
-                promoteIfAllowlisted(user).flatMap(finishLogin).map { outcome =>
+                // HEL-1852: password login never changes the tier (no allowlist promotion); the MFA
+                // gate decides whether a session is minted or a challenge is returned.
+                finishLogin(user).map { outcome =>
                   auditLoginOutcome(user.id, outcome)
                   Right(outcome)
                 }
@@ -199,17 +207,18 @@ final class AuthService(
     }
 
 
-  /** Given a Google profile fetched by the route layer, upsert the user (tier assignment/promotion
-   *  happens inside `upsertGoogleUser` itself, alongside its existing avatar-refresh-on-return
-   *  behavior — HEL-703 design.md D4) and apply the same MFA gate the password path uses
+  /** Given a Google profile fetched by the route layer, upsert the user (HEL-1852: Owner eligibility is computed here, verified-email only, and passed in) and apply the same MFA gate the password path uses
    *  (`finishLogin`) — either a session is minted, or a pending challenge is returned (HEL-702).
    *  HEL-477 design.md Decision 6: same `auth.login`/`auth.login.challenged` split as the
    *  password path above — OAuth never fails with an `auth.login.failed`-shaped outcome (a
    *  failed Google exchange surfaces as a route-level error before this method is ever called). */
   def completeOAuth(profile: GoogleProfile): Future[LoginOutcome] = {
-    val email = profile.email.getOrElse(s"google:${profile.sub}@helio.invalid")
+    val email = EmailNormalizer.normalize(profile.email.getOrElse(s"google:${profile.sub}@helio.invalid"))
+    // HEL-1852: Owner is granted/promoted ONLY for a Google-verified, allowlisted real email. The
+    // synthetic fallback address is never eligible.
+    val ownerEligible = profile.emailVerified && profile.email.isDefined && tierConfig.isOwnerEmail(email)
     for {
-      (user, wasCreated) <- userRepo.upsertGoogleUser(profile.sub, email, profile.name, profile.picture, tierConfig)
+      (user, wasCreated) <- userRepo.upsertGoogleUser(profile.sub, email, profile.name, profile.picture, ownerEligible)
       outcome            <- finishLogin(user)
       // HEL-1208: a Google-created user is a signup too; without this event they would be
       // permanently absent from signups/day and TTFD. Best-effort like `register`.
@@ -220,16 +229,6 @@ final class AuthService(
       outcome
     }
   }
-
-  /** Persists `tier = owner` for a returning login whose email now matches the allowlist and whose
-   *  stored tier is not already `owner` (HEL-703 design.md D4) — a strict promotion, never a
-   *  demotion for an email that has left the allowlist. Returns the (possibly updated) user so the
-   *  login response reflects the promotion immediately, without a second `findByEmail` round trip. */
-  private def promoteIfAllowlisted(user: User): Future[User] =
-    if (tierConfig.isOwnerEmail(user.email) && user.tier != UserTier.Owner)
-      userRepo.updateTier(user.id, UserTier.Owner).map(_ => user.copy(tier = UserTier.Owner))
-    else Future.successful(user)
-
 
   /** HEL-1019: delegates to the injected [[OAuthStateStore]] (Postgres-backed in production) so
    *  the state survives across processes. `Future`-returning because the store is now a database
@@ -275,6 +274,13 @@ final class AuthService(
 }
 
 object AuthService {
+
+  /** Postgres unique_violation (SQLState 23505), searched through the cause chain. */
+  private def isUniqueViolation(e: Throwable): Boolean =
+    Iterator.iterate[Throwable](e)(_.getCause).takeWhile(_ != null).exists {
+      case sql: SQLException => sql.getSQLState == "23505"
+      case _                 => false
+    }
 
   /** BCrypt work factor — pinned to 12 for byte-identical hashing with the
    *  pre-CS2b code. Do NOT change without a deliberate security review. */

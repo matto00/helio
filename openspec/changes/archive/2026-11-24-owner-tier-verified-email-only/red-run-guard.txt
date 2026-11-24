@@ -1,0 +1,24 @@
+# HEL-1852 red run: deploy-env guard (npm run check:deploy-env-no-emails; then :selftest) before the deploy-config fix
+check-deploy-env-no-emails FAILED (HEL-1852):
+  - .github/workflows/cd-backend.yml: an env-vars flag value contains an email address
+  - .github/workflows/cd-backend.yml: HELIO_OWNER_EMAILS must not be an env-vars entry
+  - .github/workflows/cd-backend.yml: --update-secrets must map HELIO_OWNER_EMAILS=helio-owner-emails:latest
+  - infra/deploy-backend.sh: HELIO_OWNER_EMAILS must not be an env-vars entry
+  - infra/deploy-backend.sh: --set-secrets must map HELIO_OWNER_EMAILS=helio-owner-emails:latest
+FAIL control: real workflow passes -- got [".github/workflows/cd-backend.yml: an env-vars flag value contains an email address",".github/workflows/cd-backend.ym
+FAIL control: real deploy script passes -- got ["infra/deploy-backend.sh: HELIO_OWNER_EMAILS must not be an env-vars entry","infra/deploy-backend.sh: --set-secr
+FAIL control: whole repo passes -- got [".github/workflows/cd-backend.yml: an env-vars flag value contains an email address",".github/workflows/cd-backend.yml: 
+PASS workflow: fake address added to --update-env-vars
+PASS workflow: HELIO_OWNER_EMAILS entry (no @) in --update-env-vars
+PASS workflow: secret mapping removed
+PASS workflow: secret mapping only in a comment does not satisfy
+FAIL workflow: an @ outside the env-vars value is not flagged -- got [".github/workflows/cd-backend.yml: an env-vars flag value contains an email address",".git
+PASS workflow: no flags line
+PASS script: fake address added to --set-env-vars
+PASS script: HELIO_OWNER_EMAILS entry in --set-env-vars
+PASS script: secret mapping removed
+PASS script: mapping only in a comment does not satisfy
+PASS script: no deploy invocation
+PASS missing workflow fails
+PASS missing deploy script fails
+4 selftest case(s) failed
