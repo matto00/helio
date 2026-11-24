@@ -1,5 +1,0 @@
-- `frontend/src/features/panels/ui/grid/DesktopPanelGridSkeleton.tsx` - key the skeleton grid by dashboard id and active breakpoint
-- `frontend/src/features/panels/ui/grid/DesktopPanelGridSkeleton.loadBreakpointChange.test.tsx` - jest guard (layout + breakpoint change in one render)
-- `e2e/hel1835-no-update-depth-loop-on-load.spec.ts` - e2e: no update-depth error, no layout PATCH, stored sm positions
-- `openspec/changes/rgl-sm-gap-update-depth-loop/evidence/*` - root cause, red/green/mutation/regression output
-- `openspec/changes/rgl-sm-gap-update-depth-loop/evidence/before-after/*` - D4 before/after geometry dumps and screenshots (sm, both themes)
