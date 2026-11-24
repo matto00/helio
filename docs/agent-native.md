@@ -102,8 +102,9 @@ for a _scoped_ row, since only scoped tokens need per-request confinement
 data. If per-token audit for unscoped PATs matters for a given workflow,
 mint the token scoped.) Calling the hook again for a pipeline that already
 has a run in flight does not start a second run: it returns the in-flight
-run's `runId`/status instead, so a rapid retry from an external scheduler is
-a no-op rather than a duplicate rebuild.
+run's `runId`/status instead (when several runs are in flight, the newest by
+`started_at`, ties broken by the greater run id), so a rapid retry from an
+external scheduler is a no-op rather than a duplicate rebuild.
 
 **Known exposure**: there is no rate limiting or replay-window enforcement on
 `POST /api/hooks/run` in this ticket. The mitigations are the token's narrow

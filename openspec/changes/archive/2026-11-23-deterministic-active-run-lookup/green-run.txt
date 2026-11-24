@@ -1,0 +1,2 @@
+[info] Suites: completed 5, aborted 0
+[info] Tests: succeeded 124, failed 0, canceled 0, ignored 0, pending 0

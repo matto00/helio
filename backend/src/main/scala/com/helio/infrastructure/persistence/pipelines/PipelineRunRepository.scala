@@ -636,12 +636,21 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * pipeline, if any -- same predicate as [[hasActiveRunInternal]], but
     * returning the row so `HookTriggerService` can collapse a duplicate
     * external trigger into the existing run's id/status (HEL-369 design.md
-    * Decision 6) instead of starting a second one. `headOption` is safe:
-    * at most one run per pipeline can have a null `completed_at` at a time
-    * (the scheduler/hook overlap guard is what keeps that invariant true). */
+    * Decision 6) instead of starting a second one. Several runs of one
+    * pipeline CAN be open at once (manual submits -- a second tab, an editor,
+    * a PAT or helio-mcp -- are not checked for overlap, and the overlap guards
+    * are check-then-act), so the newest open run is returned, ordered
+    * `(started_at DESC, id DESC)` like every latest-run read (HEL-1626). The
+    * `id` tie-break makes the choice deterministic; it does not mean "more
+    * recent" (ids are random UUIDs). */
   def findActiveRunInternal(pipelineId: PipelineId): Future[Option[PipelineRunRow]] =
     ctx.withSystemContext(
-      runsTable.filter(r => r.pipelineId === pipelineId.value && r.completedAt.isEmpty).result.headOption
+      runsTable
+        .filter(r => r.pipelineId === pipelineId.value && r.completedAt.isEmpty)
+        .sortBy(r => (r.startedAt.desc, r.id.desc))
+        .take(1)
+        .result
+        .headOption
     )
 
 

@@ -1,0 +1,49 @@
+-- HEL-1833 EXPLAIN (ANALYZE) of the new findActiveRunInternal query.
+-- Lane DB helio_hel1833 has no Flyway schema, so a scratch schema reproduces the pipeline_runs columns the query touches plus the V24 (pipeline_id) and V136 (pipeline_id, started_at DESC) indexes; dropped afterwards.
+CREATE SCHEMA explain_hel1833;
+CREATE SCHEMA
+SET search_path = explain_hel1833;
+SET
+CREATE TABLE pipeline_runs (id text PRIMARY KEY, pipeline_id text NOT NULL, status text NOT NULL, started_at timestamptz NOT NULL, completed_at timestamptz, trigger_source text NOT NULL DEFAULT 'manual');
+CREATE TABLE
+CREATE INDEX pipeline_runs_pipeline_id_idx ON pipeline_runs(pipeline_id);
+CREATE INDEX
+CREATE INDEX pipeline_runs_pipeline_started_idx ON pipeline_runs(pipeline_id, started_at DESC);
+CREATE INDEX
+INSERT INTO pipeline_runs SELECT 't-' || g, 'p1', 'succeeded', now() - (g || ' minutes')::interval, now(), 'manual' FROM generate_series(1,300) g;
+INSERT 0 300
+INSERT INTO pipeline_runs SELECT 'o-' || g, 'p1', 'running', now() - (g || ' seconds')::interval, NULL, 'manual' FROM generate_series(1,2) g;
+INSERT 0 2
+INSERT INTO pipeline_runs SELECT 'x-' || g, 'p' || (g % 200 + 2), 'succeeded', now() - (g || ' minutes')::interval, now(), 'manual' FROM generate_series(1,20000) g;
+INSERT 0 20000
+ANALYZE pipeline_runs;
+ANALYZE
+EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM pipeline_runs WHERE pipeline_id = 'p1' AND completed_at IS NULL ORDER BY started_at DESC, id DESC LIMIT 1;
+                                                                       QUERY PLAN                                                                        
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=208.18..208.18 rows=1 width=43) (actual time=0.031..0.032 rows=1.00 loops=1)
+   Buffers: shared hit=5
+   ->  Sort  (cost=208.18..208.18 rows=1 width=43) (actual time=0.031..0.031 rows=1.00 loops=1)
+         Sort Key: started_at DESC, id DESC
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=5
+         ->  Bitmap Heap Scan on pipeline_runs  (cost=6.55..208.17 rows=1 width=43) (actual time=0.027..0.027 rows=2.00 loops=1)
+               Recheck Cond: (pipeline_id = 'p1'::text)
+               Filter: (completed_at IS NULL)
+               Rows Removed by Filter: 300
+               Heap Blocks: exact=3
+               Buffers: shared hit=5
+               ->  Bitmap Index Scan on pipeline_runs_pipeline_id_idx  (cost=0.00..6.55 rows=302 width=0) (actual time=0.008..0.008 rows=302.00 loops=1)
+                     Index Cond: (pipeline_id = 'p1'::text)
+                     Index Searches: 1
+                     Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=74
+ Planning Time: 0.139 ms
+ Execution Time: 0.043 ms
+(20 rows)
+
+DROP SCHEMA explain_hel1833 CASCADE;
+NOTICE:  drop cascades to table pipeline_runs
+DROP SCHEMA
+-- Result: bitmap index scan on pipeline_id (302 rows) then a top-N sort of the 2 open rows; 0.043 ms execution. No V148 index needed.
