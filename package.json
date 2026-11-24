@@ -14,6 +14,8 @@
     "check:schemas:selftest": "node scripts/check-schema-drift.selftest.mjs",
     "check:cloud-run-cpu": "node scripts/check-cloud-run-cpu.mjs",
     "check:cloud-run-cpu:selftest": "node scripts/check-cloud-run-cpu.selftest.mjs",
+    "check:deploy-env-no-emails": "node scripts/check-deploy-env-no-emails.mjs",
+    "check:deploy-env-no-emails:selftest": "node scripts/check-deploy-env-no-emails.selftest.mjs",
     "check:ci-sbt-guard": "node scripts/check-ci-sbt-no-pattern-kill.mjs",
     "check:ci-sbt-guard:selftest": "node scripts/check-ci-sbt-no-pattern-kill.selftest.mjs",
     "selftest:ci-sbt": "node scripts/ci-sbt.selftest.mjs",

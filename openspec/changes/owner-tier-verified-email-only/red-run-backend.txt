@@ -1,0 +1,84 @@
+# HEL-1852 red run (before any implementation code)
+# cmd: cd backend && DATABASE_URL=jdbc:postgresql://localhost:5432/helio_hel1852 nice -n 19 sbt -J-Xmx3g "testOnly AuthServiceSpec GoogleOAuthRoutesSpec V148UsersEmailLowerUniqueMigrationSpec"  -> exit 1
+[info] - should lowercase mixed-case rows, trim padded ones, and create the unique lower(email) index *** FAILED ***
+[info]   ", "carol@example.test") did not contain all of ("alice@example.test", "bob@example.test", "carol@example.test") (V148UsersEmailLowerUniqueMigrationSpec.scala:62)
+[info] - should fail with a clear message, changing nothing, when a case-duplicate exists *** FAILED ***
+[info]   false was not equal to true (V148UsersEmailLowerUniqueMigrationSpec.scala:74)
+[info] - should fail on a duplicate that differs only by a leading/trailing tab or newline (plus case), changing nothing *** FAILED ***
+[info]   false was not equal to true (V148UsersEmailLowerUniqueMigrationSpec.scala:82)
+[info] - should never merge or drop rows: row count is unchanged on success *** FAILED ***
+[info]   1 was not equal to 3 (V148UsersEmailLowerUniqueMigrationSpec.scala:91)
+[info] - should redirect to Google consent URL
+[info] - should return 400 when error=access_denied
+[info] - should return 400 when error is another value
+[info] - should return 400 when state is missing
+[info] - should return 400 when state is invalid (forged / never issued)
+[info] - should return 400 with the exact body when state has expired (tasks.md 4.4)
+[info] - should return 400 with the exact body on replay of an already-consumed state (tasks.md 4.5)
+[info] - should return 200 with AuthResponse for a new Google user
+[info] - should assigns tier = owner on first-time creation when the email is on the allowlist
+[info] - should promotes a returning user to owner when their email is on the allowlist, and persists it
+[info] - should does not assign owner to an allowlisted email Google reports unverified or without email_verified *** FAILED ***
+[info]   "[owner]" was not equal to "[free]" (GoogleOAuthRoutesSpec.scala:419)
+[info] - should renders a Google first sign-in colliding with an existing password account as the generic 500, creating no second row *** FAILED ***
+[info]   200 OK was not equal to 500 Internal Server Error (GoogleOAuthRoutesSpec.scala:442)
+[info] - should a profile with no email falls back to google:<sub>@helio.invalid and stays free even with an allowlist configured
+[info] - should return 200 with same user on second login (returning Google user)
+[info] - should return 502 when Google token exchange fails
+[info] GET /api/auth/google/callback unexpected internal failure
+[info] - should return a generic 500 without leaking the exception message, and log the detail
+[info] - should return 200 {mfaRequired, challengeToken} with no Set-Cookie, instead of a session
+[info] - should write exactly one auth.register row and exactly one auth.login row for a first-time Google signup
+[info] - should write no auth.register row for a returning Google login (negative-assertion barrier per design.md Test plan)
+[info] - should assigns tier = free to a non-allowlisted email
+[info] - should HEL-1852: assigns tier = free to an allowlisted email (password signup never grants owner) *** FAILED ***
+[info]   "[owner]" was not equal to "[free]" (AuthServiceSpec.scala:136)
+[info] - should HEL-1852: a case-variant of an allowlisted email registers as free, and never as owner *** FAILED ***
+[info]   "[owner]" was not equal to "[free]" (AuthServiceSpec.scala:143)
+[info] - should HEL-1852: a case-variant of an existing email is a 409 Conflict and creates no second row *** FAILED ***
+[info]   expected Conflict, got: Right(AuthResult(ab64d6ed47369869493585c1b6facbeb6aca183151b56473824e76bcb2ba6797,AuthResponse(2026-12-24T21:05:53.615274331Z,UserResponse(07542255-01f9-412d-b13a-e773477854b0,USER@Example.test,None,2026-11-24T21:05:5
+[info] - should HEL-1852: trims and lowercases the email on register, including tab/newline padding *** FAILED ***
+[info]   	]" was not equal to "[new.user@example.test]" (AuthServiceSpec.scala:161)
+[info] - should HEL-1852: rejects (400) a registration email with internal whitespace after trimming *** FAILED ***
+[info]   expected BadRequest for List(a,  , b, @, e, x, a, m, p, l, e, ., t, e, s, t), got: Right(AuthResult(f693d422752e7c367b08089dc8e4de8c1ff223b30b02eb2ae26ff23d7779fb38,AuthResponse(2026-12-24T21:05:54.029852041Z,UserResponse(d45b1414-e798-4fc3-
+[info] - should HEL-1852: a register that races past the existence check and hits the unique index is Conflict, not a failed Future *** FAILED ***
+[info]   at slick.jdbc.JdbcActionComponent$InsertActionComposerImpl.$anonfun$insertSingleRow$1(JdbcActionComponent.scala:579)
+[info]   at slick.jdbc.JdbcActionComponent$InsertActionComposerImpl.preparedInsert(JdbcActionComponent.scala:570)
+[info]   at slick.jdbc.JdbcActionComponent$InsertActionComposerImpl.slick$jdbc$JdbcActionComponent$InsertActionComposerImpl$$insertSingleRow(JdbcActionComponent.scala:576)
+[info] - should records exactly one signup_completed event for the new user
+[info] - should records signup_completed for a Google-created user, but not for a returning Google login
+[info] - should still completes a Google signup when recording the event fails
+[info] - should still succeeds when recording the signup event fails
+[info] - should an unset (empty) allowlist never assigns owner
+[info] - should HEL-1852: never promotes -- an allowlisted free account stays free after a password login *** FAILED ***
+[info]   "[owner]" was not equal to "[free]" (AuthServiceSpec.scala:251)
+[info] - should HEL-1852: a case-variant allowlist entry does not promote at password login either *** FAILED ***
+[info]   "[owner]" was not equal to "[free]" (AuthServiceSpec.scala:261)
+[info] - should HEL-1852: logs in with a differently-cased, padded email *** FAILED ***
+[info]   login failed: Unauthorized(Invalid email or password) (AuthServiceSpec.scala:90)
+[info] - should an unset (empty) allowlist leaves an existing free-tier user unchanged, no error
+[info] - should never demotes -- an owner (manually granted) whose email is off the allowlist stays owner on the next login
+[info] - should keeps owner for a manually granted owner still on the allowlist (no-op, not an error)
+[info] - should assign owner to a NEW user whose allowlisted email is reported verified
+[info] - should promote a RETURNING user whose allowlisted email is reported verified, and persist it
+[info] - should match the allowlist case-insensitively and store the normalised email *** FAILED ***
+[info]   ]" was not equal to "[owner@example.test]" (AuthServiceSpec.scala:328)
+[info] - should accept the string "true" form of email_verified
+[info] - should NOT grant owner to a new allowlisted user when email_verified is false *** FAILED ***
+[info]   "[owner]" was not equal to "[free]" (AuthServiceSpec.scala:340)
+[info] - should NOT grant owner when email_verified is missing, and does not crash *** FAILED ***
+[info]   "[owner]" was not equal to "[free]" (AuthServiceSpec.scala:347)
+[info] - should NOT grant owner for a malformed email_verified (number, null, other string) *** FAILED ***
+[info]   "[owner]" was not equal to "[free]" (AuthServiceSpec.scala:355)
+[info] - should NOT promote a RETURNING free user when the email is unverified *** FAILED ***
+[info]   "[owner]" was not equal to "[free]" (AuthServiceSpec.scala:363)
+[info] - should never demote an existing owner on an unverified sign-in
+[info] - should never treat the synthetic google:<sub>@helio.invalid address as owner-eligible *** FAILED ***
+[info]   "[owner]" was not equal to "[free]" (AuthServiceSpec.scala:376)
+[info] - should fail (not create a duplicate) when a Google first sign-in collides with an existing password account's email *** FAILED ***
+[info]   false was not equal to true (AuthServiceSpec.scala:384)
+[info] - should carry the shell preferences in the register, login and OAuth responses
+[info] - should keep the preference-less shape when no repository is wired
+[info] Tests: succeeded 32, failed 22, canceled 0, ignored 0, pending 0
+[info] *** 22 TESTS FAILED ***
+[error] Failed tests:

@@ -1,0 +1,13 @@
+# HEL-1852 cycle 2: V148 spec mutation evidence (spec asserts SQLState P0001 + RAISE text, not a bare ticket id)
+GREEN (unmutated): 4 passed, 0 failed
+
+M5 (RAISE EXCEPTION line replaced with NULL;):
+[info] - should fail with a clear message, changing nothing, when a case-duplicate exists *** FAILED ***
+[info] - should fail on a duplicate that differs only by a leading/trailing tab or newline (plus case), changing nothing *** FAILED ***
+[info] Tests: succeeded 2, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+
+M5b (DO block normal-form SELECT reduced to lower(email)):
+[info] - should fail on a duplicate that differs only by a leading/trailing tab or newline (plus case), changing nothing *** FAILED ***
+[info] Tests: succeeded 3, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***

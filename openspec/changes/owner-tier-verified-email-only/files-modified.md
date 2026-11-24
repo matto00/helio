@@ -1,0 +1,16 @@
+- `backend/src/main/scala/com/helio/domain/util/EmailNormalizer.scala` — the one trim+lowercase normaliser
+- `backend/src/main/scala/com/helio/api/http/RequestValidation.scala` — normalise register/login email; reject whitespace/control in a registration email
+- `backend/src/main/scala/com/helio/services/auth/AuthService.scala` — register always free, no login promotion, Google owner eligibility (verified only), register unique violation -> 409
+- `backend/src/main/scala/com/helio/services/auth/UserTierConfig.scala` — use the shared normaliser
+- `backend/src/main/scala/com/helio/infrastructure/persistence/auth/UserRepository.scala` — lower(email) lookup; upsertGoogleUser takes ownerEligible
+- `backend/src/main/scala/com/helio/api/protocols/auth/AuthProtocol.scala` — GoogleProfile.emailVerified, lenient reader
+- `backend/src/main/resources/db/migration/V148__users_email_lower_unique.sql` — lowercase/trim, loud duplicate abort, lower(email) unique index
+- `backend/src/test/scala/com/helio/services/auth/AuthServiceSpec.scala` — HEL-1852 tests; owner-by-password fixtures switched to explicit grants
+- `backend/src/test/scala/com/helio/api/routes/auth/GoogleOAuthRoutesSpec.scala` — verified profiles, unverified and collision tests, fake owner address
+- `backend/src/test/scala/com/helio/infrastructure/persistence/V148UsersEmailLowerUniqueMigrationSpec.scala` — migration spec
+- `scripts/check-deploy-env-no-emails.mjs`, `scripts/check-deploy-env-no-emails.selftest.mjs` — deploy-config guard
+- `package.json`, `.github/workflows/ci.yml` — guard wiring (CI only)
+- `.github/workflows/cd-backend.yml`, `infra/deploy-backend.sh` — HELIO_OWNER_EMAILS moved to Secret Manager
+- `CLAUDE.md` — HELIO_OWNER_EMAILS table row only
+- `docs/secrets-inventory.md` — helio-owner-emails section
+- `openspec/changes/owner-tier-verified-email-only/` — tasks, release-checklist, red-run evidence, this file

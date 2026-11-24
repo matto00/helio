@@ -112,6 +112,13 @@ class GoogleOAuthRoutesSpec
       typedSystem.executionContext
     )
 
+  // HEL-1852: Google's userinfo response is stubbed as JSON and read through the production
+  // reader, so `email_verified` is parsed exactly as `fetchGoogleProfileImpl` would.
+  private def stubProfile(sub: String, email: String, verified: Option[JsValue], name: Option[String] = None): GoogleProfile =
+    googleProfileFormat.read(JsObject(
+      Map("sub" -> JsString(sub), "email" -> JsString(email)) ++ verified.map("email_verified" -> _) ++ name.map(n => "name" -> JsString(n))
+    ))
+
   private def cleanDb(): Unit = {
     import slick.jdbc.PostgresProfile.api._
     // HEL-471: audit_events is append-only (BEFORE TRUNCATE/UPDATE/DELETE trigger) — it cannot be
@@ -326,7 +333,7 @@ class GoogleOAuthRoutesSpec
     "assigns tier = owner on first-time creation when the email is on the allowlist" in {
       cleanDb()
 
-      val profile = GoogleProfile("google-sub-owner-create", Some("owner-create@example.com"), Some("Owner"), None)
+      val profile = stubProfile("google-sub-owner-create", "owner-create@example.com", Some(JsBoolean(true)), Some("Owner"))
       val tierConfig = UserTierConfig(Set("owner-create@example.com"), UserTierConfig.DefaultBetaDailyMessageLimit)
       val oauthRoutes = new OAuthRoutes(makeAuthService(tierConfig), "test-client-id", "test-secret", "http://localhost/callback") {
         override protected def exchangeCodeForTokenImpl(code: String): Future[String] =
@@ -352,7 +359,7 @@ class GoogleOAuthRoutesSpec
     "promotes a returning user to owner when their email is on the allowlist, and persists it" in {
       cleanDb()
 
-      val profile = GoogleProfile("google-sub-owner-promote", Some("owner-promote@example.com"), Some("Promotee"), None)
+      val profile = stubProfile("google-sub-owner-promote", "owner-promote@example.com", Some(JsBoolean(true)), Some("Promotee"))
 
       def routesWith(tierConfig: UserTierConfig): Route = {
         val oauthRoutes = new OAuthRoutes(makeAuthService(tierConfig), "test-client-id", "test-secret", "http://localhost/callback") {
@@ -392,6 +399,52 @@ class GoogleOAuthRoutesSpec
       storedTier shouldBe "owner"
     }
 
+    // HEL-1852: an allowlisted email Google reports as unverified (or does not report) never gets owner.
+    "does not assign owner to an allowlisted email Google reports unverified or without email_verified" in {
+      Seq[(String, Option[JsValue])](("unverified", Some(JsBoolean(false))), ("missing", None)).foreach { case (label, verified) =>
+        cleanDb()
+        val profile = stubProfile(s"google-sub-unv-$label", "owner@example.test", verified, Some("Claimant"))
+        val tierConfig = UserTierConfig(Set("owner@example.test"), UserTierConfig.DefaultBetaDailyMessageLimit)
+        val oauthRoutes = new OAuthRoutes(makeAuthService(tierConfig), "test-client-id", "test-secret", "http://localhost/callback") {
+          override protected def exchangeCodeForTokenImpl(code: String): Future[String] = Future.successful("access-token-unv")
+          override protected def fetchGoogleProfileImpl(accessToken: String): Future[GoogleProfile] = Future.successful(profile)
+        }
+        val route: Route = pathPrefix("api") { pathPrefix("auth") { oauthRoutes.routes } }
+        var stateParam = ""
+        Get("/api/auth/google") ~> route ~> check {
+          stateParam = extractStateFromLocation(header("Location").map(_.value()).getOrElse(""))
+        }
+        Get(s"/api/auth/google/callback?code=some-code&state=$stateParam") ~> route ~> check {
+          status shouldBe StatusCodes.OK
+          responseAs[AuthResponse].user.tier shouldBe "free"
+        }
+      }
+    }
+
+    // HEL-1852 (design D5): a Google first sign-in whose normalised email collides with an existing
+    // PASSWORD account is rendered by the callback's generic internal-failure handling (HEL-1856
+    // owns the linking rule) -- never an unhandled/leaky body, and no second row is created.
+    "renders a Google first sign-in colliding with an existing password account as the generic 500, creating no second row" in {
+      cleanDb()
+      import slick.jdbc.PostgresProfile.api._
+      await(db.run(sqlu"INSERT INTO users (id, email, password_hash) VALUES (gen_random_uuid(), 'shared@example.test', 'x')"))
+      val profile = stubProfile("google-sub-collide", "Shared@Example.test", Some(JsBoolean(true)))
+      val oauthRoutes = new OAuthRoutes(makeAuthService(), "test-client-id", "test-secret", "http://localhost/callback") {
+        override protected def exchangeCodeForTokenImpl(code: String): Future[String] = Future.successful("access-token-collide")
+        override protected def fetchGoogleProfileImpl(accessToken: String): Future[GoogleProfile] = Future.successful(profile)
+      }
+      val route: Route = pathPrefix("api") { pathPrefix("auth") { oauthRoutes.routes } }
+      var stateParam = ""
+      Get("/api/auth/google") ~> route ~> check {
+        stateParam = extractStateFromLocation(header("Location").map(_.value()).getOrElse(""))
+      }
+      Get(s"/api/auth/google/callback?code=some-code&state=$stateParam") ~> route ~> check {
+        status shouldBe StatusCodes.InternalServerError
+        responseAs[ErrorResponse].message shouldBe "Internal server error"
+      }
+      await(db.run(sql"SELECT count(*) FROM users".as[Int].head)) shouldBe 1
+    }
+
     // HEL-703 tasks.md 6.3 (design.md D4) — a profile with no `email` falls back to the synthetic
     // `google:<sub>@helio.invalid` address. That shape can never coincidentally match a real
     // admin's allowlist entry, so a user who never shared their email stays `free` even when a
@@ -400,7 +453,7 @@ class GoogleOAuthRoutesSpec
       cleanDb()
 
       val profile = GoogleProfile("google-sub-no-email", None, Some("No Email"), None)
-      val tierConfig = UserTierConfig(Set("mattheworr018@gmail.com"), UserTierConfig.DefaultBetaDailyMessageLimit)
+      val tierConfig = UserTierConfig(Set("owner@example.test"), UserTierConfig.DefaultBetaDailyMessageLimit)
       val oauthRoutes = new OAuthRoutes(makeAuthService(tierConfig), "test-client-id", "test-secret", "http://localhost/callback") {
         override protected def exchangeCodeForTokenImpl(code: String): Future[String] =
           Future.successful("access-token-no-email")
