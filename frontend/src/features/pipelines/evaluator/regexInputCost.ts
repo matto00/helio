@@ -35,27 +35,61 @@ export function cellWork(text: string, work: RegexWork): number {
   return work.anchored ? anchoredCellWork(text, work) : perPositionWork(text, work);
 }
 
+/** Membership of every BMP value in `chars`, built once per `chars` array (cached for as long as the compiled pattern lives). */
+const bmpTables = new WeakMap<Ranges, Uint8Array>();
+
+function bmpTable(chars: Ranges): Uint8Array {
+  let table = bmpTables.get(chars);
+  if (!table) {
+    table = new Uint8Array(0x10000);
+    for (const [lo, hi] of chars) if (lo <= 0xffff) table.fill(1, lo, Math.min(hi, 0xffff) + 1);
+    bmpTables.set(chars, table);
+  }
+  return table;
+}
+
+/**
+ * HEL-1836 -- the per-position charge, reading UTF-16 code units. A unit outside U+D800-U+DFFF is one unit whose membership is
+ * `table[c]`; a valid high-low pair is one astral code point of two units (membership by `inRanges`, as before); any other
+ * surrogate unit is unpaired, charged `LONE_SURROGATE_UNITS`, and `codePointAt` would have returned the unit itself for it, so
+ * `table[c]` is the same answer. `chars` is sorted, merged and disjoint, so the table agrees with `inRanges` on every BMP value
+ * and the charge equals the `codePointAt` + `inRanges` scan's for every string.
+ */
 function perPositionWork(text: string, work: RegexWork): number {
   const { A, W, m, f, chars } = work;
-  let len = 0;
+  const table = bmpTable(chars);
+  const n = text.length;
+  // `len` is `n` plus one per unpaired surrogate (a pair is two units over two code units, an unpaired one is two units over one).
+  let extra = 0;
   let run = 0;
   let total = 0;
-  const endRun = (): void => {
-    total += run * A * Math.min(run, W) + m * run * run;
-    run = 0;
-  };
-  for (let i = 0; i < text.length; ) {
-    const cp = text.codePointAt(i)!;
-    const pair = cp > 0xffff;
-    const lone = !pair && cp >= 0xd800 && cp <= 0xdfff;
-    const units = pair ? 2 : lone ? LONE_SURROGATE_UNITS : 1;
-    len += units;
-    if (inRanges(chars, cp)) run += units;
-    else endRun();
-    i += pair ? 2 : 1;
+  let i = 0;
+  while (i < n) {
+    const c = text.charCodeAt(i++);
+    if (c < 0xd800 || c > 0xdfff) {
+      if (table[c] === 1) run++;
+      else if (run > 0) {
+        total += run * A * Math.min(run, W) + m * run * run;
+        run = 0;
+      }
+      continue;
+    }
+    const d = c <= 0xdbff && i < n ? text.charCodeAt(i) : 0;
+    const pair = d >= 0xdc00 && d <= 0xdfff;
+    const member = pair
+      ? inRanges(chars, ((c - 0xd800) << 10) + (d - 0xdc00) + 0x10000)
+      : table[c] === 1;
+    const units = LONE_SURROGATE_UNITS;
+    if (pair) i++;
+    else extra += units - 1;
+    if (member) run += units;
+    else if (run > 0) {
+      total += run * A * Math.min(run, W) + m * run * run;
+      run = 0;
+    }
   }
-  endRun();
-  return f * (A * len + total);
+  total += run * A * Math.min(run, W) + m * run * run;
+  return f * (A * (n + extra) + total);
 }
 
 /**
@@ -105,18 +139,16 @@ function anchoredCellWork(text: string, work: RegexWork): number {
 const LONE_SURROGATE = /[\ud800-\udfff]/u;
 
 /**
- * A true upper bound of `cellWork`: the whole cell as one run of the longest possible unit length `L` (UTF-16 length, doubled
- * only when the cell has an unpaired surrogate). The run term is monotone in the run length and the runs sum to at most `L`,
+ * A true upper bound of `cellWork`: the whole cell as one run of its unit length `L` (HEL-1836 non-anchored: the exact `len`
+ * `cellWork` sums, `unitLength`; anchored: twice the UTF-16 length). The run term is monotone in the run length and the runs sum to at most `L`,
  * so `sum R x A x min(R, W) <= L x A x min(L, W)` and `m x sum R^2 <= m x L^2`; `A x len <= A x L`. Needs no per-character scan.
  */
 export function cellWorkBound(text: string, work: RegexWork): number {
   // HEL-1807: an anchored cell takes the longest possible unit length `L = 2 x text.length` with no per-cell lone-surrogate
   // test (on two-byte cells that test dominated the decision, calibration.md "lone-surrogate fallback rule").
   if (work.anchored) return boundAt(work, LONE_SURROGATE_UNITS * text.length);
-  return boundAt(
-    work,
-    LONE_SURROGATE.test(text) ? LONE_SURROGATE_UNITS * text.length : text.length,
-  );
+  // HEL-1836: the exact unit length `perPositionWork` sums (never above the old doubling), so it stays a true upper bound.
+  return boundAt(work, unitLength(text));
 }
 
 /** The closed-form bound for a cell of at most `L` units; an anchored pattern takes the smaller of its two bounds. */
@@ -189,12 +221,15 @@ function boundExceeds(
  * per-character scan runs only when the closed-form upper bound already exceeds the budget (ordinary frames skip it).
  */
 export function workExceedsBudget(texts: readonly string[], work: RegexWork): boolean {
-  if (!boundExceeds(texts, work, cellWorkBound)) return false;
-  if (
-    work.anchored &&
-    !boundExceeds(texts, work, lengthBound) &&
-    !boundExceeds(texts, work, testedBound)
-  ) {
+  if (work.anchored) {
+    if (!boundExceeds(texts, work, cellWorkBound)) return false;
+    if (!boundExceeds(texts, work, lengthBound) && !boundExceeds(texts, work, testedBound)) {
+      return false;
+    }
+  } else if (!boundExceeds(texts, work, lengthBound) && !boundExceeds(texts, work, cellWorkBound)) {
+    // HEL-1836: when even the length-only sum (each cell at its least possible bound) is over the budget, the stage-1 sum, at
+    // least as large because `boundAt` is non-decreasing in `L` and `unitLength >= text.length`, is too, so the exact scan
+    // cannot be avoided and the per-cell surrogate test is skipped. Decision-identical either way.
     return false;
   }
   let total = 0;

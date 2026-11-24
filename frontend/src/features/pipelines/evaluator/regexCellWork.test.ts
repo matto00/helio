@@ -76,11 +76,11 @@ describe("cellWorkBound", () => {
       expect(cellWorkBound(cell, work)).toBeGreaterThanOrEqual(cellWork(cell, work));
   });
 
-  it("doubles the length only for a cell with an unpaired surrogate", () => {
+  it("counts one extra unit per unpaired surrogate (HEL-1836: the exact unit length, not a doubled cell)", () => {
     const work = workOf("(a+)");
     expect(cellWorkBound("aa", work)).toBe(2 + 2 * 1);
     expect(cellWorkBound("\ud83d\ude00", work)).toBe(2 + 2 * 1);
-    expect(cellWorkBound("a\ud800", work)).toBe(4 + 4 * 1);
+    expect(cellWorkBound("a\ud800", work)).toBe(3 + 3 * 1);
   });
 });
 
