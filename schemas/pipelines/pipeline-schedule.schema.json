@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/pipelines/pipeline-schedule.schema.json",
   "title": "PipelineScheduleResponse",
-  "description": "A pipeline's schedule as returned by GET/PUT /api/pipelines/:id/schedule. `nextRunAt`/`lastRunAt` are persisted but not computed by this ticket (HEL-414) -- populating them is owned by the scheduler runtime (HEL-415).",
+  "description": "A pipeline's schedule as returned by GET/PUT /api/pipelines/:id/schedule (GET is also served to an editor or viewer grantee, HEL-1837; the body is the same for every caller and carries no owner or grantee id). `nextRunAt`/`lastRunAt` are persisted but not computed by this ticket (HEL-414) -- populating them is owned by the scheduler runtime (HEL-415).",
   "type": "object",
   "properties": {
     "id": {

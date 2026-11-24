@@ -1,0 +1,9 @@
+RED RUN cycle 2 (CR1: read-only chip looks like a control), before the CSS fix
+jest SpineScheduleChip.test.tsx: 1 failed (static modifier class missing)
+e2e hel1837 spec (desktop + phone): 2 failed, computed cursor Expected default, Received pointer (confirms the evaluator's reading live)
+  ✘  1 [dev] › e2e/hel1837-grantee-schedule-chip.spec.ts:27:9 › HEL-1837 grantee schedule chip (live) › owner writes, editor and viewer read-only on desktop (12.3s)
+  ✘  2 [dev] › e2e/hel1837-grantee-schedule-chip.spec.ts:27:9 › HEL-1837 grantee schedule chip (live) › owner writes, editor and viewer read-only on phone (10.4s)
+    Expected: [32m"default"[39m
+    Received: [31m"pointer"[39m
+    Expected: [32m"default"[39m
+    Received: [31m"pointer"[39m

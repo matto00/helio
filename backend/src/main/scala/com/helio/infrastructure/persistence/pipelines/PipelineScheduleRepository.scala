@@ -65,6 +65,13 @@ class PipelineScheduleRepository(ctx: DbContext, locks: PipelineDefinitionLocks 
     ctx.withUserContext(user.id.value)(query.result.headOption).map(_.map(rowToDomain))
   }
 
+  /** HEL-1837: ACL-bypassing read of one pipeline's schedule, for a caller that has JUST authorized that same pipeline id
+   *  with `PipelineRepository.findByIdShared` (owner, or an editor/viewer grantee). Needed because [[findByPipelineId]]
+   *  joins on `pipeline.ownerId === user`, which returns nothing for a grantee. System context (BYPASSRLS) is correct
+   *  here only because the service checks access first; never call this from a request path without that check. */
+  def findByPipelineIdInternal(pipelineId: PipelineId): Future[Option[PipelineSchedule]] =
+    ctx.withSystemContext(table.filter(_.pipelineId === pipelineId.value).result.headOption).map(_.map(rowToDomain))
+
   /** HEL-1574: every enabled schedule on a pipeline the caller owns, plus the sources feeding them, in exactly two
    *  queries regardless of pipeline/source counts. `sources` carries one row per distinct source: the soonest
    *  non-null `next_run_at` among its scheduled pipelines (nulls last, ties by pipeline name). Data sources are read

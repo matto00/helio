@@ -150,9 +150,13 @@ describe("desktop edit affordances by caller role", () => {
     analyzeAs("editor");
     await renderSpinePageSettled(makeSpineStore({ outputs: [makeOutput("o1", "Out one")] }));
     await waitFor(() => expect(q("Add source")).not.toBeNull());
-    for (const name of EDIT_CONTROLS.filter((n) => !(n instanceof RegExp))) {
+    // HEL-1837: a schedule write is owner-only, so an editor is not offered "Add schedule" (the server answers its save 404).
+    for (const name of EDIT_CONTROLS.filter(
+      (n) => !(n instanceof RegExp) && n !== "Add schedule",
+    )) {
       expect(q(name)).not.toBeNull();
     }
+    expect(q("Add schedule")).toBeNull();
     expect(screen.getAllByRole("button", { name: /^Step actions for/ }).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: /^Step 1:/ }));
     expect(q("Remove step")).not.toBeNull();

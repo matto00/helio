@@ -133,8 +133,8 @@ export const PipelineDetailDialogs = memo(function PipelineDetailDialogs({
         <PipelineScheduleDialog
           pipelineId={id}
           schedule={page.pipelineSchedule}
-          // HEL-1794: only a caller who can edit opens it (the chip and menu entries are hidden for a viewer too).
-          open={page.scheduleOpen && page.canEdit}
+          // HEL-1837: only the owner opens it (a schedule write is owner-only; the entries are hidden for everyone else).
+          open={page.scheduleOpen && page.canEdit && page.isOwner}
           onClose={closeSchedule}
         />
       )}

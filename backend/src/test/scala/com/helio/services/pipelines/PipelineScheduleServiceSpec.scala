@@ -42,6 +42,9 @@ class PipelineScheduleServiceSpec extends AnyWordSpec with Matchers with BeforeA
   private val owner2   = UserId(owner2Id)
   private val user1    = AuthenticatedUser(owner1)
   private val user2    = AuthenticatedUser(owner2)
+  // HEL-1837: grantee seeded by `seedUsers`.
+  private val granteeId = UUID.randomUUID().toString
+  private val grantee   = AuthenticatedUser(UserId(granteeId))
 
   override def beforeAll(): Unit = {
     embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
@@ -67,6 +70,7 @@ class PipelineScheduleServiceSpec extends AnyWordSpec with Matchers with BeforeA
 
   private def cleanDb(): Unit = {
     import PostgresProfile.api._
+    await(db.run(sqlu"DELETE FROM resource_permissions WHERE resource_type = 'pipeline'"))
     await(db.run(sqlu"DELETE FROM pipeline_schedules"))
     await(db.run(sqlu"DELETE FROM pipelines"))
     await(db.run(sqlu"DELETE FROM data_sources"))
@@ -77,7 +81,8 @@ class PipelineScheduleServiceSpec extends AnyWordSpec with Matchers with BeforeA
     import PostgresProfile.api._
     await(db.run(DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at) VALUES ($owner1Id::uuid, ${s"a-$owner1Id@helio.test"}, now())""",
-      sqlu"""INSERT INTO users (id, email, created_at) VALUES ($owner2Id::uuid, ${s"b-$owner2Id@helio.test"}, now())"""
+      sqlu"""INSERT INTO users (id, email, created_at) VALUES ($owner2Id::uuid, ${s"b-$owner2Id@helio.test"}, now())""",
+      sqlu"""INSERT INTO users (id, email, created_at) VALUES ($granteeId::uuid, ${s"g-$granteeId@helio.test"}, now())"""
     )))
   }
 
@@ -362,6 +367,48 @@ class PipelineScheduleServiceSpec extends AnyWordSpec with Matchers with BeforeA
       await(service.put(pid, putReq(), user1))
 
       await(service.find(pid, user2)) shouldBe Left(ServiceError.NotFound("Pipeline not found"))
+    }
+  }
+
+  "PipelineScheduleService.find for a grantee (HEL-1837)" should {
+
+    // The barrier this pins is `findByPipelineId`'s explicit `pipeline.ownerId === user` JOIN (RLS is bypassed
+    // in dev/CI), which returns None for a non-owner; `find` must read through the authorized internal variant.
+    def grantRole(pid: PipelineId, role: String): Unit = {
+      import PostgresProfile.api._
+      await(db.run(
+        sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
+               VALUES ('pipeline', ${pid.value}, $granteeId::uuid, $role, now())"""
+      ))
+    }
+
+    for (role <- Seq("editor", "viewer")) {
+      s"return the owner's schedule to a $role grantee" in {
+        cleanDb(); seedUsers()
+        val pid = seedPipeline(owner1Id)
+        val created = await(service.put(pid, putReq(expression = "0 9 * * 1-5"), user1)).toOption.get
+        grantRole(pid, role)
+
+        await(service.find(pid, grantee)).map(s => (s.id, s.expression)) shouldBe Right((created.id, "0 9 * * 1-5"))
+      }
+    }
+
+    "return NotFound (schedule) for a grantee when the pipeline has no schedule" in {
+      cleanDb(); seedUsers()
+      val pid = seedPipeline(owner1Id)
+      grantRole(pid, "viewer")
+      await(service.find(pid, grantee)) shouldBe Left(ServiceError.NotFound("Pipeline schedule not found"))
+    }
+
+    "keep put and delete owner-only for a grantee" in {
+      cleanDb(); seedUsers()
+      val pid = seedPipeline(owner1Id)
+      val created = await(service.put(pid, putReq(), user1)).toOption.get
+      grantRole(pid, "editor")
+
+      await(service.put(pid, putReq(expression = "0 1 * * *"), grantee)) shouldBe Left(ServiceError.NotFound("Pipeline not found"))
+      await(service.delete(pid, grantee)) shouldBe Left(ServiceError.NotFound("Pipeline not found"))
+      await(service.find(pid, user1)).map(s => (s.id, s.expression)) shouldBe Right((created.id, "*/5 * * * *"))
     }
   }
 

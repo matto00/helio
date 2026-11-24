@@ -3572,9 +3572,13 @@ describe("PipelineDetailPage schedule bar (HEL-416)", () => {
     updatedAt: "2026-05-01T10:00:00Z",
   };
 
+  // HEL-1837: schedule writes are the pipeline owner's alone, so these exercise the owner.
+  const owned: PipelineSummary = { ...defaultPipeline, ownerId: "user-1" };
+  const ownerStore = () => makeStore([], { currentPipeline: owned }, "user-1");
+
   beforeEach(() => {
     fetchRunHistoryMock.mockResolvedValue([]);
-    getPipelineByIdMock.mockResolvedValue(defaultPipeline);
+    getPipelineByIdMock.mockResolvedValue(owned);
     getPipelineStepsMock.mockResolvedValue([]);
     analyzePipelineMock.mockResolvedValue(emptyAnalyzeResponse);
   });
@@ -3586,7 +3590,7 @@ describe("PipelineDetailPage schedule bar (HEL-416)", () => {
 
   it("shows 'Add schedule' for a pipeline with no schedule — existing layout unaffected", async () => {
     getPipelineScheduleMock.mockRejectedValueOnce(axiosError(404));
-    await renderDetailPageSettled("pipe-1");
+    await renderDetailPageSettled("pipe-1", ownerStore());
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Add schedule" })).toBeInTheDocument();
@@ -3598,7 +3602,7 @@ describe("PipelineDetailPage schedule bar (HEL-416)", () => {
 
   it("shows the schedule's expression and next-run time for a pipeline with a schedule", async () => {
     getPipelineScheduleMock.mockResolvedValueOnce(sampleSchedule);
-    renderDetailPage("pipe-1");
+    renderDetailPage("pipe-1", ownerStore());
 
     await waitFor(() => {
       expect(screen.getByText("Every 15m")).toBeInTheDocument();
@@ -3608,7 +3612,7 @@ describe("PipelineDetailPage schedule bar (HEL-416)", () => {
   });
 
   it("dispatches fetchPipelineSchedule on mount", async () => {
-    renderDetailPage("pipe-1");
+    renderDetailPage("pipe-1", ownerStore());
     await waitFor(() => {
       expect(getPipelineScheduleMock).toHaveBeenCalledWith("pipe-1");
     });
@@ -3617,7 +3621,7 @@ describe("PipelineDetailPage schedule bar (HEL-416)", () => {
   it("pausing from the actions menu calls PUT with the unchanged kind/expression/timezone", async () => {
     getPipelineScheduleMock.mockResolvedValueOnce(sampleSchedule);
     putPipelineScheduleMock.mockResolvedValueOnce({ ...sampleSchedule, enabled: false });
-    renderDetailPage("pipe-1");
+    renderDetailPage("pipe-1", ownerStore());
 
     // The schedule chip shows the loaded schedule; enable/disable lives in the actions menu.
     await screen.findByText("Every 15m");
@@ -3635,7 +3639,7 @@ describe("PipelineDetailPage schedule bar (HEL-416)", () => {
   });
 
   it("activating 'Set schedule' opens the schedule dialog", async () => {
-    renderDetailPage("pipe-1");
+    renderDetailPage("pipe-1", ownerStore());
 
     await openPipelineActionsMenu();
     const setScheduleItem = await screen.findByRole("menuitem", { name: "Set schedule" });

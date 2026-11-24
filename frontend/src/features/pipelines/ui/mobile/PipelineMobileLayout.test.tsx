@@ -130,6 +130,10 @@ function storeWith(options: Parameters<typeof makeSpineStore>[0] = {}) {
   return makeSpineStore(options);
 }
 
+/** HEL-1837: schedule writes are the pipeline owner's alone. */
+const ownerStore = () =>
+  storeWith({ currentUserId: "u-1", pipeline: { ...SPINE_PIPELINE, ownerId: "u-1" } });
+
 describe("phone header", () => {
   it("shows a back link, the mono name in one truncated line (full name in its title) and the actions menu", async () => {
     await renderSpinePageSettled();
@@ -152,21 +156,21 @@ describe("phone header", () => {
 
   it("a paused schedule shows a visible 'Paused' marker in the status line", async () => {
     scheduleMock.mockResolvedValue(schedule({ enabled: false }));
-    await renderSpinePageSettled();
+    await renderSpinePageSettled(ownerStore());
     expect(await screen.findByText("Paused")).toBeVisible();
     expect(screen.getByRole("button", { name: "Edit schedule, paused" })).toBeInTheDocument();
   });
 
   it("the actions menu holds Rename, Add source, Add Outputs from a shape and the schedule items", async () => {
-    await renderSpinePageSettled();
+    await renderSpinePageSettled(ownerStore());
     fireEvent.click(screen.getByRole("button", { name: "Pipeline actions" }));
     for (const item of ["Rename", "Add source", "Add Outputs from a shape", "Set schedule"]) {
       expect(screen.getByRole("menuitem", { name: item })).toBeInTheDocument();
     }
-    // Run history is the Runs tab, not a menu item; Share is owner-only; Delete lives only on the overview rows.
+    // Run history is the Runs tab, not a menu item; Share is owner-only (this is the owner); Delete lives only on the overview rows.
     expect(screen.queryByRole("menuitem", { name: "Run history" })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: /Delete/ })).toBeNull();
-    expect(screen.queryByRole("menuitem", { name: "Share" })).toBeNull();
+    expect(screen.getByRole("menuitem", { name: "Share" })).toBeInTheDocument();
   });
 
   it("a failed run's full error stays reachable from the status label's title", () => {

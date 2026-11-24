@@ -10,8 +10,8 @@ type UsePipelineSourceScheduleActionsArgs = {
   dispatch: ReturnType<typeof useAppDispatch>;
   navigate: NavigateFunction;
   pipelineSchedule: PipelineSchedule | null;
-  /** HEL-1794: false for a viewer or an unknown role: the schedule toggle returns at once. */
-  canEdit: boolean;
+  /** HEL-1837: false for anyone but the pipeline owner (or while ownership is unknown): the schedule toggle returns at once. */
+  isOwner: boolean;
 };
 
 /**
@@ -23,7 +23,7 @@ export function usePipelineSourceScheduleActions({
   dispatch,
   navigate,
   pipelineSchedule,
-  canEdit,
+  isOwner,
 }: UsePipelineSourceScheduleActionsArgs) {
   // HEL-1022 — takes the target source's id explicitly rather than closing
   // over a single "the bound source" (there can be several now); the caller
@@ -42,7 +42,7 @@ export function usePipelineSourceScheduleActions({
   // same kind/expression/timezone (spec: "Disabling from the bar").
   const handleToggleScheduleEnabled = useCallback(
     (nextEnabled: boolean) => {
-      if (!id || !pipelineSchedule || !canEdit) return;
+      if (!id || !pipelineSchedule || !isOwner) return;
       void dispatch(
         savePipelineSchedule({
           pipelineId: id,
@@ -55,7 +55,7 @@ export function usePipelineSourceScheduleActions({
         }),
       );
     },
-    [dispatch, id, pipelineSchedule, canEdit],
+    [dispatch, id, pipelineSchedule, isOwner],
   );
   return { handleEditSource, handleToggleScheduleEnabled };
 }

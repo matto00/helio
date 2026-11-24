@@ -587,8 +587,12 @@ describe("PipelineDetailPage desktop spine: header", () => {
 });
 
 describe("PipelineDetailPage desktop spine: schedule chip and menu", () => {
+  // HEL-1837: schedule writes are the pipeline owner's alone, so these exercise the owner.
+  const ownerStore = () =>
+    storeWith({ currentUserId: "u-1", pipeline: { ...SPINE_PIPELINE, ownerId: "u-1" } });
+
   it("offers 'Add schedule' when there is none and opens the schedule dialog", async () => {
-    await renderSpinePageSettled();
+    await renderSpinePageSettled(ownerStore());
     fireEvent.click(screen.getByRole("button", { name: "Add schedule" }));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
@@ -600,7 +604,7 @@ describe("PipelineDetailPage desktop spine: schedule chip and menu", () => {
     putScheduleMock.mockResolvedValue(
       schedule({ enabled: true, kind: "interval", expression: "15m" }),
     );
-    await renderSpinePageSettled();
+    await renderSpinePageSettled(ownerStore());
     const chip = await screen.findByRole("button", { name: "Edit schedule, paused" });
     expect(chip).toHaveTextContent("Every 15m");
     expect(chip).toHaveTextContent("Paused");
@@ -619,7 +623,7 @@ describe("PipelineDetailPage desktop spine: schedule chip and menu", () => {
   it("Pause sends the unchanged kind/expression/timezone with enabled false", async () => {
     scheduleMock.mockResolvedValue(schedule());
     putScheduleMock.mockResolvedValue(schedule({ enabled: false }));
-    await renderSpinePageSettled();
+    await renderSpinePageSettled(ownerStore());
     await screen.findByRole("button", { name: "Edit schedule" });
     fireEvent.click(screen.getByRole("button", { name: "Pipeline actions" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Pause schedule" }));

@@ -135,7 +135,7 @@ export function usePipelineDetailPage() {
     dispatch,
     navigate,
     pipelineSchedule: analyzeState.pipelineSchedule,
-    canEdit,
+    isOwner,
   });
 
   const stepActions = usePipelineDetailStepActions({

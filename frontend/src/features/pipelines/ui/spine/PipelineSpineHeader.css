@@ -205,8 +205,13 @@
   cursor: pointer;
 }
 
+/* HEL-1837: a grantee's read-only chip is state, not an action: no pointer, no hover wash. */
+.spine-header__chip--static {
+  cursor: default;
+}
+
 @media (hover: hover) {
-  .spine-header__chip:hover {
+  .spine-header__chip:not(.spine-header__chip--static):hover {
     border-color: var(--app-border-strong);
     background: var(--app-surface-raised);
     color: var(--app-text);
