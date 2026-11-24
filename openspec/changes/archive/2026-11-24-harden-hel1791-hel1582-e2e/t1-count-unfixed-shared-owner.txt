@@ -1,0 +1,58 @@
+HEL-1830 task 2.1/2.2 (red first): request counts on the UNFIXED hel1791 spec, shared owner, instrumented copy (t1-instrument-unfixed.py.txt, no --burn), 2 workers requested (Playwright ran the file in one worker), nice -n 19, CPU 1x. Two runs.
+
+=== run 1 ===
+[HEL-1300 e2e] throwaway user: hel1791-owner-1795485162212-490@example.test
+[HEL-1300 e2e] throwaway user: hel1791-editor-1795485162463-13749@example.test
+[HEL-1300 e2e] throwaway user: hel1791-measurer-1795485162703-230@example.test
+REQUEST-COUNT w0 after beforeAll(seeding) principal=owner charged-total=17 max-60s=17 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: the compact counter card shows value, both buttons wi" principal=owner charged-total=60 max-60s=60 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: the compact counter card shows value, both buttons wi" principal=editor charged-total=1 max-60s=1 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: the compact counter card shows value, both buttons wi" principal=measurer charged-total=1 max-60s=1 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: the compact counter card shows value, both buttons wi" principal=owner charged-total=99 max-60s=99 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: the compact counter card shows value, both buttons wi" principal=editor charged-total=1 max-60s=1 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: the compact counter card shows value, both buttons wi" principal=measurer charged-total=1 max-60s=1 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "editor: the compact counter card shows value, both buttons a" principal=owner charged-total=99 max-60s=99 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "editor: the compact counter card shows value, both buttons a" principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "editor: the compact counter card shows value, both buttons a" principal=measurer charged-total=1 max-60s=1 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "editor: the compact counter card shows value, both buttons a" principal=owner charged-total=99 max-60s=99 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "editor: the compact counter card shows value, both buttons a" principal=editor charged-total=74 max-60s=74 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "editor: the compact counter card shows value, both buttons a" principal=measurer charged-total=1 max-60s=1 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "per-kind stack heights at 390/768/1100 (recorded; other kind" principal=owner charged-total=99 max-60s=99 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "per-kind stack heights at 390/768/1100 (recorded; other kind" principal=editor charged-total=74 max-60s=74 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "per-kind stack heights at 390/768/1100 (recorded; other kind" principal=measurer charged-total=37 max-60s=37 uncharged=1 count429=0
+[HEL-1300 e2e] throwaway user: hel1791-owner-live-regions-1795485194534-10087@example.test
+REQUEST-COUNT w0 cumulative after "owner: a status message and an alert message render in flow " principal=owner charged-total=99 max-60s=99 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: a status message and an alert message render in flow " principal=editor charged-total=74 max-60s=74 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: a status message and an alert message render in flow " principal=measurer charged-total=37 max-60s=37 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: a status message and an alert message render in flow " principal=owner-live-regions charged-total=16 max-60s=16 uncharged=1 count429=0
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 4 recorded throwaway user(s)
+  6 passed (35.7s)
+=== run 2 ===
+[HEL-1300 e2e] throwaway user: hel1791-owner-1795485198312-89841@example.test
+[HEL-1300 e2e] throwaway user: hel1791-editor-1795485198563-15404@example.test
+[HEL-1300 e2e] throwaway user: hel1791-measurer-1795485198801-50381@example.test
+REQUEST-COUNT w0 after beforeAll(seeding) principal=owner charged-total=17 max-60s=17 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: the compact counter card shows value, both buttons wi" principal=owner charged-total=60 max-60s=60 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: the compact counter card shows value, both buttons wi" principal=editor charged-total=1 max-60s=1 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: the compact counter card shows value, both buttons wi" principal=measurer charged-total=1 max-60s=1 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: the compact counter card shows value, both buttons wi" principal=owner charged-total=97 max-60s=97 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: the compact counter card shows value, both buttons wi" principal=editor charged-total=1 max-60s=1 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: the compact counter card shows value, both buttons wi" principal=measurer charged-total=1 max-60s=1 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "editor: the compact counter card shows value, both buttons a" principal=owner charged-total=97 max-60s=97 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "editor: the compact counter card shows value, both buttons a" principal=editor charged-total=40 max-60s=40 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "editor: the compact counter card shows value, both buttons a" principal=measurer charged-total=1 max-60s=1 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "editor: the compact counter card shows value, both buttons a" principal=owner charged-total=97 max-60s=97 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "editor: the compact counter card shows value, both buttons a" principal=editor charged-total=72 max-60s=72 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "editor: the compact counter card shows value, both buttons a" principal=measurer charged-total=1 max-60s=1 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "per-kind stack heights at 390/768/1100 (recorded; other kind" principal=owner charged-total=97 max-60s=97 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "per-kind stack heights at 390/768/1100 (recorded; other kind" principal=editor charged-total=72 max-60s=72 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "per-kind stack heights at 390/768/1100 (recorded; other kind" principal=measurer charged-total=38 max-60s=38 uncharged=1 count429=0
+[HEL-1300 e2e] throwaway user: hel1791-owner-live-regions-1795485230542-23643@example.test
+REQUEST-COUNT w0 cumulative after "owner: a status message and an alert message render in flow " principal=owner charged-total=97 max-60s=97 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: a status message and an alert message render in flow " principal=editor charged-total=72 max-60s=72 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: a status message and an alert message render in flow " principal=measurer charged-total=38 max-60s=38 uncharged=1 count429=0
+REQUEST-COUNT w0 cumulative after "owner: a status message and an alert message render in flow " principal=owner-live-regions charged-total=16 max-60s=16 uncharged=1 count429=0
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 4 recorded throwaway user(s)
+  6 passed (35.5s)

@@ -1,0 +1,80 @@
+HEL-1830 task 6.1 deterministic red: PRE-fold-in spec (HEAD cafed670c) + burn (t6-editor-burn-generator.py.txt): right before the dark editor test's first page load the shared editor's remaining budget is spent; the dark editor test fails at the named assertion toHaveCount(7) of '.mobile-panel-stack__item' (openStack), Received 0. Count red: shared editor max-60s 72-80 (t4-1791-20x.txt, t4-1791-throttle4x.txt).
+
+Running 10 tests using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1791-board-owner-1795508021011-7648@example.test
+[HEL-1300 e2e] throwaway user: hel1791-editor-1795508021848-63191@example.test
+[HEL-1300 e2e] throwaway user: hel1791-measurer-1795508022148-41362@example.test
+[HEL-1300 e2e] throwaway user: hel1791-owner-light-390-1795508023957-54306@example.test
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px principal=owner-light-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+  ✓   1 [dev] › e2e/zz-edburn.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px (4.0s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-light-768-1795508028008-40876@example.test
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px principal=owner-light-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+  ✓   2 [dev] › e2e/zz-edburn.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px (3.5s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-light-1100-1795508031479-86213@example.test
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px principal=owner-light-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+  ✓   3 [dev] › e2e/zz-edburn.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px (3.4s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-dark-390-1795508034900-36491@example.test
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px principal=owner-dark-390 charged-total=29 max-60s=29 uncharged=1 count429=0
+  ✓   4 [dev] › e2e/zz-edburn.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px (4.2s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-dark-768-1795508039082-54205@example.test
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px principal=owner-dark-768 charged-total=29 max-60s=29 uncharged=1 count429=0
+  ✓   5 [dev] › e2e/zz-edburn.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px (3.3s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-dark-1100-1795508042390-71847@example.test
+REQUEST-COUNT owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px principal=owner-dark-1100 charged-total=30 max-60s=30 uncharged=1 count429=0
+  ✓   6 [dev] › e2e/zz-edburn.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px (3.3s)
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor charged-total=41 max-60s=41 uncharged=1 count429=0
+  ✓   7 [dev] › e2e/zz-edburn.spec.ts:323:9 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light (6.2s)
+STRESS-ACTIVE burn: spent 78 remaining shared-editor requests before the dark editor test, 429 Retry-After=27s
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor charged-total=121 max-60s=121 uncharged=1 count429=2
+  ✘   8 [dev] › e2e/zz-edburn.spec.ts:323:9 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark (24.6s)
+[HEL-1300 e2e] throwaway user: hel1791-board-owner-1795508077386-75626@example.test
+[HEL-1300 e2e] throwaway user: hel1791-editor-1795508077646-60951@example.test
+[HEL-1300 e2e] throwaway user: hel1791-measurer-1795508077889-81111@example.test
+REQUEST-COUNT per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) principal=measurer charged-total=38 max-60s=38 uncharged=1 count429=0
+  ✓   9 [dev] › e2e/zz-edburn.spec.ts:349:7 › HEL-1791 compact counter height in the panel stack › per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) (9.6s)
+[HEL-1300 e2e] throwaway user: hel1791-owner-live-regions-1795508088584-63852@example.test
+REQUEST-COUNT owner: a status message and an alert message render in flow in the same live regions principal=owner-live-regions charged-total=13 max-60s=13 uncharged=2 count429=0
+  ✓  10 [dev] › e2e/zz-edburn.spec.ts:392:7 › HEL-1791 compact counter height in the panel stack › owner: a status message and an alert message render in flow in the same live regions (2.8s)
+userCleanup: removed 0 of 13 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 13 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/zz-edburn.spec.ts:323:9 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('.crossfade__layer:not(.crossfade__skeleton) .mobile-panel-stack__item')
+    Expected: 7
+    Received: 0
+    Timeout:  20000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 20000ms
+      - waiting for locator('.crossfade__layer:not(.crossfade__skeleton) .mobile-panel-stack__item')
+        24 × locator resolved to 0 elements
+           - unexpected value "0"
+
+
+      206 |     await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
+      207 |     await page.goto(`/dashboards/${target.id}`);
+    > 208 |     await expect(page.locator(LIVE_STACK_ITEMS)).toHaveCount(target.items, { timeout: 20_000 });
+          |                                                  ^
+      209 |     await expect(page.getByLabel("Loading panels")).toHaveCount(0);
+      210 |     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      211 |     await page.evaluate(() => document.fonts.ready.then(() => undefined));
+        at openStack (/home/matt/Development/helio/.claude/worktrees/task/hel1791-hel1582-e2e-hardening/hel-1830/e2e/zz-edburn.spec.ts:208:50)
+        at checkCounterCard (/home/matt/Development/helio/.claude/worktrees/task/hel1791-hel1582-e2e-hardening/hel-1830/e2e/zz-edburn.spec.ts:236:5)
+        at /home/matt/Development/helio/.claude/worktrees/task/hel1791-hel1582-e2e-hardening/hel-1830/e2e/zz-edburn.spec.ts:340:11
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/zz-edburn-HEL-1791-compact-43f32-n-with-no-inner-scroll-dark-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/zz-edburn-HEL-1791-compact-43f32-n-with-no-inner-scroll-dark-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [dev] › e2e/zz-edburn.spec.ts:323:9 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark 
+  9 passed (1.2m)

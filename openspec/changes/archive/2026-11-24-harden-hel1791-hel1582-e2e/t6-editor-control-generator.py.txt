@@ -1,0 +1,36 @@
+# HEL-1830 task 6.3 isolation control (NOT a red/green pair; Decision 10 / skeptic-design-3 note 2) for the FIXED hel1791
+# spec. usage: editor_control.py <src spec> <dst spec>
+# The LIGHT editor's remaining /api budget is spent (GET /api/auth/me until 429) at the end of the light editor test,
+# BEFORE its context closes; the context is retained and closed only after the dark editor test, which has its own
+# principal and stays green. After the dark test the light principal is probed again (still 429): that line proves the
+# burn was live for the whole dark test.
+import sys
+src, dst = sys.argv[1], sys.argv[2]
+s = open(src).read()
+s = s.replace('let board: Board;\n', 'let board: Board;\nlet lightEditor: Actor | undefined;\n', 1)
+old = '''        logRequestCount(title, `editor-${theme}`, own);
+        await own.context.close();
+'''
+assert s.count(old) == 1
+s = s.replace(old, '''        logRequestCount(title, `editor-${theme}`, own);
+        if (theme === "light") {
+          let ok = 0;
+          let retryAfter = "?";
+          for (let i = 0; i < 400; i++) {
+            const r = await own.context.request.get("/api/auth/me");
+            if (r.status() === 429) {
+              retryAfter = r.headers()["retry-after"] ?? "?";
+              break;
+            }
+            ok++;
+          }
+          console.log(`STRESS-ACTIVE burn: spent ${ok} remaining requests of the LIGHT editor principal before its context closes (kept open); 429 Retry-After=${retryAfter}s`);
+          lightEditor = own;
+        } else {
+          const after = await lightEditor!.context.request.get("/api/auth/me");
+          console.log(`STRESS-ACTIVE burn still live after the dark editor test: light editor GET /api/auth/me -> ${after.status()}`);
+          await lightEditor!.context.close();
+          await own.context.close();
+        }
+''', 1)
+open(dst, 'w').write(s)

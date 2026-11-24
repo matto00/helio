@@ -1,0 +1,10 @@
+HEL-1830 task 2.1 one-window cross-check (Decision 2), 3 runs of the dark 390px owner test (t1-window-crosscheck-generator.py.txt on the FIXED spec): charged count + remaining until 429 vs 120, and the 429's Retry-After vs the time since the principal's first charged request. Accepted: window age matches elapsed within 2 s (no rollover), charged + remaining within 3 of 120 (118; the 2-request gap is not attributed: the counter sees every request the page and the setup calls start, so it is some request the counter does not see, for example one the browser started and the server answered after the page closed).
+CROSSCHECK charged-before=29 remaining-after=89 sum=118 (limit 120, diff 2) retry-after=54s window-age=6s elapsed-since-first-charged=6.3s age-vs-elapsed-diff=0.3s rollover=false
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  1 passed (9.0s)
+CROSSCHECK charged-before=29 remaining-after=89 sum=118 (limit 120, diff 2) retry-after=54s window-age=6s elapsed-since-first-charged=6.4s age-vs-elapsed-diff=0.4s rollover=false
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  1 passed (8.9s)
+CROSSCHECK charged-before=29 remaining-after=89 sum=118 (limit 120, diff 2) retry-after=54s window-age=6s elapsed-since-first-charged=6.3s age-vs-elapsed-diff=0.3s rollover=false
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+  1 passed (8.9s)

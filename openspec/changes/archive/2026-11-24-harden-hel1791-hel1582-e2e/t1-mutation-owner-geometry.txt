@@ -1,0 +1,57 @@
+HEL-1830 task 2.4 mutation: working-tree-only app mutation of frontend/src/features/panels/ui/grid/MobilePanelStack.css:
+  .mobile-panel-stack__item--form .panel-content--form { height: 24px; overflow-y: auto; }   (was: height: auto; overflow-y: visible)
+FIXED spec (all six owner tests are their own principal), full file, 2 workers, nice -n 19. Every moved owner test reds at its first geometry assertion ('value bottom inside card'); the per-kind test (heights recorded, not asserted per card) stays green.
+
+  ✘   1 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px (3.1s)
+  ✘   2 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px (3.1s)
+  ✘   3 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px (3.1s)
+  ✘   4 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px (3.1s)
+  ✘   5 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px (3.2s)
+  ✘   6 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px (3.0s)
+  ✘   7 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:323:9 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light (1.9s)
+  ✘   8 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:323:9 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark (1.6s)
+  ✓   9 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:336:7 › HEL-1791 compact counter height in the panel stack › per-kind stack heights at 390/768/1100 (recorded; other kinds must not change) (9.9s)
+  ✘  10 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:379:7 › HEL-1791 compact counter height in the panel stack › owner: a status message and an alert message render in flow in the same live regions (2.4s)
+userCleanup: removed 0 of 34 conversation folders, 0 failed
+  1) [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light, 390px 
+    Error: owner light 390px value bottom inside card
+    Expected: <= 931.4219360351562
+    Received:    951.4219360351562
+  2) [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light, 768px 
+    Error: owner light 768px value bottom inside card
+    Expected: <= 931.4088134765625
+    Received:    951.4088134765625
+  3) [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, light, 1100px 
+    Error: owner light 1100px value bottom inside card
+    Expected: <= 993.4176635742188
+    Received:    1007.4176635742188
+  4) [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark, 390px 
+    Error: owner dark 390px value bottom inside card
+    Expected: <= 931.4136962890625
+    Received:    951.4136962890625
+  5) [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark, 768px 
+    Error: owner dark 768px value bottom inside card
+    Expected: <= 931.5081176757812
+    Received:    951.5503540039062
+  6) [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:295:11 › HEL-1791 compact counter height in the panel stack › owner: the compact counter card shows value, both buttons with no inner scroll, dark, 1100px 
+    Error: owner dark 1100px value bottom inside card
+    Expected: <= 995.2347412109375
+    Received:    1009.2347412109375
+  7) [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:323:9 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light 
+    Error: editor light 390px value bottom inside card
+    Expected: <= 931.451904296875
+    Received:    943.951904296875
+  8) [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:323:9 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark 
+    Error: editor dark 390px value bottom inside card
+    Expected: <= 844.6407470703125
+    Received:    857.1407470703125
+  9) [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:379:7 › HEL-1791 compact counter height in the panel stack › owner: a status message and an alert message render in flow in the same live regions 
+    Error: status message: inside the layout
+    Expected: <= 189.6875
+    Received:    220.1875
+  9 failed
+  1 passed (54.9s)
+
+After the run the mutation was reverted (git checkout of that CSS file). git status --short:
+ M ../../../e2e/hel1791-compact-counter-stack-height.spec.ts
+(only the spec under test is modified; no app file)

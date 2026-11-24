@@ -1,0 +1,38 @@
+HEL-1830 task 3.1 probe output (t2b-probe.spec.ts.txt), tap (b) = the 'N fields' trigger INSIDE the open step sheet. Lane servers dev 7262 / backend 10169, nice -n 19, 1 worker, hasTouch mobile. Sizes = SIZES.slice(0,2) (375x812, 390x844).
+
+##### LOG mode, 375x812, CPU 1x: per-frame layout of the sheet from the moment the Steps tab's first row is tapped
+STRESS-ACTIVE size=375x812 cpu throttle 1x mode=log hold-delay=-1
+PROBE LOG tap (b) opened the panel: true
+PROBE-REQUESTS
+4211ms GET /api/pipelines/8100cc27-11ad-406c-a00f-54ca4c08e676/steps/054fb271-240e-48fd-a73f-1fc19145fa2c/preview
+4262ms <- 200 /api/pipelines/8100cc27-11ad-406c-a00f-54ca4c08e676/steps/054fb271-240e-48fd-a73f-1fc19145fa2c/preview
+78ms GET /api/pipelines/8100cc27-11ad-406c-a00f-54ca4c08e676/steps/37b19c75-d63a-4fec-a6c4-0c22c829112b/preview
+126ms <- 200 /api/pipelines/8100cc27-11ad-406c-a00f-54ca4c08e676/steps/37b19c75-d63a-4fec-a6c4-0c22c829112b/preview
+PROBE-FRAMES (19 distinct layouts)
+3ms triggers=[] header=[] content=- stepCard=- preview=- scrollTop{dlg=0}
+68ms triggers=[@(188,1235)] header=[step-preview__title(29,1226 111x18) output-schema-disclosure__trigger(152,1227 72x17)] content=(12,890 351x564) stepCard=(12,890 351x307) preview=(12,1209 351x245) scrollTop{dlg=0}
+86ms triggers=[@(188,1096)] header=[step-preview__title(29,1087 111x18) output-schema-disclosure__trigger(152,1087 72x17)] content=(12,751 351x564) stepCard=(12,751 351x307) preview=(12,1070 351x245) scrollTop{dlg=0}
+102ms triggers=[@(188,964)] header=[step-preview__title(29,955 111x18) output-schema-disclosure__trigger(152,955 72x17)] content=(12,619 351x564) stepCard=(12,619 351x307) preview=(12,938 351x245) scrollTop{dlg=0}
+118ms triggers=[@(188,845)] header=[step-preview__title(29,836 111x18) output-schema-disclosure__trigger(152,836 72x17)] content=(12,500 351x564) stepCard=(12,500 351x307) preview=(12,819 351x245) scrollTop{dlg=0}
+135ms triggers=[@(249,742)] header=[step-preview__title(29,733 111x18) step-preview__count(152,734 49x16) output-schema-disclosure__trigger(213,734 72x17)] content=(12,397 351x666) stepCard=(12,397 351x307) preview=(12,716 351x347) scrollTop{dlg=0}
+151ms triggers=[@(249,659)] header=[step-preview__title(29,650 111x18) step-preview__count(152,651 49x16) output-schema-disclosure__trigger(213,650 72x17)] content=(12,314 351x666) stepCard=(12,314 351x307) preview=(12,633 351x347) scrollTop{dlg=0}
+168ms triggers=[@(249,594)] header=[step-preview__title(29,585 111x18) step-preview__count(152,586 49x16) output-schema-disclosure__trigger(213,586 72x17)] content=(12,249 351x666) stepCard=(12,249 351x307) preview=(12,568 351x347) scrollTop{dlg=0}
+185ms triggers=[@(249,547)] header=[step-preview__title(29,538 111x18) step-preview__count(152,539 49x16) output-schema-disclosure__trigger(213,538 72x17)] content=(12,202 351x666) stepCard=(12,202 351x307) preview=(12,521 351x347) scrollTop{dlg=0}
+201ms triggers=[@(249,513)] header=[step-preview__title(29,504 111x18) step-preview__count(152,505 49x16) output-schema-disclosure__trigger(213,504 72x17)] content=(12,168 351x666) stepCard=(12,168 351x307) preview=(12,487 351x347) scrollTop{dlg=0}
+218ms triggers=[@(249,488)] header=[step-preview__title(29,479 111x18) step-preview__count(152,480 49x16) output-schema-disclosure__trigger(213,479 72x17)] content=(12,143 351x666) stepCard=(12,143 351x307) preview=(12,462 351x347) scrollTop{dlg=0}
+235ms triggers=[@(249,471)] header=[step-preview__title(29,462 111x18) step-preview__count(152,463 49x16) output-schema-disclosure__trigger(213,462 72x17)] content=(12,126 351x666) stepCard=(12,126 351x307) preview=(12,445 351x346) scrollTop{dlg=0}
+251ms triggers=[@(249,459)] header=[step-preview__title(29,450 111x18) step-preview__count(152,451 49x16) output-schema-disclosure__trigger(213,450 72x17)] content=(12,114 351x666) stepCard=(12,114 351x307) preview=(12,433 351x347) scrollTop{dlg=0}
+268ms triggers=[@(249,451)] header=[step-preview__title(29,442 111x18) step-preview__count(152,443 49x16) output-schema-disclosure__trigger(213,442 72x17)] content=(12,106 351x666) stepCard=(12,106 351x307) preview=(12,425 351x347) scrollTop{dlg=0}
+285ms triggers=[@(249,445)] header=[step-preview__title(29,436 111x18) step-preview__count(152,437 49x16) output-schema-disclosure__trigger(213,437 72x17)] content=(12,100 351x666) stepCard=(12,100 351x307) preview=(12,419 351x347) scrollTop{dlg=0}
+301ms triggers=[@(249,442)] header=[step-preview__title(29,433 111x18) step-preview__count(152,434 49x16) output-schema-disclosure__trigger(213,433 72x17)] content=(12,97 351x666) stepCard=(12,97 351x307) preview=(12,416 351x347) scrollTop{dlg=0}
+318ms triggers=[@(249,440)] header=[step-preview__title(29,431 111x18) step-preview__count(152,432 49x16) output-schema-disclosure__trigger(213,432 72x17)] content=(12,95 351x666) stepCard=(12,95 351x307) preview=(12,414 351x347) scrollTop{dlg=0}
+335ms triggers=[@(249,439)] header=[step-preview__title(29,430 111x18) step-preview__count(152,431 49x16) output-schema-disclosure__trigger(213,431 72x17)] content=(12,94 351x666) stepCard=(12,94 351x307) preview=(12,413 351x346) scrollTop{dlg=0}
+351ms triggers=[@(249,439)] header=[step-preview__title(29,430 111x18) step-preview__count(152,431 49x16) output-schema-disclosure__trigger(213,431 72x17)] content=(12,94 351x666) stepCard=(12,94 351x307) preview=(12,413 351x347) scrollTop{dlg=0}
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+  1 passed (6.7s)
+
+##### LOG mode, 390x844, CPU 1x (2 passes; first attempt hit an openPipeline timeout at '.spine-row' before the sheet, not in tap (b); see HEL-1830 root-cause.md)
+STRESS-ACTIVE size=390x844 cpu throttle 1x mode=log hold-delay=-1
+PROBE LOG tap (b) opened the panel: true
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+  1 passed (7.6s)

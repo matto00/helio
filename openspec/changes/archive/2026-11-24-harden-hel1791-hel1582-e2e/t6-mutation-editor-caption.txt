@@ -1,0 +1,57 @@
+HEL-1830 task 6.3 mutation (C17): working-tree-only app mutation, appended to frontend/src/features/panels/ui/grid/MobilePanelStack.css:
+  .mobile-panel-stack__item--form .counter-control__caption { display: none; }   (hides the editor-only caption)
+Fixed spec, '-g editor:' (2 editor tests, each its own principal). Both red at the editor caption assertion. Mutation reverted with git checkout; git status --short afterwards (only change-dir/spec files, no app file):
+ M e2e/hel1791-compact-counter-stack-height.spec.ts
+?? openspec/changes/harden-hel1791-hel1582-e2e/t6-mutation-editor-caption.txt
+
+Running 2 tests using 1 worker
+[HEL-1300 e2e] throwaway user: hel1791-board-owner-1795508570470-30599@example.test
+[HEL-1300 e2e] throwaway user: hel1791-measurer-1795508570723-4934@example.test
+[HEL-1300 e2e] throwaway user: hel1791-editor-light-1795508571761-62587@example.test
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light principal=editor-light charged-total=15 max-60s=15 uncharged=1 count429=0
+REQUEST-COUNT afterAll principal=board-owner charged-total=18 max-60s=18 uncharged=1 count429=0
+  ✘  1 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:326:9 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light (7
+[HEL-1300 e2e] throwaway user: hel1791-board-owner-1795508580193-29026@example.test
+[HEL-1300 e2e] throwaway user: hel1791-measurer-1795508580442-29905@example.test
+[HEL-1300 e2e] throwaway user: hel1791-editor-dark-1795508581424-37932@example.test
+REQUEST-COUNT editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark principal=editor-dark charged-total=15 max-60s=15 uncharged=1 count429=0
+REQUEST-COUNT afterAll principal=board-owner charged-total=18 max-60s=18 uncharged=1 count429=0
+  ✘  2 [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:326:9 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark (7.
+userCleanup: removed 0 of 6 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 6 recorded throwaway user(s)
+  1) [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:326:9 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, light 
+    Error: editor light 390px caption visible
+    expect(locator).toBeVisible() failed
+    Locator:  locator('.mobile-panel-stack__item--form').filter({ has: getByRole('spinbutton', { name: 'Widgets' }) }).getByText('Your net change this session')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+    Call log:
+      - editor light 390px caption visible with timeout 5000ms
+      - waiting for locator('.mobile-panel-stack__item--form').filter({ has: getByRole('spinbutton', { name: 'Widgets' }) }).getByText('Your net change this session')
+        9 × locator resolved to <p id="_r_k_" class="ui-form-field__hint counter-control__caption">Your net change this session</p>
+          - unexpected value "hidden"
+      214 |
+      215 |   async function expectInside(target: Locator, card: Locator, what: string): Promise<void> {
+    > 216 |     await expect(target, `${what} visible`).toBeVisible();
+          |                                             ^
+      217 |     const [t, c] = await Promise.all([target.boundingBox(), card.boundingBox()]);
+      218 |     expect(t, `${what} box`).not.toBeNull();
+      219 |     expect(c, `card box`).not.toBeNull();
+        at expectInside (/home/matt/Development/helio/.claude/worktrees/task/hel1791-hel1582-e2e-hardening/hel-1830/e2e/hel1791-compact-counter-stack-height.spec.ts:216:45)
+        at checkCounterCard (/home/matt/Development/helio/.claude/worktrees/task/hel1791-hel1582-e2e-hardening/hel-1830/e2e/hel1791-compact-counter-stack-height.spec.ts:246:34)
+        at /home/matt/Development/helio/.claude/worktrees/task/hel1791-hel1582-e2e-hardening/hel-1830/e2e/hel1791-compact-counter-stack-height.spec.ts:340:13
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1791-compact-counter-st-335aa--with-no-inner-scroll-light-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1791-compact-counter-st-335aa--with-no-inner-scroll-light-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  2) [dev] › e2e/hel1791-compact-counter-stack-height.spec.ts:326:9 › HEL-1791 compact counter height in the panel stack › editor: the compact counter card shows value, both buttons and the caption with no inner scroll, dark 
+    Error: editor dark 390px caption visible
+    expect(locator).toBeVisible() failed
+    Locator:  locator('.mobile-panel-stack__item--form').filter({ has: getByRole('spinbutton', { name: 'Widgets' }) }).getByText('Your net change this session')
+    Expected: visible
+    Received: hidden
+    Timeout:  5000ms
+    Call log:
+Note: after the git checkout revert the lane's Vite dev server kept serving the mutated CSS until the file was touched (verified by curl: 0 matches of counter-control__caption in the served MobilePanelStack.css after the touch); a first control attempt run in that window failed at the caption assertion and is discarded.

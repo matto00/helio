@@ -1,0 +1,58 @@
+HEL-1830 task 4.1: 20x full hel1582 motion-and-states spec (8 tests, ~2.7 min/run, full file fits 600 s per call only in batches of <=3 runs), 2 workers, nice -n 19. Playwright ran this file with 1 worker (it has one describe, serial). Run 11 of the first streak FAILED (see below), so the 20x streak restarted: runs 12..31 below are the 20 consecutive passes. Runs 1-10 passed before the failure.
+run 1 exit=0   8 passed (2.7m) 
+run 2 exit=0   8 passed (2.7m) 
+run 3 exit=0   8 passed (2.7m) 
+run 4 exit=0   8 passed (2.6m) 
+run 5 exit=0   8 passed (2.7m) 
+run 6 exit=0   8 passed (2.6m) 
+run 7 exit=0   8 passed (2.6m) 
+run 8 exit=0   8 passed (2.6m) 
+run 9 exit=0   8 passed (2.9m) 
+run 10 exit=0   8 passed (2.9m) 
+run 11 exit=1   1 failed   7 passed (6.7m) 
+run 12 exit=0   8 passed (3.1m) 
+run 13 exit=0   8 passed (2.9m) 
+run 14 exit=0   8 passed (2.6m) 
+run 15 exit=0   8 passed (2.7m) 
+run 16 exit=0   8 passed (2.7m) 
+run 17 exit=0   8 passed (2.7m) 
+run 18 exit=0   8 passed (2.6m) 
+run 19 exit=0   8 passed (2.6m) 
+run 20 exit=0   8 passed (2.6m) 
+run 21 exit=0   8 passed (2.6m) 
+run 22 exit=0   8 passed (2.6m) 
+run 23 exit=0   8 passed (2.6m) 
+run 24 exit=0   8 passed (2.6m) 
+run 25 exit=0   8 passed (2.5m) 
+run 26 exit=0   8 passed (2.6m) 
+run 27 exit=0   8 passed (2.6m) 
+run 28 exit=0   8 passed (2.6m) 
+run 29 exit=0   8 passed (2.6m) 
+run 30 exit=0   8 passed (2.6m) 
+run 31 exit=0   8 passed (2.6m) 
+
+--- run 11 failure (test :527 'phone hover, focus and pressed states', unrelated to the tap (b) hunk at ~:313; untouched code):
+[6/8] [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:359:7 › HEL-1582 phone pipeline page (live) › AC4 guard can fail: a shrunk tab and a removed hit expander are caught by the same pro
+[dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:359:7 › HEL-1582 phone pipeline page (live) › AC4 guard can fail: a shrunk tab and a removed hit expander are caught by the same probe
+[HEL-1300 e2e] throwaway user: hel1582-touch-mutation-1795500807215-83459@example.test
+
+[7/8] [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:527:7 › HEL-1582 phone pipeline page (live) › phone hover, focus and pressed states of the new controls clear the state-surface floo
+[dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:527:7 › HEL-1582 phone pipeline page (live) › phone hover, focus and pressed states of the new controls clear the state-surface floor (1.1
+[HEL-1300 e2e] throwaway user: hel1582-contrast-1795500811904-95466@example.test
+
+  1) [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:527:7 › HEL-1582 phone pipeline page (live) › phone hover, focus and pressed states of the new controls clear the state-surface floor
+
+    Test timeout of 240000ms exceeded.
+
+    Error: browserContext.close: Target page, context or browser has been closed
+
+      620 |       expect(mutated.find((m) => m.state === "hover")?.verdict).toBe("fail");
+      621 |     } finally {
+    > 622 |       await context.close();
+--- solo reruns of that test (v2-contrast-solo1..3), duration 15.8s/14.8s/15.5s vs the 240000ms timeout in run 11 (host load average was 11-13 on 12 threads from other lanes):
+  ✓  1 [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:527:7 › HEL-1582 phone pipeline page (live) › phone hover, focus and pressed states of the new controls clear the state-surface floor (1.10), text 4.5:1 and non-text 3:1, in both themes (and the measurement can fail) (15.8s)
+  1 passed (16.4s)
+  ✓  1 [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:527:7 › HEL-1582 phone pipeline page (live) › phone hover, focus and pressed states of the new controls clear the state-surface floor (1.10), text 4.5:1 and non-text 3:1, in both themes (and the measurement can fail) (14.8s)
+  1 passed (15.5s)
+  ✓  1 [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:527:7 › HEL-1582 phone pipeline page (live) › phone hover, focus and pressed states of the new controls clear the state-surface floor (1.10), text 4.5:1 and non-text 3:1, in both themes (and the measurement can fail) (15.5s)
+  1 passed (16.1s)

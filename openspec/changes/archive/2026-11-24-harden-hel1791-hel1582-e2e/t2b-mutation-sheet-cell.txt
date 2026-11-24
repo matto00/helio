@@ -1,0 +1,26 @@
+HEL-1830 task 3.2 mutation (app CSS, uncommitted, reverted): the Output schema panel is placed off screen ONLY while a bottom sheet is open, so the preview-tab cell is untouched and the step-sheet cell (tap (b), now behind the count wait) must be the one that reds.
+diff --git a/frontend/src/features/pipelines/ui/OutputSchemaDisclosure.css b/frontend/src/features/pipelines/ui/OutputSchemaDisclosure.css
+index 9680c10e1..7590b27a7 100644
+--- a/frontend/src/features/pipelines/ui/OutputSchemaDisclosure.css
++++ b/frontend/src/features/pipelines/ui/OutputSchemaDisclosure.css
+@@ -58,3 +58,5 @@
+   /* HEL-830: 5px -> 4px, nearest step */
+   gap: var(--space-1);
+ }
++
++body:has(dialog.bottom-sheet[open]) .output-schema-disclosure__panel { left: 5000px !important; }
+
+  ✘  1 [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:244:9 › HEL-1582 phone pipeline page (live) › the "N fields" panel opens fully on screen, above the sheet, with a real filter hit area, on a 3-step pipeline with a 17-column source at 375x812
+  ✘  2 [dev] › e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts:244:9 › HEL-1582 phone pipeline page (live) › the "N fields" panel opens fully on screen, above the sheet, with a real filter hit area, on a 3-step pipeline with a 17-column source at 390x844
+userCleanup: removed 0 of 2 conversation folders, 0 failed
+    Error: dark step sheet: right inside the viewport
+    Expected: <= 375
+    Received:    5335
+    Error: dark step sheet: right inside the viewport
+    Expected: <= 390
+    Received:    5350
+  2 failed
+
+After the run the mutation was reverted (git checkout). git status --short (tracked changes only):
+ M e2e/hel1582-mobile-pipeline-motion-and-states.spec.ts
+(only the spec under test is modified; no app file)
