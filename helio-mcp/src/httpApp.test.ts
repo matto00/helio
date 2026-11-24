@@ -61,7 +61,7 @@ describe("401 on /mcp", () => {
 
   it("answers an expired access token with 401", async () => {
     const { accessToken } = await fullFlow(mcp, "helio_pat_alice");
-    mcp.skewMs = 91 * 24 * 3600 * 1000;
+    mcp.skewMs = 61 * 60 * 1000;
     expect((await mcpPost(mcp, accessToken, LIST)).status).toBe(401);
   });
 
@@ -80,7 +80,11 @@ describe("401 on /mcp", () => {
       });
       expect(res.status).toBe(405);
       expect(res.headers.get("allow")).toBe("POST");
-      expect((await fetch(`${mcp.url}/mcp`, { method })).status).toBe(401);
+      const anonymous = await fetch(`${mcp.url}/mcp`, { method });
+      expect(anonymous.status).toBe(401);
+      expect(anonymous.headers.get("www-authenticate")).toContain(
+        `resource_metadata="${resourceMetadataUrl(mcp.url)}"`,
+      );
     }
   });
 });

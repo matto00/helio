@@ -1,0 +1,14 @@
+[info] - should pin the per-file count of ServiceError.Forbidden producers so none ships unclassified *** FAILED ***
+[info] Total number of tests run: 3047
+[info] Tests: succeeded 3046, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+== infra
+[info] - should list exactly the foreign keys that reference users in a fully migrated database *** FAILED ***
+[info] Tests: succeeded 4701, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+== services
+[info] Tests: succeeded 2653, failed 0, canceled 5, ignored 0, pending 0
+== notes
+First api+auth shard: 3046 passed, 1 failed (ExistenceNotLeakedRoutesSpec forbidden-producer pin) -> pin updated, spec re-run: 67 passed.
+First infra shard: 1 failed (V119OwnerFkMigrationSpec inventory) -> docs/user-reference-inventory.md updated, spec re-run: 8 passed.
+McpRefreshFamilyRoutesSpec 13/13, RlsPolicyGuardSpec green (150 across both).

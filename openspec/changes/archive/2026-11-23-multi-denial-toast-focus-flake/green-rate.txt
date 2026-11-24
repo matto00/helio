@@ -1,0 +1,9 @@
+HEL-1842 post-fix: same conditions as red-rate.txt ([dev], 2 workers, --repeat-each, warm lane servers, no throttle).
+Post-fix: 0 failed / 24 (green-run-warm-24.txt). N_post = 24 >= ceil(3/p) = 9 for p = 4/12; P(0/24 | defect unchanged) = (2/3)^24 ~= 6e-5.
+Mutation (mutation-run.txt): fix reverted to the hardcoded Alpha-first order (alphaFirst = true) -> 5 failed / 12, at the new
+toHaveText row-order assertion (Alpha/Beta swapped). Guard fails on mutation.
+Full spec file post-fix (full-spec-run.txt): 5 passed. lint, format:check, typecheck: clean. Pre-commit hook ran the full jest suite
+(10809 tests passed) on the red commit; no product code changed since.
+Cold-start loop: not run. Red reproduced warm at the same rate as the CI failure shape and the probe shows the cause is row order
+(random UUID sort), independent of timing/cold start. Shard weight (D6): left defaulted; row-ordering, not shard company, was the cause,
+and the weights file is generated from CI medians ("never hand-edit").

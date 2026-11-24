@@ -95,6 +95,7 @@ trait JsonProtocols
     with AuthProtocol
     with MfaProtocol
     with ApiTokenProtocol
+    with McpRefreshFamilyProtocol
     with PanelProtocol
     with FormSubmitProtocol
     with DashboardProtocol

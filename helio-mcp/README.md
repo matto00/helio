@@ -79,12 +79,45 @@ protocol stream.
 `dist/http.js` serves the same tools over MCP Streamable HTTP at `/mcp`, with OAuth sign-in, so Helio can be added
 as a remote connector. The stdio entry point above is unchanged. Connector URL: **`https://mcp.helioapp.dev/mcp`**.
 
-How it works: helio-mcp is the OAuth authorization server (SDK `mcpAuthRouter`: discovery, dynamic client
-registration, PKCE `S256`). `/authorize` sends the browser to the Helio web app's `/connect/mcp` consent page; Allow
-mints a named 90-day PAT through the existing `POST /api/tokens` and form-POSTs it back to `/oauth/callback`; the
-access token is that PAT sealed (AES-256-GCM) with `HELIO_MCP_TOKEN_KEY`. Nothing is stored, any instance can serve
-any request, and every `/mcp` call acts as the PAT's user. No refresh tokens: after 90 days (or revocation) the
-client re-authorizes. `GET /mcp` answers `405` (no server-initiated stream).
+How it works: helio-mcp is the OAuth authorization server (SDK `mcpAuthRouter`: registration, authorize, token;
+its own handler serves `/.well-known/oauth-authorization-server`, with `grant_types_supported` stated as exactly
+`["authorization_code","refresh_token"]`). PKCE `S256` is required. `/authorize` sends the browser to the Helio web
+app's `/connect/mcp` consent page; Allow mints a named 90-day PAT through the existing `POST /api/tokens` and
+form-POSTs it back to `/oauth/callback`; the access token is that PAT sealed (AES-256-GCM) with
+`HELIO_MCP_TOKEN_KEY`. Any instance can serve any request, and every `/mcp` call acts as the PAT's user.
+
+**Tokens and lifetimes (HEL-1713).**
+
+- The access token lives **1 hour** (`expires_in: 3600`). Access tokens issued before this change keep working until
+  their own 90-day expiry.
+- A client that registered the `refresh_token` grant also gets a **refresh token**: sealed like the rest, valid 30
+  days from each issue and never past the PAT's own 90 days. It **rotates on every use** (MCP requires this for
+  public clients, and every helio-mcp client is public): the response carries a new refresh token and the old one
+  stops working. A client that registered no `grant_types`, or without `refresh_token`, gets an access token only
+  and re-authorizes each hour.
+- Reuse detection cannot live in helio-mcp (Cloud Run scales to zero and runs up to two instances sharing no
+  memory), so each refresh family keeps a **hash** of its current token id in the Helio backend
+  (`mcp_refresh_families`, `POST /api/mcp-refresh-families` and `.../:id/rotate`, authenticated with the PAT). The
+  refresh token itself is never stored.
+- **Reuse revokes everything:** presenting a refresh token that was already rotated deletes the PAT behind the
+  family. That ends every refresh token of every family of that PAT, and every access token sealing it stops
+  working within `HELIO_MCP_LIVENESS_TTL_SECONDS` (300 s by default), not instantly. There is no grace window: a
+  client that retries after a lost response, or two workers refreshing at once, loses the connection and must sign in
+  again.
+- **Revoking in Settings** ends the connection the same way: its refresh tokens are refused (`invalid_grant`) and
+  its access tokens are refused within the liveness TTL.
+- Refresh errors are RFC 6749 section 5.2: `invalid_grant` (invalid, expired, rotated, foreign-client or revoked
+  token), `invalid_target` (a `resource` other than this server), and `500 server_error` when the backend cannot be
+  reached. After a connection failure the same refresh token still works on retry; after a timeout the outcome is
+  indeterminate and a retry may count as reuse.
+- If the backend refuses to create a family when the code is exchanged (anything but a `401`), sign-in still
+  succeeds with an access token and no refresh token; a `401` there means the PAT was already revoked and the
+  exchange answers `invalid_grant`.
+
+**`/mcp` and the methods.** Bearer verification comes before the method check, so an **unauthenticated** `GET` or
+`DELETE /mcp` answers **`401`** with `WWW-Authenticate` (that challenge is how a client discovers the authorization
+server). An **authenticated** `GET` or `DELETE` answers **`405`** with `Allow: POST` (the server offers no
+server-initiated stream, which the MCP specification permits).
 
 ### Environment variables
 
@@ -121,7 +154,10 @@ for large-body slots): a normal `tools/list` must never return `429`.
 ### Operating notes
 
 - **Revoking:** each connector authorization (and every reconnect) mints a new PAT named `MCP connector: ...` in
-  Helio Settings, API tokens. Revoke it there; within `HELIO_MCP_LIVENESS_TTL_SECONDS` per instance the connector gets a 401 and re-authorizes.
+  Helio Settings, API tokens. Revoke it there; within `HELIO_MCP_LIVENESS_TTL_SECONDS` per instance the connector gets a 401 and re-authorizes,
+  and its refresh tokens are refused at once.
+- **Release order:** deploy the backend first (migration V147 and the two family routes), then helio-mcp. An MCP
+  deployed first still signs users in but issues no refresh token until the backend has the routes.
 - **Rate limits:** `/register` 60/h, `/token` and `/authorize` 300/15 min, `/oauth/*` 60/min, per IP per instance;
   with `--max-instances=2` the effective limit is double.
 - **Logs:** one line per request (method, path, status). The Cloud Run request log holds only sealed query strings
@@ -130,7 +166,7 @@ for large-body slots): a normal `tools/list` must never return `429`.
   body exceeds it (control-byte-heavy CSVs near the 15 MiB cap expand 6x as `\uXXXX`; quotes/newlines at most 2x)
   must be created through stdio.
 - **Key rotation:** deploy with `USE_PREVIOUS_KEY=1` and the old key in `helio-mcp-token-key-previous` so existing
-  tokens keep opening. Dropping the previous key invalidates every issued access token AND every registered client id
+  tokens keep opening. Dropping the previous key invalidates every issued access and refresh token AND every registered client id
   (client ids are sealed too); connectors then re-register on their own.
 
 ## Tool catalog

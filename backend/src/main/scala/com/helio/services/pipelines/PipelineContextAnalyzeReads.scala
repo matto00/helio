@@ -8,7 +8,6 @@ import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.services.ServiceError
 import org.slf4j.LoggerFactory
 
-import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -45,15 +44,12 @@ private[pipelines] final class PipelineContextAnalyzeReads(
       rootsByPipeline <- pipelineRepo.listRootDataSourceIdsInternalBatch(idSet)
       ownedIds     = sourceIdsOwned(ids, stepsByPipeline, rootsByPipeline)
       secondaryIds = secondarySourceIds(ids, stepsByPipeline)
-      ownedMap     <- dataSourceRepo.findByIdsOwned(validIds(ownedIds), user)
-      internalMap  <- dataSourceRepo.findByIdsInternal(validIds(secondaryIds))
+      ownedMap     <- dataSourceRepo.findByIdsOwned(rawIds(ownedIds), user)
+      internalMap  <- dataSourceRepo.findByIdsInternal(rawIds(secondaryIds))
     } yield {
       def resolver(map: Map[DataSourceId, DataSource]): PipelineAnalyzeProjection.Resolver = raw =>
-        Future.fromTry(Try {
-          // The same lookup the single read does: a malformed id fails that pipeline (it is then analyzed per pipeline).
-          val key = DataSourceId(UUID.fromString(raw.value).toString)
-          map.get(key)
-        })
+        // The same lookup the single read does: the id as stored, compared as text; a malformed id simply misses.
+        Future.fromTry(Try(map.get(raw)))
       val resolvers = PipelineAnalyzeProjection.Resolvers(
         rootSourceAsCaller  = resolver(ownedMap),
         upsertTargetAsOwner = resolver(ownedMap), // caller == owner (D5): the one owner-scoped map serves both
@@ -105,8 +101,7 @@ private[pipelines] final class PipelineContextAnalyzeReads(
   private def upsertTargetIds(steps: Vector[PipelineStep]): Seq[String] =
     UpsertTargetAnalysis.targetIdsOf(steps.map(s => (s.id.value, s.kind, PipelineStepConfigCodec.encode(s)))).map(_._2)
 
-  /** Only well-formed UUID ids go to the by-id reads (the column compares as uuid, so one malformed id would fail the
-   *  whole statement); a malformed id's pipeline fails in [[contextAnalyzeForOwner]]'s resolver instead. */
-  private def validIds(raw: Set[String]): Set[DataSourceId] =
-    raw.flatMap(r => Try(UUID.fromString(r).toString).toOption).map(DataSourceId(_))
+  /** The ids go to the by-id reads exactly as named: `data_sources.id` is `TEXT` and is compared as text, so any
+   *  string is a safe bound parameter and one that matches no source is simply absent (as in `analyze`). */
+  private def rawIds(raw: Set[String]): Set[DataSourceId] = raw.map(DataSourceId(_))
 }

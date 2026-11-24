@@ -103,31 +103,46 @@ final class PipelineProposalService(
 
   private val createDryRun = new PipelineCreateDryRun(dataSourceRepo)
 
-  /** HEL-1638: apply's pre-write checks as a dry run (writes nothing): each root's schema as apply would persist it, then
-   *  `PipelineCreateDryRun` (preflight, ownership, Output `fieldMapping` column-at-node) through the same functions
-   *  `createTransactional` calls. Run by `validate` and, before any write, by `apply`. Inline static/sql/rest roots are dry-run through
+  /** HEL-1638: apply's pre-write checks as a dry run (writes nothing): `PipelineCreateDryRun` (preflight, ownership, Output
+   *  `fieldMapping` column-at-node) through the same functions `createTransactional` calls, with each root's schema as apply
+   *  would persist it. Run by `validate` and, before any write, by `apply`. Inline static/sql/rest roots are dry-run through
    *  [[PipelineRootDryRun]]; the live fetch of a rest/sql root is charged to the source-fetch budget when `chargeFetches`
    *  (validate) and not on apply, whose preceding propose already paid and whose `createRest`/`createSql` make the one
-   *  persisted-path fetch. */
-  private def dryRun(proposal: PipelineProposal, user: AuthenticatedUser, chargeFetches: Boolean): Future[Either[ServiceError, Unit]] =
-    proposal.roots.zipWithIndex.foldLeft(Future.successful[Either[ServiceError, Vector[DryRunRoot]]](Right(Vector.empty))) {
-        case (acc, (root, idx)) =>
-          acc.flatMap {
-            case Left(err) => Future.successful(Left(err))
-            case Right(done) => dryRunRootSchema(root, idx, user, chargeFetches).map(_.map(done :+ _))
-          }
-      }.flatMap {
-        case Left(err) => Future.successful(Left(err))
-        case Right(roots) =>
-          val req = CreatePipelineRequest(
-            name    = proposal.pipelineName.trim,
-            roots   = proposal.roots.map(r => CreatePipelineRootRequest(sourceId = Some("dry-run"), clientId = r.clientId)),
-            tag     = None,
-            steps   = proposal.steps,
-            outputs = proposal.outputs
-          )
-          createDryRun.check(req, roots.map(_.schema), roots.zipWithIndex.collect { case (r, i) if r.fetchError.isDefined => i -> r.fetchError.get }.toMap, user)
-      }
+   *  persisted-path fetch.
+   *
+   *  HEL-1727 order: the request-only preflight and cross-owner checks run BEFORE any root's schema fetch, so a proposal with a
+   *  step problem is refused without spending a source-fetch unit on each retry (the patch-set resolver has the same order).
+   *  Only the Output `fieldMapping` column check needs the fetched schema, so it stays after the roots. With several inline
+   *  roots the fold is serial: root 0's charged fetch still precedes root 1's schema-free inline create checks. A step problem
+   *  is reported before a root problem; apply runs this same function, so propose and apply agree. */
+  private def dryRun(proposal: PipelineProposal, user: AuthenticatedUser, chargeFetches: Boolean): Future[Either[ServiceError, Unit]] = {
+    val req = CreatePipelineRequest(
+      name    = proposal.pipelineName.trim,
+      roots   = proposal.roots.map(r => CreatePipelineRootRequest(sourceId = Some("dry-run"), clientId = r.clientId)),
+      tag     = None,
+      steps   = proposal.steps,
+      outputs = proposal.outputs
+    )
+    createDryRun.preflight(req, user).flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right(indices) =>
+        proposal.roots.zipWithIndex.foldLeft(Future.successful[Either[ServiceError, Vector[DryRunRoot]]](Right(Vector.empty))) {
+          case (acc, (root, idx)) =>
+            acc.flatMap {
+              case Left(err)   => Future.successful(Left(err))
+              case Right(done) => dryRunRootSchema(root, idx, user, chargeFetches).map(_.map(done :+ _))
+            }
+        }.flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(roots) =>
+            indices match {
+              case None => Future.successful(Right(()))
+              case Some(idxs) =>
+                createDryRun.checkOutputs(req, idxs, roots.map(_.schema), roots.zipWithIndex.collect { case (r, i) if r.fetchError.isDefined => i -> r.fetchError.get }.toMap, user)
+            }
+        }
+    }
+  }
 
   private val rootDryRun = new PipelineRootDryRun(dataSourceRepo, sourceService, sourceFetchBudget)
 

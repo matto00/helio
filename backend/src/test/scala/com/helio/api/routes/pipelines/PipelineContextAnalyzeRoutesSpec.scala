@@ -1,15 +1,21 @@
 package com.helio.api.routes.pipelines
 
-import com.helio.domain.SelectConfig
+import com.helio.domain.{JoinConfig, LookupConfig, SelectConfig}
+import com.helio.domain.steps.SecondaryInput
 import com.helio.testsupport.{ContextAnalyzeApiFixture, JsonSchemaValidation}
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import spray.json._
+
+import scala.collection.mutable
 
 /** HEL-1625: `GET /api/pipelines/context-analyze` over the full route tree on a non-BYPASSRLS app pool.
  *
  *  4.1 owner-scoped item set/order, zero-step, 401, schema; 4.2 parity with `/analyze` on a rich fixture;
  *  4.3 isolation between an owner, an editor grantee and a viewer grantee. */
 class PipelineContextAnalyzeRoutesSpec extends ContextAnalyzeApiFixture {
+
+  private val rootIds = mutable.Map.empty[String, String]
+  private def rootOf(pipeline: String): String = rootIds(pipeline)
 
   private val SchemaPath = "pipelines/pipeline-context-analyze-response.schema.json"
 
@@ -126,6 +132,39 @@ class PipelineContextAnalyzeRoutesSpec extends ContextAnalyzeApiFixture {
       // the grantees' per-pipeline analyze of A's pipeline still answers 200 with the steps (status and shape unchanged)
       for (u <- Seq(userB, userC))
         analyzeOf(shared, u).fields("steps").convertTo[Vector[JsObject]].map(_.fields("id").convertTo[String]) shouldBe aSteps
+    }
+
+    "HEL-1827: resolve a stored source id the way /analyze does (raw text compare): upper-case ids miss, malformed ids never omit the pipeline" in {
+      reset()
+      val orders  = seedSource(userA, "orders-a")
+      val ref     = seedSource(userA, "ref-a", schema = RefSchema)
+      val dataset = seedSource(userA, "dataset-a", kind = "dataset")
+      val cases = Vector(
+        "upper-case join secondary"   -> ((p: String) => addStep(p, "join", JoinConfig(SecondaryInput.Source(ref.toUpperCase), "order_id", "inner"), root = Some(rootOf(p)))),
+        "upper-case lookup secondary" -> ((p: String) => addStep(p, "lookup", LookupConfig(SecondaryInput.Source(ref.toUpperCase), "order_id", "order_id", Vector("label")), root = Some(rootOf(p)))),
+        "upper-case upsert target"    -> ((p: String) => addStep(p, "upsertsource", upsertTo(dataset.toUpperCase), root = Some(rootOf(p)))),
+        "non-UUID join secondary"     -> ((p: String) => addStep(p, "join", JoinConfig(SecondaryInput.Source("not-a-uuid"), "order_id", "inner"), root = Some(rootOf(p)))),
+        "non-UUID lookup secondary"   -> ((p: String) => addStep(p, "lookup", LookupConfig(SecondaryInput.Source("not-a-uuid"), "order_id", "order_id", Vector("label")), root = Some(rootOf(p)))),
+        "non-UUID upsert target"      -> ((p: String) => addStep(p, "upsertsource", upsertTo("not-a-uuid"), root = Some(rootOf(p))))
+      )
+      val pipelines = cases.map { case (name, add) =>
+        val (pid, roots) = seedPipeline(userA, name, Vector(orders))
+        rootIds(pid) = roots.head
+        add(pid)
+        name -> pid
+      }
+      val items = contextItems(userA)
+      // Collect every case's diff (not just the first) so one run shows each case red.
+      val diffs = pipelines.flatMap { case (name, pid) =>
+        items.find(_.fields("pipelineId") == JsString(pid)) match {
+          case None => Some(s"$name: omitted from the batch")
+          case Some(item) =>
+            val analyze = analyzeOf(pid, userA)
+            val same = item.fields("steps") == analyze.fields("steps") && item.fields("warnings") == analyze.fields("warnings")
+            if (same) None else Some(s"$name: batch ${item.fields("steps")} / ${item.fields("warnings")} != analyze ${analyze.fields("steps")} / ${analyze.fields("warnings")}")
+        }
+      }
+      withClue(diffs.mkString("\n", "\n", "\n"))(diffs shouldBe empty)
     }
   }
 }

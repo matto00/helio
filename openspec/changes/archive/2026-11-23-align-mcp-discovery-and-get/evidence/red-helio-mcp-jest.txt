@@ -1,0 +1,415 @@
+FAIL helio-mcp/src/oauth/familySeam.test.ts
+  refresh-family request bodies match schemas/mcp
+    ✕ create and rotate bodies validate, and carry no other key (64 ms)
+
+  ● refresh-family request bodies match schemas/mcp › create and rotate bodies validate, and carry no other key
+
+    expect(received).toBeDefined()
+
+    Received: undefined
+
+      53 |     const create = backend.familyBodies.find((b) => b.route === "create");
+      54 |     const rotate = backend.familyBodies.find((b) => b.route === "rotate");
+    > 55 |     expect(create).toBeDefined();
+         |                    ^
+      56 |     expect(rotate).toBeDefined();
+      57 |     const validateCreate = ajv.compile(load("mcp-refresh-family-create-request.schema.json"));
+      58 |     const validateRotate = ajv.compile(load("mcp-refresh-family-rotate-request.schema.json"));
+
+      at Object.<anonymous> (helio-mcp/src/oauth/familySeam.test.ts:55:20)
+
+PASS helio-mcp/src/oauth/seal.test.ts
+  seal
+    ✓ round-trips a payload (2 ms)
+    ✓ rejects a one-byte tamper (4 ms)
+    ✓ rejects a seal opened as another kind (1 ms)
+    ✓ rejects an expired seal and writes exp in seconds (1 ms)
+    ✓ never expires a client seal and stores no exp
+    ✓ opens with the previous key but seals with the current one (1 ms)
+    ✓ rejects malformed input (1 ms)
+
+FAIL helio-mcp/src/oauth/oauthFlow.test.ts
+  discovery and registration
+    ✓ serves both protected-resource documents and AS metadata (50 ms)
+    ✓ issues no client secret ({}) and /token works without one (39 ms)
+    ✓ issues no client secret ({"token_endpoint_auth_method":"client_secret_post"}) and /token works without one (21 ms)
+    ✓ rejects a plain-http non-loopback redirect URI and accepts loopback http (6 ms)
+    ✓ rejects hosts outside the allow-list, and re-applies it at authorize (22 ms)
+    ✓ refuses a forged client id without redirecting to the consent page (6 ms)
+    ✓ refuses an over-long state and a wrong resource (17 ms)
+    ✓ accepts the canonical resource with a trailing slash (6 ms)
+  authorize, callback and token
+    ✓ redirects to the consent page and serves CORS-restricted pending info (15 ms)
+    ✓ completes the flow WITHOUT resource and /mcp then succeeds (31 ms)
+    ✓ denial redirects with access_denied and state; mints no code (16 ms)
+    ✓ rejects an invalid, a scoped and an unreachable-backend PAT with an escaped error page (23 ms)
+    ✓ refuses an expired pending request at the callback and the info endpoint (12 ms)
+    ✓ rejects a wrong verifier and a replayed code (24 ms)
+    ✕ accepts an omitted redirect_uri at /token but not a different one; refuses a junk refresh token (22 ms)
+    ✓ refuses a code issued to another client (12 ms)
+    ✓ does not accept an authorization code as an access token (12 ms)
+
+  ● authorize, callback and token › accepts an omitted redirect_uri at /token but not a different one; refuses a junk refresh token
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 3600
+    Received: 7776000
+
+      272 |     const body = await jsonOf(ok);
+      273 |     expect(body.refresh_token).toBeUndefined();
+    > 274 |     expect(body.expires_in).toBe(3600);
+          |                             ^
+      275 |     const refresh = await tokenRequest(mcp, {
+      276 |       grant_type: "refresh_token",
+      277 |       client_id: c2.id,
+
+      at Object.<anonymous> (helio-mcp/src/oauth/oauthFlow.test.ts:274:29)
+
+FAIL helio-mcp/src/oauth/refreshFlow.test.ts
+  authorization-server metadata
+    ✓ states the grant list explicitly and serves it with CORS (15 ms)
+    ✕ advertises no grant the token endpoint refuses (19 ms)
+  code exchange issues a refresh token
+    ✕ returns a one-hour access token and a sealed refresh token for a refresh-capable client (10 ms)
+    ✕ reports expires_in 3600 and seals a one-hour access token (10 ms)
+    ✓ issues no refresh token and creates no family for a client without the grant (8 ms)
+    ✕ seals the canonical resource even when the client sent none, and caps exp at the family expiry (11 ms)
+    ✕ seals exp 30 days out when the family outlives that (8 ms)
+    ✕ answers invalid_grant with no tokens when the backend says the PAT is revoked (401) (7 ms)
+    ✓ still issues the access token, without a refresh token, when family creation fails (400 400) (35 ms)
+    ✓ still issues the access token, without a refresh token, when family creation fails (403 403) (22 ms)
+    ✓ still issues the access token, without a refresh token, when family creation fails (404 404) (25 ms)
+    ✓ still issues the access token, without a refresh token, when family creation fails (429 429) (23 ms)
+    ✓ still issues the access token, without a refresh token, when family creation fails (500 500) (20 ms)
+    ✓ still issues the access token, without a refresh token, when family creation fails (503 503) (22 ms)
+    ✓ still issues the access token, without a refresh token, when family creation fails (reset network error) (23 ms)
+    ✓ still issues the access token, without a refresh token, when family creation fails (hang timeout) (18 ms)
+  refresh grant
+    ✕ rotates: a new pair works and the old refresh token is refused (10 ms)
+    ✕ treats reuse as theft: refuses the newest token and revokes the PAT (15 ms)
+    ✕ refuses another client's refresh token and rotates nothing (18 ms)
+    ✕ refuses a foreign resource with invalid_target and rotates nothing (10 ms)
+    ✕ accepts the canonical resource with a trailing slash (9 ms)
+    ✓ refuses an expired refresh token without calling the backend (9 ms)
+    ✓ refuses a tampered refresh token (9 ms)
+    ✓ refuses an access token presented as a refresh token (9 ms)
+    ✓ answers invalid_grant when the backend says the PAT is gone (401) (9 ms)
+    ✕ answers 500 server_error when the backend drops the connection, and the same token works on retry (8 ms)
+    ✕ maps an unexpected backend status 400 to 500 server_error (13 ms)
+    ✕ maps an unexpected backend status 403 to 500 server_error (8 ms)
+    ✕ maps an unexpected backend status 418 to 500 server_error (9 ms)
+    ✓ maps a backend 404 (unknown family) to invalid_grant (8 ms)
+    ✓ maps a backend 409 (expired) to invalid_grant (9 ms)
+    ✕ keeps working after a backend 429, and never logs token material (11 ms)
+
+  ● authorization-server metadata › advertises no grant the token endpoint refuses
+
+    expect(received).toBeTruthy()
+
+    Received: undefined
+
+      74 |     const meta = await jsonOf(await fetch(`${mcp.url}/.well-known/oauth-authorization-server`));
+      75 |     const { clientId, refreshToken } = await refreshFlow();
+    > 76 |     expect(refreshToken).toBeTruthy();
+         |                          ^
+      77 |     for (const grant of meta.grant_types_supported as string[]) {
+      78 |       const res =
+      79 |         grant === "refresh_token"
+
+      at Object.<anonymous> (helio-mcp/src/oauth/refreshFlow.test.ts:76:26)
+
+  ● code exchange issues a refresh token › returns a one-hour access token and a sealed refresh token for a refresh-capable client
+
+    expect(received).toBeTruthy()
+
+    Received: undefined
+
+      88 |   it("returns a one-hour access token and a sealed refresh token for a refresh-capable client", async () => {
+      89 |     const flow = await refreshFlow();
+    > 90 |     expect(flow.refreshToken).toBeTruthy();
+         |                               ^
+      91 |     expect(backend.families.size).toBe(1);
+      92 |     const family = [...backend.families.values()][0];
+      93 |     const body = open<Record<string, unknown>>(mcp.config.keys, "refresh", flow.refreshToken ?? "");
+
+      at Object.<anonymous> (helio-mcp/src/oauth/refreshFlow.test.ts:90:31)
+
+  ● code exchange issues a refresh token › reports expires_in 3600 and seals a one-hour access token
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 3600
+    Received: 7776000
+
+      112 |     });
+      113 |     const body = await jsonOf(res);
+    > 114 |     expect(body.expires_in).toBe(3600);
+          |                             ^
+      115 |     const access = open<{ exp: number }>(mcp.config.keys, "access", body.access_token);
+      116 |     expect(access.exp - Math.floor(Date.now() / 1000)).toBeLessThanOrEqual(3600);
+      117 |     expect(access.exp - Math.floor(Date.now() / 1000)).toBeGreaterThan(3590);
+
+      at Object.<anonymous> (helio-mcp/src/oauth/refreshFlow.test.ts:114:29)
+
+  ● code exchange issues a refresh token › seals the canonical resource even when the client sent none, and caps exp at the family expiry
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "http://127.0.0.1:35475/mcp"
+    Received: undefined
+
+      129 |     const flow = await refreshFlow();
+      130 |     const family = [...backend.families.values()][0];
+    > 131 |     expect(family?.resource).toBe(`${mcp.url}/mcp`);
+          |                              ^
+      132 |     const body = open<{ resource: string; exp: number }>(
+      133 |       mcp.config.keys,
+      134 |       "refresh",
+
+      at Object.<anonymous> (helio-mcp/src/oauth/refreshFlow.test.ts:131:30)
+
+  ● code exchange issues a refresh token › seals exp 30 days out when the family outlives that
+
+    SealError: malformed seal
+
+      87 | ): T {
+      88 |   const parts = token.split(".");
+    > 89 |   if (parts.length !== 3 || parts[0] !== VERSION) throw new SealError("malformed seal");
+         |                                                         ^
+      90 |   const iv = Buffer.from(parts[1] ?? "", "base64url");
+      91 |   const data = Buffer.from(parts[2] ?? "", "base64url");
+      92 |   if (iv.length !== IV_BYTES || data.length <= TAG_BYTES) throw new SealError("malformed seal");
+
+      at open (helio-mcp/src/oauth/seal.ts:89:57)
+      at open (helio-mcp/src/oauth/refreshFlow.test.ts:25:17)
+      at Object.<anonymous> (helio-mcp/src/oauth/refreshFlow.test.ts:143:18)
+
+  ● code exchange issues a refresh token › answers invalid_grant with no tokens when the backend says the PAT is revoked (401)
+
+    expect(received).toBeUndefined()
+
+    Received: "v1.BPMWYHYWYAbDMsAc.fzj9cEH59QwCH6u_J8eZXCAgEhcvLoM5-8zQ4aZ8Crd8Cy0WiSNK1DZUzEMlQhhVe3zlwPxnVvR5Owt2Avhh4Rmk9fbdYOOKm1SK2wRXaS64M_rgPW3eMv1KRRa1Ez0F1Zy3WUduqSAlWAi_s1j27JmYoWWbKGrSwwVyWUWibgSnr95ASHEftBGZ9Ih9jR9Q8YOc1yAD9utp58ff"
+
+      150 |     backend.familyOverride.create = 401;
+      151 |     const flow = await refreshFlow();
+    > 152 |     expect(flow.accessToken).toBeUndefined();
+          |                              ^
+      153 |   });
+      154 |
+      155 |   it.each([
+
+      at Object.<anonymous> (helio-mcp/src/oauth/refreshFlow.test.ts:152:30)
+
+  ● refresh grant › rotates: a new pair works and the old refresh token is refused
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 400
+
+      179 |     const flow = await refreshFlow();
+      180 |     const res = await refresh(flow.clientId, flow.refreshToken ?? "");
+    > 181 |     expect(res.status).toBe(200);
+          |                        ^
+      182 |     const body = await jsonOf(res);
+      183 |     expect(body.expires_in).toBe(3600);
+      184 |     expect(body.refresh_token).toBeTruthy();
+
+      at Object.<anonymous> (helio-mcp/src/oauth/refreshFlow.test.ts:181:24)
+
+  ● refresh grant › treats reuse as theft: refuses the newest token and revokes the PAT
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: false
+    Received: true
+
+      199 |     expect(newest.status).toBe(400);
+      200 |     expect((await jsonOf(newest)).error).toBe("invalid_grant");
+    > 201 |     expect(backend.pats.has(PAT)).toBe(false);
+          |                                   ^
+      202 |   });
+      203 |
+      204 |   it("refuses another client's refresh token and rotates nothing", async () => {
+
+      at Object.<anonymous> (helio-mcp/src/oauth/refreshFlow.test.ts:201:35)
+
+  ● refresh grant › refuses another client's refresh token and rotates nothing
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 400
+
+      210 |     expect((await jsonOf(res)).error).toBe("invalid_grant");
+      211 |     expect([...backend.families.values()].map((f) => f.generation)).toEqual(before);
+    > 212 |     expect((await refresh(flow.clientId, flow.refreshToken ?? "")).status).toBe(200);
+          |                                                                            ^
+      213 |   });
+      214 |
+      215 |   it("refuses a foreign resource with invalid_target and rotates nothing", async () => {
+
+      at Object.<anonymous> (helio-mcp/src/oauth/refreshFlow.test.ts:212:76)
+
+  ● refresh grant › refuses a foreign resource with invalid_target and rotates nothing
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "invalid_target"
+    Received: "invalid_grant"
+
+      219 |     });
+      220 |     expect(res.status).toBe(400);
+    > 221 |     expect((await jsonOf(res)).error).toBe("invalid_target");
+          |                                       ^
+      222 |     expect([...backend.families.values()][0]?.generation).toBe(0);
+      223 |   });
+      224 |
+
+      at Object.<anonymous> (helio-mcp/src/oauth/refreshFlow.test.ts:221:39)
+
+  ● refresh grant › accepts the canonical resource with a trailing slash
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 400
+
+      228 |       resource: `${mcp.url}/mcp/`,
+      229 |     });
+    > 230 |     expect(res.status).toBe(200);
+          |                        ^
+      231 |   });
+      232 |
+      233 |   it("refuses an expired refresh token without calling the backend", async () => {
+
+      at Object.<anonymous> (helio-mcp/src/oauth/refreshFlow.test.ts:230:24)
+
+  ● refresh grant › answers 500 server_error when the backend drops the connection, and the same token works on retry
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 500
+    Received: 400
+
+      269 |     backend.familyOverride.rotate = "reset";
+      270 |     const res = await refresh(flow.clientId, flow.refreshToken ?? "");
+    > 271 |     expect(res.status).toBe(500);
+          |                        ^
+      272 |     expect((await jsonOf(res)).error).toBe("server_error");
+      273 |     backend.familyOverride.rotate = undefined;
+      274 |     expect((await refresh(flow.clientId, flow.refreshToken ?? "")).status).toBe(200);
+
+      at Object.<anonymous> (helio-mcp/src/oauth/refreshFlow.test.ts:271:24)
+
+  ● refresh grant › maps an unexpected backend status 400 to 500 server_error
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 500
+    Received: 400
+
+      279 |     backend.familyOverride.rotate = code;
+      280 |     const res = await refresh(flow.clientId, flow.refreshToken ?? "");
+    > 281 |     expect(res.status).toBe(500);
+          |                        ^
+      282 |     expect((await jsonOf(res)).error).toBe("server_error");
+      283 |   });
+      284 |
+
+      at helio-mcp/src/oauth/refreshFlow.test.ts:281:24
+
+  ● refresh grant › maps an unexpected backend status 403 to 500 server_error
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 500
+    Received: 400
+
+      279 |     backend.familyOverride.rotate = code;
+      280 |     const res = await refresh(flow.clientId, flow.refreshToken ?? "");
+    > 281 |     expect(res.status).toBe(500);
+          |                        ^
+      282 |     expect((await jsonOf(res)).error).toBe("server_error");
+      283 |   });
+      284 |
+
+      at helio-mcp/src/oauth/refreshFlow.test.ts:281:24
+
+  ● refresh grant › maps an unexpected backend status 418 to 500 server_error
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 500
+    Received: 400
+
+      279 |     backend.familyOverride.rotate = code;
+      280 |     const res = await refresh(flow.clientId, flow.refreshToken ?? "");
+    > 281 |     expect(res.status).toBe(500);
+          |                        ^
+      282 |     expect((await jsonOf(res)).error).toBe("server_error");
+      283 |   });
+      284 |
+
+      at helio-mcp/src/oauth/refreshFlow.test.ts:281:24
+
+  ● refresh grant › keeps working after a backend 429, and never logs token material
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 500
+    Received: 400
+
+      297 |     const flow = await refreshFlow();
+      298 |     backend.familyOverride.rotate = 429;
+    > 299 |     expect((await refresh(flow.clientId, flow.refreshToken ?? "")).status).toBe(500);
+          |                                                                            ^
+      300 |     backend.familyOverride.rotate = undefined;
+      301 |     expect((await refresh(flow.clientId, flow.refreshToken ?? "")).status).toBe(200);
+      302 |     const logs = mcp.logs.join("\n");
+
+      at Object.<anonymous> (helio-mcp/src/oauth/refreshFlow.test.ts:299:76)
+
+FAIL helio-mcp/src/httpApp.test.ts (6.65 s)
+  401 on /mcp
+    ✓ answers a missing, tampered or garbage token with WWW-Authenticate (69 ms)
+    ✕ answers an expired access token with 401 (61 ms)
+    ✓ refuses an oversized unauthenticated POST with 401, not 413 (43 ms)
+    ✓ answers GET and DELETE with 405 + Allow: POST when authorized, 401 when not (27 ms)
+  tools
+    ✓ lists exactly the tools a stdio client sees (74 ms)
+    ✓ binds each token to its own PAT (two users do not cross) (40 ms)
+    ✓ initialises (25 ms)
+  PAT liveness
+    ✓ 401s with invalid_token once a revoked PAT's liveness entry is stale (44 ms)
+    ✓ does not 401 on a backend 5xx, 429 or timeout (3063 ms)
+  size limits and logging
+    ✓ answers 413 above 32 MiB when authorized (55 ms)
+    ✓ logs no body fragment for a malformed JSON body (12 ms)
+    ✓ 429s a second large request, including a small gzip, while a slot is held (659 ms)
+  stdio is unchanged
+    ✓ keeps the original HELIO_PAT remediation text when no hint is set
+
+  ● 401 on /mcp › answers an expired access token with 401
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 401
+    Received: 200
+
+      63 |     const { accessToken } = await fullFlow(mcp, "helio_pat_alice");
+      64 |     mcp.skewMs = 61 * 60 * 1000;
+    > 65 |     expect((await mcpPost(mcp, accessToken, LIST)).status).toBe(401);
+         |                                                            ^
+      66 |   });
+      67 |
+      68 |   it("refuses an oversized unauthenticated POST with 401, not 413", async () => {
+
+      at Object.<anonymous> (helio-mcp/src/httpApp.test.ts:65:60)
+
+Test Suites: 4 failed, 1 passed, 5 total
+Tests:       19 failed, 51 passed, 70 total
+Snapshots:   0 total
+Time:        7.004 s, estimated 9 s
+Ran all test suites matching helio-mcp/src/oauth|helio-mcp/src/httpApp.test.ts.

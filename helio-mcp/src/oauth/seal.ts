@@ -1,7 +1,7 @@
 /**
  * Stateless sealing for the OAuth artefacts helio-mcp hands to clients (HEL-1709, design D2).
  *
- * Every client id, pending request, authorization code and access token is an AES-256-GCM
+ * Every client id, pending request, authorization code, access token and refresh token is an AES-256-GCM
  * ciphertext, so any Cloud Run instance can open one with no shared store. Each kind has its own
  * HKDF subkey, so a ciphertext of one kind can never be accepted as another.
  *
@@ -12,7 +12,7 @@
 
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
 
-export type SealKind = "client" | "pending" | "code" | "access";
+export type SealKind = "client" | "pending" | "code" | "access" | "refresh";
 
 /** Kinds that never expire: a registered connector must not silently turn into `invalid_client`. */
 const NON_EXPIRING: ReadonlySet<SealKind> = new Set<SealKind>(["client"]);
@@ -23,7 +23,10 @@ const TAG_BYTES = 16;
 
 export const PENDING_TTL_SECONDS = 10 * 60;
 export const CODE_TTL_SECONDS = 60;
-export const ACCESS_TTL_SECONDS = 90 * 24 * 60 * 60;
+/** Short-lived on purpose (MCP: "SHOULD issue short-lived access tokens"); the refresh token renews it. */
+export const ACCESS_TTL_SECONDS = 60 * 60;
+/** Sliding: every rotation issues a new one, always capped at the PAT's own expiry. */
+export const REFRESH_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 /** Raised for any seal that cannot be opened; the message never carries seal content. */
 export class SealError extends Error {

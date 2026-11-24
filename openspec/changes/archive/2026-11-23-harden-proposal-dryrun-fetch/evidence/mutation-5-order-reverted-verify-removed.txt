@@ -1,0 +1,130 @@
+# Mutation: fetch-first order in PipelineProposalService.dryRun (root fold, then preflight, then checkOutputs) and verify(never()) removed from the order spec. Diff against HEAD (the spec hunk adding thenAnswer is the cycle-2 fix itself):
+diff --git a/backend/src/main/scala/com/helio/services/pipelines/PipelineProposalService.scala b/backend/src/main/scala/com/helio/services/pipelines/PipelineProposalService.scala
+index 27c74375c..f33029fd6 100644
+--- a/backend/src/main/scala/com/helio/services/pipelines/PipelineProposalService.scala
++++ b/backend/src/main/scala/com/helio/services/pipelines/PipelineProposalService.scala
+@@ -123,23 +123,19 @@ final class PipelineProposalService(
+       steps   = proposal.steps,
+       outputs = proposal.outputs
+     )
+-    createDryRun.preflight(req, user).flatMap {
++    proposal.roots.zipWithIndex.foldLeft(Future.successful[Either[ServiceError, Vector[DryRunRoot]]](Right(Vector.empty))) {
++      case (acc, (root, idx)) =>
++        acc.flatMap {
++          case Left(err)   => Future.successful(Left(err))
++          case Right(done) => dryRunRootSchema(root, idx, user, chargeFetches).map(_.map(done :+ _))
++        }
++    }.flatMap {
+       case Left(err) => Future.successful(Left(err))
+-      case Right(indices) =>
+-        proposal.roots.zipWithIndex.foldLeft(Future.successful[Either[ServiceError, Vector[DryRunRoot]]](Right(Vector.empty))) {
+-          case (acc, (root, idx)) =>
+-            acc.flatMap {
+-              case Left(err)   => Future.successful(Left(err))
+-              case Right(done) => dryRunRootSchema(root, idx, user, chargeFetches).map(_.map(done :+ _))
+-            }
+-        }.flatMap {
+-          case Left(err) => Future.successful(Left(err))
+-          case Right(roots) =>
+-            indices match {
+-              case None => Future.successful(Right(()))
+-              case Some(idxs) =>
+-                createDryRun.checkOutputs(req, idxs, roots.map(_.schema), roots.zipWithIndex.collect { case (r, i) if r.fetchError.isDefined => i -> r.fetchError.get }.toMap, user)
+-            }
++      case Right(roots) =>
++        createDryRun.preflight(req, user).flatMap {
++          case Left(err)         => Future.successful(Left(err))
++          case Right(None)       => Future.successful(Right(()))
++          case Right(Some(idxs)) => createDryRun.checkOutputs(req, idxs, roots.map(_.schema), roots.zipWithIndex.collect { case (r, i) if r.fetchError.isDefined => i -> r.fetchError.get }.toMap, user)
+         }
+     }
+   }
+diff --git a/backend/src/test/scala/com/helio/services/pipelines/ProposalDryRunFetchHardeningSpec.scala b/backend/src/test/scala/com/helio/services/pipelines/ProposalDryRunFetchHardeningSpec.scala
+index 09c101fba..33c9f622b 100644
+--- a/backend/src/test/scala/com/helio/services/pipelines/ProposalDryRunFetchHardeningSpec.scala
++++ b/backend/src/test/scala/com/helio/services/pipelines/ProposalDryRunFetchHardeningSpec.scala
+@@ -31,8 +31,12 @@ class ProposalDryRunFetchHardeningSpec extends AnyWordSpec with Matchers {
+ 
+   private def failingFetch(error: String): SourceService = {
+     val ss = mock(classOf[SourceService])
++    // Like the real `dryRunRestSchema`: `beforeFetch` (the source-fetch budget charge) runs first, and a refusal skips the fetch.
+     when(ss.dryRunRestSchema(any[CreateSourceRequest](), any[AuthenticatedUser](), any[() => Either[ServiceError, Unit]]()))
+-      .thenReturn(Future.successful(Right(SourceService.InlineDryRunSchema(Vector.empty, Some(error)))))
++      .thenAnswer { inv =>
++        val beforeFetch = inv.getArgument[() => Either[ServiceError, Unit]](2)
++        Future.successful(beforeFetch().map(_ => SourceService.InlineDryRunSchema(Vector.empty, Some(error))))
++      }
+     ss
+   }
+ 
+@@ -106,7 +110,6 @@ class ProposalDryRunFetchHardeningSpec extends AnyWordSpec with Matchers {
+ 
+       val err = result.swap.toOption.getOrElse(fail("accepted"))
+       err.message should include("Lane reference 'ghost' does not exist in this request")
+-      verify(ss, never()).dryRunRestSchema(any[CreateSourceRequest](), any[AuthenticatedUser](), any[() => Either[ServiceError, Unit]]())
+       // the single unit of budget is still available: nothing was charged
+       budget.charge(user) shouldBe Right(())
+     }
+# ---- run ----
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.13.0.3)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/proposal-dryrun-fetch-hardening/HEL-1727/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/proposal-dryrun-fetch-hardening/HEL-1727/backend/)
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/bug/proposal-dryrun-fetch-hardening/HEL-1727/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+13:05:45,096 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+13:05:45,096 |-INFO in ch.qos.logback.classic.util.ContextInitializer@46e28e46 - No custom configurators were discovered as a service.
+13:05:45,096 |-INFO in ch.qos.logback.classic.util.ContextInitializer@46e28e46 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+13:05:45,097 |-INFO in ch.qos.logback.classic.util.ContextInitializer@46e28e46 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+13:05:45,099 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+13:05:45,100 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/bug/proposal-dryrun-fetch-hardening/HEL-1727/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+13:05:45,141 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+13:05:45,143 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@4ff11e5b - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+13:05:45,143 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+13:05:45,158 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+13:05:45,159 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@4ff11e5b - value "plain" substituted for "${LOG_APPENDER}"
+13:05:45,160 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+13:05:45,160 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+13:05:45,160 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+13:05:45,163 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+13:05:45,185 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+13:05:45,185 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+13:05:45,185 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+13:05:45,186 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@4ff11e5b - value "INFO" substituted for "${LOG_LEVEL}"
+13:05:45,186 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+13:05:45,186 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@4ff11e5b - value "plain" substituted for "${LOG_APPENDER}"
+13:05:45,186 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+13:05:45,186 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@5e9fd6e3 - End of configuration.
+13:05:45,187 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@54e7f076 - Registering current configuration as safe fallback point
+13:05:45,190 |-INFO in ch.qos.logback.classic.util.ContextInitializer@46e28e46 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 90 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+[info] ProposalDryRunFetchHardeningSpec:
+[info] the fetch-failure text in a propose rejection
+WARNING: A Java agent has been loaded dynamically (/home/matt/.cache/coursier/v1/https/repo1.maven.org/maven2/net/bytebuddy/byte-buddy-agent/1.14.15/byte-buddy-agent-1.14.15.jar)
+WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
+WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
+WARNING: Dynamic loading of agents will be disallowed by default in a future release
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+[info] - should truncate an oversized (100,000-char) remote body to 500 code points plus a marker
+[info] - should leave text of exactly 500 code points unchanged
+[info] - should leave short text unchanged
+[info] - should leave 400 emoji (400 code points, 800 UTF-16 units) unchanged, without throwing
+[info] - should cut by code point, never splitting a surrogate pair at the boundary
+[info] the propose dry run's check order
+[info] - should reject a preflight-failing step before any fetch, without charging the source-fetch budget *** FAILED ***
+[info]   Left(TooManyRequests(60, "Source fetch rate limit exceeded: this proposal needs a live fetch to check an inline rest/sql source, and the budget for source fetches is used up; retry in 60 seconds")) was not equal to Right(<(), the Unit value>) (ProposalDryRunFetchHardeningSpec.scala:114)
+[info] - should still dry-run the root (one fetch) when preflight passes
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 1 second, 776 milliseconds.
+[info] Total number of tests run: 7
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 6, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.services.pipelines.ProposalDryRunFetchHardeningSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 3 s, cache 93%, 27 disk cache hits, 2 onsite tasks

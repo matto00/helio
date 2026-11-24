@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/mcp/mcp-refresh-family-create-request.schema.json",
+  "title": "McpRefreshFamilyCreateRequest",
+  "description": "POST /api/mcp-refresh-families body (HEL-1713), sent by helio-mcp with the connector's PAT as bearer. Every hash is a lowercase SHA-256 hex string: clientIdHash of the sealed client id, jtiHash of the first refresh token's id. The refresh token itself is never sent.",
+  "type": "object",
+  "properties": {
+    "clientIdHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "resource": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "jtiHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "required": ["clientIdHash", "resource", "jtiHash"],
+  "additionalProperties": false
+}

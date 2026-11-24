@@ -251,7 +251,7 @@ describe("authorize, callback and token", () => {
     expect(replay.status).toBe(400);
   });
 
-  it("accepts an omitted redirect_uri at /token but not a different one; no refresh grant", async () => {
+  it("accepts an omitted redirect_uri at /token but not a different one; refuses a junk refresh token", async () => {
     const c = await codeFor();
     const mismatch = await tokenRequest(mcp, {
       grant_type: "authorization_code",
@@ -271,7 +271,7 @@ describe("authorize, callback and token", () => {
     expect(ok.status).toBe(200);
     const body = await jsonOf(ok);
     expect(body.refresh_token).toBeUndefined();
-    expect(body.expires_in).toBe(90 * 24 * 3600);
+    expect(body.expires_in).toBe(3600);
     const refresh = await tokenRequest(mcp, {
       grant_type: "refresh_token",
       client_id: c2.id,

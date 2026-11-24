@@ -99,6 +99,8 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     "resource_permissions" -> None,
     // V42 — owner-only Personal Access Tokens (HEL-148 Phase 1)
     "api_tokens" -> None,
+    // V147 — mcp_refresh_families, direct owner (HEL-1713)
+    "mcp_refresh_families" -> None,
     // V46 — binary_refs, indirect owner via pipeline_id -> pipelines (HEL-217; re-keyed off the
     // retired data_type_id by HEL-904 task 2.8)
     "binary_refs" -> None,

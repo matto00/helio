@@ -1,0 +1,10 @@
+metadata grant_types_supported = ["authorization_code","refresh_token"]
+USER_ID edbcd454-ba49-4d4b-8d24-1ea9b7a3b56c
+code exchange: expires_in=3600 refresh_token=present
+/mcp with access token -> 200
+refresh #1 -> 200 new refresh_token=rotated expires_in=3600
+/mcp with refreshed access token -> 200
+reuse of old refresh token -> 400 {"error":"invalid_grant","error_description":"refresh token was already used; authorization was revoked, authorize again"}
+newest refresh token after reuse -> 400 {"error":"invalid_grant","error_description":"authorization was revoked; authorize again"}
+PATs left in Settings after reuse: []
+GET /mcp unauthenticated -> 401, authenticated(revoked PAT, within liveness cache) skipped

@@ -1,0 +1,55 @@
+
+Running 24 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477489901-49834@example.com
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477489901-92452@example.com
+  ✓   2 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.3s)
+  ✓   1 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.5s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477502513-33905@example.com
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477502582-48861@example.com
+  ✓   3 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.5s)
+  ✓   4 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.3s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477515405-36514@example.com
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477515406-59776@example.com
+  ✓   6 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.4s)
+  ✓   5 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.6s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477528099-52363@example.com
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477528182-79755@example.com
+  ✓   8 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.2s)
+  ✓   7 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.4s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477540894-75631@example.com
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477540913-61368@example.com
+  ✓  10 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.3s)
+  ✓   9 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.5s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477553582-34941@example.com
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477553627-90601@example.com
+  ✓  12 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.2s)
+  ✓  11 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.5s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477566319-6323@example.com
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477566366-92015@example.com
+  ✓  13 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.4s)
+  ✓  14 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.3s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477579099-62363@example.com
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477579099-35808@example.com
+  ✓  15 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.6s)
+  ✓  16 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.6s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477592013-78057@example.com
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477592013-83989@example.com
+  ✓  18 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.5s)
+  ✓  17 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.5s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477604875-53936@example.com
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477604875-77938@example.com
+  ✓  20 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.4s)
+  ✓  19 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.5s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477617699-85197@example.com
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477617699-98999@example.com
+  ✓  22 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.5s)
+  ✓  21 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.7s)
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477630570-8203@example.com
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795477630616-33313@example.com
+  ✓  24 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.5s)
+  ✓  23 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:105:7 › HEL-1172 multi-denial toast (real backend) › one toast lists both pipelines, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (12.6s)
+userCleanup: removed 0 of 24 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 24 recorded throwaway user(s)
+
+  24 passed (2.6m)

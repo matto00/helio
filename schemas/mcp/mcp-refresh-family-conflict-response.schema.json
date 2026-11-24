@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/mcp/mcp-refresh-family-conflict-response.schema.json",
+  "title": "McpRefreshFamilyConflictResponse",
+  "description": "409 body of a refused rotation. reused: a rotated-away token was replayed and the PAT behind the family was deleted. expired: the family is past its expiry (nothing revoked). mismatch: client or resource differ from the family's (no state change).",
+  "type": "object",
+  "properties": {
+    "reason": {
+      "enum": ["reused", "expired", "mismatch"]
+    }
+  },
+  "required": ["reason"],
+  "additionalProperties": false
+}

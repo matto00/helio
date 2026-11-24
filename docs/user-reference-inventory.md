@@ -30,6 +30,7 @@ three columns and the `| Table | Column | ON DELETE |` header exactly.
 | `data_sources`                 | `owner_id`             | CASCADE   |
 | `image_uploads`                | `owner_id`             | CASCADE   |
 | `invite_codes`                 | `user_id`              | NO ACTION |
+| `mcp_refresh_families`         | `user_id`              | CASCADE   |
 | `mfa_backup_codes`             | `user_id`              | CASCADE   |
 | `mfa_login_challenges`         | `user_id`              | CASCADE   |
 | `outputs`                      | `owner_id`             | NO ACTION |
@@ -55,6 +56,7 @@ three columns and the `| Table | Column | ON DELETE |` header exactly.
 
 | Column                                                      | Reference                                         | Behaviour on user delete                                                                                                                                                                                 |
 | ----------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mcp_refresh_families.api_token_id`                         | `api_tokens(id)`, `ON DELETE CASCADE`             | Revoking a connector PAT (or the refresh-reuse path, which deletes it) deletes every refresh family it backs.                                                                                            |
 | `pipeline_runs.triggered_by_token_id`                       | `api_tokens(id)`, `ON DELETE SET NULL`            | The user's tokens cascade away; the run keeps its row with the token id cleared.                                                                                                                         |
 | `connectors.credential_id`                                  | `connector_credentials(id)`, `ON DELETE RESTRICT` | Both `connectors` and `connector_credentials` cascade from `users`. RESTRICT is checked immediately rather than at end of statement, so the outcome depends on which RI trigger fires first (see below). |
 | `audit_events.actor_user_id`, `audit_events.actor_token_id` | none (V91)                                        | Rows are kept. See "Permanent audit residue".                                                                                                                                                            |
