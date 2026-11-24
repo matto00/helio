@@ -1,0 +1,32 @@
+# red run against unchanged findActiveRunInternal (sbt testOnly *PipelineRunActiveLookupSpec *HookRoutesSpec), lane DB helio_hel1833
+# Only the tied-started_at cases fail; the distinct-started_at cases pass red because the planner serves them from pipeline_runs_pipeline_started_idx (started_at DESC) with no ORDER BY. Failing cases are the ones with the greater id inserted last. The hook case fails on its own (HookRoutesSpec).
+247:[info] HookRoutesSpec:
+454:[info] - should trigger a pipeline with an unscoped PAT, return a runId, and record it as external in run-history (8.3/8.4)
+455:[info] - should trigger an in-scope pipeline successfully with a scoped PAT, recording the triggering token's id in run-history
+456:[info] - should reject a scoped PAT triggering a pipeline outside its allow-list with 403
+457:[info] - should return 401 for a missing, invalid, or revoked token
+458:[info] - should return 404 for a pipeline the authenticated user cannot access
+459:[info] - should collapse a duplicate trigger into the already in-flight run instead of starting a second one
+460:[info] - should collapse into the newest of several in-flight runs (newer inserted last) (HEL-1833)
+461:[info] - should collapse into the greater id of in-flight runs with a tied started_at (newer inserted last) (HEL-1833) *** FAILED ***
+462:[info]   "[00000000-0000-4000-8000-000000000001]" was not equal to "[ffffffff-ffff-4fff-8fff-ffffffffffff]" (HookRoutesSpec.scala:343)
+463:[info] - should collapse into the newest of several in-flight runs (newer inserted first) (HEL-1833)
+464:[info] - should collapse into the greater id of in-flight runs with a tied started_at (newer inserted first) (HEL-1833)
+465:[info] - should report status failed (not succeeded) for a run blocked by an error-severity assertion (HEL-570)
+500:[info] PipelineRunActiveLookupSpec:
+716:[info] - should return the later started_at of two open runs (newer inserted last)
+717:[info] - should return the later started_at even when its id is the smaller (newer inserted last)
+718:[info] - should return the greatest id of tied started_at open runs (newer inserted last) *** FAILED ***
+719:[info]   Set(Some("00000000-0000-4000-8000-000000000001")) was not equal to Set(Some("ffffffff-ffff-4fff-8fff-ffffffffffff")) (PipelineRunActiveLookupSpec.scala:77)
+720:[info] - should ignore completed runs, dry runs and other pipelines' open runs (newer inserted last)
+721:[info] - should return the later started_at of two open runs (newer inserted first)
+722:[info] - should return the later started_at even when its id is the smaller (newer inserted first)
+723:[info] - should return the greatest id of tied started_at open runs (newer inserted first)
+724:[info] - should ignore completed runs, dry runs and other pipelines' open runs (newer inserted first)
+725:[info] - should return None when no run is open
+742:[info] Tests: succeeded 18, failed 2, canceled 0, ignored 0, pending 0
+744:[error] Failed tests:
+745:[error] 	com.helio.api.routes.hooks.HookRoutesSpec
+746:[error] 	com.helio.infrastructure.persistence.pipelines.PipelineRunActiveLookupSpec
+747:[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+748:[error] elapsed time: 13 s, cache 93%, 27 disk cache hits, 2 onsite tasks

@@ -309,6 +309,42 @@ class HookRoutesSpec
       runCount shouldBe 1
     }
 
+    // HEL-1833: several open runs of one pipeline can exist (overlapping manual submits); the hook reports the newest.
+    Seq("newer inserted last" -> false, "newer inserted first" -> true).foreach { case (label, newerFirst) =>
+      s"collapse into the newest of several in-flight runs ($label) (HEL-1833)" in {
+        cleanDb()
+        val pid      = seedPipelineOwnedBy(userIdA)
+        val (_, raw) = createPat(sessionA, "dup-hook-newest-" + label.replace(' ', '-'))
+        val older    = PipelineRunId("00000000-0000-4000-8000-0000000000aa")
+        val newer    = PipelineRunId("00000000-0000-4000-8000-000000000001")
+        val base     = Instant.parse("2026-01-01T00:00:00Z")
+        val seeds    = Seq(older -> base, newer -> base.plusSeconds(30))
+        (if (newerFirst) seeds.reverse else seeds).foreach { case (id, at) =>
+          await(pipelineRunRepo.insertRunInternal(id, PipelineId(pid), at, triggerSource = "manual"))
+        }
+        Post("/api/hooks/run", jsonEntity(s"""{"pipelineId":"$pid"}""")).addHeader(bearer(raw)) ~> routes ~> check {
+          status shouldBe StatusCodes.OK
+          responseAs[String].parseJson.asJsObject.fields("runId").convertTo[String] shouldBe newer.value
+        }
+      }
+      s"collapse into the greater id of in-flight runs with a tied started_at ($label) (HEL-1833)" in {
+        cleanDb()
+        val pid      = seedPipelineOwnedBy(userIdA)
+        val (_, raw) = createPat(sessionA, "dup-hook-tied-" + label.replace(' ', '-'))
+        val lo       = PipelineRunId("00000000-0000-4000-8000-000000000001")
+        val hi       = PipelineRunId("ffffffff-ffff-4fff-8fff-ffffffffffff")
+        val at       = Instant.parse("2026-01-01T00:00:00Z")
+        val ids      = Seq(lo, hi)
+        (if (newerFirst) ids.reverse else ids).foreach { id =>
+          await(pipelineRunRepo.insertRunInternal(id, PipelineId(pid), at, triggerSource = "manual"))
+        }
+        Post("/api/hooks/run", jsonEntity(s"""{"pipelineId":"$pid"}""")).addHeader(bearer(raw)) ~> routes ~> check {
+          status shouldBe StatusCodes.OK
+          responseAs[String].parseJson.asJsObject.fields("runId").convertTo[String] shouldBe hi.value
+        }
+      }
+    }
+
     "report status failed (not succeeded) for a run blocked by an error-severity assertion (HEL-570)" in {
       cleanDb()
       val pid      = seedPipelineWithBlockingAssert(userIdA)

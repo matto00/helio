@@ -1,0 +1,5 @@
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala` — findActiveRunInternal orders (started_at DESC, id DESC) take(1); doc comment corrected
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunActiveLookupSpec.scala` — new repository spec, both insertion orders
+- `backend/src/test/scala/com/helio/api/routes/hooks/HookRoutesSpec.scala` — hook cases: newest of several in-flight runs, tied started_at
+- `docs/agent-native.md` — one clause naming which in-flight run the hook returns
+- `openspec/changes/deterministic-active-run-lookup/` — tasks ticked; red-run.txt, mutations.txt, explain-active-run.txt, green-run.txt evidence

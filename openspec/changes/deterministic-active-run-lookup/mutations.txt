@@ -1,0 +1,28 @@
+# HEL-1833 mutations of findActiveRunInternal only (each applied inside that method); specs: PipelineRunActiveLookupSpec + HookRoutesSpec
+## drop sortBy and take (sbt exit 1)
+[info] - should collapse into the greater id of in-flight runs with a tied started_at (newer inserted last) (HEL-1833) *** FAILED ***
+[info] - should return the greatest id of tied started_at open runs (newer inserted last) *** FAILED ***
+[info] Tests: succeeded 18, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+## startedAt asc (sbt exit 1)
+[info] - should collapse into the newest of several in-flight runs (newer inserted last) (HEL-1833) *** FAILED ***
+[info] - should collapse into the newest of several in-flight runs (newer inserted first) (HEL-1833) *** FAILED ***
+[info] - should return the later started_at of two open runs (newer inserted last) *** FAILED ***
+[info] - should return the later started_at even when its id is the smaller (newer inserted last) *** FAILED ***
+[info] - should ignore completed runs, dry runs and other pipelines' open runs (newer inserted last) *** FAILED ***
+[info] - should return the later started_at of two open runs (newer inserted first) *** FAILED ***
+[info] - should return the later started_at even when its id is the smaller (newer inserted first) *** FAILED ***
+[info] - should ignore completed runs, dry runs and other pipelines' open runs (newer inserted first) *** FAILED ***
+[info] Tests: succeeded 12, failed 8, canceled 0, ignored 0, pending 0
+[info] *** 8 TESTS FAILED ***
+## drop id.desc (sbt exit 1)
+[info] - should collapse into the greater id of in-flight runs with a tied started_at (newer inserted last) (HEL-1833) *** FAILED ***
+[info] - should return the greatest id of tied started_at open runs (newer inserted last) *** FAILED ***
+[info] Tests: succeeded 18, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+## drop completedAt filter (sbt exit 1)
+[info] - should ignore completed runs, dry runs and other pipelines' open runs (newer inserted last) *** FAILED ***
+[info] - should ignore completed runs, dry runs and other pipelines' open runs (newer inserted first) *** FAILED ***
+[info] - should return None when no run is open *** FAILED ***
+[info] Tests: succeeded 17, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
