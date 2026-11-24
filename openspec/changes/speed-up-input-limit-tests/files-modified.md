@@ -1,3 +1,0 @@
-- `backend/src/test/scala/com/helio/services/assistant/AssistantServiceFailureBudgetSpec.scala` — `sized` finds the largest word count by bisection (checked seed, boundary require); no assertion changed
-- `backend/src/test/scala/com/helio/api/routes/assistant/AssistantConversationRoutesTierSpec.scala` — `sizedMessage` same change; no assertion changed
-- `openspec/changes/speed-up-input-limit-tests/*.txt` — before/after timings, equivalence probe, mutation reds
