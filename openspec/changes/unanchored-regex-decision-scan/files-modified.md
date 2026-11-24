@@ -1,7 +1,0 @@
-- `frontend/src/features/pipelines/evaluator/regexInputCost.ts` — BMP membership table + code-unit scan (D1), unanchored length-only pre-check (D2), stage 1 uses unitLength (D3)
-- `frontend/src/features/pipelines/evaluator/regexUnanchoredScan.test.ts` — new: D4 (a)/(b) red-first tests, (c)/(d) guards
-- `frontend/src/features/pipelines/evaluator/regexCellWork.test.ts` — non-anchored cellWorkBound pin updated to the exact unit length (D3)
-- `openspec/changes/unanchored-regex-decision-scan/calibrate-anchored.mjs` — copied from HEL-1823, group J + COST-DIFF + CAL_SRC
-- `openspec/changes/unanchored-regex-decision-scan/red-run.txt`, `mutations.txt` — evidence (red commit refused by the hook; kept as .txt)
-- `frontend/src/shared/session/sessionModuleStateAllowlist.ts` — allowlist the `bmpTables` memo (session-reset guard)
-- `openspec/changes/unanchored-regex-decision-scan/calibration.md`, `e2e-green-run.txt`, `tasks.md` — calibration record, prod-build e2e transcript, task checkboxes
