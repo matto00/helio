@@ -44,7 +44,9 @@ When the Output's `historyPayloadsAvailable` is false, the switch SHALL be rende
 note "Free stores run summaries only" and a "Request Beta access" link to the Beta access section of Settings. The link
 SHALL open in a new browser tab, leaving the Output editor and any unsaved edits in the original tab untouched, and its
 accessible name SHALL state that it opens in a new tab. The note SHALL use the same type size and colour token as the
-help text above it. Saving SHALL NOT change the stored `historyPayloads` value.
+help text above it. Saving SHALL NOT change the stored `historyPayloads` value. The note and the link SHALL be shown to
+every user who can open the Output sheet, whatever their role on the pipeline: the pipeline owner, an editor grantee
+and a viewer grantee (whose sheet is read-only) all see them. The link SHALL stay a live link in a read-only sheet.
 
 #### Scenario: Free-tier pipeline owner
 - **WHEN** an Output on a free-owned pipeline is opened in the editor
@@ -62,6 +64,15 @@ help text above it. Saving SHALL NOT change the stored `historyPayloads` value.
 #### Scenario: Viewer's own tier is irrelevant
 - **WHEN** a beta-tier user edits their own Output on a free-owned shared pipeline
 - **THEN** the switch is disabled with the free-tier note, because availability follows the pipeline owner
+
+#### Scenario: Viewer grantee sees the upsell
+- **WHEN** a viewer grantee opens a saved non-insight Output on a free-owned shared pipeline
+- **THEN** the read-only sheet's History card shows the note and the "Request Beta access (opens in a new tab)" link,
+  and the link is enabled and points to the Beta access section of Settings, in light and dark themes
+
+#### Scenario: Editor grantee sees the upsell
+- **WHEN** an editor grantee opens a saved non-insight Output on a free-owned shared pipeline
+- **THEN** the History card shows the note and the same link
 
 ### Requirement: Toggle is legible in both themes
 The History section SHALL use the shared design-system switch and tokens, and SHALL be legible with visible focus in

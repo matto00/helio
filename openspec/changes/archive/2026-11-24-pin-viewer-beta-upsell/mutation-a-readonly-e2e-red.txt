@@ -1,0 +1,17 @@
+# e2e mutation (a): available={... === true || readOnly}. Expect viewer light+dark RED, editor light+dark GREEN (same run)
+# command: DEV_PORT=7270 BACKEND_PORT=10177 npx playwright test e2e/hel1838-viewer-beta-upsell.spec.ts (workers 2, full file)
+  ✘  1 [dev] › e2e/hel1838-viewer-beta-upsell.spec.ts:31:9 › a viewer sees and can follow the History card's Request Beta access link (light) (11.2s)
+  ✘  2 [dev] › e2e/hel1838-viewer-beta-upsell.spec.ts:31:9 › a viewer sees and can follow the History card's Request Beta access link (dark) (11.7s)
+  ✓  3 [dev] › e2e/hel1838-viewer-beta-upsell.spec.ts:31:9 › an editor sees and can follow the History card's Request Beta access link (light) (7.0s)
+  ✓  4 [dev] › e2e/hel1838-viewer-beta-upsell.spec.ts:31:9 › an editor sees and can follow the History card's Request Beta access link (dark) (6.4s)
+userCleanup: removed 0 of 12 conversation folders, 0 failed
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m failed
+    Expected: visible
+    Received: <element(s) not found>
+    [2m  - waiting for getByRole('dialog').locator('.output-editor-sheet__group--card').filter({ has: getByRole('heading', { name: 'History', level: 3 }) }).getByText('Free stores run summaries only')[22m
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m failed
+    Expected: visible
+    Received: <element(s) not found>
+    [2m  - waiting for getByRole('dialog').locator('.output-editor-sheet__group--card').filter({ has: getByRole('heading', { name: 'History', level: 3 }) }).getByText('Free stores run summaries only')[22m
+  2 failed
+  2 passed (38.2s)

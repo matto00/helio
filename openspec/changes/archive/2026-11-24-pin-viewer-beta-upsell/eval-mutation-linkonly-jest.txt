@@ -1,0 +1,4 @@
+Tests:       2 failed, 2 passed, 4 total
+  ● OutputEditorSheet -- History upsell by role (HEL-1838) › a viewer (read-only, not the pipeline owner) sees a live link inside the disabled fieldset
+  ● OutputEditorSheet -- History upsell by role (HEL-1838) › the sheet's fail-closed default (no readOnly prop) still shows the link
+Tests:       2 failed, 2 passed, 4 total

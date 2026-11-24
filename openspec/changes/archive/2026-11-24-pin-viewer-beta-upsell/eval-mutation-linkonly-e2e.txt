@@ -1,0 +1,93 @@
+
+Running 4 tests using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1838-owner-1795556529645-43304@example.test
+[HEL-1300 e2e] throwaway user: hel1661-editor-1795556531991-65638@example.test
+[HEL-1300 e2e] throwaway user: hel1661-viewer-1795556532765-50996@example.test
+  ✘  1 [dev] › e2e/hel1838-viewer-beta-upsell.spec.ts:31:9 › a viewer sees and can follow the History card's Request Beta access link (light) (12.3s)
+[HEL-1300 e2e] throwaway user: hel1838-owner-1795556542541-31702@example.test
+[HEL-1300 e2e] throwaway user: hel1661-editor-1795556544408-55381@example.test
+[HEL-1300 e2e] throwaway user: hel1661-viewer-1795556544705-89045@example.test
+  ✘  2 [dev] › e2e/hel1838-viewer-beta-upsell.spec.ts:31:9 › a viewer sees and can follow the History card's Request Beta access link (dark) (10.9s)
+[HEL-1300 e2e] throwaway user: hel1838-owner-1795556554014-61724@example.test
+[HEL-1300 e2e] throwaway user: hel1661-editor-1795556555851-54514@example.test
+[HEL-1300 e2e] throwaway user: hel1661-viewer-1795556556136-33443@example.test
+  ✓  3 [dev] › e2e/hel1838-viewer-beta-upsell.spec.ts:31:9 › an editor sees and can follow the History card's Request Beta access link (light) (7.3s)
+[HEL-1300 e2e] throwaway user: hel1838-owner-1795556560922-9661@example.test
+[HEL-1300 e2e] throwaway user: hel1661-editor-1795556562662-63170@example.test
+[HEL-1300 e2e] throwaway user: hel1661-viewer-1795556562935-1462@example.test
+  ✓  4 [dev] › e2e/hel1838-viewer-beta-upsell.spec.ts:31:9 › an editor sees and can follow the History card's Request Beta access link (dark) (7.0s)
+userCleanup: removed 0 of 12 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 12 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/hel1838-viewer-beta-upsell.spec.ts:31:9 › a viewer sees and can follow the History card's Request Beta access link (light) 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m failed
+
+    Locator:  getByRole('dialog').locator('.output-editor-sheet__group--card').filter({ has: getByRole('heading', { name: 'History', level: 3 }) }).getByRole('link', { name: 'Request Beta access (opens in a new tab)' })
+    Expected: visible
+    Received: <element(s) not found>
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('dialog').locator('.output-editor-sheet__group--card').filter({ has: getByRole('heading', { name: 'History', level: 3 }) }).getByRole('link', { name: 'Request Beta access (opens in a new tab)' })[22m
+
+
+      59 |       await expect(card.getByText("Free stores run summaries only")).toBeVisible();
+      60 |       const link = card.getByRole("link", { name: LINK_NAME });
+    > 61 |       await expect(link).toBeVisible();
+         |                          ^
+      62 |       await expect(link).toHaveAttribute("href", "/settings#beta-access");
+      63 |       await expect(link).toHaveAttribute("target", "_blank");
+      64 |
+        at /home/matt/Development/helio/.claude/worktrees/task/pin-viewer-beta-upsell/HEL-1838/e2e/hel1838-viewer-beta-upsell.spec.ts:61:26
+
+    Error Context: test-results/hel1838-viewer-beta-upsell-2b894-est-Beta-access-link-light--dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1838-viewer-beta-upsell-2b894-est-Beta-access-link-light--dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1838-viewer-beta-upsell-2b894-est-Beta-access-link-light--dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [dev] › e2e/hel1838-viewer-beta-upsell.spec.ts:31:9 › a viewer sees and can follow the History card's Request Beta access link (dark) 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m failed
+
+    Locator:  getByRole('dialog').locator('.output-editor-sheet__group--card').filter({ has: getByRole('heading', { name: 'History', level: 3 }) }).getByRole('link', { name: 'Request Beta access (opens in a new tab)' })
+    Expected: visible
+    Received: <element(s) not found>
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('dialog').locator('.output-editor-sheet__group--card').filter({ has: getByRole('heading', { name: 'History', level: 3 }) }).getByRole('link', { name: 'Request Beta access (opens in a new tab)' })[22m
+
+
+      59 |       await expect(card.getByText("Free stores run summaries only")).toBeVisible();
+      60 |       const link = card.getByRole("link", { name: LINK_NAME });
+    > 61 |       await expect(link).toBeVisible();
+         |                          ^
+      62 |       await expect(link).toHaveAttribute("href", "/settings#beta-access");
+      63 |       await expect(link).toHaveAttribute("target", "_blank");
+      64 |
+        at /home/matt/Development/helio/.claude/worktrees/task/pin-viewer-beta-upsell/HEL-1838/e2e/hel1838-viewer-beta-upsell.spec.ts:61:26
+
+    Error Context: test-results/hel1838-viewer-beta-upsell-d886c-uest-Beta-access-link-dark--dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1838-viewer-beta-upsell-d886c-uest-Beta-access-link-dark--dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1838-viewer-beta-upsell-d886c-uest-Beta-access-link-dark--dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [dev] › e2e/hel1838-viewer-beta-upsell.spec.ts:31:9 › a viewer sees and can follow the History card's Request Beta access link (light) 
+    [dev] › e2e/hel1838-viewer-beta-upsell.spec.ts:31:9 › a viewer sees and can follow the History card's Request Beta access link (dark) 
+  2 passed (39.2s)
