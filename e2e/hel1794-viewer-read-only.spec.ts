@@ -65,9 +65,11 @@ const ALLOWED = new Set<string>([
   // HEL-1839: `<summary>` disclosures the wider scan now reaches (a browser does not disable one inside a disabled fieldset). Each
   // only expands or collapses a panel and writes nothing; the viewer flow does not expand them, so their contents are not scanned here.
   "Functions and operators", // a compute step's function reference, inside the step's disabled fieldset
-  // The Output sheet's Ask panel (its upsell link is the last entry below).
+  // The Output sheet's Ask panel (its upsell link shares the last entry's name below).
   "Ask about this Output",
-  "Request Beta access (opens in a new tab)", // the Output sheet's Ask panel upsell for a free-tier user (a link, not an edit)
+  // A link, not an edit: two upsells share this name. The Ask panel's, for a free-tier user (inside its collapsed disclosure),
+  // and the History card's, for a pipeline on a free-tier owner (kept for a viewer by owner ruling, pinned by HEL-1838).
+  "Request Beta access (opens in a new tab)",
 ]);
 
 interface Found {

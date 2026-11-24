@@ -1,0 +1,3 @@
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.viewerUpsell.test.tsx` — new jest role matrix pin (viewer, editor, default, owner)
+- `e2e/hel1838-viewer-beta-upsell.spec.ts` — new e2e: real viewer/editor, light+dark, click opens /settings#beta-access
+- `e2e/hel1794-viewer-read-only.spec.ts` — comment-only: ALLOWED entry names both upsells

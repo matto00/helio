@@ -1,0 +1,13 @@
+# Mutation (b): link hidden unless pipeline owner (available=... || !isPipelineOwner). Expect viewer, editor, default RED, owner GREEN
+# command: npm test -- --testPathPatterns=OutputEditorSheet.viewerUpsell  (full file)
+-                available={output?.historyPayloadsAvailable === true}
++                available={output?.historyPayloadsAvailable === true || !isPipelineOwner}
+    ✕ an editor (not read-only, not the pipeline owner) sees the link (40 ms)
+    ✕ a viewer (read-only, not the pipeline owner) sees a live link inside the disabled fieldset (129 ms)
+FAIL src/features/pipelines/ui/outputEditor/OutputEditorSheet.viewerUpsell.test.tsx (5.026 s)
+  ● OutputEditorSheet -- History upsell by role (HEL-1838) › an editor (not read-only, not the pipeline owner) sees the link
+  ● OutputEditorSheet -- History upsell by role (HEL-1838) › a viewer (read-only, not the pipeline owner) sees a live link inside the disabled fieldset
+  ● OutputEditorSheet -- History upsell by role (HEL-1838) › the sheet's fail-closed default (no readOnly prop) still shows the link
+Tests:       3 failed, 1 passed, 4 total
+    ✓ the pipeline owner sees the link (26 ms)
+    ✕ the sheet's fail-closed default (no readOnly prop) still shows the link (38 ms)
