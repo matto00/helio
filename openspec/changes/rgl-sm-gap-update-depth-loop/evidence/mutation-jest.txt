@@ -1,0 +1,201 @@
+  console.error
+    Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.
+
+      67 |     commits = 0;
+      68 |     const { rerender, container } = render(<Probe layout={empty} width={1280} />);
+    > 69 |     rerender(<Probe layout={loaded} width={928} />);
+         |     ^
+      70 |     expect(container.querySelectorAll(".react-grid-item")).toHaveLength(9);
+      71 |   });
+      72 | });
+
+      at getRootForUpdatedFiber (node_modules/react-dom/cjs/react-dom-client.development.js:4926:17)
+      at enqueueConcurrentHookUpdate (node_modules/react-dom/cjs/react-dom-client.development.js:4879:14)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9553:18)
+      at dispatchSetState (node_modules/react-dom/cjs/react-dom-client.development.js:9513:7)
+      at node_modules/react-grid-layout/dist/chunk-QAWP6PEK.js:729:9
+      at Object.react_stack_bottom_frame (node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+      at commitHookEffectListMount (node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+      at commitHookPassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:13835:11)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16906:13)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16979:13)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16941:11)
+      at flushPassiveEffects (node_modules/react-dom/cjs/react-dom-client.development.js:20134:9)
+      at node_modules/react-dom/cjs/react-dom-client.development.js:19558:13
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at node_modules/@testing-library/react/dist/act-compat.js:46:25
+      at renderRoot (node_modules/@testing-library/react/dist/pure.js:189:26)
+      at rerender (node_modules/@testing-library/react/dist/pure.js:210:7)
+      at Object.<anonymous> (src/features/panels/ui/grid/DesktopPanelGridSkeleton.loadBreakpointChange.test.tsx:69:5)
+
+  console.error
+    Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.
+
+      67 |     commits = 0;
+      68 |     const { rerender, container } = render(<Probe layout={empty} width={1280} />);
+    > 69 |     rerender(<Probe layout={loaded} width={928} />);
+         |     ^
+      70 |     expect(container.querySelectorAll(".react-grid-item")).toHaveLength(9);
+      71 |   });
+      72 | });
+
+      at getRootForUpdatedFiber (node_modules/react-dom/cjs/react-dom-client.development.js:4926:17)
+      at enqueueConcurrentHookUpdate (node_modules/react-dom/cjs/react-dom-client.development.js:4879:14)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9553:18)
+      at dispatchSetState (node_modules/react-dom/cjs/react-dom-client.development.js:9513:7)
+      at node_modules/react-grid-layout/dist/chunk-QAWP6PEK.js:729:9
+      at Object.react_stack_bottom_frame (node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+      at commitHookEffectListMount (node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+      at commitHookPassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:13835:11)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16906:13)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16979:13)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16941:11)
+      at flushPassiveEffects (node_modules/react-dom/cjs/react-dom-client.development.js:20134:9)
+      at node_modules/react-dom/cjs/react-dom-client.development.js:19558:13
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at node_modules/@testing-library/react/dist/act-compat.js:46:25
+      at renderRoot (node_modules/@testing-library/react/dist/pure.js:189:26)
+      at rerender (node_modules/@testing-library/react/dist/pure.js:210:7)
+      at Object.<anonymous> (src/features/panels/ui/grid/DesktopPanelGridSkeleton.loadBreakpointChange.test.tsx:69:5)
+
+  console.error
+    Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.
+
+      67 |     commits = 0;
+      68 |     const { rerender, container } = render(<Probe layout={empty} width={1280} />);
+    > 69 |     rerender(<Probe layout={loaded} width={928} />);
+         |     ^
+      70 |     expect(container.querySelectorAll(".react-grid-item")).toHaveLength(9);
+      71 |   });
+      72 | });
+
+      at getRootForUpdatedFiber (node_modules/react-dom/cjs/react-dom-client.development.js:4926:17)
+      at enqueueConcurrentHookUpdate (node_modules/react-dom/cjs/react-dom-client.development.js:4879:14)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9553:18)
+      at dispatchSetState (node_modules/react-dom/cjs/react-dom-client.development.js:9513:7)
+      at node_modules/react-grid-layout/dist/chunk-QAWP6PEK.js:729:9
+      at Object.react_stack_bottom_frame (node_modules/react-dom/cjs/react-dom-client.development.js:28656:20)
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+      at commitHookEffectListMount (node_modules/react-dom/cjs/react-dom-client.development.js:13748:29)
+      at commitHookPassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:13835:11)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16906:13)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16979:13)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16898:11)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16851:13)
+      at commitPassiveMountOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16941:11)
+      at flushPassiveEffects (node_modules/react-dom/cjs/react-dom-client.development.js:20134:9)
+      at node_modules/react-dom/cjs/react-dom-client.development.js:19558:13
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at node_modules/@testing-library/react/dist/act-compat.js:46:25
+      at renderRoot (node_modules/@testing-library/react/dist/pure.js:189:26)
+      at rerender (node_modules/@testing-library/react/dist/pure.js:210:7)
+      at Object.<anonymous> (src/features/panels/ui/grid/DesktopPanelGridSkeleton.loadBreakpointChange.test.tsx:69:5)
+
+FAIL src/features/panels/ui/grid/DesktopPanelGridSkeleton.loadBreakpointChange.test.tsx
+  ● DesktopPanelGridSkeleton: the layout arrives together with the measured width › settles when the layout and the breakpoint change in one render of the same dashboard
+
+    expect(received).not.toThrow()
+
+    Error name:    "Error"
+    Error message: "LOOP: the skeleton grid never settled"
+
+          15 | function onRender() {
+          16 |   commits += 1;
+        > 17 |   if (commits > 200) throw new Error("LOOP: the skeleton grid never settled");
+             |                            ^
+          18 | }
+          19 | function Probe(props: { layout: DashboardLayout; width: number }) {
+          20 |   return (
+
+      at onRender (src/features/panels/ui/grid/DesktopPanelGridSkeleton.loadBreakpointChange.test.tsx:17:28)
+      at commitProfiler (node_modules/react-dom/cjs/react-dom-client.development.js:14069:9)
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+      at commitLayoutEffectOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:15188:15)
+      at recursivelyTraverseLayoutEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16482:11)
+      at commitLayoutEffectOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:15039:11)
+      at recursivelyTraverseLayoutEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16482:11)
+      at commitLayoutEffectOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:15121:11)
+      at flushLayoutEffects (node_modules/react-dom/cjs/react-dom-client.development.js:19839:15)
+      at commitRoot (node_modules/react-dom/cjs/react-dom-client.development.js:19605:36)
+      at completeRoot (node_modules/react-dom/cjs/react-dom-client.development.js:19509:9)
+      at performWorkOnRoot (node_modules/react-dom/cjs/react-dom-client.development.js:18182:15)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-dom/cjs/react-dom-client.development.js:20665:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at node_modules/@testing-library/react/dist/act-compat.js:46:25
+      at renderRoot (node_modules/@testing-library/react/dist/pure.js:189:26)
+      at rerender (node_modules/@testing-library/react/dist/pure.js:210:7)
+      at src/features/panels/ui/grid/DesktopPanelGridSkeleton.loadBreakpointChange.test.tsx:61:20
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at src/features/panels/ui/grid/DesktopPanelGridSkeleton.loadBreakpointChange.test.tsx:61:73
+      at countDepthErrors (src/features/panels/ui/grid/DesktopPanelGridSkeleton.loadBreakpointChange.test.tsx:49:5)
+      at Object.<anonymous> (src/features/panels/ui/grid/DesktopPanelGridSkeleton.loadBreakpointChange.test.tsx:59:25)
+      at src/features/panels/ui/grid/DesktopPanelGridSkeleton.loadBreakpointChange.test.tsx:61:73
+      at countDepthErrors (src/features/panels/ui/grid/DesktopPanelGridSkeleton.loadBreakpointChange.test.tsx:49:5)
+      at Object.<anonymous> (src/features/panels/ui/grid/DesktopPanelGridSkeleton.loadBreakpointChange.test.tsx:59:25)
+
+  ● DesktopPanelGridSkeleton: the layout arrives together with the measured width › renders the loaded layout's stubs after the change
+
+    LOOP: the skeleton grid never settled
+
+      15 | function onRender() {
+      16 |   commits += 1;
+    > 17 |   if (commits > 200) throw new Error("LOOP: the skeleton grid never settled");
+         |                            ^
+      18 | }
+      19 | function Probe(props: { layout: DashboardLayout; width: number }) {
+      20 |   return (
+
+      at onRender (src/features/panels/ui/grid/DesktopPanelGridSkeleton.loadBreakpointChange.test.tsx:17:28)
+      at commitProfiler (node_modules/react-dom/cjs/react-dom-client.development.js:14069:9)
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+      at commitLayoutEffectOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:15188:15)
+      at recursivelyTraverseLayoutEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16482:11)
+      at commitLayoutEffectOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:15039:11)
+      at recursivelyTraverseLayoutEffects (node_modules/react-dom/cjs/react-dom-client.development.js:16482:11)
+      at commitLayoutEffectOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:15121:11)
+      at flushLayoutEffects (node_modules/react-dom/cjs/react-dom-client.development.js:19839:15)
+      at commitRoot (node_modules/react-dom/cjs/react-dom-client.development.js:19605:36)
+      at completeRoot (node_modules/react-dom/cjs/react-dom-client.development.js:19509:9)
+      at performWorkOnRoot (node_modules/react-dom/cjs/react-dom-client.development.js:18182:15)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-dom/cjs/react-dom-client.development.js:20665:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at node_modules/@testing-library/react/dist/act-compat.js:46:25
+      at renderRoot (node_modules/@testing-library/react/dist/pure.js:189:26)
+      at rerender (node_modules/@testing-library/react/dist/pure.js:210:7)
+      at Object.<anonymous> (src/features/panels/ui/grid/DesktopPanelGridSkeleton.loadBreakpointChange.test.tsx:69:5)
+
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 2 total
+Snapshots:   0 total
+Time:        4.612 s, estimated 5 s
+Ran all test suites matching src/features/panels/ui/grid/DesktopPanelGridSkeleton.loadBreakpointChange.

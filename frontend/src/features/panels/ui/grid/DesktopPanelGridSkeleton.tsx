@@ -52,9 +52,12 @@ export function DesktopPanelGridSkeleton({
 
   return (
     <Responsive
-      // Keyed by dashboard exactly as `PanelGrid` is (`PanelList`'s `key={selectedDashboardId}`): react-grid-layout
-      // 2.2.4 never settles when one render changes both the layouts and the breakpoint (a fresh mount does not).
-      key={dashboardId ?? "no-dashboard"}
+      // Keyed by dashboard exactly as `PanelGrid` is (`PanelList`'s `key={selectedDashboardId}`) AND by the active
+      // breakpoint: react-grid-layout 2.2.4 never settles when one render changes both the layouts and the breakpoint
+      // (a fresh mount does not). The dashboard id alone misses the load where the id is known from the URL but its
+      // layout and the measured width arrive in one render (HEL-1835); a breakpoint change remounts this static
+      // placeholder, which holds no drag or staged state.
+      key={`${dashboardId ?? "no-dashboard"}:${activeBreakpoint}`}
       className="panel-grid"
       width={width}
       layouts={layouts}

@@ -1,0 +1,80 @@
+
+Running 3 tests using 1 worker
+
+  ✘  1 [dev] › e2e/hel1835-no-update-depth-loop-on-load.spec.ts:79:7 › a full load at sm runs no update-depth loop and writes no layout (7.8s)
+  ✓  2 [dev] › e2e/hel1835-no-update-depth-loop-on-load.spec.ts:79:7 › a full load at md runs no update-depth loop and writes no layout (7.6s)
+  ✘  3 [dev] › e2e/hel1835-no-update-depth-loop-on-load.spec.ts:79:7 › a full load at lg runs no update-depth loop and writes no layout (7.4s)
+userCleanup: removed 0 of 3 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 3 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/hel1835-no-update-depth-loop-on-load.spec.ts:79:7 › a full load at sm runs no update-depth loop and writes no layout 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 5
+
+    - Array []
+    + Array [
+    +   "Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.",
+    +   "Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.",
+    +   "Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.",
+    + ]
+
+      111 |       // 30 s auto-save.
+      112 |       await page.waitForTimeout(3000);
+    > 113 |       expect(errors.filter((text) => text.includes("Maximum update depth"))).toEqual([]);
+          |                                                                              ^
+      114 |       expect(layoutWrites).toEqual([]);
+      115 |
+      116 |       if (win.bp === "sm") {
+        at /home/matt/Development/helio/.claude/worktrees/bug/rgl-sm-update-depth-loop/hel-1835/e2e/hel1835-no-update-depth-loop-on-load.spec.ts:113:78
+
+    Error Context: test-results/hel1835-no-update-depth-lo-f6ba4-h-loop-and-writes-no-layout-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1835-no-update-depth-lo-f6ba4-h-loop-and-writes-no-layout-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1835-no-update-depth-lo-f6ba4-h-loop-and-writes-no-layout-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [dev] › e2e/hel1835-no-update-depth-loop-on-load.spec.ts:79:7 › a full load at lg runs no update-depth loop and writes no layout 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 5
+
+    - Array []
+    + Array [
+    +   "Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.",
+    +   "Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.",
+    +   "Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.",
+    + ]
+
+      111 |       // 30 s auto-save.
+      112 |       await page.waitForTimeout(3000);
+    > 113 |       expect(errors.filter((text) => text.includes("Maximum update depth"))).toEqual([]);
+          |                                                                              ^
+      114 |       expect(layoutWrites).toEqual([]);
+      115 |
+      116 |       if (win.bp === "sm") {
+        at /home/matt/Development/helio/.claude/worktrees/bug/rgl-sm-update-depth-loop/hel-1835/e2e/hel1835-no-update-depth-loop-on-load.spec.ts:113:78
+
+    Error Context: test-results/hel1835-no-update-depth-lo-9c1d5-h-loop-and-writes-no-layout-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1835-no-update-depth-lo-9c1d5-h-loop-and-writes-no-layout-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1835-no-update-depth-lo-9c1d5-h-loop-and-writes-no-layout-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [dev] › e2e/hel1835-no-update-depth-loop-on-load.spec.ts:79:7 › a full load at sm runs no update-depth loop and writes no layout 
+    [dev] › e2e/hel1835-no-update-depth-loop-on-load.spec.ts:79:7 › a full load at lg runs no update-depth loop and writes no layout 
+  1 passed (23.9s)
