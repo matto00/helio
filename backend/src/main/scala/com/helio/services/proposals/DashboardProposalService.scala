@@ -1,7 +1,7 @@
 package com.helio.services.proposals
 
 import com.helio.services.dashboards.DashboardService
-import com.helio.services.panels.{ItemSize, OutputControlsValidator, PanelCreateBuilder, PanelCreateDryRun, PanelService}
+import com.helio.services.panels.{FormPlacementRule, ItemSize, OutputControlsValidator, PanelCreateBuilder, PanelCreateDryRun, PanelService}
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.{DashboardLayoutItemPayload, DashboardLayoutPatchPayload, UpdateDashboardRequest}
 import com.helio.api.protocols.proposals.{DashboardProposal, ProposalPanel}
@@ -207,7 +207,7 @@ final class DashboardProposalService(
       user: AuthenticatedUser
   ): Future[Either[ServiceError, (Dashboard, Vector[Panel])]] = {
     val createdPanels = created.map(_._1)
-    val layout        = ProposalLayoutSupport.buildLayout(proposalPanels, createdPanels.map(_.id), created.map(_._2))
+    val layout        = ProposalLayoutSupport.buildLayout(proposalPanels, createdPanels.map(_.id), created.map(_._2), createdPanels.map(FormPlacementRule.minRowsFor))
     if (layout.lg.isEmpty) Future.successful(Right((dashboard, createdPanels)))
     else {
       def payloads(items: Vector[DashboardLayoutItem]) = Some(items.map(i => DashboardLayoutItemPayload(i.panelId.value, i.x, i.y, i.w, i.h)))

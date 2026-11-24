@@ -90,15 +90,18 @@ object CreatePlacement {
 
   /** A duplicate's size per breakpoint, first that applies: the source's stored item there (width
    *  clamped to the grid); else the source's stored lg item scaled to that breakpoint; else the
-   *  source kind's default size. */
-  def duplicateSizes(layout: DashboardLayout, sourceId: PanelId, kindDefault: PlacementSizes): PlacementSizes = {
+   *  source kind's default size. Every breakpoint's height is then floored at `minH` (a non-counter form's
+   *  5 rows, [[FormPlacementRule]]); the copy is appended below every stored item, so growing it never
+   *  overlaps or moves another panel. */
+  def duplicateSizes(layout: DashboardLayout, sourceId: PanelId, kindDefault: PlacementSizes, minH: Int = 1): PlacementSizes = {
     def storedFor(bp: String): Option[DashboardLayoutItem] = LayoutPolicy.stored(layout, bp).find(_.panelId == sourceId)
     val scaledLg = storedFor("lg").map(i => PlacementSizes.scaledFromLg(ItemSize(i.w, math.max(1, i.h))))
     def at(bp: String): ItemSize = {
       val cols = LayoutBreakpointScaling.breakpointCols(bp)
-      storedFor(bp).map(i => ItemSize(math.max(1, math.min(cols, i.w)), math.max(1, i.h)))
+      val chosen = storedFor(bp).map(i => ItemSize(math.max(1, math.min(cols, i.w)), math.max(1, i.h)))
         .orElse(scaledLg.map(_.get(bp)))
         .getOrElse(kindDefault.get(bp))
+      chosen.copy(h = math.max(minH, chosen.h))
     }
     PlacementSizes(at("lg"), at("md"), at("sm"), at("xs"))
   }

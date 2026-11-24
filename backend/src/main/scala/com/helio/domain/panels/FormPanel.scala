@@ -206,6 +206,12 @@ final case class FormPanelConfig(
 object FormPanelConfig {
   val Empty: FormPanelConfig = FormPanelConfig(DataSourceId(""), Vector.empty, FormSubmitSpec.Default)
 
+  /** A compact counter: a form with exactly one field and that field's control is `counter`. Twin of the
+   *  client's `isCompactCounterConfig` (`compactCounter.ts`); a missing config decodes to [[Empty]] (zero
+   *  fields), which is a plain form on both sides. */
+  def isCompactCounter(config: FormPanelConfig): Boolean =
+    config.fields.size == 1 && config.fields.head.control == "counter"
+
   /** The closed top-level attribute set — mirrors `FormFieldSpec.AllowedKeys`
    *  (evaluation-1.md CR3). */
   private val AllowedKeys: Set[String] = Set("dataSourceId", "fields", "submit")

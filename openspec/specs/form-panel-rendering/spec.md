@@ -151,12 +151,17 @@ An auto-layout re-flow SHALL clamp a `form` panel to a minimum of 3 columns wide
 On the desktop grid, at every breakpoint, a `form` panel SHALL NOT be resized to fewer than 5 rows, and every
 placement the client and the backend make themselves (panel create, batch create, the client's unplaced-panel
 fallback and auto-layout) SHALL place a `form` panel at 5 rows or more, except a form whose only field is a `counter`
-control (the compact counter), which keeps the grid's general minimum of 4 rows. A duplicate takes its source's stored
-size, so duplicating a form saved below 5 rows yields a form of that height; a layout supplied by a dashboard import or
-by an applied proposal keeps the heights it carries. A form whose saved layout is already below 5 rows SHALL render at its saved height, and loading it SHALL NOT
-change or save its layout. Such a form SHALL resize as any panel does; when the resize ends below 5 rows, its height
-SHALL become 5 rows only if the space directly below it is free of other panels, otherwise it SHALL keep the height
-the resize ended at. No other panel SHALL move as a result. At 5 rows a form with two
+control (the compact counter), which keeps the grid's general minimum of 4 rows. A panel duplicate SHALL take its
+source's stored size, except that a duplicate of a `form` panel that is not a compact counter SHALL be at least 5 rows
+tall in every breakpoint; the duplicate is appended below every stored item, so no other panel moves. When a
+proposal is applied, or a dashboard's contents are replaced, an authored `lg` placement of a `form` panel that is not a
+compact counter and is below 5 rows SHALL become 5 rows tall only if the space directly below it is free of the other
+authored panels, otherwise it SHALL keep its authored height; no other panel SHALL move as a result, and a compact
+counter SHALL keep its authored height. A layout supplied by a dashboard import, or copied by a dashboard duplicate,
+SHALL keep the heights it carries. A form whose saved layout is already below 5 rows SHALL render at its saved height,
+and loading it SHALL NOT change or save its layout. Such a form SHALL resize as any panel does; when the resize ends
+below 5 rows, its height SHALL become 5 rows only if the space directly below it is free of other panels, otherwise it
+SHALL keep the height the resize ended at. No other panel SHALL move as a result. At 5 rows a form with two
 fields SHALL show its submit control without scrolling the form body.
 
 #### Scenario: Overflowing fields scroll inside the card
@@ -190,6 +195,34 @@ fields SHALL show its submit control without scrolling the form body.
 #### Scenario: A two-field form at the minimum shows its submit control
 - **WHEN** a two-field form panel is at 5 rows on a 1280 px wide desktop viewport, in either theme
 - **THEN** its submit control is fully visible without scrolling the form body
+
+#### Scenario: Duplicating a 4-row form gives 5 rows
+- **WHEN** a multi-field form panel stored at 4 rows in every breakpoint is duplicated
+- **THEN** the duplicate is 5 rows tall in every breakpoint and every other stored item is unchanged
+
+#### Scenario: Duplicating a 4-row compact counter keeps 4 rows
+- **WHEN** a compact counter form panel stored at 4 rows is duplicated
+- **THEN** the duplicate is 4 rows tall
+
+#### Scenario: A proposal placing a form at 4 rows with free space below gives 5 rows
+- **WHEN** a proposal is applied whose authored `lg` placement puts a multi-field form at 4 rows with nothing directly below it
+- **THEN** the created form is 5 rows tall in `lg` and no other created panel moves
+
+#### Scenario: A proposal placing a form at 4 rows directly above another panel keeps 4 rows
+- **WHEN** a proposal is applied whose authored `lg` placement puts a multi-field form at 4 rows with another authored panel directly below it
+- **THEN** the created form stays 4 rows tall and the panel below keeps its authored placement
+
+#### Scenario: Replacing contents with a form at 4 rows gives 5 rows
+- **WHEN** a dashboard's contents are replaced with a multi-field form authored at 4 rows with nothing directly below it
+- **THEN** the stored form is 5 rows tall in `lg`
+
+#### Scenario: A proposal placing a compact counter at 4 rows keeps 4 rows
+- **WHEN** a proposal is applied, or contents replaced, with a compact counter authored at 4 rows
+- **THEN** the created counter is 4 rows tall
+
+#### Scenario: Import and dashboard duplicate keep a saved 4-row form
+- **WHEN** a dashboard whose layout holds a multi-field form at 4 rows is imported, or duplicated as a dashboard
+- **THEN** the resulting form is 4 rows tall
 
 ### Requirement: Inconsistent fields are surfaced, never dropped
 
