@@ -23,7 +23,7 @@ interface OutputHistoryModalProps {
 /** HEL-1277 — one Output's recorded runs: a scrubber over the retained points, the selected point's
  *  summary (and chart, for a chart Output), and its stored rows with a changed-rows highlight
  *  against the next-older retained point when both runs stored them. */
-export function OutputHistoryModal({ output, onClose, readOnly = false }: OutputHistoryModalProps) {
+export function OutputHistoryModal({ output, onClose, readOnly = true }: OutputHistoryModalProps) {
   const view = useOutputHistoryView(output.id);
   // Memoized so TableRenderer's own memo over its rules is not defeated by a fresh array per render.
   const rules = useMemo(() => historyRowRules(output), [output]);

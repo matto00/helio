@@ -166,7 +166,7 @@ interface RunHistoryListProps {
 
 /** The run rows with their loading / failed / empty states. Shared by the desktop Run history modal and the
  *  phone's inline Runs tab (HEL-1582), so both show the same list. */
-export function RunHistoryList({ runs, view, onRetry, canRun = true }: RunHistoryListProps) {
+export function RunHistoryList({ runs, view, onRetry, canRun = false }: RunHistoryListProps) {
   return (
     <div className="run-history-modal__list">
       {view === "loading" ? (

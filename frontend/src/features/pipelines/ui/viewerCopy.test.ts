@@ -1,7 +1,9 @@
 import { VIEWER_COPY, copyFor } from "./viewerCopy";
 
-// HEL-1794 (design.md D3): every viewer variant, with the editor/owner string beside it. The no-selection description is only reachable
-// through the layout while the selection is unresolved (a transient the page never rests in), so it is pinned here.
+// HEL-1794 (design.md D3): the first test pins one entry (the no-selection description) as a viewer string and an editor string, because
+// that description is only reachable through the layout while the selection is unresolved (a transient the page never rests in).
+// The second walks EVERY entry and asserts the viewer variant differs from the editor/owner one and does not invite an edit or a run;
+// the invitation check is a regex, so it only catches the words "add", "edit" and "run the".
 describe("viewer copy table", () => {
   it("pins the no-selection description for a viewer and an editor", () => {
     expect(copyFor(VIEWER_COPY.editorPickDescription, false)).toBe(

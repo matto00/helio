@@ -62,6 +62,11 @@ const ALLOWED = new Set<string>([
   "Preview",
   "Runs",
   "Close", // the Output sheet / history dialog close control
+  // HEL-1839: `<summary>` disclosures the wider scan now reaches (a browser does not disable one inside a disabled fieldset). Each
+  // only expands or collapses a panel and writes nothing; the viewer flow does not expand them, so their contents are not scanned here.
+  "Functions and operators", // a compute step's function reference, inside the step's disabled fieldset
+  // The Output sheet's Ask panel (its upsell link is the last entry below).
+  "Ask about this Output",
   "Request Beta access (opens in a new tab)", // the Output sheet's Ask panel upsell for a free-tier user (a link, not an edit)
 ]);
 
@@ -71,57 +76,63 @@ interface Found {
   name: string;
 }
 
-/** Every visible, enabled interactive element inside the main region and any open dialog/menu, with its accessible name. */
-async function scan(page: Page): Promise<Found[]> {
-  return page.evaluate(() => {
-    const SELECTOR =
-      "button, a[href], input, select, textarea, [role=button], [role=menuitem], [role=combobox], [role=switch], [draggable=true], [contenteditable=true]";
-    const roots = Array.from(
-      document.querySelectorAll("main, dialog[open], [role=menu], [role=listbox]"),
-    );
-    const seen = new Set<Element>();
-    const out: { tag: string; role: string; name: string }[] = [];
-    const nameOf = (el: Element): string => {
-      const aria = el.getAttribute("aria-label");
-      if (aria) return aria.trim();
-      const by = el.getAttribute("aria-labelledby");
-      if (by) {
-        const t = by
-          .split(/\s+/)
-          .map((id) => document.getElementById(id)?.textContent?.trim() ?? "")
-          .join(" ")
-          .trim();
-        if (t) return t;
-      }
-      if (el.id) {
-        const l = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
-        if (l?.textContent?.trim()) return l.textContent.trim();
-      }
-      const wrap = el.closest("label");
-      if (wrap?.textContent?.trim()) return wrap.textContent.trim();
-      const txt = (el.textContent ?? "").trim();
-      if (txt) return txt;
-      return el.getAttribute("title") ?? el.getAttribute("placeholder") ?? "";
-    };
-    for (const root of roots) {
-      for (const el of Array.from(root.querySelectorAll(SELECTOR))) {
-        if (seen.has(el)) continue;
-        seen.add(el);
-        const style = getComputedStyle(el);
-        if (el.getClientRects().length === 0 || style.visibility === "hidden") continue;
-        if (el.closest("[hidden], [inert]")) continue;
-        if ((el as HTMLButtonElement).disabled || el.closest("fieldset[disabled]")) continue;
-        if (el.getAttribute("aria-disabled") === "true") continue;
-        if (el.getAttribute("type") === "hidden") continue;
-        out.push({
-          tag: el.tagName.toLowerCase(),
-          role: el.getAttribute("role") ?? "",
-          name: nameOf(el),
-        });
-      }
+/** The in-page scan body: every visible, enabled interactive element inside the main region and any open dialog/menu, with its
+ *  accessible name. A plain function (no closure over this module) so `scan` runs it with `page.evaluate` and the self-test
+ *  below runs the very same source in the same evaluate that plants its elements (`scanInPage.toString()`). */
+function scanInPage(): Found[] {
+  const SELECTOR =
+    "button, a[href], summary, input, select, textarea, [role=button], [role=menuitem], [role=combobox], [role=switch], [draggable=true], [contenteditable=true]";
+  const roots = Array.from(
+    document.querySelectorAll("main, dialog[open], [role=menu], [role=listbox]"),
+  );
+  const seen = new Set<Element>();
+  const out: { tag: string; role: string; name: string }[] = [];
+  const nameOf = (el: Element): string => {
+    const aria = el.getAttribute("aria-label");
+    if (aria) return aria.trim();
+    const by = el.getAttribute("aria-labelledby");
+    if (by) {
+      const t = by
+        .split(/\s+/)
+        .map((id) => document.getElementById(id)?.textContent?.trim() ?? "")
+        .join(" ")
+        .trim();
+      if (t) return t;
     }
-    return out;
-  });
+    if (el.id) {
+      const l = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+      if (l?.textContent?.trim()) return l.textContent.trim();
+    }
+    const wrap = el.closest("label");
+    if (wrap?.textContent?.trim()) return wrap.textContent.trim();
+    const txt = (el.textContent ?? "").trim();
+    if (txt) return txt;
+    return el.getAttribute("title") ?? el.getAttribute("placeholder") ?? "";
+  };
+  for (const root of roots) {
+    for (const el of Array.from(root.querySelectorAll(SELECTOR))) {
+      if (seen.has(el)) continue;
+      seen.add(el);
+      const style = getComputedStyle(el);
+      if (el.getClientRects().length === 0 || style.visibility === "hidden") continue;
+      if (el.closest("[hidden], [inert]")) continue;
+      // HEL-1839: skip only what the browser itself reports disabled. A disabled fieldset disables its form controls but not a
+      // link, a `<summary>`, a `[role=button]`, a draggable or a contenteditable, so none of those is skipped by ancestry.
+      if (el.matches(":disabled")) continue;
+      if (el.getAttribute("aria-disabled") === "true") continue;
+      if (el.getAttribute("type") === "hidden") continue;
+      out.push({
+        tag: el.tagName.toLowerCase(),
+        role: el.getAttribute("role") ?? "",
+        name: nameOf(el),
+      });
+    }
+  }
+  return out;
+}
+
+async function scan(page: Page): Promise<Found[]> {
+  return page.evaluate(scanInPage);
 }
 
 async function expectOnlyAllowed(page: Page, where: string, stepRow: string): Promise<void> {
@@ -138,6 +149,16 @@ async function expectOnlyAllowed(page: Page, where: string, stepRow: string): Pr
 /** Value-text contrast of a read-only (disabled) field: its colour, with the element's and every ancestor's opacity folded in,
  *  over the opaque backdrop its ancestors paint. A bare `color` read would miss the shared disabled recipe's 0.55 dimming. */
 async function valueContrast(target: Locator): Promise<number> {
+  // HEL-1839: a dialog fades in (opacity 0 to 1, 0.28s) and the probe folds ancestor opacity in, so a read taken mid-entrance is
+  // a lower, run-dependent ratio. Wait for every finite animation to end first; real motion stays on and the 4.5 bar is unchanged.
+  await target.evaluate((el) =>
+    Promise.all(
+      el.ownerDocument
+        .getAnimations()
+        .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+        .map((a) => a.finished.catch(() => undefined)),
+    ),
+  );
   const probe = await target.evaluate((el) => {
     const layers: string[] = [];
     let opacity = 1;
@@ -343,6 +364,47 @@ test.describe("HEL-1794 viewer read-only pipeline page (live)", () => {
       await viewer.context.close();
     });
   }
+
+  // HEL-1839 (design.md D4): the scan must report an enabled link and `<summary>` inside a viewer's disabled fieldset (a browser
+  // disables neither) and still skip a form control the browser itself disabled. Plant and scan in ONE evaluate, running the same
+  // source `scan()` runs, so a re-render cannot drop the planted nodes and the proof cannot drift from the scan.
+  test("scan self-test: an enabled link and summary in a disabled fieldset are reported, a disabled input is not", async ({
+    page,
+    request,
+    browser,
+    baseURL,
+  }) => {
+    test.setTimeout(240_000);
+    await registerAndLogin(page, request, {
+      prefix: "hel1794",
+      label: "owner-selftest",
+      displayName: "HEL-1839",
+    });
+    const editor = await collaborator(browser, baseURL, "editor-selftest");
+    const viewer = await collaborator(browser, baseURL, "viewer-selftest");
+    const pipelineId = await seedSharedPipeline(page, editor, viewer);
+    const p = viewer.page;
+    await openPipeline(p, pipelineId, "light", DESKTOP);
+    await p.locator(".spine-row__select").first().click();
+    await expect(p.locator("main .step-focused__fieldset")).toBeVisible();
+    const found = await p.evaluate((scanSource) => {
+      const fieldset = document.querySelector("main .step-focused__fieldset");
+      if (!(fieldset instanceof HTMLFieldSetElement) || !fieldset.disabled) {
+        throw new Error("the viewer's step fieldset is not a disabled fieldset");
+      }
+      const host = document.createElement("div");
+      host.innerHTML =
+        '<a href="/pipelines">planted-link</a><details><summary>planted-summary</summary>x</details><input aria-label="planted-input">';
+      fieldset.appendChild(host);
+      const run = new Function(`return (${scanSource})();`) as () => { name: string }[];
+      return run().map((f) => f.name);
+    }, scanInPage.toString());
+    expect(found).toContain("planted-link");
+    expect(found).toContain("planted-summary");
+    expect(found).not.toContain("planted-input");
+    await editor.context.close();
+    await viewer.context.close();
+  });
 
   test("editor keeps every edit control on desktop and phone, and typing creates a draft", async ({
     page,

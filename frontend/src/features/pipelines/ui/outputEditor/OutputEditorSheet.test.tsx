@@ -47,6 +47,7 @@ function renderSheet() {
   render(
     <Provider store={store}>
       <OutputEditorSheet
+        readOnly={false}
         open
         onClose={jest.fn()}
         pipelineId="p-1"
@@ -232,6 +233,7 @@ describe("OutputEditorSheet -- markdown Content is literal-only (HEL-1139)", () 
       <MemoryRouter>
         <Provider store={store}>
           <OutputEditorSheet
+            readOnly={false}
             open
             onClose={jest.fn()}
             pipelineId="p-1"

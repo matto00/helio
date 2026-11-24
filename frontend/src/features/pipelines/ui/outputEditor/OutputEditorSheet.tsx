@@ -96,7 +96,7 @@ export function OutputEditorSheet({
   actions,
   draft,
   isPipelineOwner = false,
-  readOnly = false,
+  readOnly = true,
 }: OutputEditorSheetProps) {
   const immediate = useOutputImmediateActions(pipelineId);
   const write = actions ?? immediate;

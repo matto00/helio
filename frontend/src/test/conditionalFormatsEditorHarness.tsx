@@ -65,7 +65,14 @@ export function renderSheet(output: Output) {
   render(
     <MemoryRouter>
       <Provider store={configureStore({ reducer: { outputs: outputsReducer } })}>
-        <OutputEditorSheet open onClose={jest.fn()} pipelineId="p-1" output={output} steps={[]} />
+        <OutputEditorSheet
+          readOnly={false}
+          open
+          onClose={jest.fn()}
+          pipelineId="p-1"
+          output={output}
+          steps={[]}
+        />
       </Provider>
     </MemoryRouter>,
   );

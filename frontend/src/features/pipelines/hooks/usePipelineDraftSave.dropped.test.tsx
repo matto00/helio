@@ -57,6 +57,7 @@ function setup(overlay: DraftOverlay) {
         refreshRunHistoryAfterRun: jest.fn(),
         refreshVisibleOutputPreviews: jest.fn(),
         onRunNow: jest.fn(),
+        runRole: "owner",
       }),
     { wrapper },
   );

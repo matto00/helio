@@ -6,6 +6,7 @@ import { OutputEditorFooter } from "./OutputEditorFooter";
 function renderFooter(extra: { saveBlocked?: boolean; saving?: boolean } = {}) {
   render(
     <OutputEditorFooter
+      readOnly={false}
       isCreate
       confirmingDelete={false}
       onDeleteClick={jest.fn()}

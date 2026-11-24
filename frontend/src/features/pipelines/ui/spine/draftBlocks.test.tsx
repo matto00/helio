@@ -75,6 +75,7 @@ function Harness({
     onReorderSteps: jest.fn(),
     structuralBlockedReason: block.structural ?? null,
     outputBlockedReason: block.output ?? null,
+    canEdit: true,
   });
   const spy = openShape ? { ...actions, openShapePicker: openShape } : actions;
   return (
@@ -104,6 +105,7 @@ function Harness({
         onOpenOutputHistory={jest.fn()}
         structuralBlockedReason={block.structural ?? null}
         outputBlockedReason={block.output ?? null}
+        canEdit
       />
       {actions.dialogs}
     </>

@@ -49,6 +49,7 @@ describe("SpineStatusStrip", () => {
         costVerdict={aiVerdict}
         onRunToUpdate={onRunToUpdate}
         truncationNotice={null}
+        canRun
       />,
     );
     const region = screen.getByRole("status");

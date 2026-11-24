@@ -92,7 +92,14 @@ describe("OutputEditorSheet preview field types (HEL-1305)", () => {
     render(
       <MemoryRouter>
         <Provider store={configureStore({ reducer: { outputs: outputsReducer } })}>
-          <OutputEditorSheet open onClose={jest.fn()} pipelineId="p-1" output={output} steps={[]} />
+          <OutputEditorSheet
+            readOnly={false}
+            open
+            onClose={jest.fn()}
+            pipelineId="p-1"
+            output={output}
+            steps={[]}
+          />
         </Provider>
       </MemoryRouter>,
     );

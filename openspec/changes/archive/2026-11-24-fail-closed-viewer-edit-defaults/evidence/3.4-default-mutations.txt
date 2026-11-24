@@ -1,0 +1,60 @@
+# HEL-1839 task 3.4: each default flipped back on its own (all others fail-closed); per-component tests + guard
+## mutation: src/features/pipelines/ui/RunHistoryModal.tsx  [s/canRun = false }/canRun = true }/]
+  RED: the real sources have no fail-open default and no undefaulted optional role prop
+  RED: RunHistoryList (canRun) shows the viewer empty copy
+  RED: RunHistoryModal (canRun forwarded) shows the viewer empty copy
+  passed 19 failed 3
+## mutation: src/features/pipelines/ui/StepCardFocused.tsx  [s/isOwner = false,/isOwner = true,/]
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+  RED: the real sources have no fail-open default and no undefaulted optional role prop
+  RED: StepCardFocused (isOwner) disables the owner-only existing-dataset target; readOnly={false} so only isOwner decides
+  passed 20 failed 2
+## mutation: src/features/pipelines/ui/StepCardFocused.tsx  [s/readOnly = true,/readOnly = false,/]
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+  RED: the real sources have no fail-open default and no undefaulted optional role prop
+  RED: StepCardFocused (readOnly) has no step actions and a disabled configuration
+  passed 20 failed 2
+## mutation: src/features/pipelines/ui/outputHistory/OutputHistoryModal.tsx  [s/readOnly = true }/readOnly = false }/]
+  RED: the real sources have no fail-open default and no undefaulted optional role prop
+  RED: OutputHistoryModal (readOnly) shows the viewer empty copy
+  passed 20 failed 2
+## mutation: src/features/pipelines/ui/outputEditor/OutputEditorSheet.tsx  [s/^  readOnly = true,/  readOnly = false,/]
+  RED: the real sources have no fail-open default and no undefaulted optional role prop
+  RED: OutputEditorSheet (readOnly) shows no Save or Delete and a disabled name field
+  passed 20 failed 2
+## mutation: src/features/pipelines/ui/outputEditor/OutputEditorFooter.tsx  [s/^  readOnly = true,/  readOnly = false,/]
+  RED: the real sources have no fail-open default and no undefaulted optional role prop
+  RED: OutputEditorFooter (readOnly) offers Close only
+  passed 20 failed 2
+## mutation: src/features/pipelines/ui/outputEditor/OutputSheetPreviewCard.tsx  [s/^  readOnly = true,/  readOnly = false,/]
+  RED: the real sources have no fail-open default and no undefaulted optional role prop
+  RED: OutputSheetPreviewCard (readOnly) shows the viewer never-run copy
+  passed 20 failed 2
+## mutation: src/features/pipelines/ui/spine/SpineSourceCard.tsx  [s/^  readOnly = true,/  readOnly = false,/]
+  RED: the real sources have no fail-open default and no undefaulted optional role prop
+  RED: SpineSourceCard (readOnly) has no source actions menu or Edit source name button
+  passed 20 failed 2
+## mutation: src/features/pipelines/ui/spine/SpineOutputs.tsx  [s/^  readOnly = true,/  readOnly = false,/]
+  RED: the real sources have no fail-open default and no undefaulted optional role prop
+  RED: SpineOutputs (readOnly) offers no New output
+  passed 20 failed 2
+## mutation: src/features/pipelines/ui/spine/useSpineStepActions.tsx  [s/^  canEdit = false,/  canEdit = true,/]
+  RED: the real sources have no fail-open default and no undefaulted optional role prop
+  RED: useSpineStepActions (canEdit) offers no row menu item
+  passed 20 failed 2
+## mutation: src/features/pipelines/ui/spine/PipelineSpineHeader.tsx  [s/^  canEdit = false,/  canEdit = true,/]
+  RED: the real sources have no fail-open default and no undefaulted optional role prop
+  RED: PipelineSpineHeader (canEdit) shows the name as text, with no rename or schedule entry
+  passed 20 failed 2
+## mutation: src/features/pipelines/ui/spine/PipelineSpine.tsx  [s/^  canEdit = false,/  canEdit = true,/]
+  RED: the real sources have no fail-open default and no undefaulted optional role prop
+  RED: PipelineSpine (canEdit) offers no Add source and tells the viewer copy
+  passed 20 failed 2
+## mutation: src/features/pipelines/ui/spine/SpineStatusStrip.tsx  [s/^  canRun = false,/  canRun = true,/]
+  RED: the real sources have no fail-open default and no undefaulted optional role prop
+  RED: SpineStatusStrip (canRun) offers no Run to update
+  passed 20 failed 2
+## mutation: src/features/pipelines/hooks/usePipelineDraftSave.ts  [43s/runRole:/runRole?:/]
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+  RED: the real sources have no fail-open default and no undefaulted optional role prop
+  passed 21 failed 1

@@ -124,7 +124,9 @@ describe("RunHistoryModal — HEL-576 assertion summary", () => {
 
 describe("RunHistoryModal — HEL sweep F-159/F-137", () => {
   it("renders the shared EmptyState primitive (not ad-hoc text) when there are no runs", () => {
-    render(<RunHistoryModal runs={[]} view="fresh" onRetry={jest.fn()} onClose={jest.fn()} />);
+    render(
+      <RunHistoryModal runs={[]} view="fresh" onRetry={jest.fn()} onClose={jest.fn()} canRun />,
+    );
 
     expect(screen.getByText("No runs recorded yet")).toBeInTheDocument();
     expect(

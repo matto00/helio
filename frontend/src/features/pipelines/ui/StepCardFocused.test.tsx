@@ -50,6 +50,7 @@ function props(overrides: Partial<ComponentProps<typeof StepCardFocused>> = {}) 
     onToggleEnabled: jest.fn(),
     onDuplicate: jest.fn(),
     isDuplicating: false,
+    readOnly: false,
     ...overrides,
   };
 }

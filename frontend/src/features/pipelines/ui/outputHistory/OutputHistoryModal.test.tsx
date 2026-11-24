@@ -91,7 +91,9 @@ function history(points: HistoryPoint[]): OutputHistory {
 
 function render(points: HistoryPoint[], output: Output = makeOutput()) {
   fetchHistory.mockResolvedValue(history(points));
-  return renderWithStore(<OutputHistoryModal output={output} onClose={jest.fn()} />);
+  return renderWithStore(
+    <OutputHistoryModal output={output} onClose={jest.fn()} readOnly={false} />,
+  );
 }
 
 function scrubTo(valueFromOldest: number) {
@@ -135,7 +137,9 @@ describe("OutputHistoryModal (HEL-1277)", () => {
 
   it("renders a visible error when the history request fails", async () => {
     fetchHistory.mockRejectedValue(new Error("boom"));
-    renderWithStore(<OutputHistoryModal output={makeOutput()} onClose={jest.fn()} />);
+    renderWithStore(
+      <OutputHistoryModal output={makeOutput()} onClose={jest.fn()} readOnly={false} />,
+    );
     expect(await screen.findByText("Couldn't load this Output's history.")).toBeInTheDocument();
     expect(screen.queryByRole("slider")).toBeNull();
   });
@@ -506,7 +510,13 @@ describe("OutputHistoryModal focus return (HEL-1359)", () => {
     return (
       <>
         <button onClick={() => setOpen(true)}>History</button>
-        {open && <OutputHistoryModal output={makeOutput()} onClose={() => setOpen(false)} />}
+        {open && (
+          <OutputHistoryModal
+            output={makeOutput()}
+            onClose={() => setOpen(false)}
+            readOnly={false}
+          />
+        )}
       </>
     );
   }

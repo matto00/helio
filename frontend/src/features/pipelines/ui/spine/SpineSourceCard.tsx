@@ -42,7 +42,7 @@ export const SpineSourceCard = memo(function SpineSourceCard({
   canRemove,
   onEditSource,
   onRemoveRoot,
-  readOnly = false,
+  readOnly = true,
 }: SpineSourceCardProps) {
   // HEL-1668: the sample label already says "Static · 30 rows" for a static source, so the kind meta is dropped
   // only when the rendered label text starts with the kind (loading / unavailable / truncated keep it).
