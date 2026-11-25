@@ -122,7 +122,7 @@ trait RunServiceHarness extends BeforeAndAfterAll with TempDirectorySupport { se
     awaitDb(stepRepo.insertInternal(pid, kind, config, enabled = true, parent.map(_.id), explicitRootId = None, actingUserId = ownerId))
 
   protected def addOutput(pid: PipelineId, step: PipelineStep, name: String): OutputId =
-    awaitDb(outputRepo.insertInternal(pid, Some(step.id), UserId(ownerId), name, OutputKind.Table, explicitRootId = None)).id
+    awaitDb(outputRepo.insertInternal(pid, Some(step.id), UserId(ownerId), name, OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(UserId(ownerId)))).id
 
   protected def nodeSnapshotRows(pid: PipelineId, step: PipelineStep): Int = {
     import PostgresProfile.api._

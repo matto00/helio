@@ -172,7 +172,7 @@ class PipelineRunRoutesSpec
    *  `PipelineRunService`'s `outputRepo.listByPipelineInternal` hook
    *  (task 3.1) can find it. */
   private def seedOutputForPipeline(pid: PipelineId): OutputId =
-    await(outputRepo.insertInternal(pid, None, dummyUser.id, "out", OutputKind.Table, explicitRootId = None)).id
+    await(outputRepo.insertInternal(pid, None, dummyUser.id, "out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id))).id
 
   /** HEL-466: seed an enabled `AlertRule` targeting the pipeline's Output,
    *  for the onRunSuccess -> AlertEvaluationService hook tests below. */
@@ -1228,7 +1228,7 @@ class PipelineRunRoutesSpec
       // pipeline root (node_step_id = NULL) so the insert itself succeeds -- but the stub below
       // reports it to `alertEvaluation` as pointing at a fabricated node key that the tree walk
       // will never produce a NodeOutcome for.
-      val realOutput   = await(outputRepo.insertInternal(pid, None, dummyUser.id, "orphan-out", OutputKind.Table, explicitRootId = None))
+      val realOutput   = await(outputRepo.insertInternal(pid, None, dummyUser.id, "orphan-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
       val orphanStepId = PipelineStepId(UUID.randomUUID().toString)
       val stubOutputRepo = new OutputRepository(ctx)(routeEc) {
         override def listByPipelineInternal(pipelineId: PipelineId): Future[Vector[Output]] =

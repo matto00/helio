@@ -158,7 +158,7 @@ class PatchSetPreviewRoutesSpec
       case Right(p) => p
       case Left(e)  => fail(s"pipeline seed failed: $e")
     }
-    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, userA.id, name, OutputKind.Table, explicitRootId = None))
+    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, userA.id, name, OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(userA.id)))
   }
 
   "POST /patch-sets/preview" should {

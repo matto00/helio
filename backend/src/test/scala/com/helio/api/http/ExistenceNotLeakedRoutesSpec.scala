@@ -145,7 +145,7 @@ class ExistenceNotLeakedRoutesSpec
     )))
     // HEL-1239: an owner-scoped Output on the seeded pipeline (source-attached, so no step needed).
     val out = await(new OutputRepository(ctx).insertInternal(
-      PipelineId(pip), None, UserId(ownerId), "Leak Output", OutputKind.Table, explicitRootId = None
+      PipelineId(pip), None, UserId(ownerId), "Leak Output", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(UserId(ownerId))
     ))
     Seeded(dash, pnl, pip, stp, out.id.value)
   }

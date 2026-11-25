@@ -143,10 +143,10 @@ trait InsightRenderFixture extends OutputHistoryApiHarness {
     val pipelineId = PipelineId(pid)
     val step = awaitDb(stepRepo.insertInternal(pipelineId, "assert", AssertConfig(Vector.empty), enabled = true, None, explicitRootId = None))
     val metricCfg = """{"fieldMapping":{"value":"amount"},"aggregation":{"value":"amount","agg":"sum"},"compare":"previous_run"}""".parseJson.asJsObject
-    val metric  = awaitDb(outputRepo.insertInternal(pipelineId, Some(step.id), UserId(owner), "metric", OutputKind.Metric, metricCfg, explicitRootId = None))
+    val metric  = awaitDb(outputRepo.insertInternal(pipelineId, Some(step.id), UserId(owner), "metric", OutputKind.Metric, metricCfg, explicitRootId = None, actor = AuthenticatedUser(UserId(owner))))
     val insightId =
       if (!withInsight) OutputId("none")
-      else awaitDb(outputRepo.insertInternal(pipelineId, Some(step.id), UserId(owner), "insight", OutputKind.Insight, insightConfig.parseJson.asJsObject, explicitRootId = None)).id
+      else awaitDb(outputRepo.insertInternal(pipelineId, Some(step.id), UserId(owner), "insight", OutputKind.Insight, insightConfig.parseJson.asJsObject, explicitRootId = None, actor = AuthenticatedUser(UserId(owner)))).id
     Fx(pipelineId, owner, insightId, metric.id, dsId, step.id)
   }
 

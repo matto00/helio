@@ -164,7 +164,7 @@ class WorkspaceSearchServiceSpec
     // `WorkspaceContextServiceSpec`'s identical rewire) -- `outputDataTypeId`
     // (name kept for this file's own diff-minimization) holds the real
     // Output's id created below, not a legacy companion DataType's.
-    val createdOutput = await(outputRepo.insertInternal(PipelineId(summary.id), nodeStepId = None, user.id, outputName, OutputKind.Table, explicitRootId = None))
+    val createdOutput = await(outputRepo.insertInternal(PipelineId(summary.id), nodeStepId = None, user.id, outputName, OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(user.id)))
     SeededPipeline(
       id                   = summary.id,
       sourceDataSourceName = summary.sourceDataSourceName,

@@ -2,14 +2,14 @@ package com.helio.services.pipelines
 
 import com.helio.api.protocols.pipelines.{CreatePipelineRootRequest, CreatePipelineStepRequest, DraftSaveRequest, ReorderPipelineStepsRequest, UpdatePipelineStepRequest}
 import com.helio.domain.model.{AuthenticatedUser, PipelineId, PipelineRootId, PipelineStepId, UserId}
-import com.helio.infrastructure.persistence.pipelines.{LockSite, PipelineDefinitionLocks}
+import com.helio.infrastructure.persistence.pipelines.LockSite
 import com.helio.services.ServiceError
 import com.helio.services.pipelines.draft.DraftSaveMode
-import com.helio.testsupport.{DraftSaveApiFixture, DraftSaveHarness, DraftSaveSeed}
+import com.helio.testsupport.{DraftSaveApiFixture, DraftSaveHarness, DraftSaveSeed, RaceLocks}
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 /** HEL-1707 items 1 and 2: a pipeline deleted, or an editor grant revoked or downgraded, between a write's service-layer
  *  owner-or-editor check and its privileged transaction.
@@ -21,23 +21,6 @@ import scala.concurrent.{ExecutionContext, Future}
  *
  *  Expected bodies are what the route's own service-layer check answers had the racer landed first (design.md D2 table). */
 class PipelineGrantRecheckRaceSpec extends DraftSaveApiFixture {
-
-
-  /** Locks that run one armed racer inside the write's transaction. `site = None`: before the next `lockPipelines`; `Some(s)`: at `choose(s)`. */
-  private final class RaceLocks extends PipelineDefinitionLocks {
-    private case class Armed(site: Option[LockSite], racer: () => Future[Any])
-    @volatile private var armed: Option[Armed] = None
-    def active(site: LockSite): Boolean = true
-    def arm(site: Option[LockSite] = None)(racer: => Future[Any]): Unit = armed = Some(Armed(site, () => racer))
-    private def fireIf(matches: Option[LockSite] => Boolean): DBIO[Unit] = armed.filter(a => matches(a.site)) match {
-      case Some(a) => armed = None; DBIO.successful(()).flatMap(_ => DBIO.from(a.racer())).map(_ => ())
-      case None    => DBIO.successful(())
-    }
-    override def lockPipelines(site: LockSite, ids: Seq[String])(implicit e: ExecutionContext): DBIO[Boolean] =
-      fireIf(_.isEmpty).flatMap(_ => super.lockPipelines(site, ids))
-    override def choose[A](site: LockSite, action: => DBIO[A], otherwise: => DBIO[A]): DBIO[A] =
-      fireIf(_.contains(site)).flatMap(_ => super.choose(site, action, otherwise))
-  }
 
   private final class Rig(val seed: DraftSaveSeed, val locks: RaceLocks) {
     val h       = new DraftSaveHarness(ctx, locks)

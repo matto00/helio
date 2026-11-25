@@ -93,7 +93,7 @@ class ComputeExpressionRunSpec extends AnyWordSpec with Matchers with BeforeAndA
     computes.foreach { case (col, expr) =>
       parent = Some(await(stepRepo.insertInternal(pid, "compute", ComputeConfig(col, expr, None), enabled = true, parent, explicitRootId = None)).id)
     }
-    await(outputRepo.insertInternal(pid, parent, dummyUser.id, "out", OutputKind.Table, explicitRootId = None))
+    await(outputRepo.insertInternal(pid, parent, dummyUser.id, "out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
     await(service.submit(pid, isDry = false, dummyUser)) shouldBe a[Right[_, _]]
     await(nodeSnapshotRepo.listRows(pid.value, parent.map(_.value), explicitRootId = None))
   }

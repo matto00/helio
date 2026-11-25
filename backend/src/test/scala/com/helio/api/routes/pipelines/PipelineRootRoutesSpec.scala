@@ -318,7 +318,7 @@ class PipelineRootRoutesSpec
       // A root-bound Output on root2 (no step -- node_step_id NULL, root_id = root2).
       val output = await(outputRepo.insertInternal(
         PipelineId(pid), nodeStepId = None, ownerId = owner.id, name = "root2-out",
-        kind = OutputKind.Table, explicitRootId = Some(root2.id)
+        kind = OutputKind.Table, explicitRootId = Some(root2.id), actor = AuthenticatedUser(owner.id)
       ))
 
       // A real dashboard + panel placing that Output (raw SQL -- this file has no

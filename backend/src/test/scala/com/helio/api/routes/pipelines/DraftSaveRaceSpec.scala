@@ -135,7 +135,7 @@ class DraftSaveRaceSpec extends DraftRaceFixture {
     RaceWriter("Output delete (OutputRepository.deleteWithPanelsInternal)", Set(LockSite.OutputDelete, LockSite.SaveOutputs),
       (h, s) => h.outputRepo.deleteWithPanelsInternal(OutputId(s.oc), actor = owner)),
     RaceWriter("Output create (OutputRepository.insertInternal)", Set(LockSite.OutputCreate),
-      (h, s) => h.outputRepo.insertInternal(pid(s), Some(step(s.t3)), UserId(userA), "raced", OutputKind.Table, JsObject.empty, Vector.empty, None, None)),
+      (h, s) => h.outputRepo.insertInternal(pid(s), Some(step(s.t3)), UserId(userA), "raced", OutputKind.Table, JsObject.empty, Vector.empty, None, None, actor = AuthenticatedUser(UserId(userA)))),
     RaceWriter("root add (PipelineRootRepository.add)", Set(LockSite.RootAdd),
       (h, s) => h.rootRepo.add(pid(s), DataSourceId(s.id("ds3")), owner),
       s => exec(s"INSERT INTO data_sources (id,name,source_type,config,created_at,updated_at,owner_id,inferred_schema) VALUES ('${s.id("ds3")}','ds3','dataset','{}',now(),now(),'$userA','[]')")),

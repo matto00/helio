@@ -104,7 +104,7 @@ class AlertEventRoutesSpec
     val pipeline = await(pipelineRepo.create("pipe", Vector(createdSource.id), user)).getOrElse(
       throw new IllegalStateException("newOutput fixture: pipeline create failed")
     )
-    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, ownerId, "out", OutputKind.Table, explicitRootId = None)).id
+    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, ownerId, "out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(ownerId))).id
   }
 
   private def seedFiringEvent(ownerId: String): String = {

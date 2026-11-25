@@ -140,7 +140,7 @@ class PublicProvenanceRoutesSpec
     val j     = fx.joinStep(b.pipelineId, sa.id, SecondaryInput.Lane(sb.id.value))
     val u     = fx.unionStep(b.pipelineId, j.id, SecondaryInput.Source(extra.id.value))
     val a     = fx.assertStep(b.pipelineId, Some(u.id))
-    val out   = await(outputRepo.insertInternal(b.pipelineId, Some(a.id), owner.id, "Out", OutputKind.Table, explicitRootId = None))
+    val out   = await(outputRepo.insertInternal(b.pipelineId, Some(a.id), owner.id, "Out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
     fx.snapshot(b.pipelineId, Some(a.id), None, rows = 4)
     fx.run(b.pipelineId, "failed", errorLog = Some("SECRET-ERRORLOG stack trace"), assertions = Seq(
       AssertionResult(a.id.value, "notNull", Some("amount"), "error", passed = false, observed = Some("SECRET-OBSERVED"), message = Some("SECRET-MESSAGE"))
@@ -183,7 +183,7 @@ class PublicProvenanceRoutesSpec
       val dashId = seedDashboard(public = true)
       val b      = fx.newPipeline("Never", Vector("S"))
       val s1     = fx.filterStep(b.pipelineId, None, Some(b.roots.head))
-      val out    = await(outputRepo.insertInternal(b.pipelineId, Some(s1.id), owner.id, "O", OutputKind.Table, explicitRootId = None))
+      val out    = await(outputRepo.insertInternal(b.pipelineId, Some(s1.id), owner.id, "O", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       val panelId = seedPanel(dashId, Some(out.id.value))
       Get(s"/dashboards/$dashId/panels/$panelId/provenance") ~> routes() ~> check {
         status shouldBe StatusCodes.OK

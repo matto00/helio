@@ -577,7 +577,7 @@ class InsightRenderServiceSpec extends AnyWordSpec with Matchers with BeforeAndA
       val noop = runsWith(InsightRunTrigger.NoOp)
       realRun(noop, fx); realRun(noop, fx) // two history points, so the metric has a previous_run compare
       val child = awaitDb(stepRepo.insertInternal(fx.pid, "assert", AssertConfig(Vector.empty), enabled = true, Some(fx.stepId), explicitRootId = None))
-      val insight = awaitDb(outputRepo.insertInternal(fx.pid, Some(child.id), UserId(fx.owner), "far insight", OutputKind.Insight, JsObject.empty, explicitRootId = None))
+      val insight = awaitDb(outputRepo.insertInternal(fx.pid, Some(child.id), UserId(fx.owner), "far insight", OutputKind.Insight, JsObject.empty, explicitRootId = None, actor = AuthenticatedUser(UserId(fx.owner))))
       val built = inputsFor(fx.copy(insight = insight.id), s"""{"reads":{"outputs":["${fx.metric.value}"]}}""")
       built.inputs.compares.map(_.outputId) shouldBe Vector(fx.metric.value) // read from another node...
       built.preset shouldBe InsightPreset.Summary                            // ...but its compare is not on the insight's node
@@ -588,8 +588,8 @@ class InsightRenderServiceSpec extends AnyWordSpec with Matchers with BeforeAndA
         val fx   = seedFx(withInsight = false)
         val sort = awaitDb(stepRepo.insertInternal(fx.pid, "sort", SortConfig(Vector(SortKey("amount", "desc"))), enabled = true, Some(fx.stepId), explicitRootId = None))
         val lim  = awaitDb(stepRepo.insertInternal(fx.pid, "limit", LimitConfig(1), enabled = limitEnabled, Some(sort.id), explicitRootId = None))
-        awaitDb(outputRepo.insertInternal(fx.pid, Some(lim.id), UserId(fx.owner), "top", OutputKind.Table, JsObject.empty, explicitRootId = None))
-        val insight = awaitDb(outputRepo.insertInternal(fx.pid, Some(lim.id), UserId(fx.owner), "top insight", OutputKind.Insight, JsObject.empty, explicitRootId = None))
+        awaitDb(outputRepo.insertInternal(fx.pid, Some(lim.id), UserId(fx.owner), "top", OutputKind.Table, JsObject.empty, explicitRootId = None, actor = AuthenticatedUser(UserId(fx.owner))))
+        val insight = awaitDb(outputRepo.insertInternal(fx.pid, Some(lim.id), UserId(fx.owner), "top insight", OutputKind.Insight, JsObject.empty, explicitRootId = None, actor = AuthenticatedUser(UserId(fx.owner))))
         inputsFor(fx.copy(insight = insight.id), "{}").preset
       }
       preset(limitEnabled = true) shouldBe InsightPreset.Leaders  // sort then limit under a table: the TopN shape

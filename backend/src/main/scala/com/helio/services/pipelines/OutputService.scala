@@ -163,7 +163,8 @@ final class OutputService(
                           name       = req.name.trim,
                           kind       = kind,
                           config     = config,
-                          explicitRootId = explicitRootId
+                          explicitRootId = explicitRootId,
+                          actor      = user
                         ).map { output =>
                           audit("output.create", Some(output.id.value), user)
                           if (backfill) triggerBackfill(output, user)
@@ -172,8 +173,10 @@ final class OutputService(
                           // dropped it via the config-less `outputResponseFrom`
                           // overload, so a freshly-created Output round-tripped as
                           // `config: {}` even though the write itself was correct.
-                          Right((output, config))
-                        }
+                          Right((output, config)): Either[ServiceError, (Output, JsObject)]
+                        }.recover(
+                          // HEL-1882 D1: a grant revoked or downgraded since the check above answers what that check answers.
+                          PipelineWriteRefusal.refused[(Output, JsObject)](ServiceError.NotFound("Pipeline not found")))
                     }
                 }
             }
@@ -250,7 +253,8 @@ final class OutputService(
                 checkUpdateReads(output, id, req, existingConfig, policy).flatMap {
                   case Left(err) => Future.successful(Left(err))
                   case Right(()) =>
-                    outputRepo.updateOwned(id, user, req.name, mergedConfig).flatMap {
+                    // HEL-1882 D3: a creator who is no longer pipeline owner or editor gets the 404 a viewer or stranger gets.
+                    outputRepo.updateOwned(id, user, req.name, mergedConfig).recover { case PipelineWriteAccessRevoked(_) => None }.flatMap {
                       case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
                       case Some(updated) =>
                         audit("output.update", Some(updated.id.value), user)

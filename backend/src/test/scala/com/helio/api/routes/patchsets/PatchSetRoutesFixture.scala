@@ -149,7 +149,7 @@ abstract class PatchSetRoutesFixture
       .fold(e => fail(s"step seed failed: $e"), s => PipelineStepId(s.id))
 
   protected def newOutput(pipelineId: PipelineId, node: Option[PipelineStepId] = None): Output =
-    await(outputRepo.insertInternal(pipelineId, node, userA.id, "Out " + UUID.randomUUID(), OutputKind.Table, explicitRootId = None))
+    await(outputRepo.insertInternal(pipelineId, node, userA.id, "Out " + UUID.randomUUID(), OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(userA.id)))
 
   protected def bindPanel(output: Output, title: String = "Bound " + UUID.randomUUID().toString.take(4)): Panel = {
     val dashboard = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("Dash " + UUID.randomUUID())), userA))._1

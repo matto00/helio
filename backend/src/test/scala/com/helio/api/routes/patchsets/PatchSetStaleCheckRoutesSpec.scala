@@ -161,7 +161,7 @@ class PatchSetStaleCheckRoutesSpec
       case Right(p) => p
       case Left(e)  => fail(s"pipeline seed failed: $e")
     }
-    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, userA.id, name, OutputKind.Table, explicitRootId = None))
+    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, userA.id, name, OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(userA.id)))
   }
 
   private def seedPipelineWithStep(): (PipelineId, PipelineStepId) = {
@@ -233,7 +233,7 @@ class PatchSetStaleCheckRoutesSpec
 
     "return the same fingerprint when a pipeline run completes between two previews" in {
       val (pipelineId, _) = seedPipelineWithStep()
-      val output          = await(outputRepo.insertInternal(pipelineId, None, userA.id, "Run output", OutputKind.Table, explicitRootId = None))
+      val output          = await(outputRepo.insertInternal(pipelineId, None, userA.id, "Run output", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(userA.id)))
       val body            = s"""{"edits":[{"target":{"kind":"pipeline","id":"${pipelineId.value}"},"op":"update","patch":{"name":"Renamed pipeline"}}]}"""
       val before          = fingerprintsOf(body)
       await(pipelineRepo.updateLastRun(pipelineId, "succeeded", Instant.now(), Some(7L), userA, Some(false)))

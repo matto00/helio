@@ -161,7 +161,7 @@ class PublicRouteOwnerIdLeakApiSpec
     val pipe   = awaitDb(pipelineRepo.create("pipe", Vector(source.id), owner)).getOrElse(throw new IllegalStateException("pipeline create failed"))
     val pid    = PipelineId(pipe.id)
     val output = awaitDb(outputRepo.insertInternal(pid, None, owner.id, "Rows Output", OutputKind.Table,
-      schema = Vector(SchemaField("region", "string"), SchemaField("amount", "integer")), explicitRootId = None))
+      schema = Vector(SchemaField("region", "string"), SchemaField("amount", "integer")), explicitRootId = None, actor = AuthenticatedUser(owner.id)))
     awaitDb(snapshotRepo.overwriteRows(pid.value, None,
       Seq(JsObject("region" -> JsString("east"), "amount" -> JsNumber(1))), explicitRootId = None))
     addPoint(output.id.value, pid.value, now, Some(5.0))

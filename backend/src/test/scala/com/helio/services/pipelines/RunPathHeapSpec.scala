@@ -201,7 +201,7 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
     awaitDb(db.run(sqlu"UPDATE users SET tier = 'owner' WHERE id = $ownerId::uuid"))
     val pid   = seedPipeline(seedCsvSource(rows, 2, (r, c) => ("t" * (cellChars - 2)) + f"$c%d$r%03d".takeRight(2)))
     val steps = chain(pid, None, textHeavySteps(RunLimits.MaxLiveCells), "concat($a, $b, \"ж\")")
-    awaitDb(outputRepo.insertInternal(pid, Some(steps.last.id), UserId(ownerId), "payload", OutputKind.Table, JsObject("historyPayloads" -> JsBoolean(true)), explicitRootId = None))
+    awaitDb(outputRepo.insertInternal(pid, Some(steps.last.id), UserId(ownerId), "payload", OutputKind.Table, JsObject("historyPayloads" -> JsBoolean(true)), explicitRootId = None, actor = AuthenticatedUser(UserId(ownerId))))
     (pid, steps)
   }
 

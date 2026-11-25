@@ -118,7 +118,7 @@ class LiveRunReaperSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll
       sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
     )))
     // Bound to the root: node snapshots and history are only written for Output-bound nodes.
-    await(outputRepo.insertInternal(PipelineId(pid), None, owner.id, "root-out", OutputKind.Table, explicitRootId = Some(PipelineRootId(pid))))
+    await(outputRepo.insertInternal(PipelineId(pid), None, owner.id, "root-out", OutputKind.Table, explicitRootId = Some(PipelineRootId(pid)), actor = AuthenticatedUser(owner.id)))
     if (blockingAssert)
       await(stepRepo.insertInternal(PipelineId(pid), "assert", AssertConfig(Vector(AssertRule("rowCountMax", None, JsObject("count" -> JsNumber(1)), "error"))),
         enabled = true, None, explicitRootId = None))

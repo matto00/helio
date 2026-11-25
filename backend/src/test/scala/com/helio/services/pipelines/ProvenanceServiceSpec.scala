@@ -98,7 +98,7 @@ class ProvenanceServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfte
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
   private def output(p: PipelineId, step: Option[PipelineStep], root: Option[PipelineRoot] = None): Output =
-    await(outputRepo.insertInternal(p, step.map(_.id), owner.id, "out", OutputKind.Table, explicitRootId = root.map(_.id)))
+    await(outputRepo.insertInternal(p, step.map(_.id), owner.id, "out", OutputKind.Table, explicitRootId = root.map(_.id), actor = AuthenticatedUser(owner.id)))
 
   private def chain(o: Output): ProvenanceChain = await(service.forOutput(o))
 

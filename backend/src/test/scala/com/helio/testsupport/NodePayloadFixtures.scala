@@ -49,8 +49,8 @@ trait NodePayloadFixtures extends OutputHistoryApiHarness {
     )))
     val pipelineId = PipelineId(pid)
     val step  = awaitDb(stepRepo.insertInternal(pipelineId, "assert", AssertConfig(rules), enabled = true, None, explicitRootId = None))
-    val opted = awaitDb(outputRepo.insertInternal(pipelineId, Some(step.id), UserId(ownerId), "opted", OutputKind.Metric, optedConfig, explicitRootId = None))
-    val plain = awaitDb(outputRepo.insertInternal(pipelineId, Some(step.id), UserId(ownerId), "plain", OutputKind.Table, explicitRootId = None))
+    val opted = awaitDb(outputRepo.insertInternal(pipelineId, Some(step.id), UserId(ownerId), "opted", OutputKind.Metric, optedConfig, explicitRootId = None, actor = AuthenticatedUser(UserId(ownerId))))
+    val plain = awaitDb(outputRepo.insertInternal(pipelineId, Some(step.id), UserId(ownerId), "plain", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(UserId(ownerId))))
     PayloadFx(pipelineId, step.id, opted.id.value, plain.id.value)
   }
 

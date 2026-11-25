@@ -278,7 +278,7 @@ class PatchSetUndoLaterOutputsSpec extends AssistantStandingsFixture {
         val undoing = appUndo.undo(PatchSetApplicationId(r.applicationId.get), owner)
         Thread.sleep(1500)
         undoing.isCompleted shouldBe false
-        laterOutputId = await(outputRepo.insertInternal(PipelineId(pid), None, owner.id, "Landed late", OutputKind.Table, explicitRootId = None)).id.value
+        laterOutputId = await(outputRepo.insertInternal(PipelineId(pid), None, owner.id, "Landed late", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id))).id.value
         val logs = errorLogsDuring {
           holder.rollback()
           await(undoing).getOrElse(fail("expected an outcome list, not a refusal")).edits.map(_.status) shouldBe Vector("failed", "restored")

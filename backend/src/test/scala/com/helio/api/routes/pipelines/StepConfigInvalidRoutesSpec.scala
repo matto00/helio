@@ -255,7 +255,7 @@ class StepConfigInvalidRoutesSpec
     "return the named 422 from Output preview" in {
       val owner = newUser(); val pid = newPipeline(owner)
       val sid   = addStep(owner, pid, "upsertsource", emptyName)
-      await(outputRepo.insertInternal(pid, Some(PipelineStepId(sid)), owner.id, "out", OutputKind.Table, explicitRootId = None))
+      await(outputRepo.insertInternal(pid, Some(PipelineStepId(sid)), owner.id, "out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       Post(s"/pipelines/${pid.value}/preview") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
         val body = responseAs[StepConfigErrorResponse]

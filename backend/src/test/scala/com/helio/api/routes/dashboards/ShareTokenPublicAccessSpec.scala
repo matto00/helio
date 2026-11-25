@@ -143,7 +143,7 @@ class ShareTokenPublicAccessSpec
       throw new IllegalStateException("seedOutputPanelWithRows fixture: pipeline create failed")
     )
     val pipelineId = PipelineId(pipeline.id)
-    val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "Output", OutputKind.Table, explicitRootId = None))
+    val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "Output", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
     await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("a" -> JsString("1"))), explicitRootId = None))
 
     import PostgresProfile.api._

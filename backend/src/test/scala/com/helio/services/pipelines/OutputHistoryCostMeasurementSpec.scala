@@ -97,8 +97,8 @@ class OutputHistoryCostMeasurementSpec extends AnyWordSpec with Matchers with Be
     val step = await(stepRepo.insertInternal(pipelineId, "assert", AssertConfig(Vector.empty), enabled = true, None, explicitRootId = None))
     val metric = """{"fieldMapping":{"value":"amount"},"aggregation":{"value":"amount","agg":"sum"}}""".parseJson.asJsObject
     val chart  = """{"chartType":"line","fieldMapping":{"xAxis":"label","yAxis":"amount"}}""".parseJson.asJsObject
-    await(outputRepo.insertInternal(pipelineId, Some(step.id), user.id, "metric", OutputKind.Metric, metric, explicitRootId = None))
-    await(outputRepo.insertInternal(pipelineId, Some(step.id), user.id, "chart", OutputKind.Chart, chart, explicitRootId = None))
+    await(outputRepo.insertInternal(pipelineId, Some(step.id), user.id, "metric", OutputKind.Metric, metric, explicitRootId = None, actor = AuthenticatedUser(user.id)))
+    await(outputRepo.insertInternal(pipelineId, Some(step.id), user.id, "chart", OutputKind.Chart, chart, explicitRootId = None, actor = AuthenticatedUser(user.id)))
     pipelineId
   }
 

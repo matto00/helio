@@ -195,7 +195,7 @@ class Hel1516GranteeDriftPreviewSpec extends AnyWordSpec with Matchers with Befo
   private def firstStep(p: PipelineId): PipelineStep = await(stepRepo.listByPipelineInternal(p)).head
 
   private def seedOutput(p: PipelineId, ownerId: String, stepBound: Boolean): OutputId =
-    await(outRepo.insertInternal(p, if (stepBound) Some(firstStep(p).id) else None, UserId(ownerId), "out", OutputKind.Table, explicitRootId = None)).id
+    await(outRepo.insertInternal(p, if (stepBound) Some(firstStep(p).id) else None, UserId(ownerId), "out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(UserId(ownerId)))).id
 
   private def isNotFound(r: Either[ServiceError, _]): Boolean = r.left.toOption.exists(_.isInstanceOf[ServiceError.NotFound])
   private def isForbidden(r: Either[ServiceError, _]): Boolean = r.left.toOption.exists(_.isInstanceOf[ServiceError.Forbidden])

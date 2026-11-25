@@ -151,7 +151,7 @@ class PublicRouteOwnerIdLeakSpec
     val pipe    = await(pipelineRepo.create("pipe", Vector(source.id), owner)).getOrElse(throw new IllegalStateException("pipeline create failed"))
     val pid     = PipelineId(pipe.id)
     val output  = await(outputRepo.insertInternal(pid, None, owner.id, "Rows Output", OutputKind.Table,
-      schema = Vector(SchemaField("region", "string"), SchemaField("amount", "integer")), explicitRootId = None))
+      schema = Vector(SchemaField("region", "string"), SchemaField("amount", "integer")), explicitRootId = None, actor = AuthenticatedUser(owner.id)))
     await(nodeSnapshotRepo.overwriteRows(pid.value, None,
       Seq(JsObject("region" -> JsString("east"), "amount" -> JsNumber(1)), JsObject("region" -> JsString("west"), "amount" -> JsNumber(2))),
       explicitRootId = None))
@@ -162,7 +162,7 @@ class PublicRouteOwnerIdLeakSpec
     val b   = fx.newPipeline("Quarterly Pipeline", Vector("Sales DB", "Regions"))
     val s1  = fx.filterStep(b.pipelineId, None, Some(b.roots(0)))
     val a   = fx.assertStep(b.pipelineId, Some(s1.id))
-    val out = await(outputRepo.insertInternal(b.pipelineId, Some(a.id), owner.id, "Out", OutputKind.Table, explicitRootId = None))
+    val out = await(outputRepo.insertInternal(b.pipelineId, Some(a.id), owner.id, "Out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
     fx.snapshot(b.pipelineId, Some(a.id), None, rows = 3)
     fx.run(b.pipelineId, "failed", errorLog = Some("boom"), assertions = Seq(
       AssertionResult(a.id.value, "notNull", Some("amount"), "error", passed = false, observed = Some("x"), message = Some("m"))

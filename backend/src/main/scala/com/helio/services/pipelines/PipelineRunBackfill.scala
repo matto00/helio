@@ -1,9 +1,9 @@
 package com.helio.services.pipelines
 
-import com.helio.domain.model.{AssertionSink, AuthenticatedUser, DataFieldType, PipelineId, PipelineRootId, PipelineStepId, TruncationSink}
+import com.helio.domain.model.{AssertionSink, AuthenticatedUser, DataFieldType, Pipeline, PipelineId, PipelineRootId, PipelineStepId, TruncationSink}
 import com.helio.domain.engine.{JsonTextLength, NodeDependencyClosure, RunLimits, PipelineExecutionBackend, PipelineRowJson, SchemaField, SchemaInferenceEngine, NodeKey, RootKey, StepKey}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
-import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository, PipelineWriteAccess}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.slf4j.LoggerFactory
 import spray.json._
@@ -103,67 +103,76 @@ private[pipelines] final class PipelineRunBackfill(
     pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
       case None => Future.successful(())
       case Some(pipeline) =>
-        resolveAllRootDataSourcesInternal(pipelineId).flatMap {
-          case roots if roots.isEmpty => Future.successful(())
-          case allRoots if targetStepId.isEmpty =>
-            // HEL-913 task 5.10: when a specific root is named, evaluate ONLY that root -- with
-            // more than one root in `roots`, `backend.execute`'s `TreeWalkResult.rows` is always
-            // the LOWEST-positioned root's frame (R10), so passing every root here would silently
-            // backfill the wrong one whenever the Output is bound to a non-first root.
-            val roots = explicitRootId match {
-              case Some(rid) => allRoots.filter(_._1 == rid.value)
-              case None      => allRoots
-            }
-            if (roots.isEmpty) Future.successful(())
-            else backend
-              // HEL-1108 (C11): threaded for uniformity only -- this arm executes with
-              // Vector.empty steps (no step, hence no AI step, ever evaluates here).
-              .execute(pipeline, roots, Vector.empty, dataSourceRepo, new AssertionSink, new TruncationSink,
-                retain = roots.map(r => RootKey(r._1): NodeKey).toSet, ownerUserId = Some(pipeline.ownerId.value))
-              .flatMap(outcome => persistBackfilledRows(pipelineId, None, outcome.rows, explicitRootId))
-              .recover { case ex =>
-                logExecutionFailure(s"HEL-947: backfill source-level evaluation failed for pipeline ${pipelineId.value}", ex)
-              }
-          case roots =>
-            val stepId = targetStepId.get.value
-            pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
-              allSteps.find(_.id.value == stepId) match {
-                case None => Future.successful(())
-                case Some(target) if !target.enabled => Future.successful(())
-                case Some(target) =>
-                  // HEL-970 (design.md D2): same shared closure helper as `previewStep` --
-                  // no third, independently-authored notion of "depends on" survives here.
-                  val slicedSteps = NodeDependencyClosure.closureOf(allSteps.toVector, target)
-                  backend
-                    .execute(pipeline, roots, slicedSteps.toVector, dataSourceRepo, new AssertionSink, new TruncationSink,
-                      retain = Set(StepKey(target.id.value)), ownerUserId = Some(pipeline.ownerId.value))
-                    .flatMap { outcome =>
-                      val targetRows = outcome.nodeOutcomes.get(StepKey(target.id.value)).map(_.rows).getOrElse(outcome.rows)
-                      // Step-bound write (`nodeKey = Some(stepId)`) -- `explicitRootId` only
-                      // governs the ROOT-BOUND case (`persistBackfilledRows`'s own doc below),
-                      // so `None` here is exactly correct, not a re-introduced silent default.
-                      persistBackfilledRows(pipelineId, targetStepId, targetRows, explicitRootId = None)
-                    }
-                    .recover { case ex =>
-                      logExecutionFailure(s"HEL-947: backfill evaluation failed for pipeline ${pipelineId.value}, step $stepId", ex)
-                    }
-              }
-            }
+        // HEL-1882 D2: the acting user must STILL be owner or editor (a viewer can see the pipeline, and a grant revoked or
+        // downgraded since the Output write lands between that read and here). A refused backfill never executes the owner's sources.
+        pipelineRepo.currentWriteAccessInternal(pipelineId, user).flatMap { access =>
+          if (!access.mayWrite) { log.info(s"HEL-1882: backfill for pipeline ${pipelineId.value} skipped: the acting user no longer has write access ($access)"); Future.successful(()) }
+          else evaluateAndPersist(pipeline, pipelineId, targetStepId, user, explicitRootId)
         }
     }
 
-  private def persistBackfilledRows(pipelineId: PipelineId, nodeKey: Option[PipelineStepId], rows: Seq[Map[String, Any]], explicitRootId: Option[PipelineRootId]): Future[Unit] = {
+  private def evaluateAndPersist(pipeline: Pipeline, pipelineId: PipelineId, targetStepId: Option[PipelineStepId], user: AuthenticatedUser, explicitRootId: Option[PipelineRootId]): Future[Unit] =
+    resolveAllRootDataSourcesInternal(pipelineId).flatMap {
+      case roots if roots.isEmpty => Future.successful(())
+      case allRoots if targetStepId.isEmpty =>
+        // HEL-913 task 5.10: when a specific root is named, evaluate ONLY that root -- with
+        // more than one root in `roots`, `backend.execute`'s `TreeWalkResult.rows` is always
+        // the LOWEST-positioned root's frame (R10), so passing every root here would silently
+        // backfill the wrong one whenever the Output is bound to a non-first root.
+        val roots = explicitRootId match {
+          case Some(rid) => allRoots.filter(_._1 == rid.value)
+          case None      => allRoots
+        }
+        if (roots.isEmpty) Future.successful(())
+        else backend
+          // HEL-1108 (C11): threaded for uniformity only -- this arm executes with
+          // Vector.empty steps (no step, hence no AI step, ever evaluates here).
+          .execute(pipeline, roots, Vector.empty, dataSourceRepo, new AssertionSink, new TruncationSink,
+            retain = roots.map(r => RootKey(r._1): NodeKey).toSet, ownerUserId = Some(pipeline.ownerId.value))
+          .flatMap(outcome => persistBackfilledRows(pipelineId, None, outcome.rows, explicitRootId, user))
+          .recover { case ex =>
+            logExecutionFailure(s"HEL-947: backfill source-level evaluation failed for pipeline ${pipelineId.value}", ex)
+          }
+      case roots =>
+        val stepId = targetStepId.get.value
+        pipelineStepRepo.listByPipelineInternal(pipelineId).flatMap { allSteps =>
+          allSteps.find(_.id.value == stepId) match {
+            case None => Future.successful(())
+            case Some(target) if !target.enabled => Future.successful(())
+            case Some(target) =>
+              // HEL-970 (design.md D2): same shared closure helper as `previewStep` --
+              // no third, independently-authored notion of "depends on" survives here.
+              val slicedSteps = NodeDependencyClosure.closureOf(allSteps.toVector, target)
+              backend
+                .execute(pipeline, roots, slicedSteps.toVector, dataSourceRepo, new AssertionSink, new TruncationSink,
+                  retain = Set(StepKey(target.id.value)), ownerUserId = Some(pipeline.ownerId.value))
+                .flatMap { outcome =>
+                  val targetRows = outcome.nodeOutcomes.get(StepKey(target.id.value)).map(_.rows).getOrElse(outcome.rows)
+                  // Step-bound write (`nodeKey = Some(stepId)`) -- `explicitRootId` only
+                  // governs the ROOT-BOUND case (`persistBackfilledRows`'s own doc below),
+                  // so `None` here is exactly correct, not a re-introduced silent default.
+                  persistBackfilledRows(pipelineId, targetStepId, targetRows, explicitRootId = None, user)
+                }
+                .recover { case ex =>
+                  logExecutionFailure(s"HEL-947: backfill evaluation failed for pipeline ${pipelineId.value}, step $stepId", ex)
+                }
+          }
+        }
+    }
+
+  private def persistBackfilledRows(pipelineId: PipelineId, nodeKey: Option[PipelineStepId], rows: Seq[Map[String, Any]], explicitRootId: Option[PipelineRootId], user: AuthenticatedUser): Future[Unit] = {
     // HEL-1679 (design.md D3): the same wide-row limit a run applies; a refused backfill writes nothing and fails through the callers' logged `.recover`.
     if (rows.exists(row => RunLimits.rowTooWide(JsonTextLength.ofRow(row))))
       Future.failed(new IllegalStateException(s"HEL-1679: backfill for pipeline ${pipelineId.value} not written: a row is wider than ${RunLimits.MaxRowRenderChars} characters as JSON"))
-    else persistBackfilledRowsWithinLimit(pipelineId, nodeKey, rows, explicitRootId)
+    else persistBackfilledRowsWithinLimit(pipelineId, nodeKey, rows, explicitRootId, user)
   }
 
-  private def persistBackfilledRowsWithinLimit(pipelineId: PipelineId, nodeKey: Option[PipelineStepId], rows: Seq[Map[String, Any]], explicitRootId: Option[PipelineRootId]): Future[Unit] = {
+  private def persistBackfilledRowsWithinLimit(pipelineId: PipelineId, nodeKey: Option[PipelineStepId], rows: Seq[Map[String, Any]], explicitRootId: Option[PipelineRootId], user: AuthenticatedUser): Future[Unit] = {
     val nodeJsRows = rows.map { rowMap =>
       JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
     }.toVector
-    nodeSnapshotRepo.overwriteRows(pipelineId.value, nodeKey.map(_.value), nodeJsRows, explicitRootId.map(_.value)).flatMap { _ =>
+    // HEL-1882 D2: the guard runs as the snapshot transaction's first action, so a refusal replaces nothing.
+    nodeSnapshotRepo.overwriteRows(pipelineId.value, nodeKey.map(_.value), nodeJsRows, explicitRootId.map(_.value), guard = Some(PipelineWriteAccess.requireAction(pipelineId.value, user))).flatMap { _ =>
       outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
         // HEL-913 task 5.10: a root-bound backfill (`nodeKey = None`) refreshes only the
         // Output(s) bound to THAT root when `explicitRootId` is named, not every root-bound

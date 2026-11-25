@@ -117,7 +117,7 @@ class AlertEventRepositorySpec extends AnyWordSpec with Matchers with BeforeAndA
     val pipeline = await(pipeRepo.create("pipe", Vector(createdSource.id), user)).getOrElse(
       throw new IllegalStateException("newOutput fixture: pipeline create failed")
     )
-    await(outRepo.insertInternal(PipelineId(pipeline.id), None, ownerId, "out", OutputKind.Table, explicitRootId = None)).id
+    await(outRepo.insertInternal(PipelineId(pipeline.id), None, ownerId, "out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(ownerId))).id
   }
 
   /** Seeds a user + Output + AlertRule owned by `ownerId`, returning the rule. */

@@ -71,7 +71,7 @@ class OutputFilteredMetricRoutesSpec
   /** (pipelineId, outputId) with 500 rows (region east/west alternating, amount = i + 1). */
   private def seedOutput(kind: OutputKind, config: JsObject): (String, String) = {
     val (pid, _) = seedPipelineWithOutput(ownerId)
-    val out = awaitDb(outputRepo.insertInternal(PipelineId(pid), None, UserId(ownerId), "o", kind, config, schemaFields, explicitRootId = Some(PipelineRootId(pid))))
+    val out = awaitDb(outputRepo.insertInternal(PipelineId(pid), None, UserId(ownerId), "o", kind, config, schemaFields, explicitRootId = Some(PipelineRootId(pid)), actor = AuthenticatedUser(UserId(ownerId))))
     val rows = (0 until Total).map(i => JsObject("region" -> JsString(if (i % 2 == 0) "east" else "west"), "amount" -> JsNumber(i + 1)))
     awaitDb(snapshotRepo.overwriteRows(pid, None, rows, explicitRootId = Some(pid)))
     (pid, out.id.value)
@@ -233,7 +233,7 @@ class OutputFilteredMetricRoutesSpec
   private def seedRankedOutput(config: JsObject): (String, String) = {
     val (pid, _) = seedPipelineWithOutput(ownerId)
     val fields   = schemaFields :+ SchemaField("rank", "integer")
-    val out = awaitDb(outputRepo.insertInternal(PipelineId(pid), None, UserId(ownerId), "o", OutputKind.Metric, config, fields, explicitRootId = Some(PipelineRootId(pid))))
+    val out = awaitDb(outputRepo.insertInternal(PipelineId(pid), None, UserId(ownerId), "o", OutputKind.Metric, config, fields, explicitRootId = Some(PipelineRootId(pid)), actor = AuthenticatedUser(UserId(ownerId))))
     val rows = (0 until Total).map(i =>
       JsObject("region" -> JsString(if (i % 2 == 0) "east" else "west"), "amount" -> JsNumber(i + 1), "rank" -> JsNumber(i + 1 + rankOffset))
     )

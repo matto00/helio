@@ -90,7 +90,7 @@ class PublicPathRlsSmokeSpec extends AnyWordSpec with Matchers with BeforeAndAft
       throw new IllegalStateException("seedPipelineWithOutput fixture: pipeline create failed")
     )
     val pid = PipelineId(pipeline.id)
-    val output = await(outputRepo.insertInternal(pid, None, owner.id, "out", OutputKind.Table, explicitRootId = None))
+    val output = await(outputRepo.insertInternal(pid, None, owner.id, "out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
     await(nodeSnapshotRepo.overwriteRows(pid.value, None, Seq(JsObject("a" -> JsNumber(1))), explicitRootId = None))
     (pid, output.id.value)
   }

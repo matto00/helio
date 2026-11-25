@@ -94,7 +94,7 @@ class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
     val pipeline = await(pipeRepo.create("pipe", Vector(createdSource.id), user)).getOrElse(
       throw new IllegalStateException("newOutput fixture: pipeline create failed")
     )
-    await(outRepo.insertInternal(PipelineId(pipeline.id), None, ownerId, "out", OutputKind.Table, explicitRootId = None)).id
+    await(outRepo.insertInternal(PipelineId(pipeline.id), None, ownerId, "out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(ownerId))).id
   }
 
   private val defaultCondition: JsValue =

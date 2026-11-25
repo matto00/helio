@@ -119,7 +119,7 @@ class PanelCapabilityServiceSpec extends AnyWordSpec with Matchers with BeforeAn
       owner: UserId = ownerA,
       name: String = "MyOutput"
   ): Output =
-    await(outputRepo.insertInternal(pipelineId, nodeStepId = None, ownerId = owner, name = name, kind = OutputKind.Table, schema = schema, explicitRootId = None))
+    await(outputRepo.insertInternal(pipelineId, nodeStepId = None, ownerId = owner, name = name, kind = OutputKind.Table, schema = schema, explicitRootId = None, actor = AuthenticatedUser(owner)))
 
   private def writeRows(pipelineId: PipelineId, count: Int): Unit =
     await(nodeSnapshotRepo.overwriteRows(pipelineId.value, nodeStepId = None, Vector.fill(count)(JsObject.empty), explicitRootId = None))

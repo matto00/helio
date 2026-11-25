@@ -304,7 +304,7 @@ class UpsertTargetWritableRoutesSpec
     "be refused by Output preview" in {
       val owner = newUser(); val pid = newPipeline(owner); val bad = seedSource(owner, "csv")
       val sid   = insertStoredUpsert(pid, bad.id.value)
-      await(outputRepo.insertInternal(pid, Some(PipelineStepId(sid)), owner.id, "out", OutputKind.Table, explicitRootId = None))
+      await(outputRepo.insertInternal(pid, Some(PipelineStepId(sid)), owner.id, "out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       Post(s"/pipelines/${pid.value}/preview") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.UnprocessableEntity
         responseAs[StepConfigErrorResponse].stepId shouldBe sid

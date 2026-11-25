@@ -52,7 +52,7 @@ class OutputConfigKeyValidationSpec
   private def s(v: String): JsString = JsString(v)
   private def count(pid: String): Int = awaitDb(outputRepo.listByPipelineInternal(PipelineId(pid))).size
   private def seed(pid: String, kind: OutputKind, config: JsObject): String =
-    awaitDb(outputRepo.insertInternal(PipelineId(pid), None, owner.id, "seeded", kind, config, explicitRootId = None)).id.value
+    awaitDb(outputRepo.insertInternal(PipelineId(pid), None, owner.id, "seeded", kind, config, explicitRootId = None, actor = AuthenticatedUser(owner.id))).id.value
 
   private val typos: Seq[(String, String, String)] = Seq(
     ("chart", "chartTyp", "chartType"), ("metric", "lable", "label"), ("table", "columnOrdr", "columnOrder"),

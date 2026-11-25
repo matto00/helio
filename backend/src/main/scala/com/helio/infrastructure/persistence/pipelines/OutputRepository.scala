@@ -244,9 +244,13 @@ class OutputRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pipeline
       // to. Required (no default): `None` auto-resolves the pipeline's first/only root (exactly the
       // Stage-1/2 single-root-compatible behavior); the service layer
       // passes it explicitly once a caller can name a root.
-      explicitRootId: Option[PipelineRootId]
+      explicitRootId: Option[PipelineRootId],
+      // HEL-1882: the ACTING user, re-checked as pipeline owner or editor right after the pipeline-row lock (a grant revoked or
+      // downgraded since the service's check refuses the insert). Required, never defaulted: `ownerId` is the Output's
+      // creator, but a caller that forgot the actor would silently skip the re-check.
+      actor: AuthenticatedUser
   ): Future[Output] =
-    ctx.withSystemContext((locks.lockPipelines(LockSite.OutputCreate, Seq(pipelineId.value)) andThen insertInternalAction(pipelineId, nodeStepId, ownerId, name, kind, config, schema, tag, explicitRootId)).transactionally)
+    ctx.withSystemContext((locks.lockPipelines(LockSite.OutputCreate, Seq(pipelineId.value)) andThen PipelineWriteAccess.requireAction(pipelineId.value, actor) andThen insertInternalAction(pipelineId, nodeStepId, ownerId, name, kind, config, schema, tag, explicitRootId)).transactionally)
 
   /** DBIO variant of `insertInternal` above -- extracted (HEL-906 task 3.1, coordinator ruling
    *  D3) so `PipelineService`'s single-call transactional pipeline-creation path can compose this
@@ -296,7 +300,8 @@ class OutputRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pipeline
    *  `withUserContext` call here is the privileged-pool discipline this
    *  file's other methods share, not the ACL check itself. Returns the
    *  updated `Output` (via `findById`) or `None` when the row doesn't exist
-   *  or isn't owned by `user` (RLS silently updates zero rows). */
+   *  or isn't owned by `user` (RLS silently updates zero rows). HEL-1882: fails with [[PipelineWriteAccessRevoked]], writing nothing,
+   *  when `user` is no longer the pipeline owner or an editor. */
   def updateOwned(id: OutputId, user: AuthenticatedUser, name: Option[String], config: Option[JsObject]): Future[Option[Output]] = {
     val now = Instant.now()
     val nameAction   = name.map(n => table.filter(_.id === id.value).map(r => (r.name, r.updatedAt)).update((n, now)))
@@ -315,7 +320,15 @@ class OutputRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pipeline
     // policy (owner-only, V94) silently dropped the write for a non-owner caller -- returning
     // `None` there is what makes that 404, not a no-op-that-looks-like-success (the "RLS
     // silently no-ops instead of erroring" trap CONTRIBUTING.md's ACL triad warns about).
-    ctx.withUserContext(user.id.value)(combined.transactionally).flatMap { rowsAffected =>
+    // HEL-1882 D3 (the HEL-1707 R2 rule for delete, applied to PATCH): inside the same transaction, the caller must STILL be the
+    // pipeline owner or an editor. A creator downgraded to viewer passes `outputs_select`/`outputs_update` (RLS admits any grantee who
+    // created the row), so only this check refuses them. A row the caller cannot see updates nothing and is a 404 as before.
+    val guarded: DBIO[Int] =
+      table.filter(_.id === id.value).map(_.pipelineId).result.headOption.flatMap {
+        case Some(pipelineId) => PipelineWriteAccess.requireAction(pipelineId, user).andThen(combined)
+        case None             => DBIO.successful(0)
+      }
+    ctx.withUserContext(user.id.value)(guarded.transactionally).flatMap { rowsAffected =>
       if (rowsAffected > 0) findById(id, user)
       else if (name.isEmpty && config.isEmpty) findByOwned(id, user)
       else Future.successful(None)
