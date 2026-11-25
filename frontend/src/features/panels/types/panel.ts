@@ -379,9 +379,11 @@ export const emptyFormConfig = (): FormPanelConfig => ({
 
 // HEL-1087 design.md D2/D5 — the wire shapes for `POST /api/panels/:id/submit`.
 
-/** Request body — `values` is the only recognized key (backend `FormSubmitRequest`). */
+/** Request body — `values` and the optional `submitKey` are the only recognized keys (backend `FormSubmitRequest`).
+ *  `submitKey` (HEL-1175) is a client-minted UUID: a same-key re-send appends nothing and replays the original row. */
 export interface FormSubmitRequest {
   values: Record<string, unknown>;
+  submitKey?: string;
 }
 
 /** One field-level validation failure on the wire (backend `FieldValidationError`). */

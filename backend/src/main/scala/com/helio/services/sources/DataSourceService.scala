@@ -869,20 +869,35 @@ final class DataSourceService(
       build:       (Vector[DatasetFieldDeclaration], Instant) => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]],
       panelId:     PanelId,
       writer:      AuthenticatedUser,
-      sourceOwner: UserId
+      sourceOwner: UserId,
+      submitKey:   Option[UUID] = None
   ): Future[Either[FormSubmitError, RowWriteResult]] = {
     val ownerContext = DataSourceService.ownerContext(sourceOwner, writer)
     dataSourceRepo.findByIdOwned(id, ownerContext).flatMap {
       case None => Future.successful(Left(FormSubmitError(ServiceError.NotFound("Data source not found"))))
       case Some(_: DatasetSource) =>
         val now = Instant.now().truncatedTo(ChronoUnit.MICROS)
-        dataSourceRepo.appendBuiltRow(id, build, staticMaxRows, now, ownerContext).flatMap {
+        val appended: Future[Option[Either[DataSourceRepository.FormRowBuildFailure, DataSourceRepository.KeyedAppend]]] = submitKey match {
+          case None => dataSourceRepo.appendBuiltRow(id, build, staticMaxRows, now, ownerContext)
+              .map(_.map(_.map { case (ds, row) => DataSourceRepository.KeyedAppend.Appended(ds, row) }))
+          case Some(key) =>
+            dataSourceRepo.appendBuiltRowKeyed(id, build, staticMaxRows, now, ownerContext, DataSourceRepository.SubmitKeyStamp(key, writer.id, panelId))
+              // The unique index's violation surfaces only after Slick rolled the transaction back, so it is mapped here,
+              // never inside the DBIO. Only the submit-key constraint is a conflict; any other failure stays a failure.
+              .recover { case t if DataSourceService.isSubmitKeyConflict(t) => Some(Left(DataSourceRepository.FormRowBuildFailure.KeyConflict)) }
+        }
+        appended.flatMap {
           case None => Future.successful(Left(FormSubmitError(ServiceError.NotFound("Data source not found"))))
           case Some(Left(DataSourceRepository.FormRowBuildFailure.FieldErrors(errors))) =>
             Future.successful(Left(FormSubmitError.fromFieldErrors(errors)))
           case Some(Left(DataSourceRepository.FormRowBuildFailure.RowLimitExceeded(msg))) =>
             Future.successful(Left(FormSubmitError(ServiceError.BadRequest(msg), reason = FormSubmitError.Reason.RowLimit)))
-          case Some(Right((ds, inserted))) =>
+          case Some(Left(DataSourceRepository.FormRowBuildFailure.KeyConflict)) =>
+            Future.successful(Left(FormSubmitError(ServiceError.Conflict(DataSourceService.SubmitKeyConflictMessage))))
+          // A replay is a read of the original row: no audit event, no auto-run, no debounce re-arm, no denials.
+          case Some(Right(DataSourceRepository.KeyedAppend.Replayed(ds, row))) =>
+            Future.successful(Right(RowWriteResult.fromRepositoryRows(ds, Vector(row)).copy(replayed = true)))
+          case Some(Right(DataSourceRepository.KeyedAppend.Appended(ds, inserted))) =>
             audit("data_source.rows.append", Some(ds.id.value), writer, JsObject("panelId" -> JsString(panelId.value), "sourceOwnerId" -> JsString(sourceOwner.value)))
             triggerAutoRunAwaited(id, writer).map { denied =>
               Right(RowWriteResult.fromRepositoryRows(ds, Vector(inserted), denied))
@@ -1380,6 +1395,17 @@ final class DataSourceService(
 }
 
 object DataSourceService {
+  /** HEL-1175: the fixed `409` text for a submit key already used by another submitter or panel; names no row, seq or user. */
+  val SubmitKeyConflictMessage: String = "This submission key was already used for a different submission."
+
+  /** HEL-1175: true only for a unique violation (SQLSTATE 23505) of the submit-key index; any other failure, including
+   *  another unique constraint such as the per-dataset `seq`, is not a key conflict. */
+  def isSubmitKeyConflict(t: Throwable): Boolean = t match {
+    case e: PSQLException =>
+      e.getSQLState == "23505" && Option(e.getServerErrorMessage).flatMap(m => Option(m.getConstraint)).contains("ux_dataset_rows_submit_key")
+    case _ => false
+  }
+
   /** HEL-1784 (design.md D2): the principal whose database context a form submit's source read and append run in. Used
    *  for the DB session only; `writer`'s source is kept so nothing downstream sees an unexpected audit source, and no
    *  token id is carried because this principal never authenticates anything. */
@@ -1461,8 +1487,10 @@ final case class RowWriteRow(id: String, seq: Long, updatedAt: Instant)
  *  `deniedPipelines` (HEL-1096 design.md D1): every downstream pipeline this write denied
  *  auto-run for AND the writer has at least a viewer grant on -- already filtered by
  *  `AutoRunTriggerService.handleDenied`, never re-filtered here. Empty when nothing was denied,
- *  or when every denied pipeline was invisible to the writer. */
-final case class RowWriteResult(source: DataSource, rows: Vector[RowWriteRow], deniedPipelines: Vector[EvaluatedPipeline.Denied])
+ *  or when every denied pipeline was invisible to the writer.
+ *
+ *  `replayed` (HEL-1175): a keyed form submit answered from the row an earlier same-key submit appended; nothing was written. */
+final case class RowWriteResult(source: DataSource, rows: Vector[RowWriteRow], deniedPipelines: Vector[EvaluatedPipeline.Denied], replayed: Boolean = false)
 
 object RowWriteResult {
   def fromRepositoryRows(source: DataSource, rows: Vector[DatasetRowRow], deniedPipelines: Vector[EvaluatedPipeline.Denied] = Vector.empty): RowWriteResult =

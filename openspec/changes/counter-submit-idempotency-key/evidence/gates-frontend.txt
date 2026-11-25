@@ -1,0 +1,8 @@
+lint-exit 0
+fmt-exit 0
+Test Suites: 76 passed, 76 total
+Tests:       683 passed, 683 total
+Test Suites: 945 passed, 945 total
+Tests:       10929 passed, 10929 total
+test-exit 0
+build-exit 0

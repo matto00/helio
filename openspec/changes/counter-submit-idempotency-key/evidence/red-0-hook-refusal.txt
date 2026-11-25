@@ -1,0 +1,1 @@
+pre-commit hook (lint ok, frontend typecheck failed on the not-yet-existing 4th param) refused the red commit with 'husky - pre-commit script failed (code 2)'; no bypass used. The red runs above are kept as evidence instead.

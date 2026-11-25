@@ -4,6 +4,7 @@ import type {
   DividerOrientation,
   FieldValidationError,
   FormPanelConfig,
+  FormSubmitRequest,
   FormSubmitResponse,
   ImageFit,
   OutputControlSpec,
@@ -168,6 +169,14 @@ export async function fetchFormSchema(panelId: string): Promise<DatasetSchemaRes
   return response.data;
 }
 
+/** HEL-1175: waits before each automatic re-send of a no-response submit; its length is the retry cap (2). */
+const SUBMIT_RETRY_BACKOFF_MS = [300, 900];
+
+/** Test seam for [[submitFormPanel]]'s retry backoff. */
+export interface SubmitRetryOptions {
+  backoffMs?: number[];
+}
+
 /** `POST /api/panels/:id/submit` (HEL-1087 design.md D1/D2, HEL-1086 design.md D1/D5) — a `form`
  *  panel's submit path. `values` are already the typed, submit-ready payload
  *  (`state/formSubmission.ts`'s `buildSubmitValues`) — this function does no shaping of its own.
@@ -180,12 +189,28 @@ export async function submitFormPanel(
   panelId: string,
   values: Record<string, unknown>,
   files: Record<string, File> = {},
+  retry: SubmitRetryOptions = {},
 ): Promise<FormSubmitResponse> {
   if (Object.keys(files).length === 0) {
-    const response = await httpClient.post<FormSubmitResponse>(`/api/panels/${panelId}/submit`, {
-      values,
-    });
-    return response.data;
+    // HEL-1175: one idempotency key per call. A request that gets no HTTP response is re-sent with the same body and
+    // key (the server answers a same-key duplicate from the row it already appended), so a lost acknowledgement never
+    // double-counts. A manual re-click is a new call and so a new key.
+    const body: FormSubmitRequest = { values, submitKey: crypto.randomUUID() };
+    const backoffMs = retry.backoffMs ?? SUBMIT_RETRY_BACKOFF_MS;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const response = await httpClient.post<FormSubmitResponse>(
+          `/api/panels/${panelId}/submit`,
+          body,
+        );
+        return response.data;
+      } catch (err) {
+        if (!(isAxiosError(err) && err.response === undefined) || attempt >= backoffMs.length) {
+          throw err;
+        }
+        await new Promise((resolve) => setTimeout(resolve, backoffMs[attempt]));
+      }
+    }
   }
 
   const formData = new FormData();

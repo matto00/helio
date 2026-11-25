@@ -1,0 +1,8 @@
+[info] - should refuse a different submitter's same-key submit with 409 and reveal no row *** FAILED ***
+[info] - should refuse the same submitter's same-key submit through a different panel with 409 *** FAILED ***
+[info] - should answer KeyConflict for another user or another panel, writing nothing *** FAILED ***
+[info] - should refuse a different submitter's same-key submit with a conflict, writing nothing *** FAILED ***
+[info] - should keep the row when its panel is deleted, clear the reference, and then only ever conflict *** FAILED ***
+[info] - should keep the row when its submitting editor is deleted, clear the reference, and then only ever conflict *** FAILED ***
+[info] Tests: succeeded 28, failed 6, canceled 0, ignored 0, pending 0
+[info] *** 6 TESTS FAILED ***

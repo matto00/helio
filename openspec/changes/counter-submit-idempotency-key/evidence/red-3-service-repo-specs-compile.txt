@@ -1,0 +1,30 @@
+[error] backend/src/test/scala/com/helio/infrastructure/persistence/sources/DatasetRowSubmitKeyRepositorySpec.scala:91:26: value SubmitKeyStamp is not a member of object
+[error]     DataSourceRepository.SubmitKeyStamp(key, UserId(user), panel)
+[error]                          ^
+[error] backend/src/test/scala/com/helio/infrastructure/persistence/sources/DatasetRowSubmitKeyRepositorySpec.scala:93:63: type SubmitKeyStamp is not a member of object 
+[error]   private def keyed(id: DataSourceId, s: DataSourceRepository.SubmitKeyStamp) =
+[error]                                                               ^
+[error] backend/src/test/scala/com/helio/infrastructure/persistence/sources/DatasetRowSubmitKeyRepositorySpec.scala:94:16: value appendBuiltRowKeyed is not a member of c
+[error]     await(repo.appendBuiltRowKeyed(id, build, 100, Instant.now(), owner, s))
+[error]                ^
+[error] backend/src/test/scala/com/helio/infrastructure/persistence/sources/DatasetRowSubmitKeyRepositorySpec.scala:127:123: unknown parameter name: lookupFirst
+[error]         ctx.withUserContext(owner.id.value)(repo.appendBuiltRowAction(id, build, 100, Instant.now(), Some(s), lookupFirst = false)),
+[error]                                                                                                                           ^
+[error] backend/src/test/scala/com/helio/infrastructure/persistence/sources/DatasetRowSubmitKeyRepositorySpec.scala:127:106: too many arguments (found 6, expected 4) for
+[error]         ctx.withUserContext(owner.id.value)(repo.appendBuiltRowAction(id, build, 100, Instant.now(), Some(s), lookupFirst = false)),
+[error]                                                                                                          ^
+[error] backend/src/test/scala/com/helio/infrastructure/persistence/sources/DatasetRowSubmitKeyRepositorySpec.scala:131:25: value isSubmitKeyConflict is not a member of 
+[error]       DataSourceService.isSubmitKeyConflict(failure) shouldBe true
+[error]                         ^
+[error] backend/src/test/scala/com/helio/infrastructure/persistence/sources/DatasetRowSubmitKeyRepositorySpec.scala:143:25: value isSubmitKeyConflict is not a member of 
+[error]       DataSourceService.isSubmitKeyConflict(failure) shouldBe false
+[error]                         ^
+[error] backend/src/test/scala/com/helio/infrastructure/persistence/sources/DatasetRowSubmitKeyRepositorySpec.scala:147:25: value isSubmitKeyConflict is not a member of 
+[error]       DataSourceService.isSubmitKeyConflict(new RuntimeException("x")) shouldBe false
+[error]                         ^
+[error] backend/src/test/scala/com/helio/services/panels/FormSubmitEditorRlsSpec.scala:271:96: unknown parameter name: submitKey
+[error]     await(panelService.submitForm(s.panelId, Map("quantity" -> JsNumber(3)), writer, submitKey = Some(key)))
+[error]                                                                                                ^
+[error] 9 errors found
+[error] (Test / compileIncremental) Compilation failed
+[error] elapsed time: 3 s, cache 94%, 16 disk cache hits, 1 onsite task

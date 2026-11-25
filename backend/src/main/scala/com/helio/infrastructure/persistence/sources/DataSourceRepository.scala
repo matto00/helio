@@ -710,15 +710,70 @@ class DataSourceRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pipe
       updatedAt: Instant,
       user:      AuthenticatedUser
   ): Future[Option[Either[FormRowBuildFailure, (DataSource, DatasetRowRow)]]] =
-    ctx.withUserContext(user.id.value)(appendBuiltRowAction(id, build, maxRows, updatedAt))
+    ctx.withUserContext(user.id.value)(appendBuiltRowAction(id, build, maxRows, updatedAt, None)).map(_.map(_.map(a => (a.ds, a.row))))
 
-  private[persistence] def appendBuiltRowAction(
+  /** HEL-1175: [[appendBuiltRow]] with an idempotency key. Under the source lock and BEFORE any build, shape or cap
+   *  check, a row of this dataset already carrying `stamp.key` is looked up: the same submitter and panel get that row
+   *  back as [[KeyedAppend.Replayed]] (nothing written); anyone else gets [[FormRowBuildFailure.KeyConflict]]. No such
+   *  row: the append runs as in [[appendBuiltRow]] and the key, submitter and panel are stamped on the inserted row in
+   *  the same transaction. */
+  def appendBuiltRowKeyed(
       id:        DataSourceId,
       build:      (Vector[DatasetFieldDeclaration], Instant) => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]],
       maxRows:   Int,
-      updatedAt: Instant
-  ): DBIO[Option[Either[FormRowBuildFailure, (DataSource, DatasetRowRow)]]] = {
+      updatedAt: Instant,
+      user:      AuthenticatedUser,
+      stamp:     SubmitKeyStamp
+  ): Future[Option[Either[FormRowBuildFailure, KeyedAppend]]] =
+    ctx.withUserContext(user.id.value)(appendBuiltRowAction(id, build, maxRows, updatedAt, Some(stamp)))
+
+  /** `lookupFirst = false` exists only so a spec can reach the unique index (the lookup normally answers first). */
+  private[persistence] def appendBuiltRowAction(
+      id:          DataSourceId,
+      build:        (Vector[DatasetFieldDeclaration], Instant) => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]],
+      maxRows:     Int,
+      updatedAt:   Instant,
+      stamp:       Option[SubmitKeyStamp],
+      lookupFirst: Boolean = true
+  ): DBIO[Option[Either[FormRowBuildFailure, KeyedAppend]]] = {
     val rowsTable = TableQuery[DatasetRowTable]
+
+    def appendFresh(declaration: Vector[DatasetFieldDeclaration]): DBIO[Either[FormRowBuildFailure, KeyedAppend]] =
+      // HEL-1089 design.md Decision 1/3a: the SAME `updatedAt` instant this call already uses for
+      // the row/source timestamps is also handed to `build` as `occurred_at` for a counter
+      // submission — one instant, no second `Instant.now()` call, both assigned inside this lock.
+      build(declaration, updatedAt) match {
+        case Left(errors) => DBIO.successful(Left(FormRowBuildFailure.FieldErrors(errors)))
+        case Right(row) =>
+          rowsTable.filter(_.dataSourceId === id.value).sortBy(_.seq).result.flatMap { existingRows =>
+            if (existingRows.size + 1 > maxRows)
+              DBIO.successful(Left(FormRowBuildFailure.RowLimitExceeded(s"Payload exceeds the maximum of $maxRows rows")))
+            else
+              insertAppendedRowsAction(id, declaration, existingRows, Vector(row), updatedAt).flatMap { case (ds, inserted) =>
+                val row = inserted.head
+                val stamped = stamp match {
+                  case None => DBIO.successful(())
+                  case Some(st) =>
+                    sqlu"""UPDATE dataset_rows SET submit_key = ${st.key.toString}::uuid, submit_user_id = ${st.userId.value}::uuid,
+                                  submit_panel_id = ${st.panelId.value} WHERE id = ${row.id}""".map(_ => ())
+                }
+                stamped.map(_ => Right(KeyedAppend.Appended(ds, row)))
+              }
+          }
+      }
+
+    def lookup(st: SubmitKeyStamp): DBIO[Option[Either[FormRowBuildFailure, KeyedAppend]]] =
+      sql"""SELECT id, submit_user_id::text, submit_panel_id FROM dataset_rows
+            WHERE data_source_id = ${id.value} AND submit_key = ${st.key.toString}::uuid""".as[(String, Option[String], Option[String])].headOption.flatMap {
+        case None => DBIO.successful(None)
+        case Some((rowId, user, panel)) if user.contains(st.userId.value) && panel.contains(st.panelId.value) =>
+          for {
+            row   <- rowsTable.filter(_.id === rowId).result.head
+            dsOpt <- table.filter(_.id === id.value).result.headOption
+          } yield Some(Right(KeyedAppend.Replayed(dsOpt.map(rowToDomain).get, row)))
+        case Some(_) => DBIO.successful(Some(Left(FormRowBuildFailure.KeyConflict)))
+      }
+
     for {
       _            <- lockSource(id)
       schemaColOpt <- table.filter(_.id === id.value).map(_.datasetSchema).result.headOption
@@ -726,20 +781,11 @@ class DataSourceRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pipe
         case None => DBIO.successful(None)
         case Some(schemaCol) =>
           val declaration = schemaCol.map(_.parseJson.convertTo[Vector[DatasetFieldDeclaration]]).getOrElse(Vector.empty)
-          // HEL-1089 design.md Decision 1/3a: the SAME `updatedAt` instant this call already uses for
-          // the row/source timestamps is also handed to `build` as `occurred_at` for a counter
-          // submission — one instant, no second `Instant.now()` call, both assigned inside this lock.
-          build(declaration, updatedAt) match {
-            case Left(errors) => DBIO.successful(Some(Left(FormRowBuildFailure.FieldErrors(errors))))
-            case Right(row) =>
-              rowsTable.filter(_.dataSourceId === id.value).sortBy(_.seq).result.flatMap { existingRows =>
-                if (existingRows.size + 1 > maxRows)
-                  DBIO.successful(Some(Left(FormRowBuildFailure.RowLimitExceeded(s"Payload exceeds the maximum of $maxRows rows"))))
-                else
-                  insertAppendedRowsAction(id, declaration, existingRows, Vector(row), updatedAt).map { case (ds, inserted) =>
-                    Some(Right((ds, inserted.head)))
-                  }
-              }
+          val existing: DBIO[Option[Either[FormRowBuildFailure, KeyedAppend]]] =
+            stamp.filter(_ => lookupFirst).fold[DBIO[Option[Either[FormRowBuildFailure, KeyedAppend]]]](DBIO.successful(None))(lookup)
+          existing.flatMap {
+            case Some(answered) => DBIO.successful(Some(answered))
+            case None           => appendFresh(declaration).map(Some(_))
           }
       }
     } yield result
@@ -1173,6 +1219,16 @@ object DataSourceRepository {
    *  request (D7: not pinned for a caller's whole paging session). */
   final case class RowListPage(rows: Vector[DatasetRowRow], nextCursor: Option[Long], total: Int)
 
+  /** HEL-1175: the idempotency key of a form submit with who sent it and through which panel. */
+  final case class SubmitKeyStamp(key: UUID, userId: UserId, panelId: PanelId)
+
+  /** HEL-1175: a keyed append either wrote a new row or replayed the one already recorded for the key. */
+  sealed trait KeyedAppend { def ds: DataSource; def row: DatasetRowRow }
+  object KeyedAppend {
+    final case class Appended(ds: DataSource, row: DatasetRowRow) extends KeyedAppend
+    final case class Replayed(ds: DataSource, row: DatasetRowRow) extends KeyedAppend
+  }
+
   /** HEL-1087 design.md D3: the two distinguishable failure shapes of `appendBuiltRow` — a
    *  sealed trait (not a bare `String`/`Either`) so `DataSourceService.appendFormRow` can map
    *  each to the right `FormSubmitError` shape without re-parsing a message. `FieldErrors` carries
@@ -1183,6 +1239,8 @@ object DataSourceRepository {
   object FormRowBuildFailure {
     final case class FieldErrors(errors: Vector[DatasetRowValidator.FieldError]) extends FormRowBuildFailure
     final case class RowLimitExceeded(message: String) extends FormRowBuildFailure
+    /** HEL-1175: the submit key is already recorded for another submitter or another panel. */
+    case object KeyConflict extends FormRowBuildFailure
   }
 
   implicit val instantColumnType: BaseColumnType[Instant] =

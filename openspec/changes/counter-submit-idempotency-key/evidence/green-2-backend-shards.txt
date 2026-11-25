@@ -1,0 +1,7 @@
+shard-api: [info] Tests: succeeded 3011, failed 0, canceled 0, ignored 0, pending 0 [success] elapsed time: 540 s (0:09:00.0), cache 16%, 44 disk cache hits, 217 on
+shard-svc-pipelines: [info] Tests: succeeded 808, failed 0, canceled 2, ignored 0, pending 0 [success] elapsed time: 178 s (0:02:58.0), cache 33%, 45 disk cache hits, 89 ons
+shard-svc-rest: [info] Tests: succeeded 1878, failed 0, canceled 3, ignored 0, pending 0 [success] elapsed time: 174 s (0:02:54.0), cache 43%, 86 disk cache hits, 113 on
+shard-rest: [info] Tests: succeeded 4785, failed 0, canceled 0, ignored 0, pending 0 [success] elapsed time: 225 s (0:03:45.0), cache 59%, 186 disk cache hits, 127 o
+[info] V119OwnerFkGuardSpec:
+[info] V119, run as a NOSUPERUSER NOBYPASSRLS table-owning role
+01:04:36.747 INFO  [pool-1-thread-1-ScalaTest-running-V119OwnerFkGuardSpec] org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:41755/v119_1?user=helio_migration_test (PostgreSQL 14.10)

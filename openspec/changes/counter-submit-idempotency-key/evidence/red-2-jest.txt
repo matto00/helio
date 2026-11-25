@@ -1,0 +1,103 @@
+FAIL src/features/panels/services/panelService.submitKey.test.ts
+  ● Test suite failed to run
+
+    src/features/panels/services/panelService.submitKey.test.ts:41:69 - error TS2554: Expected 2-3 arguments, but got 4.
+
+    41     await submitFormPanel("p1", { quantity: 3, note: "hello" }, {}, retry);
+                                                                           ~~~~~
+    src/features/panels/services/panelService.submitKey.test.ts:55:58 - error TS2554: Expected 2-3 arguments, but got 4.
+
+    55     await expect(submitFormPanel("p1", { delta: 1 }, {}, retry)).resolves.toEqual(OK.data);
+                                                                ~~~~~
+    src/features/panels/services/panelService.submitKey.test.ts:63:58 - error TS2554: Expected 2-3 arguments, but got 4.
+
+    63     await expect(submitFormPanel("p1", { delta: 1 }, {}, retry)).rejects.toBe(err);
+                                                                ~~~~~
+    src/features/panels/services/panelService.submitKey.test.ts:71:58 - error TS2554: Expected 2-3 arguments, but got 4.
+
+    71     await expect(submitFormPanel("p1", { delta: 1 }, {}, retry)).rejects.toBe(err);
+                                                                ~~~~~
+    src/features/panels/services/panelService.submitKey.test.ts:78:58 - error TS2554: Expected 2-3 arguments, but got 4.
+
+    78     await expect(submitFormPanel("p1", { delta: 1 }, {}, retry)).rejects.toBe(err);
+                                                                ~~~~~
+    src/features/panels/services/panelService.submitKey.test.ts:84:51 - error TS2554: Expected 2-3 arguments, but got 4.
+
+    84     await submitFormPanel("p1", { delta: 1 }, {}, retry);
+                                                         ~~~~~
+    src/features/panels/services/panelService.submitKey.test.ts:85:51 - error TS2554: Expected 2-3 arguments, but got 4.
+
+    85     await submitFormPanel("p1", { delta: 1 }, {}, retry);
+                                                         ~~~~~
+
+FAIL src/features/panels/ui/form/FormPanelView.lostAck.test.tsx (6.047 s)
+  ● compact counter, lost acknowledgement (HEL-1175) › retries with the same key, shows one increment and announces no error
+
+    Unable to find role="spinbutton" and name "Widgets"
+
+    Ignored nodes: comments, script, style
+    <body>
+      <div>
+        <div
+          class="panel-content panel-content--form"
+        >
+          <div
+            aria-label="Widgets"
+            class="form-panel-view__compact-counter"
+          >
+            <div
+              class="ui-form-field"
+            >
+              <label
+                class="ui-form-field__label"
+                for="_r_1_"
+              >
+                Widgets
+              </label>
+              <input
+                aria-describedby="_r_3_"
+                class="ui-input"
+                disabled=""
+                id="_r_1_"
+                readonly=""
+                type="text"
+                value=""
+              />
+              <p
+                class="ui-form-field__hint"
+                id="_r_3_"
+              >
+                counter field requires the bound dataset to declare a field named 'occurred_at'
+              </p>
+            </div>
+            <p
+              class="form-panel-view__alert"
+              id="_r_0_"
+              role="alert"
+            />
+            <p
+              class="form-panel-view__status"
+              role="status"
+            />
+          </div>
+        </div>
+      </div>
+    </body>
+
+      48 |       { auth: { currentUser: testUser(undefined, "user-1") } },
+      49 |     );
+    > 50 |     const control = await screen.findByRole("spinbutton", { name: "Widgets" });
+         |                                  ^
+      51 |
+      52 |     fireEvent.click(screen.getByRole("button", { name: /increase widgets/i }));
+      53 |
+
+      at waitForWrapper (node_modules/@testing-library/dom/dist/wait-for.js:163:27)
+      at node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+      at Object.<anonymous> (src/features/panels/ui/form/FormPanelView.lostAck.test.tsx:50:34)
+
+Test Suites: 2 failed, 2 total
+Tests:       1 failed, 1 total
+Snapshots:   0 total
+Time:        6.564 s
+Ran all test suites matching src/features/panels/services/panelService.submitKey.test.ts|src/features/panels/ui/form/FormPanelView.lostAck.test.tsx.

@@ -1,0 +1,4 @@
+  ● compact counter, lost acknowledgement (HEL-1175) › retries with the same key, shows one increment and announces no error
+  ● submitFormPanel idempotency key (HEL-1175) › re-sends the same body and key after a no-response failure and resolves on the replayed success
+  ● submitFormPanel idempotency key (HEL-1175) › stops after 3 requests, all with the same key, and rethrows the original error
+Tests:       3 failed, 4 passed, 7 total

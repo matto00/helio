@@ -1,0 +1,4 @@
+[info] - should record one audit event for the append and none for the replay *** FAILED ***
+[info] - should append one row on the owner's source for an editor, then replay it with no second row, no audit-driven debounce and no seq *** FAILED ***
+[info] Tests: succeeded 32, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***

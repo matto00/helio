@@ -7,6 +7,8 @@ import com.helio.domain.model._
 import com.helio.domain.panels._
 import spray.json._
 import scala.collection.mutable
+import scala.util.Try
+import java.util.UUID
 
 
 final case class PanelAppearancePayload(
@@ -127,7 +129,7 @@ final case class CreatePanelsBatchResponse(panels: Vector[PanelResponse], layout
  *  `dataSourceId` the client tried to redirect the write with) is a decode failure, not a
  *  silently-ignored extra field — mirrors `FormPanelConfig.format.read`'s closed-key strictness
  *  (schemas/panels/form-submit-request.schema.json titled `FormSubmitRequest`). */
-final case class FormSubmitRequest(values: JsObject)
+final case class FormSubmitRequest(values: JsObject, submitKey: Option[UUID] = None)
 
 /** HEL-1087 design.md D2/D5: one field-level validation failure on the wire — `field` names the
  *  offending key, `reason` is one of `FormSubmission.buildRow`'s pinned reasons or
@@ -310,19 +312,29 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
   implicit val createPanelsBatchRequestFormat: RootJsonFormat[CreatePanelsBatchRequest] = jsonFormat2(CreatePanelsBatchRequest.apply)
   implicit val createPanelsBatchResponseFormat: RootJsonFormat[CreatePanelsBatchResponse] = jsonFormat2(CreatePanelsBatchResponse.apply)
 
-  /** HEL-1087 design.md D2: hand-rolled, strict — `values` is the ONLY recognized key; any other
-   *  top-level key (e.g. a `dataSourceId` attempting to redirect the write) is a decode failure,
-   *  mirroring `FormPanelConfig.format.read`'s closed-key strictness (tasks.md 1.6). */
+  /** HEL-1087 design.md D2: hand-rolled, strict — `values` and (HEL-1175) the optional `submitKey` are the ONLY
+   *  recognized keys; any other top-level key (e.g. a `dataSourceId` attempting to redirect the write) is a decode
+   *  failure, mirroring `FormPanelConfig.format.read`'s closed-key strictness (tasks.md 1.6). `submitKey` must be a
+   *  JSON string in canonical UUID form (`UUID.fromString` alone also accepts short forms such as `1-1-1-1-1`). */
   implicit val formSubmitRequestFormat: RootJsonFormat[FormSubmitRequest] = new RootJsonFormat[FormSubmitRequest] {
-    def write(r: FormSubmitRequest): JsValue = JsObject("values" -> r.values)
+    def write(r: FormSubmitRequest): JsValue =
+      JsObject(Map("values" -> r.values) ++ r.submitKey.map(k => "submitKey" -> (JsString(k.toString): JsValue)))
+
+    private def readKey(json: JsValue): UUID = json match {
+      case JsString(raw) =>
+        Try(UUID.fromString(raw)).toOption.filter(_.toString == raw.toLowerCase)
+          .getOrElse(deserializationError("submitKey must be a UUID"))
+      case x => deserializationError(s"submitKey must be a UUID string, got $x")
+    }
 
     def read(json: JsValue): FormSubmitRequest = json match {
       case JsObject(fields) =>
-        val unknown = fields.keySet - "values"
+        val unknown = fields.keySet - "values" - "submitKey"
         if (unknown.nonEmpty)
           deserializationError(s"Unrecognized submit attribute(s): ${unknown.toSeq.sorted.mkString(", ")}")
+        val key = fields.get("submitKey").map(readKey)
         fields.get("values") match {
-          case Some(v: JsObject) => FormSubmitRequest(v)
+          case Some(v: JsObject) => FormSubmitRequest(v, key)
           case Some(x)           => deserializationError(s"values must be an object, got $x")
           case None              => deserializationError("values is required")
         }
