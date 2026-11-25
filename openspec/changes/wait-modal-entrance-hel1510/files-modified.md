@@ -1,2 +1,0 @@
-- `e2e/hel1510-output-editor-table-overflow.spec.ts` — wait for the dialog's finite entrance animations before any geometry read
-- `openspec/changes/wait-modal-entrance-hel1510/evidence/*.txt` — red/green/mutation/20x logs, probe sources and diffs
