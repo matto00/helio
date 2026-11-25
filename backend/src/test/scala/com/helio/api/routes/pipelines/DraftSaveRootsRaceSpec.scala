@@ -45,7 +45,7 @@ class DraftSaveRootsRaceSpec extends DraftRaceFixture {
       (h, s) => h.rootRepo.add(pid(s), DataSourceId(s.id("ds3")), owner),
       s => { seedDs3(s); dropOd(s) }, draft = Some(removesR2)),
     RaceWriter("root remove (standalone) vs a root-ADDING save", Set(LockSite.RootRemove),
-      (h, s) => h.rootRepo.removeRoot(h.stepRepo, pid(s), PipelineRootId(s.r2)),
+      (h, s) => h.rootRepo.removeRoot(h.stepRepo, pid(s), PipelineRootId(s.r2), actor = owner),
       s => { seedDs3(s); dropOd(s) }, draft = Some(addsDs3)),
     RaceWriter("source delete of a removed root's source vs a root-REMOVING save", Set(LockSite.SourceDelete),
       (h, s) => h.dataSourceRepo.delete(DataSourceId(s.ds2), owner),

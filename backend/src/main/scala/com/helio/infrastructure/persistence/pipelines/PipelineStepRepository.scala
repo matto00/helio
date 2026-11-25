@@ -482,13 +482,13 @@ class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
     } yield rowToDomain(row)
   }
 
-  /** Lock (3) for a writer addressed by STEP id: the step's pipeline is read without a lock, then locked. The writer's own
-   *  reads come after this, so it never works from a row it read before the lock. A step (or pipeline) a racer already
-   *  deleted just means the writer takes its own not-found path. */
-  private def lockPipelineOfStep(site: LockSite, stepId: PipelineStepId): DBIO[Boolean] =
+  /** Lock (3) for a writer addressed by STEP id (the step's pipeline is read without a lock, then locked; the writer's own reads come
+   *  after), plus HEL-1707's owner-or-editor re-check of `actor` right after the lock. A step already gone
+   *  leaves the writer on its own not-found path (no pipeline to check). */
+  private def lockPipelineOfStepRechecked(site: LockSite, stepId: PipelineStepId, actor: AuthenticatedUser): DBIO[Unit] =
     stepsTable.filter(_.id === stepId.value).map(_.pipelineId).result.headOption.flatMap {
-      case Some(pipelineId) => locks.lockPipelines(site, Seq(pipelineId))
-      case None             => DBIO.successful(false)
+      case Some(pipelineId) => locks.lockPipelines(site, Seq(pipelineId)).andThen(PipelineWriteAccess.requireAction(pipelineId, actor))
+      case None             => DBIO.successful(())
     }
 
   /** ACL-bypassing update. Safe to call only after the caller's editor or
@@ -517,9 +517,12 @@ class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
       // when `config` is `Some` -- an update that doesn't touch `config` cannot change this
       // step's write target, so there is no new edge to check (a no-op call site, e.g. a bare
       // `enabled`/`position` PATCH, never needs a real caller id here).
-      actingUserId: String = ""
+      actingUserId: String = "",
+      // HEL-1707: the ACTING user, re-checked as owner-or-editor right after lock (3). Required, never defaulted: `actingUserId` is
+      // the pipeline OWNER at every call site (the cycle guard's identity), so reusing it would always pass.
+      actor: AuthenticatedUser
   ): Future[Option[PipelineStep]] =
-    ctx.withSystemContext((lockPipelineOfStep(LockSite.StepUpdate, id) andThen updateAction(id, config, position, enabled, actingUserId)).transactionally)
+    ctx.withSystemContext((lockPipelineOfStepRechecked(LockSite.StepUpdate, id, actor) andThen updateAction(id, config, position, enabled, actingUserId)).transactionally)
 
   /** DBIO body of [[updateInternal]] (HEL-1629 task 2.1), composable into a larger transaction. Behavior is exactly the
    *  pre-extraction body: read, cycle check for an `upsertsource` config, position-scoped update. */
@@ -687,9 +690,10 @@ class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
       // this method's own cycle check runs (`cycleCheckForUpsertAction`) are scoped to the REAL
       // acting caller's own visibility, never unfiltered, even though this whole DBIO runs on
       // the BYPASSRLS privileged connection (design.md Decision 2/4).
-      actingUserId: String
+      actingUserId: String,
+      actor: AuthenticatedUser
   ): Future[PipelineStep] =
-    spliceInsertReportingInternal(pipelineId, kind, config, parentStepId, enabled, explicitRootId, actingUserId)
+    spliceInsertReportingInternal(pipelineId, kind, config, parentStepId, enabled, explicitRootId, actingUserId, actor)
       .map(_._1)
 
   /** HEL-1069: [[spliceInsertAtInternal]] plus the ids of the existing steps the splice moved
@@ -704,6 +708,8 @@ class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
       enabled:      Boolean,
       explicitRootId: Option[PipelineRootId],
       actingUserId: String,
+      // HEL-1707: the ACTING user (owner-or-editor re-check right after lock (3)); required, see `updateInternal`.
+      actor: AuthenticatedUser,
       rejectIfReparents: Boolean = false
   ): Future[(PipelineStep, Seq[String])] = {
     val now        = Instant.now()
@@ -754,7 +760,7 @@ class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
                            else DBIO.successful(Seq.empty[Int])
       persisted         <- stepsTable.filter(_.id === newId).result.head
     } yield (rowToDomain(persisted), existingChildren.map(_.id))
-    ctx.withSystemContext((locks.lockPipelines(LockSite.StepSplice, Seq(pipelineId.value)) andThen action).transactionally)
+    ctx.withSystemContext((locks.lockPipelines(LockSite.StepSplice, Seq(pipelineId.value)) andThen PipelineWriteAccess.requireAction(pipelineId.value, actor) andThen action).transactionally)
   }
 
   /** ACL-bypassing branch-attach (HEL-908): inserts a new step as a genuine NEW sibling of
@@ -800,9 +806,11 @@ class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
       parentStepId: PipelineStepId,
       enabled:      Boolean = true,
       // HEL-1101 task 3.4: see `spliceInsertAtInternal`'s matching parameter doc.
-      actingUserId: String
+      actingUserId: String,
+      // HEL-1707: the ACTING user (owner-or-editor re-check right after lock (3)); required, see `updateInternal`.
+      actor: AuthenticatedUser
   ): Future[PipelineStep] =
-    ctx.withSystemContext((locks.lockPipelines(LockSite.StepAttach, Seq(pipelineId.value)) andThen attachTailInternalAction(pipelineId, kind, config, parentStepId, enabled, actingUserId)).transactionally)
+    ctx.withSystemContext((locks.lockPipelines(LockSite.StepAttach, Seq(pipelineId.value)) andThen PipelineWriteAccess.requireAction(pipelineId.value, actor) andThen attachTailInternalAction(pipelineId, kind, config, parentStepId, enabled, actingUserId)).transactionally)
 
   /** DBIO body of [[attachTailInternal]] above -- extracted so route/service-level tests can
     * compose it into a larger transaction if ever needed, matching the `*InternalAction` idiom
@@ -897,8 +905,8 @@ class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
     * Returns `Left(error message)` (never partially applies a rejected request) when
     * `orderedTrunkIds` is not exactly a permutation of the union of every root's CURRENT trunk
     * ids -- any tail id present, any trunk id missing, or any duplicate. */
-  def reorderTrunkInternal(pipelineId: PipelineId, orderedTrunkIds: Seq[PipelineStepId]): Future[Either[String, Vector[PipelineStep]]] =
-    ctx.withSystemContext((locks.lockPipelines(LockSite.StepReorderTrunk, Seq(pipelineId.value)) andThen reorderTrunkAction(pipelineId, orderedTrunkIds)).transactionally)
+  def reorderTrunkInternal(pipelineId: PipelineId, orderedTrunkIds: Seq[PipelineStepId], actor: AuthenticatedUser): Future[Either[String, Vector[PipelineStep]]] =
+    ctx.withSystemContext((locks.lockPipelines(LockSite.StepReorderTrunk, Seq(pipelineId.value)) andThen PipelineWriteAccess.requireAction(pipelineId.value, actor) andThen reorderTrunkAction(pipelineId, orderedTrunkIds)).transactionally)
 
   /** DBIO body of [[reorderTrunkInternal]] (HEL-1629 task 2.1), composable into a larger transaction. A rejected request is a
    *  `Left` that has written nothing; a lane cycle fails the action with [[LaneCycleOnReorderException]] so the enclosing
@@ -1030,9 +1038,9 @@ class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
     * caller (`PipelineService.deleteStep`) only needs the `Option`'s
     * presence to know whether the step existed; it does not consume the
     * count yet. */
-  def deleteInternal(id: PipelineStepId): Future[Option[Int]] = {
+  def deleteInternal(id: PipelineStepId, actor: AuthenticatedUser): Future[Option[Int]] = {
     def attempt(n: Int): Future[Option[Int]] =
-      ctx.withSystemContext(deleteAttemptAction(id).transactionally).flatMap {
+      ctx.withSystemContext(deleteAttemptAction(id, actor).transactionally).flatMap {
         case Some(done)                         => Future.successful(done)
         case None if n < MaxDeleteAttempts      => attempt(n + 1)
         case None                               =>
@@ -1049,7 +1057,7 @@ class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
     * and the caller starts a fresh transaction whose pre-lock read includes that step. The deleted row's place, its existence
     * and the removal set that drive every write are all read AFTER the pipeline-row lock (HEL-1629 final gate F1: a delete that
     * waited behind a save used the pre-lock place of a step the save had moved). */
-  private def deleteAttemptAction(id: PipelineStepId): DBIO[Option[Option[Int]]] =
+  private def deleteAttemptAction(id: PipelineStepId, actor: AuthenticatedUser): DBIO[Option[Option[Int]]] =
     for {
       existing <- stepsTable.filter(_.id === id.value).result.headOption
       result   <- existing match {
@@ -1070,6 +1078,8 @@ class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
               else
                 locks.lockPipelines(LockSite.StepDelete, Seq(preRow.pipelineId))
                   .andThen(PanelRowLocks.lockForDeletion(steps = preRemoval.tailDescendants + preRow.id))
+            // HEL-1707 D2: still owner or editor, right after lock (3); a refusal is a final answer (never retried).
+            _         <- PipelineWriteAccess.requireAction(preRow.pipelineId, actor)
             lockedRow <- stepsTable.filter(_.id === id.value).result.headOption
             outcome <- lockedRow match {
               case None => DBIO.successful(Some(None): Option[Option[Int]]) // a racer deleted the step: the not-found path
@@ -1274,7 +1284,7 @@ class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
    *  caller's ONE transaction (`PipelineService.removeRoot`) -- does NOT delete the
    *  `pipeline_roots` row itself (that is `PipelineRootRepository.removeAction`, composed
    *  separately so this method stays table-scoped to `pipeline_steps`/`node_snapshots`). */
-  def removeRootCascadeAction(pipelineId: PipelineId, rootId: PipelineRootId): DBIO[Set[String]] =
+  def removeRootCascadeAction(pipelineId: PipelineId, rootId: PipelineRootId, actor: AuthenticatedUser): DBIO[Set[String]] =
     for {
       // HEL-1498: the first write of the root-removal transaction (`PipelineRootWrites.removeRoot` composes this
       // first): lock, in id order, the panels of every Output this root's removal cascades away, including panels
@@ -1286,6 +1296,8 @@ class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
           PanelRowLocks.lockForDeletion(roots = Seq(rootId.value)).andThen(locks.lockPipelines(LockSite.RootRemove, Seq(pipelineId.value)))
         else
           locks.lockPipelines(LockSite.RootRemove, Seq(pipelineId.value)).andThen(PanelRowLocks.lockForDeletion(roots = Seq(rootId.value)))
+      // HEL-1707 D2: still owner or editor, right after lock (3) and before any write.
+      _    <- PipelineWriteAccess.requireAction(pipelineId.value, actor)
       rows <- stepsTable.filter(_.pipelineId === pipelineId.value).result
       stepIdsUnderRoot = PipelineStepRepository.descendantsOfRoot(rows.toVector, rootId.value)
       _ <- DBIO.sequence(stepIdsUnderRoot.toVector.map { sid =>

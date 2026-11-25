@@ -1,0 +1,67 @@
+# HEL-1707 red run on unmodified main code (737adb352): sbt testOnly of the 4 new/extended specs, exit 1
+[info] PipelineGrantRecheckRaceSpec:
+[info] - should answer the unknown-pipeline 404 when the pipeline is gone before the name read (1a) *** FAILED ***
+[info]   java.util.NoSuchElementException: empty result setSome( when invoking statement select "name" from "pipelines" where "id" = 'c362fde0-p')
+[info] - should answer the unknown-pipeline 404 when the pipeline is gone after the name read, before the lock (1b) *** FAILED ***
+[info]   org.postgresql.util.PSQLException: ERROR: insert or update on table "pipeline_roots" violates foreign key constraint "pipeline_roots_pipeline_id_fkey"
+[info] - should refuse POST /roots and write nothing when the editor grant is revoked mid-request *** FAILED ***
+[info]   Right(PipelineRootSummaryResponse("feea9f4e-b16c-4269-8a54-8cfe65d58cec", "3bc3981a-dsB", "dsB")) was not equal to Left(NotFound("Pipeline not found: 3bc3981a-p")) (PipelineGrantRecheckRaceSpec.scala:110)
+[info] - should refuse POST /roots and write nothing when the editor grant is downgraded to viewer mid-request *** FAILED ***
+[info]   Right(PipelineRootSummaryResponse("87f79808-1ca5-4a5e-ac11-d1c6d4b874aa", "c5bdb08d-dsB", "dsB")) was not equal to Left(Forbidden("Forbidden")) (PipelineGrantRecheckRaceSpec.scala:110)
+[info] - should refuse DELETE /roots/:rootId and write nothing when the editor grant is revoked mid-request *** FAILED ***
+[info]   Right(RemovePipelineRootResponse(1, 1)) was not equal to Left(NotFound("Pipeline not found: 766bc40c-p")) (PipelineGrantRecheckRaceSpec.scala:110)
+[info] - should refuse DELETE /roots/:rootId and write nothing when the editor grant is downgraded to viewer mid-request *** FAILED ***
+[info]   Right(RemovePipelineRootResponse(1, 1)) was not equal to Left(Forbidden("Forbidden")) (PipelineGrantRecheckRaceSpec.scala:110)
+[info] - should refuse POST /draft/save and write nothing when the editor grant is revoked mid-request *** FAILED ***
+[info]   Right(DraftSaveResponse(DraftSavedResponse("v1:d2083c804217a97143e4fbdafbc110c18dbf34b2662a943cfe934f78709075a7", DraftSavedDefinitionResponse(Vector(LimitStepResponse("afa987af-t1", "afa987af-p", 0, "2026-11-25T05:34:40.106529Z", "2026-11-25T05:34:40
+[info] - should refuse POST /draft/save and write nothing when the editor grant is downgraded to viewer mid-request *** FAILED ***
+[info]   Right(DraftSaveResponse(DraftSavedResponse("v1:5dc32a4d48362d3e5a565f4f44189822df8bfb2fb7c357050d5dcd2ad5a3c1f5", DraftSavedDefinitionResponse(Vector(LimitStepResponse("44ad9230-t1", "44ad9230-p", 0, "2026-11-25T05:34:40.799897Z", "2026-11-25T05:34:40
+[info] - should refuse a draft-save undo restore and write nothing when the editor grant is revoked mid-request *** FAILED ***
+[info]   Right(DraftSaved("v1:53fa9ef4a500abfa3fd1d5e7947a5efd74857a0765a97def5c2d45c6d43fdeb0", Vector(LimitStepResponse("92f5d337-t1", "92f5d337-p", 0, "2026-11-25T05:34:40.951388Z", "2026-11-25T05:34:40.951388Z", LimitConfig(1), true, None, Some("92f5d337-r
+[info] - should refuse a draft-save undo restore and write nothing when the editor grant is downgraded to viewer mid-request *** FAILED ***
+[info]   Right(DraftSaved("v1:4f0e68b4c74bffbc42115f70a8c8dfa801198f72ed4f44824af7597fb505758c", Vector(LimitStepResponse("9905fde4-t1", "9905fde4-p", 0, "2026-11-25T05:34:41.082601Z", "2026-11-25T05:34:41.082601Z", LimitConfig(1), true, None, Some("9905fde4-r
+[info] - should refuse POST /steps (attach as tail) and write nothing when the editor grant is revoked mid-request *** FAILED ***
+[info]   Right(LimitStepResponse("8be86f68-b0a8-49b2-82eb-d3841105a7b0", "e63cc6eb-p", 2, "2026-11-25T05:34:41.229952758Z", "2026-11-25T05:34:41.229952758Z", LimitConfig(7), true, Some("e63cc6eb-t1"), Some("e63cc6eb-r1"))) was not equal to Left(NotFound("Pipel
+[info] - should refuse POST /steps (attach as tail) and write nothing when the editor grant is downgraded to viewer mid-request *** FAILED ***
+[info]   Right(LimitStepResponse("163244c9-1de9-40e3-9d33-b7e5f602dbc5", "f3f0048f-p", 2, "2026-11-25T05:34:41.254133249Z", "2026-11-25T05:34:41.254133249Z", LimitConfig(7), true, Some("f3f0048f-t1"), Some("f3f0048f-r1"))) was not equal to Left(Forbidden("Forb
+[info] - should refuse POST /steps (splice insert) and write nothing when the editor grant is revoked mid-request *** FAILED ***
+[info]   Right(LimitStepResponse("b559d3fe-2d12-4ec3-a734-1402b522330b", "0abb2b2c-p", 0, "2026-11-25T05:34:41.275201Z", "2026-11-25T05:34:41.275201Z", LimitConfig(7), true, Some("0abb2b2c-t1"), Some("0abb2b2c-r1"))) was not equal to Left(NotFound("Pipeline no
+[info] - should refuse POST /steps (splice insert) and write nothing when the editor grant is downgraded to viewer mid-request *** FAILED ***
+[info]   Right(LimitStepResponse("68535446-0039-4421-a503-04026ab32501", "aea12dbc-p", 0, "2026-11-25T05:34:41.302693Z", "2026-11-25T05:34:41.302693Z", LimitConfig(7), true, Some("aea12dbc-t1"), Some("aea12dbc-r1"))) was not equal to Left(Forbidden("Forbidden"
+[info] - should refuse PUT /steps/order and write nothing when the editor grant is revoked mid-request *** FAILED ***
+[info]   Left(UnprocessableEntity("orderedTrunkIds must be exactly the permutation of the union of every root's current trunk step ids: missing trunk step ids (union of every root's trunk): cbcbf7b6-t2")) was not equal to Left(NotFound("Pipeline not found: cbc
+[info] - should refuse PUT /steps/order and write nothing when the editor grant is downgraded to viewer mid-request *** FAILED ***
+[info]   Left(UnprocessableEntity("orderedTrunkIds must be exactly the permutation of the union of every root's current trunk step ids: missing trunk step ids (union of every root's trunk): 72a5c16a-t2")) was not equal to Left(Forbidden("Forbidden")) (Pipeline
+[info] - should refuse PATCH /pipeline-steps/:id and write nothing when the editor grant is revoked mid-request *** FAILED ***
+[info]   Right(LimitStepResponse("c7135251-t2", "c7135251-p", 0, "2026-11-25T05:34:41.343888Z", "2026-11-25T05:34:41.354415442Z", LimitConfig(22), true, Some("c7135251-t1"), Some("c7135251-r1"))) was not equal to Left(NotFound("Pipeline step not found: c713525
+[info] - should refuse PATCH /pipeline-steps/:id and write nothing when the editor grant is downgraded to viewer mid-request *** FAILED ***
+[info]   Right(LimitStepResponse("380e120a-t2", "380e120a-p", 0, "2026-11-25T05:34:41.359876Z", "2026-11-25T05:34:41.371106272Z", LimitConfig(22), true, Some("380e120a-t1"), Some("380e120a-r1"))) was not equal to Left(Forbidden("Forbidden")) (PipelineGrantRech
+[info] - should refuse DELETE /pipeline-steps/:id and write nothing when the editor grant is revoked mid-request *** FAILED ***
+[info]   Right(DeletePipelineStepResponse(0)) was not equal to Left(NotFound("Pipeline step not found: 742410f0-t3")) (PipelineGrantRecheckRaceSpec.scala:110)
+[info] - should refuse DELETE /pipeline-steps/:id and write nothing when the editor grant is downgraded to viewer mid-request *** FAILED ***
+[info]   Right(DeletePipelineStepResponse(0)) was not equal to Left(Forbidden("Forbidden")) (PipelineGrantRecheckRaceSpec.scala:110)
+[info] - should refuse POST /pipeline-steps/:id/duplicate and write nothing when the editor grant is revoked mid-request *** FAILED ***
+[info]   Right(LimitStepResponse("50781326-1f53-4e24-bff8-cc6012b829a7", "ff82e037-p", 0, "2026-11-25T05:34:41.423615Z", "2026-11-25T05:34:41.423615Z", LimitConfig(2), true, Some("ff82e037-t2"), Some("ff82e037-r1"))) was not equal to Left(NotFound("Pipeline st
+[info] - should refuse POST /pipeline-steps/:id/duplicate and write nothing when the editor grant is downgraded to viewer mid-request *** FAILED ***
+[info]   Right(LimitStepResponse("d3e36247-1e2c-455e-9b29-e694a9b5b8fd", "82c7b730-p", 0, "2026-11-25T05:34:41.439370Z", "2026-11-25T05:34:41.439370Z", LimitConfig(2), true, Some("82c7b730-t2"), Some("82c7b730-r1"))) was not equal to Left(Forbidden("Forbidden"
+[info] PipelineRootEditorGuardsRlsSpec:
+[info] - should answer the data-source 404 and write nothing when the source belongs to another user
+[info] - should answer 404 Root not found and change nothing when the root id belongs to another pipeline
+[info] PipelineRootWriteGrantsSpec:
+[info] - should write pipeline_roots (the add insert and position compaction, the remove delete)
+[info] - should delete pipeline_steps and node_snapshots (the remove cascade)
+[info] - should update data_sources (the add chain's FOR KEY SHARE row lock needs UPDATE or SELECT FOR KEY SHARE)
+[info] - should GUARD: update panels (hel1498_lock_panels, the root-remove and Output-delete FOR UPDATE, needs it)
+[info] - should GUARD: execute hel1629_lock_pipelines, which it owns (V137), so root add/remove can take lock (3)
+[info] OutputDeleteCurrentAccessRlsSpec:
+[info] - should refuse (404, nothing deleted) a creator who was downgraded to viewer *** FAILED ***
+[info]   200 OK was not equal to 404 Not Found (OutputDeleteCurrentAccessRlsSpec.scala:30)
+[info] - should GUARD: let a current editor delete the Output they created
+[info] - should GUARD: let the pipeline owner delete their own Output
+[info] - should GUARD: still refuse a non-creator editor (404)
+[info] - should not delete the Output when the creator was downgraded to viewer after applying *** FAILED ***
+[info]   (200 OK,{"edits":[{"index":0,"newId":"ccf50e82-fd64-4f9c-bc91-3e01735b2f95","status":"restored"}]}) false was not equal to true (OutputDeleteCurrentAccessRlsSpec.scala:70)
+[info] Tests: succeeded 10, failed 24, canceled 0, ignored 0, pending 0
+[error] Failed tests:
+[error] 	com.helio.services.pipelines.PipelineGrantRecheckRaceSpec
+[error] 	com.helio.api.routes.pipelines.OutputDeleteCurrentAccessRlsSpec

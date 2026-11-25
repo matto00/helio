@@ -1,0 +1,8 @@
+# mutation applied: OutputService.scala: def delete(id: OutputId, user: AuthenticatedUser): Future[Either[ServiceError, DeleteOutputResponse]] =     outputRepo.findById(id, user).flatMap {  ==>  def delete(id: OutputId, user: AuthenticatedUser): Future[Either[ServiceError, DeleteOutputResponse]] =     outputRepo.findByIdInternal(id).flatMap {
+# mutation applied: OutputRepository.scala: pid => PipelineWriteAccess.requireAction(pid, actor))  ==>  pid => DBIO.successful(()))
+[info] - should refuse (404, nothing deleted) a creator who was downgraded to viewer *** FAILED ***
+[info] - should GUARD: refuse (404, nothing deleted) a creator whose grant was fully revoked *** FAILED ***
+[info] - should not delete the Output when the creator was downgraded to viewer after applying *** FAILED ***
+[info] Tests: succeeded 3, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful

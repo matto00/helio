@@ -1,0 +1,2 @@
+# mutation applied: OutputService.scala: def delete(id: OutputId, user: AuthenticatedUser): Future[Either[ServiceError, DeleteOutputResponse]] =     outputRepo.findById(id, user).flatMap {  ==>  def delete(id: OutputId, user: AuthenticatedUser): Future[Either[ServiceError, DeleteOutputResponse]] =     outputRepo.findByIdInternal(id).flatMap {
+[info] Tests: succeeded 6, failed 0, canceled 0, ignored 0, pending 0

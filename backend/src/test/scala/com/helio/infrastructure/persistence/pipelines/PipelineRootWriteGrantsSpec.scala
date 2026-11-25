@@ -27,4 +27,14 @@ class PipelineRootWriteGrantsSpec extends AnyWordSpec with Matchers with Product
       has("data_sources", "UPDATE") shouldBe true
     }
   }
+  // HEL-1707 item 4 -- GUARDS (green on main; each failable by a recorded mutation).
+  "helio_privileged, from migrations alone (HEL-1707 guards)," should {
+    "GUARD: update panels (hel1498_lock_panels, the root-remove and Output-delete FOR UPDATE, needs it)" in {
+      has("panels", "UPDATE") shouldBe true
+    }
+    "GUARD: execute hel1629_lock_pipelines, which it owns (V137), so root add/remove can take lock (3)" in {
+      priv(sql"SELECT has_function_privilege('helio_privileged', 'hel1629_lock_pipelines(text[],text[])', 'EXECUTE')".as[Boolean].head) shouldBe true
+      priv(sql"SELECT pg_get_userbyid(proowner) FROM pg_proc WHERE proname = 'hel1629_lock_pipelines'".as[String].head) shouldBe "helio_privileged"
+    }
+  }
 }

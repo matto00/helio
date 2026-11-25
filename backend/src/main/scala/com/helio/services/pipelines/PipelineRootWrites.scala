@@ -110,12 +110,15 @@ private[pipelines] final class PipelineRootWrites(
     dataSourceRepo.findByIdOwned(dsId, user).flatMap {
       case None => Future.successful(Left(ServiceError.NotFound(s"Data source not found: ${dsId.value}")))
       case Some(ds) =>
+        val notFound = ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")
         pipelineRootRepo.add(pipelineId, dsId, user).map { root =>
           audit("pipeline.root.add", "pipeline", Some(pipelineId.value), user)
-          Right(PipelineRootSummaryResponse(root.id.value, ds.id.value, ds.name))
-        }.recover {
+          Right(PipelineRootSummaryResponse(root.id.value, ds.id.value, ds.name)): Either[ServiceError, PipelineRootSummaryResponse]
+        }.recover(PipelineWriteRefusal.refused[PipelineRootSummaryResponse](notFound).orElse {
+          // HEL-1707 D4: the pipeline was deleted mid-request: the unknown-pipeline 404, never a 500.
+          case PipelineRootRepository.PipelineGone(_)        => Left(notFound)
           case PipelineCycleGuard.PipelineCycleRejected(msg) => Left(ServiceError.BadRequest(msg))
-        }
+        })
     }
 
   /** `DELETE /api/pipelines/:id/roots/:rootId` (HEL-913 task 7.4/7.5, R7) — requires Editor or
@@ -180,14 +183,14 @@ private[pipelines] final class PipelineRootWrites(
                             o.node.stepId.exists(sid => doomedIds.contains(sid.value)) || o.node.rootId.contains(rootId)
                           })
                         removedOutputsF.flatMap { removedOutputCount =>
-                          pipelineRootRepo.removeRoot(pipelineStepRepo, pipelineId, rootId).map { removedStepIds =>
+                          pipelineRootRepo.removeRoot(pipelineStepRepo, pipelineId, rootId, user).map { removedStepIds =>
                             audit("pipeline.root.remove", "pipeline", Some(pipelineId.value), user)
                             Right(RemovePipelineRootResponse(removedStepIds.size, removedOutputCount))
-                          }.recover {
+                          }.recover(PipelineWriteRefusal.refused[RemovePipelineRootResponse](ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")).orElse {
                             // HEL-1652 D5: a racer removed the root after phase 1 -- 404, before the generic classifier (never a 500).
                             case PipelineRootRepository.RootAlreadyRemoved(id) => Left(ServiceError.NotFound(s"Root not found: ${id.value}"))
                             case ex                                           => Left(PipelineService.classifyDbError(ex))
-                          }
+                          })
                         }
                     }
                   }

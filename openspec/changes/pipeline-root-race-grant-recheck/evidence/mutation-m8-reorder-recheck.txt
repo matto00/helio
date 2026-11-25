@@ -1,0 +1,8 @@
+# mutation applied: PipelineStepRepository.scala: andThen PipelineWriteAccess.requireAction(pipelineId.value, actor) andThen reorderTrunkAction  ==>  andThen reorderTrunkAction
+[info] - should refuse PUT /steps/order and write nothing when the editor grant is revoked mid-request *** FAILED ***
+[info]   Right(Vector(LimitStepResponse("e414ff88-t4", "e414ff88-p", 0, "2026-11-25T06:43:25.180682Z", "2026-11-25T06:43:25.192973Z", LimitConfig(4), true, None, Some("e414ff88-r2")), LimitStepResponse("e414ff88-t2", "e414ff88-p", 0, "2026-
+[info] - should refuse PUT /steps/order and write nothing when the editor grant is downgraded to viewer mid-request *** FAILED ***
+[info]   Right(Vector(LimitStepResponse("24fcb8cb-t4", "24fcb8cb-p", 0, "2026-11-25T06:43:25.237652Z", "2026-11-25T06:43:25.262500Z", LimitConfig(4), true, None, Some("24fcb8cb-r2")), LimitStepResponse("24fcb8cb-t2", "24fcb8cb-p", 0, "2026-
+[info] Tests: succeeded 20, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful

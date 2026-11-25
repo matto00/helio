@@ -274,7 +274,7 @@ class PipelineCycleDetectionServiceSpec extends AnyWordSpec with Matchers with B
       val thrown = intercept[PipelineCycleGuard.PipelineCycleRejected] {
         await(pipelineStepRepo.spliceInsertAtInternal(
           pid, "upsertsource", config, parentStepId = None, explicitRootId = None, actingUserId = owner.id.value
-        ))
+        , actor = owner))
       }
       thrown.getMessage should include("we-pipe")
     }
@@ -290,7 +290,7 @@ class PipelineCycleDetectionServiceSpec extends AnyWordSpec with Matchers with B
       // resolvable to a real graph (an ordinary insert never even attempts the lookup).
       noException should be thrownBy await(pipelineStepRepo.spliceInsertAtInternal(
         pid, "select", SelectConfig(Vector.empty), parentStepId = None, explicitRootId = None, actingUserId = "does-not-matter"
-      ))
+      , actor = owner))
     }
 
     "reject an updateInternal config change that would retarget an upsertsource step into a cycle" in {
@@ -317,7 +317,7 @@ class PipelineCycleDetectionServiceSpec extends AnyWordSpec with Matchers with B
       // retargeting to s1 is a direct self-cycle.
       val selfCycleConfig = UpsertSourceConfig(UpsertTarget.ExistingSource(s1.value), "append")
       intercept[PipelineCycleGuard.PipelineCycleRejected] {
-        await(pipelineStepRepo.updateInternal(PipelineStepId(stepId), config = Some(selfCycleConfig), position = None, actingUserId = owner.id.value))
+        await(pipelineStepRepo.updateInternal(PipelineStepId(stepId), config = Some(selfCycleConfig), position = None, actingUserId = owner.id.value, actor = owner))
       }
     }
   }

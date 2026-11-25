@@ -1,0 +1,6 @@
+# mutation applied: PipelineRootRepository.scala: rootsTable.filter(r => r.id === rootId.value && r.pipelineId === pipelineId.value).delete  ==>  rootsTable.filter(r => r.id === rootId.value).delete
+# mutation applied: PipelineRootWrites.scala: if (!roots.exists(_._1 == rootId))  ==>  if (false)
+[info] - should answer 404 Root not found and change nothing when the root id belongs to another pipeline *** FAILED ***
+[info] Tests: succeeded 1, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful

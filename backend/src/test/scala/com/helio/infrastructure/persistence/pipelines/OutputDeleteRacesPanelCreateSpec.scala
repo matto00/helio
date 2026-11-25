@@ -104,7 +104,7 @@ class OutputDeleteRacesPanelCreateSpec extends AnyWordSpec with Matchers with Be
     "complete on both sides with no 40P01 (W3 OutputRepository.deleteWithPanelsInternal, GUARD)" in {
       val fx  = seedTwoRootPipeline(pipelineOwner)
       val out = seedOutput(pipelineOwner, fx.pipelineId, Some(fx.root1), None)
-      race(out)(outputs.deleteWithPanelsInternal(OutputId(out))) shouldBe ((None, None))
+      race(out)(outputs.deleteWithPanelsInternal(OutputId(out), actor = user)) shouldBe ((None, None))
     }
 
     "complete on both sides with no 40P01 (W4 PipelineRepository.delete)" in {
@@ -117,13 +117,13 @@ class OutputDeleteRacesPanelCreateSpec extends AnyWordSpec with Matchers with Be
       val fx   = seedTwoRootPipeline(pipelineOwner)
       val step = seedRootStep(fx.pipelineId, fx.root1)
       val out  = seedOutput(pipelineOwner, fx.pipelineId, None, Some(step))
-      race(out)(steps.deleteInternal(PipelineStepId(step))) shouldBe ((None, None))
+      race(out)(steps.deleteInternal(PipelineStepId(step), actor = user)) shouldBe ((None, None))
     }
 
     "complete on both sides with no 40P01 (W6 root removal)" in {
       val fx  = seedTwoRootPipeline(pipelineOwner)
       val out = seedOutput(pipelineOwner, fx.pipelineId, Some(fx.root1), None)
-      race(out)(roots.removeRoot(steps, PipelineId(fx.pipelineId), PipelineRootId(fx.root1))) shouldBe ((None, None))
+      race(out)(roots.removeRoot(steps, PipelineId(fx.pipelineId), PipelineRootId(fx.root1), actor = user)) shouldBe ((None, None))
     }
 
     "complete on both sides with no 40P01 (W7 DataSourceRepository.delete)" in {

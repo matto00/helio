@@ -1,7 +1,7 @@
 package com.helio.api.routes.dashboards
 
 import com.helio.api.JsonProtocols
-import com.helio.domain.model.OutputId
+import com.helio.domain.model.{AuthenticatedUser, OutputId, UserId}
 import com.helio.testkit.HelioRouteTest
 import com.helio.testsupport.{JsonSchemaValidation, OutputHistoryApiHarness}
 import org.apache.pekko.actor.typed.ActorSystem
@@ -150,7 +150,7 @@ class OutputHistoryPublicRoutesSpec
       Get(s"/dashboards/$dashId/panels/$text/history") ~> routes() ~> check { status shouldBe StatusCodes.NotFound }
       Get(s"/dashboards/$dashId/panels/${UUID.randomUUID()}/history") ~> routes() ~> check { status shouldBe StatusCodes.NotFound }
       Get(s"/dashboards/$dashId/panels/$panelId/history") ~> routes() ~> check { status shouldBe StatusCodes.OK }
-      awaitDb(outputRepo.deleteWithPanelsInternal(OutputId(oid)))
+      awaitDb(outputRepo.deleteWithPanelsInternal(OutputId(oid), AuthenticatedUser(UserId(ownerId))))
       Get(s"/dashboards/$dashId/panels/$panelId/history") ~> routes() ~> check { status shouldBe StatusCodes.NotFound }
     }
   }

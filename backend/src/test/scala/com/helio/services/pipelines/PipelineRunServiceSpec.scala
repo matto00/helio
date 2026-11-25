@@ -797,7 +797,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val step = await(insertStep(pid, "rename", RenameConfig(Map("name" -> "renamed_name")), dummyUser, enabled = false))
       seedOutputAtTrunkLast(pid)
 
-      await(stepRepo.updateInternal(step.id, config = None, position = None, enabled = Some(true)))
+      await(stepRepo.updateInternal(step.id, config = None, position = None, enabled = Some(true), actor = dummyUser))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]

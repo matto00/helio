@@ -284,7 +284,7 @@ class OutputRoutesSpec
       val sibling    = await(outputRepo.insertInternal(pipelineId, None, owner.id, "sibling", OutputKind.Table, explicitRootId = None))
       val readsCfg   = JsObject("reads" -> JsObject("outputs" -> JsArray(JsString(sibling.id.value))))
       val insight    = await(outputRepo.insertInternal(pipelineId, None, owner.id, "ins", OutputKind.Insight, readsCfg, explicitRootId = None))
-      await(outputRepo.deleteWithPanelsInternal(sibling.id))
+      await(outputRepo.deleteWithPanelsInternal(sibling.id, owner))
       Patch(s"/outputs/${insight.id.value}", UpdateOutputRequest(None, Some(JsObject("prompt" -> JsString("new"))))) ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
       }

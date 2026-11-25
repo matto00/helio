@@ -98,7 +98,7 @@ class PipelineServiceCoverageGapsSpec extends AnyWordSpec with Matchers with Bef
     val ctx = new DbContext(db, db)
     val noRowAfterUpdate = new PipelineStepRepository(ctx) {
       override def updateInternal(
-          id: PipelineStepId, config: Option[Any], position: Option[Int], enabled: Option[Boolean], actingUserId: String
+          id: PipelineStepId, config: Option[Any], position: Option[Int], enabled: Option[Boolean], actingUserId: String, actor: AuthenticatedUser
       ): Future[Option[PipelineStep]] = Future.successful(None)
     }
     new PipelineService(pipelineRepo, noRowAfterUpdate, dataSourceRepo, outputRepo = new OutputRepository(ctx))

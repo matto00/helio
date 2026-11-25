@@ -1,0 +1,6 @@
+# mutation applied: PipelineRootRepository.scala: _            <- if (locked) DBIO.successful(()) else DBIO.failed(PipelineGone(pipelineId))  ==>  (line removed)
+# mutation applied: PipelineWriteAccess.scala: case None                       => DBIO.successful(WriteAccess.PipelineGone)  ==>  case None                       => DBIO.successful(WriteAccess.Owner)
+[info] - should answer the unknown-pipeline 404 when the pipeline is gone after the name read, before the lock (1b) *** FAILED ***
+[info] Tests: succeeded 21, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful

@@ -258,7 +258,7 @@ class AlertRuleRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
       val rule = newRule(owner1, dt)
       await(arRepo.insert(rule, user1))
 
-      await(outRepo.deleteWithPanelsInternal(dt))
+      await(outRepo.deleteWithPanelsInternal(dt, user1))
 
       await(arRepo.findByIdOwned(rule.id, user1)) shouldBe None
     }

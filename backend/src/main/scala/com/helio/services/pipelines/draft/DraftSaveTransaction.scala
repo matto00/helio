@@ -9,10 +9,11 @@ import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository.{JournaledEdit, PatchSetApplicationRecord}
-import com.helio.infrastructure.persistence.pipelines.{DefinitionRows, OutputRepository, PipelineCycleGuard, PipelineDraftWrites, PipelineRootRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{DefinitionRows, OutputRepository, PipelineCycleGuard, PipelineDraftWrites, PipelineRootRepository, PipelineStepRepository, PipelineWriteAccess}
 import com.helio.services.ServiceError
 import com.helio.services.ServiceError.{CascadeImpact, StaleTarget}
 import com.helio.services.patchsets.{PatchSetApplyContext, PatchSetPipelineDefinition, PatchSetStaleMessage, PatchSetTargetFingerprint}
+import com.helio.services.pipelines.PipelineWriteRefusal
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
@@ -84,6 +85,9 @@ private[draft] final class DraftSaveTransaction(
       locked   <- writes.lockDefinition(pipelineId, preLockPlan.needsAdvisory, site => hooks.at(AfterLock(site)))
       _        <- if (writes.sourcesFirst) DBIO.successful(()) else lockSources(preLockPlan, mode)
       _        <- abortIf(!locked, ServiceError.NotFound(s"Pipeline not found: $pipelineId"))
+      // HEL-1707 D2: the actor must still be the owner or an editor, re-read right after lock (3); the undo restore comes here too.
+      access   <- PipelineWriteAccess.currentAction(pipelineId, actor.id.value)
+      _        <- abortIf(!access.mayWrite, PipelineWriteRefusal.toError(access, ServiceError.NotFound(s"Pipeline not found: $pipelineId")))
       prior    <- definition(pipelineId)
       priorFp   = PatchSetTargetFingerprint.of("pipeline", prior)
       _        <- abortIf(priorFp != req.baseFingerprint, staleError(pipelineId, priorFp))

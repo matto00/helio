@@ -1,0 +1,6 @@
+# mutation applied: PipelineStepRepository.scala: locks.lockPipelines(site, Seq(pipelineId)).andThen(PipelineWriteAccess.requireAction(pipelineId, actor))  ==>  locks.lockPipelines(site, Seq(pipelineId)).map(_ => ())
+[info] - should refuse PATCH /pipeline-steps/:id and write nothing when the editor grant is revoked mid-request *** FAILED ***
+[info] - should refuse PATCH /pipeline-steps/:id and write nothing when the editor grant is downgraded to viewer mid-request *** FAILED ***
+[info] Tests: succeeded 20, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful

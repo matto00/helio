@@ -129,7 +129,7 @@ class PatchSetUndoLaneSpec extends PatchSetUndoServiceFixture {
       await(outputRepo.findByIdInternal(output.id)).isDefined shouldBe true
 
       // once the user removes the Output themselves too, the undo removes the step
-      await(outputRepo.deleteIfUnboundInternal(output.id)).isRight shouldBe true
+      await(outputRepo.deleteIfUnboundInternal(output.id, userA)).isRight shouldBe true
       val undoResponse = await(undoService.undo(PatchSetApplicationId(applicationId), userA)) match {
         case Right(r)  => r
         case Left(err) => fail(s"expected success, got $err")

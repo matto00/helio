@@ -100,6 +100,8 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
   // preservation test (`select pipeline_id, count(*) from pipeline_steps
   // group by pipeline_id having count(*) >= 3 order by count(*) desc limit 3`).
   private val manyStepsPipelineId = "6ba5075b-2291-4508-881b-a517b1f300cf"
+  private def pipelineOwner(pipelineId: String): AuthenticatedUser =
+    AuthenticatedUser(UserId(await(superDb.run(sql"SELECT owner_id::text FROM pipelines WHERE id = $pipelineId".as[String].head))))
 
   // A real data-bound `markdown` panel whose `type_id` DOES resolve to a real
   // pipeline -- the exact shape evaluation-2.md found silently stripped of
@@ -578,7 +580,7 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
 
       // Reproduce the exact round-5 repro: PATCH position=2 on the 3rd trunk step.
       val target = trunkBefore(2)
-      await(repo.updateInternal(target.id, config = None, position = Some(2)))
+      await(repo.updateInternal(target.id, config = None, position = Some(2), actor = pipelineOwner(manyStepsPipelineId)))
 
       val after = await(repo.listByPipelineInternal(PipelineId(manyStepsPipelineId)))
       val trunkAfter = repo.trunkOf(after)
@@ -617,7 +619,7 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
       // GREEN: the real (fixed) `updateInternal`, exercised the same way,
       // cannot reproduce the corruption -- even an out-of-range requested
       // position clamps to the only valid sibling-scoped index.
-      await(repo.updateInternal(target.id, config = None, position = Some(99)))
+      await(repo.updateInternal(target.id, config = None, position = Some(99), actor = pipelineOwner(manyStepsPipelineId)))
       val afterFixedWrite = repo.trunkOf(await(repo.listByPipelineInternal(PipelineId(manyStepsPipelineId))))
       afterFixedWrite.size shouldBe 20
     }

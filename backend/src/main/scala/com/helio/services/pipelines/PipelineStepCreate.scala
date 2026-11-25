@@ -81,16 +81,16 @@ private[pipelines] final class PipelineStepCreate(
           val persistF: Future[(PipelineStep, Seq[String])] =
             if (attachAsTail)
               anchor.fold(Future.failed[(PipelineStep, Seq[String])](new IllegalStateException("attachAsTail without an anchor")))(a =>
-                pipelineStepRepo.attachTailInternal(pipelineId, req.`type`, typedConfig, a, enabled, actingUserId = pipelineOwnerId.value).map(_ -> Seq.empty[String])
+                pipelineStepRepo.attachTailInternal(pipelineId, req.`type`, typedConfig, a, enabled, actingUserId = pipelineOwnerId.value, actor = user).map(_ -> Seq.empty[String])
               )
             else
-              pipelineStepRepo.spliceInsertReportingInternal(pipelineId, req.`type`, typedConfig, anchor, enabled, explicitRootId = explicitRootId, actingUserId = pipelineOwnerId.value, rejectIfReparents = reject)
+              pipelineStepRepo.spliceInsertReportingInternal(pipelineId, req.`type`, typedConfig, anchor, enabled, explicitRootId = explicitRootId, actingUserId = pipelineOwnerId.value, actor = user, rejectIfReparents = reject)
           persistF
             .flatMap { case (step, moved) =>
               audit("pipeline.step.create", "pipeline_step", Some(step.id.value), user)
               stepResponseWithRoot(pipelineId, step).map(resp => Right((resp, moved)))
             }
-            .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+            .recover(PipelineWriteRefusal.refused[(PipelineStepResponse, Seq[String])](ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")).orElse { case ex => Left(PipelineService.classifyDbError(ex)) })
       }
   }
 }

@@ -1,0 +1,7 @@
+# mutation applied: PipelineRootWriteGrantsSpec.scala: has("panels", "UPDATE") shouldBe true  ==>  has("panels", "TRUNCATE") shouldBe true
+# mutation applied: PipelineRootWriteGrantsSpec.scala: shouldBe "helio_privileged"  ==>  shouldBe "postgres"
+[info] - should GUARD: update panels (hel1498_lock_panels, the root-remove and Output-delete FOR UPDATE, needs it) *** FAILED ***
+[info] - should GUARD: execute hel1629_lock_pipelines, which it owns (V137), so root add/remove can take lock (3) *** FAILED ***
+[info] Tests: succeeded 3, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
