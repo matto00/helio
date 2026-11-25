@@ -1,0 +1,13 @@
+Mutation: auth-google-callback
+Kind: literal (bad/missing state: no owner entity in scope)
+File: backend/src/main/scala/com/helio/api/routes/auth/OAuthRoutes.scala
+Replaced: 'ErrorResponse("Invalid or missing OAuth state parameter")'
+With:     'ErrorResponse("Invalid or missing OAuth state parameter 0badc0de-1248-4abc-8def-0123456789ab")'
+Exit: 1
+
+[info] - should carry no owner id for the owner's email, in either case, on every public auth route *** FAILED ***
+[info]   java.lang.AssertionError: [google callback, bad state] GET /api/auth/google/callback?state=forged&code=x (status 400 Bad Request) leaked owner id 0badc0de-1248-4abc-8def-0123456789ab at: $.message value 'Invalid or missing OAuth state parameter 0badc0de-1248-4abc-8def-0123456789ab'
+[info] Tests: succeeded 5, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful

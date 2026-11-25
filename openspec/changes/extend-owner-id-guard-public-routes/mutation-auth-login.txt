@@ -1,0 +1,14 @@
+Mutation: auth-login
+Kind: owner-entity: user.id (wrong-password branch)
+File: backend/src/main/scala/com/helio/services/auth/AuthService.scala
+Replaced: '              case Some(_) =>\n                auditFailedLogin(req.email)\n                Future.successful(Left(ServiceError.Unauthorized()))'
+With:     '              case Some(_) =>\n                auditFailedLogin(req.email)\n                Future.successful(Left(ServiceError.Unauthorized("bad " + user.id.value)))'
+Exit: 1
+
+[info] - should carry no owner id for the owner's email, in either case, on every public auth route *** FAILED ***
+[info]   java.lang.AssertionError: [login wrong password] POST /api/auth/login (status 401 Unauthorized) leaked owner id 0badc0de-1248-4abc-8def-0123456789ab at: $.message value 'bad 0badc0de-1248-4abc-8def-0123456789ab'
+[info] - should have exactly the scanned set declared, and a guarded request issued for every declared entry *** FAILED ***
+[info] Tests: succeeded 4, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+[error] Failed tests:
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful

@@ -1,0 +1,13 @@
+Mutation: health
+Kind: literal (no owner entity in scope)
+File: backend/src/main/scala/com/helio/api/routes/HealthRoutes.scala
+Replaced: 'complete(HealthResponse(status = "ok"))'
+With:     'complete(HealthResponse(status = "ok-0badc0de-1248-4abc-8def-0123456789ab"))'
+Exit: 1
+
+[info] - should carry no owner id *** FAILED ***
+[info]   java.lang.AssertionError: [health] GET /health (status 200 OK) leaked owner id 0badc0de-1248-4abc-8def-0123456789ab at: $.status value 'ok-0badc0de-1248-4abc-8def-0123456789ab'
+[info] Tests: succeeded 5, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful

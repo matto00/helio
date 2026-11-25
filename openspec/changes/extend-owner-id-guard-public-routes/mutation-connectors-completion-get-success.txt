@@ -1,0 +1,14 @@
+Mutation: connectors-completion-get-success
+Kind: literal (success body holds only the auth shape)
+File: backend/src/main/scala/com/helio/api/routes/sources/ConnectorCompletionRoutes.scala
+Replaced: 'PendingConnectorAuthShapeResponse(shape.authType,'
+With:     'PendingConnectorAuthShapeResponse(shape.authType + "0badc0de-1248-4abc-8def-0123456789ab",'
+Exit: 1
+
+[info] - should carry no owner id for missing, unknown, expired, completed, stranger and valid-token cases *** FAILED ***
+[info]   java.lang.AssertionError: [GET valid token, anonymous] GET /api/connectors/completion?token=<elided> (status 200 OK) leaked owner id 0badc0de-1248-4abc-8def-0123456789ab at: $.authType value 'bearer0badc0de-1248-4abc-8def-0123456789ab'
+[info] - should have exactly the scanned set declared, and a guarded request issued for every declared entry *** FAILED ***
+[info] Tests: succeeded 4, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+[error] Failed tests:
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful

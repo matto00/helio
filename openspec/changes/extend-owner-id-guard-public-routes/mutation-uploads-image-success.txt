@@ -1,0 +1,13 @@
+Mutation: uploads-image-success
+Kind: owner-entity: upload.ownerId
+File: backend/src/main/scala/com/helio/api/routes/sources/PublicUploadRoutes.scala
+Replaced: 'complete(HttpEntity(parseContentType(upload.mimeType), bytes))'
+With:     'complete(HttpEntity(parseContentType(upload.mimeType), bytes ++ upload.ownerId.value.getBytes))'
+Exit: 1
+
+[info] - should serve an owner-uploaded image anonymously without the owner id, and 404 unknown and malformed ids *** FAILED ***
+[info]   java.lang.AssertionError: [owner image, anonymous] GET /api/uploads/image/d765419d-0cae-42b9-963e-d77d0a95eef9 (status 200 OK) leaked owner id 0badc0de-1248-4abc-8def-0123456789ab at: non-JSON body contains id
+[info] Tests: succeeded 5, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful

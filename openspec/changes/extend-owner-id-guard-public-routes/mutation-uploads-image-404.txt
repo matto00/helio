@@ -1,0 +1,13 @@
+Mutation: uploads-image-404
+Kind: literal (no owner entity in scope on the unknown-id branch)
+File: backend/src/main/scala/com/helio/api/routes/sources/PublicUploadRoutes.scala
+Replaced: 'ErrorResponse("Not found")'
+With:     'ErrorResponse("Not found 0badc0de-1248-4abc-8def-0123456789ab")'
+Exit: 1
+
+[info] - should serve an owner-uploaded image anonymously without the owner id, and 404 unknown and malformed ids *** FAILED ***
+[info]   java.lang.AssertionError: [unknown id] GET /api/uploads/image/4a2ee4b8-0f3a-46b3-91ed-7fae23ea0191 (status 404 Not Found) leaked owner id 0badc0de-1248-4abc-8def-0123456789ab at: $.message value 'Not found 0badc0de-1248-4abc-8def-0123456789ab'
+[info] Tests: succeeded 5, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful

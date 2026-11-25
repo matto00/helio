@@ -1,0 +1,14 @@
+Mutation: auth-google-start
+Kind: literal (Location header; no owner entity in scope)
+File: backend/src/main/scala/com/helio/api/routes/auth/OAuthRoutes.scala
+Replaced: 'redirect(buildGoogleAuthUrl(state), StatusCodes.Found)'
+With:     'redirect(buildGoogleAuthUrl(state + "0badc0de-1248-4abc-8def-0123456789ab"), StatusCodes.Found)'
+Exit: 1
+
+[info] - should carry no owner id for the owner's email, in either case, on every public auth route *** FAILED ***
+[info]   java.lang.AssertionError: [google start] GET /api/auth/google (status 302 Found) leaked owner id 0badc0de-1248-4abc-8def-0123456789ab at: non-JSON body contains id
+[info] - should have exactly the scanned set declared, and a guarded request issued for every declared entry *** FAILED ***
+[info] Tests: succeeded 4, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+[error] Failed tests:
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
