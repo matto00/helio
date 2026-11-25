@@ -10,6 +10,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { Provider } from "react-redux";
 
 import { PublicDashboardViewerPage } from "./PublicDashboardViewerPage";
+import { publicPanelsResult } from "../../../test/publicPanelsResult";
 import { authReducer } from "../../auth/state/authSlice";
 import { panelsReducer, setCrossFilter } from "../../panels/state/panelsSlice";
 import * as publicDashboardService from "../services/publicDashboardService";
@@ -38,7 +39,7 @@ const panel: OutputPanel = {
 
 describe("PublicDashboardViewerPage — HEL-1191 cross-filter isolation", () => {
   it("never narrows client-side and sends only control-scoped ops, even with a cross-filter in Redux", async () => {
-    fetchPublicDashboardPanels.mockResolvedValueOnce([panel]);
+    fetchPublicDashboardPanels.mockResolvedValueOnce(publicPanelsResult([panel]));
     fetchPublicOutputMeta.mockResolvedValue({
       kind: "table",
       config: { columnOrder: ["region"] },

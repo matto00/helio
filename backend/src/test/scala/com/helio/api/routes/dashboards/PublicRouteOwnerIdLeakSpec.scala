@@ -61,6 +61,7 @@ class PublicRouteOwnerIdLeakSpec
   private var provenance: ProvenanceService            = _
   private var fx: ProvenanceFixtures                   = _
   private var dataSourceRepo: DataSourceRepository     = _
+  private var dashboardRepo: DashboardRepository      = _
 
   /** The ONE distinctive id: panel owner == dashboard owner == output owner == pipeline owner == token creator. */
   private val ownerId = "0badc0de-1216-4abc-8def-0123456789ab"
@@ -76,7 +77,7 @@ class PublicRouteOwnerIdLeakSpec
       .locations("classpath:db/migration").load().migrate()
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
     val ctx = new DbContext(db, db)(routeEc)
-    val dashboardRepo = new DashboardRepository(ctx)(routeEc)
+    dashboardRepo     = new DashboardRepository(ctx)(routeEc)
     panelRepo         = new PanelRepository(ctx)(routeEc)
     shareTokenRepo    = new ShareTokenRepository(ctx)(routeEc)
     dataSourceRepo    = new DataSourceRepository(ctx)(routeEc)
@@ -105,7 +106,8 @@ class PublicRouteOwnerIdLeakSpec
   private def await[T](f: Future[T]): T = Await.result(f, 15.seconds)
 
   private def routesFor(user: Option[AuthenticatedUser]): Route =
-    new PublicDashboardRoutes(panelRepo, aclDirective, user, outputRepo, Some(pipelineRepo), Some(nodeSnapshotRepo), Some(provenance))(typedSystem).routes
+    new PublicDashboardRoutes(panelRepo, aclDirective, user, outputRepo, Some(pipelineRepo), Some(nodeSnapshotRepo), Some(provenance),
+      dashboardRepoOpt = Some(dashboardRepo), dataSourceRepoOpt = Some(dataSourceRepo))(typedSystem).routes
 
   private def seedDashboard(public: Boolean): String = {
     import PostgresProfile.api._
@@ -156,6 +158,29 @@ class PublicRouteOwnerIdLeakSpec
       Seq(JsObject("region" -> JsString("east"), "amount" -> JsNumber(1)), JsObject("region" -> JsString("west"), "amount" -> JsNumber(2))),
       explicitRootId = None))
     seedPanel(dashId, Some(output.id.value), controls = """[{"id":"c1","kind":"dropdown","column":"region","label":"Region"}]""")
+  }
+
+  /** HEL-1587: a `form` panel bound to a dataset owned by `ownerId`, and a stored layout naming the given panels. */
+  private def seedFormPanel(dashId: String): String = {
+    import PostgresProfile.api._
+    val src = UUID.randomUUID().toString
+    val panelId = UUID.randomUUID().toString
+    val cfg = s"""{"dataSourceId":"$src","fields":[{"sourceField":"qty","control":"number"}],"submit":{"writeMode":"append"}}"""
+    await(db.run(DBIO.seq(
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at, dataset_schema)
+               VALUES ($src::uuid, 'ds', 'dataset', '{}'::jsonb, ${ownerId}::uuid, now(), now(), '[{"name":"qty","type":"integer","required":true}]'::jsonb)""",
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id, form_config)
+               VALUES ($panelId, $dashId, 'F', $ownerId, now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}',
+                       'form', ${ownerId}::uuid, $cfg::jsonb)"""
+    )))
+    panelId
+  }
+
+  private def setLayout(dashId: String, panelIds: Seq[String]): Unit = {
+    import PostgresProfile.api._
+    val items = panelIds.zipWithIndex.map { case (id, i) => s"""{"panelId":"$id","x":${i * 3},"y":0,"w":3,"h":3}""" }.mkString(",")
+    val layout = s"""{"lg":[$items],"md":[$items],"sm":[$items],"xs":[$items]}"""
+    await(db.run(sqlu"""UPDATE dashboards SET layout = $layout::jsonb WHERE id = $dashId"""))
   }
 
   private def seedProvenancePanel(dashId: String): String = {
@@ -273,8 +298,12 @@ class PublicRouteOwnerIdLeakSpec
       val provPrivate = seedProvenancePanel(privateDash)
       val tok         = seedToken(privateDash)
       grant(privateDash, viewer, Role.Viewer)
+      val formPublic  = seedFormPanel(publicDash)
+      val formPrivate = seedFormPanel(privateDash)
+      setLayout(publicDash, Seq(rowsPublic, provPublic, formPublic))
+      setLayout(privateDash, Seq(rowsPrivate, provPrivate, formPrivate))
 
-      def paths(dash: String, rowsP: String, provP: String, q: String): Seq[String] = {
+      def paths(dash: String, rowsP: String, provP: String, formP: String, q: String): Seq[String] = {
         val sep = if (q.isEmpty) "?" else s"$q&"
         Seq(
           s"/dashboards/$dash/panels$q",
@@ -288,18 +317,21 @@ class PublicRouteOwnerIdLeakSpec
           s"/dashboards/$dash/panels/$provP/provenance$q",
           s"/dashboards/$dash/panels/${UUID.randomUUID()}/provenance$q", // 404 missing panel
           s"/dashboards/$dash/panels/${UUID.randomUUID()}/output-meta$q",
-          s"/dashboards/$dash/panels/$rowsP/rows${sep}offset=-1"          // 400
+          s"/dashboards/$dash/panels/$rowsP/rows${sep}offset=-1",          // 400
+          s"/dashboards/$dash/panels/$formP/form-schema$q",                // HEL-1587
+          s"/dashboards/$dash/panels/$rowsP/form-schema$q",                // 404: not a form
+          s"/dashboards/$dash/panels/${UUID.randomUUID()}/form-schema$q"   // 404 missing panel
         )
       }
       val scenarios: Seq[(String, Option[AuthenticatedUser], Seq[String])] = Seq(
-        ("anonymous / public dashboard", None, paths(publicDash, rowsPublic, provPublic, "")),
-        ("anonymous / private dashboard, no token (404)", None, paths(privateDash, rowsPrivate, provPrivate, "")),
-        ("anonymous / private dashboard, wrong token (404)", None, paths(privateDash, rowsPrivate, provPrivate, "?token=wrong")),
-        ("share-token only / private dashboard", None, paths(privateDash, rowsPrivate, provPrivate, s"?token=$tok")),
-        ("stranger + token / private dashboard", Some(stranger), paths(privateDash, rowsPrivate, provPrivate, s"?token=$tok")),
-        ("stranger, no token / private dashboard (403)", Some(stranger), paths(privateDash, rowsPrivate, provPrivate, "")),
-        ("viewer grantee / private dashboard", Some(viewer), paths(privateDash, rowsPrivate, provPrivate, "")),
-        ("anonymous / nonexistent dashboard (404)", None, paths(UUID.randomUUID().toString, rowsPublic, provPublic, ""))
+        ("anonymous / public dashboard", None, paths(publicDash, rowsPublic, provPublic, formPublic, "")),
+        ("anonymous / private dashboard, no token (404)", None, paths(privateDash, rowsPrivate, provPrivate, formPrivate, "")),
+        ("anonymous / private dashboard, wrong token (404)", None, paths(privateDash, rowsPrivate, provPrivate, formPrivate, "?token=wrong")),
+        ("share-token only / private dashboard", None, paths(privateDash, rowsPrivate, provPrivate, formPrivate, s"?token=$tok")),
+        ("stranger + token / private dashboard", Some(stranger), paths(privateDash, rowsPrivate, provPrivate, formPrivate, s"?token=$tok")),
+        ("stranger, no token / private dashboard (403)", Some(stranger), paths(privateDash, rowsPrivate, provPrivate, formPrivate, "")),
+        ("viewer grantee / private dashboard", Some(viewer), paths(privateDash, rowsPrivate, provPrivate, formPrivate, "")),
+        ("anonymous / nonexistent dashboard (404)", None, paths(UUID.randomUUID().toString, rowsPublic, provPublic, formPublic, ""))
       )
       var checked = 0
       scenarios.foreach { case (label, user, ps) =>
@@ -315,6 +347,14 @@ class PublicRouteOwnerIdLeakSpec
       Get(s"/dashboards/$publicDash/panels/$rowsPublic/rows") ~> routesFor(None) ~> check {
         status shouldBe StatusCodes.OK
         responseAs[String] should include("east")
+      }
+      Get(s"/dashboards/$publicDash/panels/$formPublic/form-schema") ~> routesFor(None) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[String] should include("qty")
+      }
+      Get(s"/dashboards/$publicDash/panels") ~> routesFor(None) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[JsObject].fields("layout").asJsObject.fields("lg").asInstanceOf[JsArray].elements.size shouldBe 3
       }
       Get(s"/dashboards/$publicDash/panels/$provPublic/provenance") ~> routesFor(None) ~> check {
         status shouldBe StatusCodes.OK

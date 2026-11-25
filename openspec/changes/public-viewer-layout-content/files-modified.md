@@ -1,0 +1,63 @@
+- `backend/src/main/scala/com/helio/api/routes/dashboards/PublicPanelListResolver.scala` — panel list also returns the stored layout filtered to the response's panel ids (internal read inside the sharing gate)
+- `backend/src/main/scala/com/helio/api/routes/dashboards/PublicFormSchemaResolver.scala` — new: public bound-field declarations, form owner's context, owner-scoped read
+- `backend/src/main/scala/com/helio/api/routes/dashboards/PublicDashboardRoutes.scala` — mounts `/form-schema` behind the same sharing gate; takes dashboard/data-source repos
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — wires the two repos into `PublicDashboardRoutes`
+- `backend/src/main/scala/com/helio/api/protocols/dashboards/DashboardProtocol.scala` — `PublicPanelListResponse` (+ layout)
+- `backend/src/main/scala/com/helio/api/protocols/panels/FormSubmitProtocol.scala` — `PublicFormSchemaResponse` (name/type/required only)
+- `backend/src/main/scala/com/helio/infrastructure/persistence/sources/DataSourceRepository.scala` — `getDeclaredSchemaOwnedBy` (app pool, owner_id predicate)
+- `backend/src/main/scala/com/helio/infrastructure/persistence/dashboards/DashboardRepository.scala` — documented-callers note for `findByIdInternal`
+- `backend/src/test/scala/com/helio/api/routes/dashboards/PublicLayoutAndFormSchemaRoutesSpec.scala` — new: layout + form-schema route cases, anonymous submit status
+- `backend/src/test/scala/com/helio/api/routes/dashboards/PublicFormSchemaRlsSpec.scala` — new: NOBYPASSRLS proof incl. owner-positive control
+- `backend/src/test/scala/com/helio/api/routes/dashboards/PublicRouteOwnerIdLeakSpec.scala` / `PublicRouteOwnerIdLeakApiSpec.scala` — HEL-1248 guard covers form-schema and a non-empty layout
+- `shared-test-fixtures/dashboards/viewer-panels-response.json` — panel-list envelope gains `layout` (SharedDashboardPanelsSeamSpec)
+- `schemas/dashboards/public-panel-list-response.schema.json`, `schemas/panels/public-form-schema-response.schema.json` — new contracts
+- `frontend/src/features/dashboards/services/publicDashboardService.ts` — `{panels, layout}` and `fetchPublicFormSchema`
+- `frontend/src/features/dashboards/ui/PublicPanelGrid.tsx` — new read-only RGL grid (noCompactor, no save/repair imports)
+- `frontend/src/features/dashboards/ui/PublicPanelBody.tsx` — per-kind body (output moved here; form branched before PanelContent; content kinds via PanelContent)
+- `frontend/src/features/dashboards/ui/PublicFormPreview.tsx` — new disabled, non-submittable form preview
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.tsx` / `.css` — container measured with measureBeforeMount (nothing mounts before the real width), grid >= 768px, stack below; dead panel-kind rule removed
+- `frontend/src/features/panels/ui/form/FormFieldControl.tsx` — `disabled` prop threaded to every control
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.layout.test.tsx`, `services/publicDashboardService.layout.test.ts`, `FormFieldControl.test.tsx` — new tests; other `PublicDashboardViewerPage.*.test.tsx` adapted to the new service result via `frontend/src/test/publicPanelsResult.ts`
+- `e2e/hel1587-public-viewer-layout.spec.ts` — new e2e (md at 1440, lg at 1700, stack at 375, both themes, owner writes nothing)
+- `e2e/hel1744-insight-panel.spec.ts` — selector accepts the grid card as well as the phone list row
+- `CLAUDE.md` — API contract notes
+- `openspec/changes/public-viewer-layout-content/{tasks.md,design.md,red-run-*.txt,mutation-evidence.txt}` — tasks ticked; D3 key note; evidence
+
+## Complete touched-file list (from git diff 95cec30cf..HEAD)
+
+- `CLAUDE.md`
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala`
+- `backend/src/main/scala/com/helio/api/protocols/dashboards/DashboardProtocol.scala`
+- `backend/src/main/scala/com/helio/api/protocols/panels/FormSubmitProtocol.scala`
+- `backend/src/main/scala/com/helio/api/routes/dashboards/PublicDashboardRoutes.scala`
+- `backend/src/main/scala/com/helio/api/routes/dashboards/PublicFormSchemaResolver.scala`
+- `backend/src/main/scala/com/helio/api/routes/dashboards/PublicPanelListResolver.scala`
+- `backend/src/main/scala/com/helio/infrastructure/persistence/dashboards/DashboardRepository.scala`
+- `backend/src/main/scala/com/helio/infrastructure/persistence/sources/DataSourceRepository.scala`
+- `backend/src/test/scala/com/helio/api/routes/dashboards/PublicFormSchemaRlsSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/dashboards/PublicLayoutAndFormSchemaRoutesSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/dashboards/PublicRouteOwnerIdLeakApiSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/dashboards/PublicRouteOwnerIdLeakSpec.scala`
+- `e2e/hel1587-public-viewer-layout.spec.ts`
+- `e2e/hel1744-insight-panel.spec.ts`
+- `frontend/src/features/dashboards/services/publicDashboardService.layout.test.ts`
+- `frontend/src/features/dashboards/services/publicDashboardService.ts`
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.content.test.tsx`
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.crossFilter.test.tsx`
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.css`
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.filteredMetric.test.tsx`
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.history.test.tsx`
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.layout.test.tsx`
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.provenance.test.tsx`
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.routing.test.tsx`
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.truncation.test.tsx`
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.tsx`
+- `frontend/src/features/dashboards/ui/PublicFormPreview.tsx`
+- `frontend/src/features/dashboards/ui/PublicPanelBody.tsx`
+- `frontend/src/features/dashboards/ui/PublicPanelGrid.tsx`
+- `frontend/src/features/panels/ui/form/FormFieldControl.test.tsx`
+- `frontend/src/features/panels/ui/form/FormFieldControl.tsx`
+- `frontend/src/test/publicPanelsResult.ts`
+- `schemas/dashboards/public-panel-list-response.schema.json`
+- `schemas/panels/public-form-schema-response.schema.json`
+- `shared-test-fixtures/dashboards/viewer-panels-response.json`

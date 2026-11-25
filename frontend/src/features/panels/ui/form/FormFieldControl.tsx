@@ -53,6 +53,9 @@ interface FormFieldControlProps {
    *  always-mounted region with this id): `FormField` renders no error paragraph, the control stays invalid, and its
    *  `aria-describedby` points at this id instead of the field's own error id. No effect while `error` is null. */
   errorDescriptionId?: string;
+  /** HEL-1587 — every control renders non-interactive (native `disabled`, and `CounterControl`'s own `disabled`, which a
+   *  `<fieldset disabled>` would not reach on its non-native spinbutton). Used by the public viewer's read-only preview. */
+  disabled?: boolean;
 }
 
 export function FormFieldControl({
@@ -68,6 +71,7 @@ export function FormFieldControl({
   busy,
   tallyCaption,
   errorDescriptionId,
+  disabled,
 }: FormFieldControlProps) {
   const controlId = useId();
   const errorId = useId();
@@ -121,6 +125,7 @@ export function FormFieldControl({
           immediate,
           onImmediateStep,
           busy,
+          disabled,
         })}
         {showCaption && (
           <p id={captionId} className="ui-form-field__hint counter-control__caption">
@@ -144,6 +149,7 @@ interface RenderControlArgs {
   immediate?: boolean;
   onImmediateStep?: (direction: 1 | -1) => void;
   busy?: boolean;
+  disabled?: boolean;
 }
 
 function renderControl({
@@ -158,6 +164,7 @@ function renderControl({
   immediate,
   onImmediateStep,
   busy,
+  disabled,
 }: RenderControlArgs) {
   const stringValue = typeof value === "string" ? value : "";
 
@@ -166,6 +173,7 @@ function renderControl({
       return (
         <TextField
           id={controlId}
+          disabled={disabled}
           type="text"
           value={stringValue}
           placeholder={field.placeholder}
@@ -180,6 +188,7 @@ function renderControl({
       return (
         <Textarea
           id={controlId}
+          disabled={disabled}
           value={stringValue}
           placeholder={field.placeholder}
           required={required}
@@ -194,6 +203,7 @@ function renderControl({
       return (
         <TextField
           id={controlId}
+          disabled={disabled}
           type="number"
           value={stringValue}
           placeholder={field.placeholder}
@@ -233,6 +243,7 @@ function renderControl({
           ariaInvalid={invalid}
           ariaDescribedBy={describedBy}
           ariaRequired
+          disabled={disabled}
           ariaBusy={immediate ? busy : undefined}
           onStep={handleStep}
         />
@@ -242,6 +253,7 @@ function renderControl({
       return (
         <TextField
           id={controlId}
+          disabled={disabled}
           type="date"
           value={stringValue}
           required={required}
@@ -258,6 +270,7 @@ function renderControl({
       return (
         <Select
           value={stringValue}
+          disabled={disabled}
           options={options}
           ariaLabel={field.label ?? field.sourceField}
           ariaInvalid={invalid}
@@ -272,6 +285,7 @@ function renderControl({
         <Toggle
           id={controlId}
           checked={value === true}
+          disabled={disabled}
           ariaLabel={field.label ?? field.sourceField}
           ariaInvalid={invalid}
           ariaDescribedBy={describedBy}
@@ -284,6 +298,7 @@ function renderControl({
         <FileField
           id={controlId}
           value={value instanceof File ? value : null}
+          disabled={disabled}
           ariaInvalid={invalid}
           ariaDescribedBy={describedBy}
           ariaRequired={required}

@@ -10,6 +10,7 @@ import { resetProvenanceCache } from "../../panels/provenance/provenanceCache";
 import * as provenanceService from "../../panels/provenance/provenanceService";
 import * as publicDashboardService from "../services/publicDashboardService";
 import type { OutputPanel } from "../../panels/types/panel";
+import { publicPanelsResult } from "../../../test/publicPanelsResult";
 
 // HEL-1207 A1 — the public viewer's provenance row: public endpoint + token, no link/ids.
 
@@ -36,7 +37,9 @@ const panel: OutputPanel = {
 
 beforeEach(() => {
   resetProvenanceCache();
-  jest.mocked(publicDashboardService.fetchPublicDashboardPanels).mockResolvedValue([panel]);
+  jest
+    .mocked(publicDashboardService.fetchPublicDashboardPanels)
+    .mockResolvedValue(publicPanelsResult([panel]));
   jest.mocked(publicDashboardService.fetchPublicOutputMeta).mockResolvedValue({
     kind: "table",
     config: {},

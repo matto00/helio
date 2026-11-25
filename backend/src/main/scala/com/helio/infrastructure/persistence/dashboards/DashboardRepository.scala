@@ -137,7 +137,9 @@ class DashboardRepository(protected val ctx: DbContext)(implicit protected val e
     ).map(_.map(rowToDomain))
 
   /** No-ACL read for the ResourceTypeRegistry owner-resolver and other
-   *  privileged internal callers only. Do not use from routes or services. */
+   *  privileged internal callers only. Do not use from routes or services.
+   *  Documented callers: the ResourceTypeRegistry resolver, and `PublicPanelListResolver` (HEL-1587), which reads only the
+   *  stored `layout` after the sharing gate has admitted the caller for that exact dashboard id. */
   def findByIdInternal(id: DashboardId): Future[Option[Dashboard]] =
     ctx.withSystemContext(table.filter(_.id === id.value).result.headOption)
       .map(_.map(rowToDomain))

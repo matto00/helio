@@ -14,6 +14,7 @@ import * as publicDashboardService from "../services/publicDashboardService";
 import * as historyService from "../../panels/history/outputHistoryService";
 import { resetHistoryCache } from "../../panels/history/outputHistoryCache";
 import type { OutputPanel } from "../../panels/types/panel";
+import { publicPanelsResult } from "../../../test/publicPanelsResult";
 
 jest.mock("../services/publicDashboardService", () => ({
   fetchPublicDashboardPanels: jest.fn(),
@@ -64,7 +65,7 @@ function renderAt(path: string) {
 beforeEach(() => {
   jest.clearAllMocks();
   resetHistoryCache();
-  fetchPanels.mockResolvedValue([metricPanel]);
+  fetchPanels.mockResolvedValue(publicPanelsResult([metricPanel]));
   fetchMeta.mockResolvedValue({
     kind: "metric",
     config: { fieldMapping: {}, aggregation: { value: "amount", agg: "sum" }, format: "integer" },

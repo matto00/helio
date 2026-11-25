@@ -954,7 +954,7 @@ final class ApiRoutes(
               pathPrefix("auth") { concat(auth.routes, oauth.routes, mfaRoutesOpt.fold(reject: Route)(_.verifyRoute)) },
               authDirectives.optionalAuthenticate { userOpt =>
                 concat(
-                  new PublicDashboardRoutes(panelRepo, aclDirective, userOpt, outputRepo, Option(pipelineRepo), Some(nodeSnapshotRepo), provenanceServiceOpt, Some(outputHistoryService), Some(outputInsightReadService)).routes,
+                  new PublicDashboardRoutes(panelRepo, aclDirective, userOpt, outputRepo, Option(pipelineRepo), Some(nodeSnapshotRepo), provenanceServiceOpt, Some(outputHistoryService), Some(outputInsightReadService), Some(dashboardRepo), Some(dataSourceRepo)).routes,
                   imageUploadServiceOpt.fold(reject: Route)(svc => new PublicUploadRoutes(svc).routes),
                   // HEL-955 design.md D5: optional-auth so an unauthenticated human can complete
                   // a pending Connector out-of-band, while an authenticated caller is still

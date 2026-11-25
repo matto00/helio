@@ -445,7 +445,8 @@ for (const theme of ["light", "dark"] as const) {
       await expect(page.getByText(/Orders hold three regions/)).toBeVisible({ timeout: 20_000 });
       await expectRichMarkdown(page);
       const publicChips = page
-        .locator("li.public-dashboard-viewer__panel-row")
+        // HEL-1587: a list row on the phone stack, a grid card (section) from 768px up.
+        .locator("li.public-dashboard-viewer__panel-row, section.public-dashboard-viewer__card")
         .filter({ hasText: "HEL-1744 insight panel" })
         .getByRole("button", { name: /^Source: / });
       await expect(publicChips.first()).toBeVisible();

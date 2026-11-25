@@ -27,5 +27,6 @@
   ],
   "total": 2,
   "offset": 0,
-  "limit": 500
+  "limit": 500,
+  "layout": { "lg": [], "md": [], "sm": [], "xs": [] }
 }

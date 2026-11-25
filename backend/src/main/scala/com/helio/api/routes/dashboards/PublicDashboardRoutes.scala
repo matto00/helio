@@ -5,15 +5,19 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import com.helio.api._
 import com.helio.api.http._
+import com.helio.api.protocols.panels.PublicFormSchemaResponse
 import com.helio.api.routes.ServiceResponse
 import com.helio.api.routes.pipelines.{OutputHistoryQueryParsing, OutputRowsQueryParsing}
 import com.helio.domain.model._
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository}
+import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.services.ServiceError
 import com.helio.services.insights.OutputInsightReadService
 import com.helio.services.pipelines.{OutputHistoryService, ProvenanceService}
 
-import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.{ExecutionContextExecutor, Future}
 
 /** Public (unauthenticated-friendly) read access to a dashboard's panels.
  *  Sharing-aware ACL is enforced via `AclDirective.authorizeResourceWithSharing`.
@@ -42,7 +46,9 @@ final class PublicDashboardRoutes(
     nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = None,
     provenanceServiceOpt: Option[ProvenanceService] = None,
     historyServiceOpt: Option[OutputHistoryService] = None,
-    insightReadServiceOpt: Option[OutputInsightReadService] = None
+    insightReadServiceOpt: Option[OutputInsightReadService] = None,
+    dashboardRepoOpt: Option[DashboardRepository] = None,
+    dataSourceRepoOpt: Option[DataSourceRepository] = None
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -53,11 +59,13 @@ final class PublicDashboardRoutes(
   // `authorizeResourceWithSharing` call stay below, in this file; the modules own only the
   // resolution logic. Declared before `routes` so they are initialised when it is built.
   private val panelOutput = new PublicPanelOutputResolver(panelRepo, userOpt, outputRepo)
-  private val panelList = new PublicPanelListResolver(panelRepo, userOpt, outputRepo, pipelineRepoOpt, nodeSnapshotRepoOpt)
+  private val panelList = new PublicPanelListResolver(panelRepo, userOpt, outputRepo, pipelineRepoOpt, nodeSnapshotRepoOpt, dashboardRepoOpt)
   private val rows = new PublicPanelRowsResolver(panelRepo, userOpt, outputRepo, nodeSnapshotRepoOpt, panelOutput)
   private val outputMeta = new PublicPanelOutputMetaResolver(outputRepo, provenanceServiceOpt, panelOutput)
   private val history = new PublicPanelHistoryResolver(outputRepo, historyServiceOpt, panelOutput)
   private val insight = new PublicPanelInsightResolver(insightReadServiceOpt, panelOutput)
+  // HEL-1587: absent repo (a test wiring without it) answers the same 404 as an unresolvable panel.
+  private val formSchema = dataSourceRepoOpt.map(new PublicFormSchemaResolver(panelRepo, _, userOpt))
 
   val routes: Route =
     pathPrefix("dashboards" / Segment / "panels") { dashboardId =>
@@ -186,6 +194,28 @@ final class PublicDashboardRoutes(
                 token
               ) { _ =>
                 ServiceResponse.run(insight.resolveInsight(dashboardId, panelId))(identity)
+              }
+            }
+          }
+        }
+      } ~
+      pathPrefix(Segment / "form-schema") { panelId =>
+        pathEndOrSingleSlash {
+          get {
+            parameters("token".optional) { token =>
+              // HEL-1587: the dashboard gate runs BEFORE the resolver, exactly like `insight`/`history`.
+              aclDirective.authorizeResourceWithSharing(
+                "dashboard",
+                dashboardId,
+                userOpt,
+                "Dashboard not found",
+                token
+              ) { _ =>
+                ServiceResponse.run(
+                  formSchema.fold(Future.successful[Either[ServiceError, PublicFormSchemaResponse]](Left(ServiceError.NotFound("Panel not found"))))(
+                    _.resolveFormSchema(dashboardId, panelId)
+                  )
+                )(identity)
               }
             }
           }
