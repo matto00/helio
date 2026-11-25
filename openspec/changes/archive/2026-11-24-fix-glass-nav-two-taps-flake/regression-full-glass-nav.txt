@@ -1,0 +1,160 @@
+
+Running 30 tests using 2 workers
+
+[1/30] [dev] › e2e/support/hel1583-glass-nav.ts:252:9 › HEL-1583 glass nav, dark theme › five tabs, the active label visible, exactly one current tab per route; Connectors via Data
+[2/30] [dev] › e2e/support/hel1583-glass-nav.ts:314:11 › HEL-1583 glass nav, dark theme › tap targets are at least 44px and do not overlap at 320px
+[dev] › e2e/support/hel1583-glass-nav.ts:252:9 › HEL-1583 glass nav, dark theme › five tabs, the active label visible, exactly one current tab per route; Connectors via Data
+[HEL-1300 e2e] throwaway user: hel1583b-tabsdark-1795563027351-99313@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:314:11 › HEL-1583 glass nav, dark theme › tap targets are at least 44px and do not overlap at 320px
+[HEL-1300 e2e] throwaway user: hel1583b-tap320dark-1795563027391-27995@example.com
+
+[3/30] [dev] › e2e/support/hel1583-glass-nav.ts:314:11 › HEL-1583 glass nav, dark theme › tap targets are at least 44px and do not overlap at 375px
+[dev] › e2e/support/hel1583-glass-nav.ts:314:11 › HEL-1583 glass nav, dark theme › tap targets are at least 44px and do not overlap at 375px
+[HEL-1300 e2e] throwaway user: hel1583b-tap375dark-1795563031963-97639@example.com
+
+[4/30] [dev] › e2e/support/hel1583-glass-nav.ts:314:11 › HEL-1583 glass nav, dark theme › tap targets are at least 44px and do not overlap at 768px
+[dev] › e2e/support/hel1583-glass-nav.ts:314:11 › HEL-1583 glass nav, dark theme › tap targets are at least 44px and do not overlap at 768px
+[HEL-1300 e2e] throwaway user: hel1583b-tap768dark-1795563037330-43012@example.com
+
+[5/30] [dev] › e2e/support/hel1583-glass-nav.ts:357:9 › HEL-1583 glass nav, dark theme › at 320px nothing crosses the capsule, the lozenge stays in its tab, and a long label truncates
+[dev] › e2e/support/hel1583-glass-nav.ts:357:9 › HEL-1583 glass nav, dark theme › at 320px nothing crosses the capsule, the lozenge stays in its tab, and a long label truncates
+[HEL-1300 e2e] throwaway user: hel1583b-fit320dark-1795563040749-79730@example.com
+
+[6/30] [dev] › e2e/support/hel1583-glass-nav.ts:418:9 › HEL-1583 glass nav, dark theme › the icon box and its vertical position do not change on activation
+[dev] › e2e/support/hel1583-glass-nav.ts:418:9 › HEL-1583 glass nav, dark theme › the icon box and its vertical position do not change on activation
+[HEL-1300 e2e] throwaway user: hel1583b-icondark-1795563042579-20056@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:357:9 › HEL-1583 glass nav, dark theme › at 320px nothing crosses the capsule, the lozenge stays in its tab, and a long label truncates
+HEL1583-TRUNCATION dark {"Dashboards":{"tabWidth":102,"labelClientWidth":54,"labelScrollWidth":72,"truncated":true,"contentWidth":278},"Pipelines":{"tabWidth":102,"labelClientWidth":54,"labelScrollWidth":55,"truncated":true,"contentWidth":278}}
+
+[7/30] [dev] › e2e/support/hel1583-glass-nav.ts:442:11 › HEL-1583 glass nav, dark theme › the active pill is content-sized and tabs are evenly spaced at 430px
+[dev] › e2e/support/hel1583-glass-nav.ts:442:11 › HEL-1583 glass nav, dark theme › the active pill is content-sized and tabs are evenly spaced at 430px
+[HEL-1300 e2e] throwaway user: hel1583b-size430dark-1795563045286-88911@example.com
+
+[8/30] [dev] › e2e/support/hel1583-glass-nav.ts:442:11 › HEL-1583 glass nav, dark theme › the active pill is content-sized and tabs are evenly spaced at 768px
+[dev] › e2e/support/hel1583-glass-nav.ts:442:11 › HEL-1583 glass nav, dark theme › the active pill is content-sized and tabs are evenly spaced at 768px
+[HEL-1300 e2e] throwaway user: hel1583b-size768dark-1795563046939-99871@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:442:11 › HEL-1583 glass nav, dark theme › the active pill is content-sized and tabs are evenly spaced at 430px
+HEL1583-SPACING 430 dark gaps=[15.3,15.3,15.3,15.3,15.3,15.4]
+
+[9/30] [dev] › e2e/support/hel1583-glass-nav.ts:470:11 › HEL-1583 glass nav, dark theme › active pill contrast from rendered pixels at 320px over every backdrop
+[dev] › e2e/support/hel1583-glass-nav.ts:470:11 › HEL-1583 glass nav, dark theme › active pill contrast from rendered pixels at 320px over every backdrop
+[HEL-1300 e2e] throwaway user: hel1583b-ctr320dark-1795563048915-30826@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:442:11 › HEL-1583 glass nav, dark theme › the active pill is content-sized and tabs are evenly spaced at 768px
+HEL1583-SPACING 768 dark gaps=[71.7,71.7,71.7,71.7,71.7,71.7]
+
+[10/30] [dev] › e2e/support/hel1583-glass-nav.ts:470:11 › HEL-1583 glass nav, dark theme › active pill contrast from rendered pixels at 375px over every backdrop
+[dev] › e2e/support/hel1583-glass-nav.ts:470:11 › HEL-1583 glass nav, dark theme › active pill contrast from rendered pixels at 375px over every backdrop
+[HEL-1300 e2e] throwaway user: hel1583b-ctr375dark-1795563050750-36951@example.com
+
+HEL1583-CONTRAST 375 dark [{"backdrop":"default","active":"Dashboards","edgeTop":15.11,"edgeBottom":15.58,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":15.26},{"backdrop":"white","active":"Dashboards","edgeTop":3.96,"edgeBottom":3.43,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":3.43},{"backdrop":"black","active":"Dashboards","edgeTop":16.92,"edgeBottom":16.92,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":16.92},{"backdrop":"accent","active":"Dashboards","edgeTop":6.89,"edgeBottom":6.95,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":6.86},{"backdrop":"photo","active":"Dashboards","edgeTop":8.34,"edgeBottom":8.34,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":7.83}]
+
+[11/30] [dev] › e2e/support/hel1583-glass-nav.ts:470:11 › HEL-1583 glass nav, dark theme › active pill contrast from rendered pixels at 768px over every backdrop
+[dev] › e2e/support/hel1583-glass-nav.ts:470:11 › HEL-1583 glass nav, dark theme › active pill contrast from rendered pixels at 768px over every backdrop
+[HEL-1300 e2e] throwaway user: hel1583b-ctr768dark-1795563056463-72863@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:470:11 › HEL-1583 glass nav, dark theme › active pill contrast from rendered pixels at 320px over every backdrop
+HEL1583-CONTRAST 320 dark [{"backdrop":"default","active":"Dashboards","edgeTop":15.61,"edgeBottom":15.26,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":14.64},{"backdrop":"white","active":"Dashboards","edgeTop":3.96,"edgeBottom":3.43,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":3.43},{"backdrop":"black","active":"Dashboards","edgeTop":16.92,"edgeBottom":16.92,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":16.92},{"backdrop":"accent","active":"Dashboards","edgeTop":6.89,"edgeBottom":6.95,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":6.86},{"backdrop":"photo","active":"Dashboards","edgeTop":8.34,"edgeBottom":8.34,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":7.71},{"backdrop":"default","active":"Pipelines","edgeTop":16.18,"edgeBottom":16.18,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":16.27},{"backdrop":"white","active":"Pipelines","edgeTop":3.96,"edgeBottom":3.43,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":3.43},{"backdrop":"black","active":"Pipelines","edgeTop":16.92,"edgeBottom":16.92,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":16.92},{"backdrop":"accent","active":"Pipelines","edgeTop":6.89,"edgeBottom":6.95,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":6.86},{"backdrop":"photo","active":"Pipelines","edgeTop":8.34,"edgeBottom":8.34,"label":13.62,"activeGlyph":6.39,"minInactiveGlyph":7.71}]
+
+[12/30] [dev] › e2e/support/hel1583-glass-nav.ts:534:9 › HEL-1583 glass nav, dark theme › a free-tier user reaches the assistant overlay in one tap; the header has no avatar
+[dev] › e2e/support/hel1583-glass-nav.ts:534:9 › HEL-1583 glass nav, dark theme › a free-tier user reaches the assistant overlay in one tap; the header has no avatar
+[HEL-1300 e2e] throwaway user: hel1583b-freedark-1795563056723-79679@example.com
+
+[13/30] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, dark theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betadark-1795563060149-41255@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:470:11 › HEL-1583 glass nav, dark theme › active pill contrast from rendered pixels at 768px over every backdrop
+HEL1583-CONTRAST 768 dark [{"backdrop":"default","active":"Dashboards","edgeTop":15.58,"edgeBottom":16.15,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":15.76},{"backdrop":"white","active":"Dashboards","edgeTop":3.96,"edgeBottom":3.43,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":3.43},{"backdrop":"black","active":"Dashboards","edgeTop":16.92,"edgeBottom":16.92,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":16.92},{"backdrop":"accent","active":"Dashboards","edgeTop":6.89,"edgeBottom":6.95,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":6.86},{"backdrop":"photo","active":"Dashboards","edgeTop":8.6,"edgeBottom":8.74,"label":12.77,"activeGlyph":6.39,"minInactiveGlyph":7.83}]
+
+[14/30] [dev] › e2e/support/hel1583-glass-nav.ts:569:9 › HEL-1583 glass nav, dark theme › an owner reaches Usage through the Me menu, which opens above the nav
+[dev] › e2e/support/hel1583-glass-nav.ts:569:9 › HEL-1583 glass nav, dark theme › an owner reaches Usage through the Me menu, which opens above the nav
+[HEL-1300 e2e] throwaway user: hel1583b-ownerdark-1795563064212-7602@example.com
+
+[15/30] [dev] › e2e/support/hel1583-glass-nav.ts:611:9 › HEL-1583 glass nav, dark theme › the refreshed line sits above the chip row on a dashboard whose pipeline has run
+[dev] › e2e/support/hel1583-glass-nav.ts:611:9 › HEL-1583 glass nav, dark theme › the refreshed line sits above the chip row on a dashboard whose pipeline has run
+[HEL-1300 e2e] throwaway user: hel1583b-refreshdark-1795563066211-96620@example.com
+
+[16/30] [dev] › e2e/support/hel1583-glass-nav.ts:252:9 › HEL-1583 glass nav, light theme › five tabs, the active label visible, exactly one current tab per route; Connectors via Data
+[dev] › e2e/support/hel1583-glass-nav.ts:252:9 › HEL-1583 glass nav, light theme › five tabs, the active label visible, exactly one current tab per route; Connectors via Data
+[HEL-1300 e2e] throwaway user: hel1583b-tabslight-1795563070606-57919@example.com
+
+[17/30] [dev] › e2e/support/hel1583-glass-nav.ts:314:11 › HEL-1583 glass nav, light theme › tap targets are at least 44px and do not overlap at 320px
+[dev] › e2e/support/hel1583-glass-nav.ts:314:11 › HEL-1583 glass nav, light theme › tap targets are at least 44px and do not overlap at 320px
+[HEL-1300 e2e] throwaway user: hel1583b-tap320light-1795563073716-65588@example.com
+
+[18/30] [dev] › e2e/support/hel1583-glass-nav.ts:314:11 › HEL-1583 glass nav, light theme › tap targets are at least 44px and do not overlap at 375px
+[dev] › e2e/support/hel1583-glass-nav.ts:314:11 › HEL-1583 glass nav, light theme › tap targets are at least 44px and do not overlap at 375px
+[HEL-1300 e2e] throwaway user: hel1583b-tap375light-1795563077897-16685@example.com
+
+[19/30] [dev] › e2e/support/hel1583-glass-nav.ts:314:11 › HEL-1583 glass nav, light theme › tap targets are at least 44px and do not overlap at 768px
+[dev] › e2e/support/hel1583-glass-nav.ts:314:11 › HEL-1583 glass nav, light theme › tap targets are at least 44px and do not overlap at 768px
+[HEL-1300 e2e] throwaway user: hel1583b-tap768light-1795563081929-66611@example.com
+
+[20/30] [dev] › e2e/support/hel1583-glass-nav.ts:357:9 › HEL-1583 glass nav, light theme › at 320px nothing crosses the capsule, the lozenge stays in its tab, and a long label truncates
+[dev] › e2e/support/hel1583-glass-nav.ts:357:9 › HEL-1583 glass nav, light theme › at 320px nothing crosses the capsule, the lozenge stays in its tab, and a long label truncates
+[HEL-1300 e2e] throwaway user: hel1583b-fit320light-1795563082110-85991@example.com
+
+[21/30] [dev] › e2e/support/hel1583-glass-nav.ts:418:9 › HEL-1583 glass nav, light theme › the icon box and its vertical position do not change on activation
+[dev] › e2e/support/hel1583-glass-nav.ts:418:9 › HEL-1583 glass nav, light theme › the icon box and its vertical position do not change on activation
+[HEL-1300 e2e] throwaway user: hel1583b-iconlight-1795563086061-18729@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:357:9 › HEL-1583 glass nav, light theme › at 320px nothing crosses the capsule, the lozenge stays in its tab, and a long label truncates
+HEL1583-TRUNCATION light {"Dashboards":{"tabWidth":102,"labelClientWidth":54,"labelScrollWidth":72,"truncated":true,"contentWidth":278},"Pipelines":{"tabWidth":102,"labelClientWidth":54,"labelScrollWidth":55,"truncated":true,"contentWidth":278}}
+
+[22/30] [dev] › e2e/support/hel1583-glass-nav.ts:442:11 › HEL-1583 glass nav, light theme › the active pill is content-sized and tabs are evenly spaced at 430px
+[dev] › e2e/support/hel1583-glass-nav.ts:442:11 › HEL-1583 glass nav, light theme › the active pill is content-sized and tabs are evenly spaced at 430px
+[HEL-1300 e2e] throwaway user: hel1583b-size430light-1795563086414-57013@example.com
+
+HEL1583-SPACING 430 light gaps=[15.3,15.3,15.3,15.3,15.3,15.4]
+
+[23/30] [dev] › e2e/support/hel1583-glass-nav.ts:442:11 › HEL-1583 glass nav, light theme › the active pill is content-sized and tabs are evenly spaced at 768px
+[dev] › e2e/support/hel1583-glass-nav.ts:442:11 › HEL-1583 glass nav, light theme › the active pill is content-sized and tabs are evenly spaced at 768px
+[HEL-1300 e2e] throwaway user: hel1583b-size768light-1795563089883-69054@example.com
+
+[24/30] [dev] › e2e/support/hel1583-glass-nav.ts:470:11 › HEL-1583 glass nav, light theme › active pill contrast from rendered pixels at 320px over every backdrop
+[dev] › e2e/support/hel1583-glass-nav.ts:470:11 › HEL-1583 glass nav, light theme › active pill contrast from rendered pixels at 320px over every backdrop
+[HEL-1300 e2e] throwaway user: hel1583b-ctr320light-1795563090048-38547@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:442:11 › HEL-1583 glass nav, light theme › the active pill is content-sized and tabs are evenly spaced at 768px
+HEL1583-SPACING 768 light gaps=[71.7,71.7,71.7,71.7,71.7,71.7]
+
+[25/30] [dev] › e2e/support/hel1583-glass-nav.ts:470:11 › HEL-1583 glass nav, light theme › active pill contrast from rendered pixels at 375px over every backdrop
+[dev] › e2e/support/hel1583-glass-nav.ts:470:11 › HEL-1583 glass nav, light theme › active pill contrast from rendered pixels at 375px over every backdrop
+[HEL-1300 e2e] throwaway user: hel1583b-ctr375light-1795563093529-4974@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:470:11 › HEL-1583 glass nav, light theme › active pill contrast from rendered pixels at 320px over every backdrop
+HEL1583-CONTRAST 320 light [{"backdrop":"default","active":"Dashboards","edgeTop":15.13,"edgeBottom":14.87,"label":16.74,"activeGlyph":6.86,"minInactiveGlyph":14.87},{"backdrop":"white","active":"Dashboards","edgeTop":16.48,"edgeBottom":16.48,"label":16.74,"activeGlyph":6.86,"minInactiveGlyph":16.66},{"backdrop":"black","active":"Dashboards","edgeTop":4.86,"edgeBottom":4.86,"label":16.74,"activeGlyph":6.86,"minInactiveGlyph":4.91},{"backdrop":"accent","active":"Dashboards","edgeTop":9.22,"edgeBottom":9.21,"label":16.74,"activeGlyph":6.86,"minInactiveGlyph":9.31},{"backdrop":"photo","active":"Dashboards","edgeTop":9.41,"edgeBottom":9.41,"label":16.74,"activeGlyph":6.86,"minInactiveGlyph":9.42},{"backdrop":"default","active":"Pipelines","edgeTop":15.66,"edgeBottom":15.65,"label":16.74,"activeGlyph":6.9,"minInactiveGlyph":15.78},{"backdrop":"white","active":"Pipelines","edgeTop":16.48,"edgeBottom":16.48,"label":16.74,"activeGlyph":6.9,"minInactiveGlyph":16.48},{"backdrop":"black","active":"Pipelines","edgeTop":4.86,"edgeBottom":4.86,"label":16.74,"activeGlyph":6.9,"minInactiveGlyph":4.86},{"backdrop":"accent","active":"Pipelines","edgeTop":9.22,"edgeBottom":9.21,"label":16.74,"activeGlyph":6.9,"minInactiveGlyph":9.21},{"backdrop":"photo","active":"Pipelines","edgeTop":9.41,"edgeBottom":9.41,"label":16.74,"activeGlyph":6.9,"minInactiveGlyph":9.42}]
+
+[26/30] [dev] › e2e/support/hel1583-glass-nav.ts:470:11 › HEL-1583 glass nav, light theme › active pill contrast from rendered pixels at 768px over every backdrop
+[dev] › e2e/support/hel1583-glass-nav.ts:470:11 › HEL-1583 glass nav, light theme › active pill contrast from rendered pixels at 768px over every backdrop
+[HEL-1300 e2e] throwaway user: hel1583b-ctr768light-1795563097444-29419@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:470:11 › HEL-1583 glass nav, light theme › active pill contrast from rendered pixels at 375px over every backdrop
+HEL1583-CONTRAST 375 light [{"backdrop":"default","active":"Dashboards","edgeTop":14.74,"edgeBottom":16.05,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":15.45},{"backdrop":"white","active":"Dashboards","edgeTop":16.48,"edgeBottom":16.48,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":16.66},{"backdrop":"black","active":"Dashboards","edgeTop":4.86,"edgeBottom":4.86,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":4.91},{"backdrop":"accent","active":"Dashboards","edgeTop":9.22,"edgeBottom":9.21,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":9.31},{"backdrop":"photo","active":"Dashboards","edgeTop":9.41,"edgeBottom":9.41,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":9.72}]
+
+[27/30] [dev] › e2e/support/hel1583-glass-nav.ts:534:9 › HEL-1583 glass nav, light theme › a free-tier user reaches the assistant overlay in one tap; the header has no avatar
+[dev] › e2e/support/hel1583-glass-nav.ts:534:9 › HEL-1583 glass nav, light theme › a free-tier user reaches the assistant overlay in one tap; the header has no avatar
+[HEL-1300 e2e] throwaway user: hel1583b-freelight-1795563098759-66093@example.com
+
+[28/30] [dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[dev] › e2e/support/hel1583-glass-nav.ts:549:9 › HEL-1583 glass nav, light theme › a beta user reaches /chat in two taps: Open assistant, then Browse all conversations
+[HEL-1300 e2e] throwaway user: hel1583b-betalight-1795563102276-32649@example.com
+
+[dev] › e2e/support/hel1583-glass-nav.ts:470:11 › HEL-1583 glass nav, light theme › active pill contrast from rendered pixels at 768px over every backdrop
+HEL1583-CONTRAST 768 light [{"backdrop":"default","active":"Dashboards","edgeTop":16.22,"edgeBottom":15.52,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":16.11},{"backdrop":"white","active":"Dashboards","edgeTop":16.48,"edgeBottom":16.48,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":16.66},{"backdrop":"black","active":"Dashboards","edgeTop":4.86,"edgeBottom":4.86,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":4.91},{"backdrop":"accent","active":"Dashboards","edgeTop":9.22,"edgeBottom":9.21,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":9.31},{"backdrop":"photo","active":"Dashboards","edgeTop":9.21,"edgeBottom":9.12,"label":16.21,"activeGlyph":6.86,"minInactiveGlyph":9.42}]
+
+[29/30] [dev] › e2e/support/hel1583-glass-nav.ts:569:9 › HEL-1583 glass nav, light theme › an owner reaches Usage through the Me menu, which opens above the nav
+[dev] › e2e/support/hel1583-glass-nav.ts:569:9 › HEL-1583 glass nav, light theme › an owner reaches Usage through the Me menu, which opens above the nav
+[HEL-1300 e2e] throwaway user: hel1583b-ownerlight-1795563104641-62270@example.com
+
+[30/30] [dev] › e2e/support/hel1583-glass-nav.ts:611:9 › HEL-1583 glass nav, light theme › the refreshed line sits above the chip row on a dashboard whose pipeline has run
+[dev] › e2e/support/hel1583-glass-nav.ts:611:9 › HEL-1583 glass nav, light theme › the refreshed line sits above the chip row on a dashboard whose pipeline has run
+[HEL-1300 e2e] throwaway user: hel1583b-refreshlight-1795563107469-8461@example.com
+
+userCleanup: removed 0 of 30 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 30 recorded throwaway user(s)
+  30 passed (1.4m)

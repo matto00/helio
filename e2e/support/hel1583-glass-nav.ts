@@ -557,6 +557,10 @@ export function describeGlassNav(theme: "light" | "dark") {
       await page.getByRole("button", { name: "Open assistant" }).click();
       await page.getByRole("link", { name: /Browse all conversations/ }).click();
       await expect(page).toHaveURL(/\/chat$/);
+      // React Router pushes the URL before React commits the transition, so the URL can match while the previous
+      // page (and its current tab) is still the rendered tree. Wait for ChatPage's own composer in <main> (absent
+      // from /dashboards, and the overlay's copy is in the dialog, not <main>) so the snapshot is of the /chat tree.
+      await expect(page.getByRole("main").getByRole("textbox", { name: "Message" })).toBeVisible();
       // /chat belongs to no tab.
       const g = await navGeometry(page);
       expect(g.tabs.filter((t) => t.current !== null)).toEqual([]);
