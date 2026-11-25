@@ -1,0 +1,217 @@
+import { appendFileSync, writeFileSync } from "node:fs";
+
+import { expect, test } from "@playwright/test";
+
+import { CSRF_HEADER, registerAndLogin } from "./support/auth";
+import { maybeThrottleCpu } from "./support/cpuThrottle";
+import { evidencePath } from "./support/evidencePath";
+import { clearLog, log, RECORDER } from "./support/motionRecorder";
+import { post, seedWorld, setMotion } from "./support/motionPrimitivesSeed";
+import { waitForPanelGrid } from "./support/panelGridReady";
+
+// HEL-1573 -- the panel-grid vendor overrides (C2, HEL-1032), a real drag and resize, and the chart entrance (C1,
+// HEL-1034), all in a real browser. Split from the hel1573-motion-primitives-*.spec.ts parts, which hold the per-mode matrix.
+
+test.describe.configure({ mode: "parallel" });
+test.use({ video: "on", viewport: { width: 1900, height: 1000 } });
+
+const TICKET = "HEL-1573";
+const AUTH = { prefix: "hel1573", displayName: "HEL-1573" } as const;
+const json = { [CSRF_HEADER]: "1" };
+
+test.describe("probe", () => {
+  test("chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it", async ({
+    page,
+    request,
+  }, testInfo) => {
+    test.setTimeout(120_000);
+    await page.addInitScript(RECORDER);
+    await registerAndLogin(page, request, { ...AUTH, label: "chart", isolate: true });
+    await setMotion(request, "full");
+    const world = await seedWorld(request, "M-chart");
+    await page.mouse.move(5, 5);
+    await maybeThrottleCpu(page);
+    await page.goto("/dashboards");
+    // HEL-1651: wait for the dashboard's data to be on screen (a seeded Table row), the state the chart's own render
+    // follows, so the canvas assertion below measures the chart's chunk + init and not the app's startup waterfall (auth,
+    // dashboards, panels, Output metadata), which on a slow host alone outlasts 5s. The wait has the grid helper's 15s
+    // ceiling; the canvas assertion keeps the 5s default and is unchanged.
+    await expect(page.getByRole("cell", { name: "500", exact: true }).first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.locator(".chart-panel__canvas canvas").first()).toBeVisible();
+    await page.waitForTimeout(2500);
+
+    type Edge = { t: number; unfinished: boolean };
+    const edges = () =>
+      page.evaluate(() => (window as unknown as { __chartEdges: Edge[] }).__chartEdges);
+    const spans = (list: Edge[]) => {
+      const out: number[] = [];
+      let start: number | null = null;
+      for (const e of list) {
+        if (e.unfinished && start === null) start = e.t;
+        if (!e.unfinished && start !== null) {
+          out.push(e.t - start);
+          start = null;
+        }
+      }
+      return out;
+    };
+
+    // HEL-1658: wait for the entrance's clock span to be recorded rather than reading the edges once after a fixed wait.
+    await expect
+      .poll(async () => spans(await edges()).length, {
+        message: "the chart entrance ran (the animation clock was busy at least once)",
+      })
+      .toBeGreaterThanOrEqual(1);
+    const first = spans(await edges());
+    testInfo.attach("chart-entrance-spans.json", {
+      body: JSON.stringify(first),
+      contentType: "application/json",
+    });
+    expect(
+      first.length,
+      "the chart entrance ran (the animation clock was busy at least once)",
+    ).toBeGreaterThanOrEqual(1);
+    const entrance = Math.max(...first);
+    // HEL-1814: the entrance's duration is proven from what the chart was configured with when it was first found (the
+    // entrance window is still open), not from a wall-clock span: a span is the tween plus every main-thread stall that
+    // lands inside it (649ms under a 450ms stall, 616ms on a CI runner), so an upper bound on it flakes on a loaded host.
+    // The library default is 1000ms, so a chart that lost the token override fails here.
+    const firstOption = await page.evaluate(
+      () =>
+        (window as unknown as { __chartFirstOption: Record<string, unknown> }).__chartFirstOption,
+    );
+    expect(
+      firstOption,
+      "the entrance was configured at the standard token (280ms, not 1000ms)",
+    ).toEqual({ animationDuration: 280, animationDurationUpdate: 280 });
+    // Observed: the entrance really ran. A slow host only lengthens a span, so a lower bound is not exposed.
+    void entrance;
+
+    // New data (a rebuilt option) arriving through the panel's Refresh must not replay the entrance. The rows really
+    // change, so the chart's option differs and echarts-for-react re-applies it.
+    const before = (await edges()).length;
+    const put = await request.put(`/api/data-sources/${world.sourceId}/rows`, {
+      data: {
+        rows: [
+          ["East", 90],
+          ["West", 640],
+          ["North", 150],
+          ["South", 700],
+        ],
+      },
+      headers: json,
+    });
+    expect(put.status(), await put.text()).toBe(200);
+    await post(request, `/api/pipelines/${world.pipelineId}/run`, {});
+    const refreshedAt = await page.evaluate(() => performance.now());
+    await page
+      .locator(".panel-grid-card", { hasText: "M-chart Chart" })
+      .getByRole("button", { name: /refresh/i })
+      .click();
+    await page.waitForTimeout(1800);
+    // And a viewport change (a ResizeObserver-driven rebuild).
+    await page.setViewportSize({ width: 1500, height: 1000 });
+    await page.waitForTimeout(1500);
+    const barSamples = await page.evaluate(
+      () => (window as unknown as { __chartBars: Array<{ t: number; sum: number }> }).__chartBars,
+    );
+    const settledSum = barSamples.filter((b) => b.t < refreshedAt).at(-1)?.sum ?? 0;
+    const afterSums = barSamples
+      .filter((b) => b.t >= refreshedAt && b.t < refreshedAt + 1800)
+      .map((b) => b.sum);
+    const minRatio = Math.min(...afterSums) / settledSum;
+    // A replayed entrance grows every bar from zero; an update tween between old and new data never collapses them.
+    expect(
+      minRatio,
+      "guard (a same-type refresh never replayed, even before the fix): bars do not collapse toward zero after the refresh",
+    ).toBeGreaterThan(0.4);
+    // What the browser's own chart instance applied: the entrance is closed (0) while updates keep the token.
+    const applied = await page.evaluate(() => {
+      const find = (window as unknown as { __findChart: () => unknown }).__findChart;
+      const chart = find() as { getOption(): Record<string, unknown> };
+      const option = chart.getOption();
+      return {
+        animationDuration: option.animationDuration,
+        animationDurationUpdate: option.animationDurationUpdate,
+        animationEasing: option.animationEasing,
+      };
+    });
+    expect(applied).toEqual({
+      animationDuration: 0,
+      animationDurationUpdate: 280,
+      animationEasing: "cubicOut",
+    });
+    // Replay-capable case. A same-type data refresh never replays (ECharts reuses the view and tweens), so this drives
+    // a series-type change, which recreates the view and replays whatever entrance duration the option carries.
+    // The option is the one the app applied after the window closed. This calls ECharts directly with that option:
+    // the app has no in-place chart-type change (the type lives in the Output editor, a different route), so what
+    // this proves is that the duration the app applies (0) is what keeps a recreated view from replaying.
+    const replay = await page.evaluate(async () => {
+      type Chart = {
+        getOption(): Record<string, unknown> & { series: Array<Record<string, unknown>> };
+        setOption(option: unknown, notMerge: boolean): void;
+      };
+      const w = window as unknown as {
+        __findChart: () => Chart;
+        __chartEdges: Array<{ t: number; unfinished: boolean }>;
+        __chartBars: Array<{ t: number; sum: number }>;
+      };
+      const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+      const chart = w.__findChart();
+      const applied = chart.getOption();
+      const asLine = { ...applied, series: applied.series.map((s) => ({ ...s, type: "line" })) };
+      chart.setOption(asLine, true);
+      await wait(1200);
+      const from = w.__chartEdges.length;
+      const t0 = performance.now();
+      chart.setOption({ ...applied }, true);
+      await wait(1500);
+      let start: number | null = null;
+      let longest = 0;
+      for (const e of w.__chartEdges.slice(from)) {
+        if (e.unfinished && start === null) start = e.t;
+        if (!e.unfinished && start !== null) {
+          longest = Math.max(longest, e.t - start);
+          start = null;
+        }
+      }
+      const sums = w.__chartBars.filter((b) => b.t >= t0).map((b) => b.sum);
+      return {
+        appliedAnimationDuration: applied.animationDuration,
+        longestSpanMs: longest,
+        barGrowMinRatio: Math.min(...sums) / (sums[sums.length - 1] || 1),
+      };
+    });
+    expect(replay.longestSpanMs, "a recreated view does not replay the entrance").toBeLessThan(60);
+    {
+      const w = await page.evaluate(() => ({ bars: (window as unknown as { __chartBars: Array<{ t: number; sum: number }> }).__chartBars, edges: (window as unknown as { __chartEdges: Array<{ t: number; unfinished: boolean }> }).__chartEdges, now: performance.now() }));
+      appendFileSync(process.env.OUT!, JSON.stringify({ rate: process.env.HEL1651_CPU_THROTTLE, first, replay, firstBars: w.bars.slice(0, 40), edges: w.edges, tail: w.bars.filter((x) => x.t > w.now - 3300).map((x) => [Math.round(x.t), Math.round(x.sum)]) }) + "\n");
+    }
+    expect(replay.appliedAnimationDuration).toBe(0);
+    const later = (await edges()).slice(before);
+    // GUARD (not a mutation-covered assertion, like the bar-collapse guard above): the contract that an update never
+    // exceeds the token is proven by `applied` (animationDurationUpdate 280, animationDuration 0) and `replay.longestSpanMs
+    // < 60`, which ran first. This span is wall-clock (the tween plus any main-thread stall inside it), so the bound is only
+    // the library default (1000ms): 616ms was seen on a CI runner and 649ms under a 450ms stall, and a replay at the default
+    // duration plus any stall would still be over it.
+    expect(Math.max(0, ...spans(later))).toBeLessThan(1000);
+
+    writeFileSync(
+      evidencePath(TICKET, "chart-entrance.json"),
+      JSON.stringify(
+        {
+          entranceSpansMs: first,
+          afterRefreshSpansMs: spans(later),
+          barSumMinRatioAfterRefresh: minRatio,
+          optionAppliedAfterRefresh: applied,
+          typeChangeReplay: replay,
+        },
+        null,
+        2,
+      ),
+    );
+  });
+
+});

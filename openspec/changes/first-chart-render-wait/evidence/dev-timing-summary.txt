@@ -1,0 +1,4 @@
+(4, 'fix') n=6 table 3655 (3283, 4015) metric 3812 (3424, 4214) outputsResp 3321 chunkReq 3534 canvas 4772 (4389, 5156)
+(4, 'mut') n=6 table 3467 (3291, 3718) metric 3595 (3425, 3747) outputsResp 3225 chunkReq 3313 canvas 4462 (4280, 4667)
+(6, 'fix') n=6 table 5160 (4959, 5409) metric 5509 (5181, 5660) outputsResp 4702 chunkReq 4946 canvas 6816 (6406, 6998)
+(6, 'mut') n=6 table 5210 (5082, 5520) metric 5630 (5521, 5756) outputsResp 4912 chunkReq 5255 canvas 6954 (6814, 7102)

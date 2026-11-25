@@ -1,0 +1,18 @@
+
+Running 3 tests using 2 workers
+
+[1A[2K[1/3] [dev] › e2e/hel1573-motion-grid-chart.spec.ts:397:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › shrinking a mounted panel after load keeps every chart canvas and table inside its card (Crossfade sizing, C3)
+[1A[2K[2/3] [dev] › e2e/hel1573-motion-grid-chart.spec.ts:397:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › shrinking a mounted panel after load keeps every chart canvas and table inside its card (Crossfade sizing, C3)
+[1A[2K[dev] › e2e/hel1573-motion-grid-chart.spec.ts:397:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › shrinking a mounted panel after load keeps every chart canvas and table inside its card (Crossfade sizing, C3)
+[HEL-1300 e2e] throwaway user: hel1573-fit-1795561731444-74732@example.test
+
+[1A[2K[dev] › e2e/hel1573-motion-grid-chart.spec.ts:397:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › shrinking a mounted panel after load keeps every chart canvas and table inside its card (Crossfade sizing, C3)
+[HEL-1300 e2e] throwaway user: hel1573-fit-1795561731444-13463@example.test
+
+[1A[2K[3/3] [dev] › e2e/hel1573-motion-grid-chart.spec.ts:397:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › shrinking a mounted panel after load keeps every chart canvas and table inside its card (Crossfade sizing, C3)
+[1A[2K[dev] › e2e/hel1573-motion-grid-chart.spec.ts:397:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › shrinking a mounted panel after load keeps every chart canvas and table inside its card (Crossfade sizing, C3)
+[HEL-1300 e2e] throwaway user: hel1573-fit-1795561751843-97537@example.test
+
+userCleanup: removed 0 of 3 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 3 recorded throwaway user(s)
+[1A[2K  3 passed (40.0s)

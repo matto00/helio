@@ -1,0 +1,221 @@
+
+Running 5 tests using 2 workers
+
+[1A[2K[1/5] [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it
+[1A[2K[2/5] [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it
+[1A[2K[dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795562765035-88964@example.test
+
+[1A[2K[dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795562765046-61536@example.test
+
+[1A[2K  1) [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m failed
+
+    Locator:  locator('.chart-panel__canvas canvas').first()
+    Expected: visible
+    Received: <element(s) not found>
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('.chart-panel__canvas canvas').first()[22m
+
+
+      115 |     await maybeThrottleCpu(page);
+      116 |     await page.goto("/dashboards");
+    > 117 |     await expect(page.locator(".chart-panel__canvas canvas").first()).toBeVisible();
+          |                                                                       ^
+      118 |     await page.waitForTimeout(2500);
+      119 |
+      120 |     type Edge = { t: number; unfinished: boolean };
+        at /home/matt/Development/helio/.claude/worktrees/bug/first-chart-render-wait/hel-1651/e2e/hel1573-motion-grid-chart.spec.ts:117:71
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K  2) [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m failed
+
+    Locator:  locator('.chart-panel__canvas canvas').first()
+    Expected: visible
+    Received: <element(s) not found>
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('.chart-panel__canvas canvas').first()[22m
+
+
+      115 |     await maybeThrottleCpu(page);
+      116 |     await page.goto("/dashboards");
+    > 117 |     await expect(page.locator(".chart-panel__canvas canvas").first()).toBeVisible();
+          |                                                                       ^
+      118 |     await page.waitForTimeout(2500);
+      119 |
+      120 |     type Edge = { t: number; unfinished: boolean };
+        at /home/matt/Development/helio/.claude/worktrees/bug/first-chart-render-wait/hel-1651/e2e/hel1573-motion-grid-chart.spec.ts:117:71
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev-repeat1/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev-repeat1/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev-repeat1/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev-repeat1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[3/5] [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it
+[1A[2K[4/5] [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it
+[1A[2K[dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795562778241-81370@example.test
+
+[1A[2K[dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795562778491-90638@example.test
+
+[1A[2K  3) [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m failed
+
+    Locator:  locator('.chart-panel__canvas canvas').first()
+    Expected: visible
+    Received: <element(s) not found>
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('.chart-panel__canvas canvas').first()[22m
+
+
+      115 |     await maybeThrottleCpu(page);
+      116 |     await page.goto("/dashboards");
+    > 117 |     await expect(page.locator(".chart-panel__canvas canvas").first()).toBeVisible();
+          |                                                                       ^
+      118 |     await page.waitForTimeout(2500);
+      119 |
+      120 |     type Edge = { t: number; unfinished: boolean };
+        at /home/matt/Development/helio/.claude/worktrees/bug/first-chart-render-wait/hel-1651/e2e/hel1573-motion-grid-chart.spec.ts:117:71
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev-repeat2/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev-repeat2/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev-repeat2/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev-repeat2/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K  4) [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m failed
+
+    Locator:  locator('.chart-panel__canvas canvas').first()
+    Expected: visible
+    Received: <element(s) not found>
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('.chart-panel__canvas canvas').first()[22m
+
+
+      115 |     await maybeThrottleCpu(page);
+      116 |     await page.goto("/dashboards");
+    > 117 |     await expect(page.locator(".chart-panel__canvas canvas").first()).toBeVisible();
+          |                                                                       ^
+      118 |     await page.waitForTimeout(2500);
+      119 |
+      120 |     type Edge = { t: number; unfinished: boolean };
+        at /home/matt/Development/helio/.claude/worktrees/bug/first-chart-render-wait/hel-1651/e2e/hel1573-motion-grid-chart.spec.ts:117:71
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev-repeat3/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev-repeat3/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev-repeat3/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev-repeat3/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[5/5] [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it
+[1A[2K[dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795562791437-95545@example.test
+
+[1A[2K  5) [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m failed
+
+    Locator:  locator('.chart-panel__canvas canvas').first()
+    Expected: visible
+    Received: <element(s) not found>
+    Timeout:  5000ms
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for locator('.chart-panel__canvas canvas').first()[22m
+
+
+      115 |     await maybeThrottleCpu(page);
+      116 |     await page.goto("/dashboards");
+    > 117 |     await expect(page.locator(".chart-panel__canvas canvas").first()).toBeVisible();
+          |                                                                       ^
+      118 |     await page.waitForTimeout(2500);
+      119 |
+      120 |     type Edge = { t: number; unfinished: boolean };
+        at /home/matt/Development/helio/.claude/worktrees/bug/first-chart-render-wait/hel-1651/e2e/hel1573-motion-grid-chart.spec.ts:117:71
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev-repeat4/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev-repeat4/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev-repeat4/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1573-motion-grid-chart--f78c0--refresh-does-not-replay-it-dev-repeat4/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+userCleanup: removed 0 of 5 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 5 recorded throwaway user(s)
+[1A[2K  5 failed
+    [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it 
+    [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it 
+    [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it 
+    [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it 
+    [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it 

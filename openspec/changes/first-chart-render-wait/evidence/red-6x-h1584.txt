@@ -1,0 +1,46 @@
+
+Running 10 tests using 2 workers
+
+[1A[2K[1/10] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: full / dark
+[1A[2K[2/10] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: full / light
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: full / dark
+[HEL-1300 e2e] throwaway user: hel1584-full-dark-1795561638554-25530@example.test
+
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: full / light
+[HEL-1300 e2e] throwaway user: hel1584-full-light-1795561638554-38@example.test
+
+[1A[2K[3/10] [dev] › e2e/hel1584-motion-surfaces.spec.ts:500:7 › HEL-1584 chart refresh › a same-shape data refresh morphs the series in place under Full (bars never collapse to zero)
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:500:7 › HEL-1584 chart refresh › a same-shape data refresh morphs the series in place under Full (bars never collapse to zero)
+[HEL-1300 e2e] throwaway user: hel1584-refresh-1795561659865-9413@example.test
+
+[1A[2K[4/10] [dev] › e2e/hel1584-motion-surfaces.spec.ts:607:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (light)
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:607:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (light)
+[HEL-1300 e2e] throwaway user: hel1584-save-light-1795561660639-66522@example.test
+
+[1A[2K[5/10] [dev] › e2e/hel1584-motion-surfaces.spec.ts:607:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (dark)
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:607:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (dark)
+[HEL-1300 e2e] throwaway user: hel1584-save-dark-1795561674747-87437@example.test
+
+[1A[2K[6/10] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: full / light
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: full / light
+[HEL-1300 e2e] throwaway user: hel1584-full-light-1795561676724-71786@example.test
+
+[1A[2K[7/10] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: full / dark
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: full / dark
+[HEL-1300 e2e] throwaway user: hel1584-full-dark-1795561689652-78800@example.test
+
+[1A[2K[8/10] [dev] › e2e/hel1584-motion-surfaces.spec.ts:500:7 › HEL-1584 chart refresh › a same-shape data refresh morphs the series in place under Full (bars never collapse to zero)
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:500:7 › HEL-1584 chart refresh › a same-shape data refresh morphs the series in place under Full (bars never collapse to zero)
+[HEL-1300 e2e] throwaway user: hel1584-refresh-1795561696783-32427@example.test
+
+[1A[2K[9/10] [dev] › e2e/hel1584-motion-surfaces.spec.ts:607:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (light)
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:607:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (light)
+[HEL-1300 e2e] throwaway user: hel1584-save-light-1795561711087-83035@example.test
+
+[1A[2K[10/10] [dev] › e2e/hel1584-motion-surfaces.spec.ts:607:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (dark)
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:607:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (dark)
+[HEL-1300 e2e] throwaway user: hel1584-save-dark-1795561711173-94553@example.test
+
+userCleanup: removed 0 of 10 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 10 recorded throwaway user(s)
+[1A[2K  10 passed (1.5m)

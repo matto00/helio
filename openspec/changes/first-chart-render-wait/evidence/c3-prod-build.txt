@@ -1,0 +1,157 @@
+
+> helio@0.7.4 e2e:prod-build
+> node scripts/e2e-prod-build.mjs --workers=2 --reporter=line
+
+
+> helio-frontend@0.0.0 build
+> vite build
+
+vite v8.1.6 building client environment for production...
+[2Ktransforming...✓ 4118 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/manifest.webmanifest                                0.38 kB
+dist/app.html                                            5.37 kB │ gzip:   1.92 kB
+dist/index.html                                         17.26 kB │ gzip:   4.24 kB
+dist/assets/uc-fantasy-dark-CDeW3qOm.jpg               178.19 kB
+dist/assets/uc-oss-dark-C0n2duuH.jpg                   184.19 kB
+dist/assets/uc-revenue-dark-nrVFqN8P.jpg               188.07 kB
+dist/assets/uc-fantasy-light-CT017RJb.jpg              188.61 kB
+dist/assets/uc-oss-light-C-W_Q0Dp.jpg                  195.55 kB
+dist/assets/uc-revenue-light-BDfoH59V.jpg              198.30 kB
+dist/assets/uc-helio-dark-DjRt38vm.jpg                 201.49 kB
+dist/assets/uc-launch-dark-3jhXF-2p.jpg                204.25 kB
+dist/assets/uc-helio-light-BGK0VfZF.jpg                214.35 kB
+dist/assets/uc-launch-light-B_5Uh8xT.jpg               215.96 kB
+dist/assets/uc-news-dark-DSQaHFXR.jpg                  250.74 kB
+dist/assets/uc-news-light-DHoOj6cT.jpg                 257.22 kB
+dist/assets/PageHeader-C1sVIwME.css                      0.68 kB │ gzip:   0.31 kB
+dist/assets/CombinedProposalReviewPage-DklaEMf1.css      1.72 kB │ gzip:   0.48 kB
+dist/assets/MarkdownPanel-DDBX7Do1.css                   2.52 kB │ gzip:   0.78 kB
+dist/assets/ProposalReviewPage-BCUKAU3W.css              2.88 kB │ gzip:   0.78 kB
+dist/assets/AdminUsagePage-DlLjrOzY.css                  4.11 kB │ gzip:   0.92 kB
+dist/assets/PipelineProposalSummary-CVjArNkC.css         4.30 kB │ gzip:   0.98 kB
+dist/assets/dashboardsSlice-N9m98x7W.css                 6.19 kB │ gzip:   1.41 kB
+dist/assets/PageStatus-B3SpJWzO.css                      8.11 kB │ gzip:   1.76 kB
+dist/assets/tapTarget-BbNEP0Rw.css                      10.05 kB │ gzip:   2.71 kB
+dist/assets/index-BdTbs1q6.css                          10.05 kB │ gzip:   2.44 kB
+dist/assets/laneLayout-S0jq5KA9.css                     20.67 kB │ gzip:   3.96 kB
+dist/assets/app-CL5x9cQ5.css                           306.15 kB │ gzip:  38.08 kB
+dist/assets/csrfHeader-B9i70Bza.js                       0.07 kB │ gzip:   0.09 kB
+dist/assets/prefersReducedMotion-C5Ij2xek.js             0.09 kB │ gzip:   0.10 kB
+dist/assets/columns-3-D5q5raNa.js                        0.28 kB │ gzip:   0.23 kB
+dist/assets/authoringService-BVzLIpzd.js                 0.64 kB │ gzip:   0.40 kB
+dist/assets/tapTarget-D5ptwzVm.js                        0.69 kB │ gzip:   0.39 kB
+dist/assets/combinedProposalsSlice-BuLopxa7.js           0.93 kB │ gzip:   0.51 kB
+dist/assets/InsightMarkdownView--64Uh-Cb.js              1.43 kB │ gzip:   0.78 kB
+dist/assets/PipelineProposalReviewPage-C_uQkb1V.js       2.42 kB │ gzip:   1.15 kB
+dist/assets/chartAppearance-B7MODOn_.js                  3.55 kB │ gzip:   1.55 kB
+dist/assets/CombinedProposalReviewPage-BdEw2CRj.js       4.02 kB │ gzip:   1.53 kB
+dist/assets/workbox-window.prod.es5-Bd17z0YL.js          5.65 kB │ gzip:   2.20 kB
+dist/assets/ProposalReviewPage-C-sBJuJc.js               6.16 kB │ gzip:   2.28 kB
+dist/assets/index-D47_aCx6.js                            6.83 kB │ gzip:   3.00 kB
+dist/assets/jsx-runtime-w9AVxzFL.js                      8.87 kB │ gzip:   3.38 kB
+dist/assets/ThemeProvider-R8MGY7t2.js                    9.70 kB │ gzip:   3.65 kB
+dist/assets/PipelineProposalSummary-DRlIn_oS.js          9.71 kB │ gzip:   2.91 kB
+dist/assets/histogramBins-BlSJyJq3.js                    9.87 kB │ gzip:   4.13 kB
+dist/assets/AdminUsagePage-BBkqXUH7.js                  12.18 kB │ gzip:   4.00 kB
+dist/assets/PageHeader-CnehjE40.js                      12.39 kB │ gzip:   4.58 kB
+dist/assets/git-branch-DqbLJJyE.js                      13.96 kB │ gzip:   3.35 kB
+dist/assets/ChartPanel-G6bOwUpv.js                      20.90 kB │ gzip:   7.46 kB
+dist/assets/MarkdownPanel-B1y4b4B8.js                   38.90 kB │ gzip:  11.78 kB
+dist/assets/dashboardsSlice-Bm-1qemd.js                 48.59 kB │ gzip:  17.52 kB
+dist/assets/laneLayout-M5HN57Lm.js                     107.12 kB │ gzip:  30.45 kB
+dist/assets/PageStatus-DrCURYXy.js                     108.42 kB │ gzip:  39.00 kB
+dist/assets/lib-TC4-paXL.js                            115.17 kB │ gzip:  34.80 kB
+dist/assets/useChartEntranceMotion-CSmy2lrY.js         651.30 kB │ gzip: 218.39 kB
+dist/assets/app-CQ65AvQQ.js                          1,332.20 kB │ gzip: 383.67 kB
+
+✓ built in 423ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+PWA v1.3.0
+mode      generateSW
+precache  53 entries (2874.70 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-acf3c99e.js
+  ➜  Local:   http://localhost:7083/
+  ➜  Network: use --host to expose
+
+Running 6 tests using 2 workers
+
+[1A[2K[1/6] [prod-build-guard] › e2e/prod-build.guard.ts:7:5 › baseURL serves a production build, not the Vite dev server
+[1A[2K[2/6] [prod-build] › e2e/hel1632-live-output.spec.ts:260:7 › HEL-1632 live Output column › the 10-edit burst with a chart Output on screen keeps the HEL-1631 latency budget; input to live-output update measured @prod-build
+[1A[2K[3/6] [prod-build] › e2e/hel1631-draft-mode.spec.ts:183:7 › HEL-1631 draft mode (live) › a burst of client-evaluable edits sends no request of any kind and updates counts and rows within 50 ms each (the first edit within 100 ms) @prod-build
+[1A[2K[prod-build] › e2e/hel1631-draft-mode.spec.ts:183:7 › HEL-1631 draft mode (live) › a burst of client-evaluable edits sends no request of any kind and updates counts and rows within 50 ms each (the first edit within 100 ms) @prod-build
+[HEL-1300 e2e] throwaway user: hel1631-burst-1795576566578-80629@example.test
+
+[1A[2K[prod-build] › e2e/hel1632-live-output.spec.ts:260:7 › HEL-1632 live Output column › the 10-edit burst with a chart Output on screen keeps the HEL-1631 latency budget; input to live-output update measured @prod-build
+[HEL-1300 e2e] throwaway user: hel1632-latency-1795576566579-3288@example.test
+
+[1A[2K[prod-build] › e2e/hel1631-draft-mode.spec.ts:183:7 › HEL-1631 draft mode (live) › a burst of client-evaluable edits sends no request of any kind and updates counts and rows within 50 ms each (the first edit within 100 ms) @prod-build
+[HEL-1691 breakdown] edit 1: wall 4.5 | thread 11.7 task 11.9 script 4.7 layout 1.0 style 0.0 compile 0.0
+
+[1A[2K[HEL-1691 breakdown] edit 2: wall 2.3 | thread 9.9 task 10.0 script 2.4 layout 1.0 style 0.0 compile 0.0
+
+[1A[2K[HEL-1691 breakdown] edit 3: wall 2.1 | thread 8.7 task 8.8 script 2.1 layout 0.7 style 0.0 compile 0.0
+
+[1A[2K[HEL-1691 breakdown] edit 4: wall 1.9 | thread 6.6 task 6.6 script 1.8 layout 0.6 style 0.0 compile 0.0
+
+[1A[2K[HEL-1691 breakdown] edit 5: wall 1.5 | thread 6.6 task 6.6 script 1.4 layout 0.7 style 0.0 compile 0.0
+
+[1A[2K[HEL-1691 breakdown] edit 6: wall 1.5 | thread 7.2 task 7.2 script 1.4 layout 0.5 style 0.0 compile 0.0
+
+[1A[2K[HEL-1691 breakdown] edit 7: wall 1.5 | thread 6.3 task 6.3 script 1.3 layout 0.6 style 0.0 compile 0.0
+
+[1A[2K[HEL-1691 breakdown] edit 8: wall 1.2 | thread 6.4 task 6.6 script 1.1 layout 0.4 style 0.0 compile 0.0
+
+[1A[2K[HEL-1691 breakdown] edit 9: wall 1.4 | thread 5.9 task 5.9 script 1.3 layout 0.6 style 0.0 compile 0.0
+
+[1A[2K[HEL-1691 breakdown] edit 10: wall 1.2 | thread 6.1 task 6.1 script 1.2 layout 0.5 style 0.0 compile 0.0
+
+[1A[2K[HEL-1691 json] {"rows":[{"edit":1,"wallMs":4.5,"d1":{"ThreadTime":11.671000000000001,"TaskDuration":11.864,"ScriptDuration":4.659,"LayoutDuration":1.0250000000000001,"RecalcStyleDuration":0.011,"V8CompileDuration":0}},{"edit":2,"wallMs":2.300000011920929,"d1":{"ThreadTime":9.936,"TaskDuration":10.037999999999998,"ScriptDuration":2.4229999999999996,"LayoutDuration":1.0059999999999998,"RecalcStyleDuration":0.02,"V8CompileDuration":0}},{"edit":3,"wallMs":2.100000023841858,"d1":{"ThreadTime":8.739,"TaskDuration":8.788,"ScriptDuration":2.079000000000001,"LayoutDuration":0.683,"RecalcStyleDuration":0.014000000000000002,"V8CompileDuration":0}},{"edit":4,"wallMs":1.9000000357627869,"d1":{"ThreadTime":6.630000000000001,"TaskDuration":6.6410000000000045,"ScriptDuration":1.7919999999999985,"LayoutDuration":0.6420000000000002,"RecalcStyleDuration":0.022999999999999996,"V8CompileDuration":0}},{"edit":5,"wallMs":1.5,"d1":{"ThreadTime":6.571000000000001,"TaskDuration":6.563,"ScriptDuration":1.4490000000000007,"LayoutDuration":0.7380000000000003,"RecalcStyleDuration":0.014000000000000002,"V8CompileDuration":0}},{"edit":6,"wallMs":1.5,"d1":{"ThreadTime":7.190000000000002,"TaskDuration":7.1910000000000025,"ScriptDuration":1.396999999999999,"LayoutDuration":0.5349999999999999,"RecalcStyleDuration":0.010999999999999996,"V8CompileDuration":0}},{"edit":7,"wallMs":1.5,"d1":{"ThreadTime":6.270000000000005,"TaskDuration":6.258,"ScriptDuration":1.346,"LayoutDuration":0.6179999999999997,"RecalcStyleDuration":0.013000000000000005,"V8CompileDuration":0}},{"edit":8,"wallMs":1.199999988079071,"d1":{"ThreadTime":6.413999999999996,"TaskDuration":6.64,"ScriptDuration":1.1020000000000023,"LayoutDuration":0.44199999999999967,"RecalcStyleDuration":0.008000000000000005,"V8CompileDuration":0}},{"edit":9,"wallMs":1.399999976158142,"d1":{"ThreadTime":5.88799999999999,"TaskDuration":5.879999999999996,"ScriptDuration":1.3229999999999977,"LayoutDuration":0.6200000000000008,"RecalcStyleDuration":0.013999999999999988,"V8CompileDuration":0}},{"edit":10,"wallMs":1.199999988079071,"d1":{"ThreadTime":6.116999999999997,"TaskDuration":6.110999999999992,"ScriptDuration":1.1500000000000017,"LayoutDuration":0.48299999999999993,"RecalcStyleDuration":0.008000000000000005,"V8CompileDuration":0}}]}
+
+[1A[2K[HEL-1631 e2e] per-edit latency ms: 4.5, 2.3, 2.1, 1.9, 1.5, 1.5, 1.5, 1.2, 1.4, 1.2
+
+[1A[2K[HEL-1631 e2e] a burst of client-evaluable edits sends no request of any kind and updates counts and rows within 50 ms each (the first edit within 100 ms): 22 /api requests, max 60s window 22 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 GET /api/home-summary; 1 POST /api/pipelines; 1 POST /api/pipelines/:id/run
+
+[1A[2K[4/6] [prod-build] › e2e/hel1683-regex-main-thread.spec.ts:237:7 › HEL-1683 client regex main-thread guard (live) › a catastrophic extractRegex pattern in a draft never blocks the main thread for more than 100 ms @prod-build
+[1A[2K[prod-build] › e2e/hel1683-regex-main-thread.spec.ts:237:7 › HEL-1683 client regex main-thread guard (live) › a catastrophic extractRegex pattern in a draft never blocks the main thread for more than 100 ms @prod-build
+[HEL-1300 e2e] throwaway user: hel1683-regex-1795576571651-66435@example.test
+
+[1A[2K[prod-build] › e2e/hel1632-live-output.spec.ts:260:7 › HEL-1632 live Output column › the 10-edit burst with a chart Output on screen keeps the HEL-1631 latency budget; input to live-output update measured @prod-build
+[HEL-1632 e2e] step-count latency ms: 3.1, 2.3, 2.1, 1.7, 1.5, 1.4, 1.9, 1.8, 1.7, 1.8
+
+[1A[2K[HEL-1632 e2e] input to live-output ms: 257.7, 256.4, 256.5, 255.4, 255.1, 255.7, 255.4, 255.7, 255.3, 268.8
+
+[1A[2K[HEL-1632 e2e] the 10-edit burst with a chart Output on screen keeps the HEL-1631 latency budget; input to live-output update measured: 25 /api requests, max 60s window 25 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/pipelines/:id/outputs; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 GET /api/home-summary; 1 POST /api/pipelines
+
+[1A[2K[prod-build] › e2e/hel1683-regex-main-thread.spec.ts:237:7 › HEL-1683 client regex main-thread guard (live) › a catastrophic extractRegex pattern in a draft never blocks the main thread for more than 100 ms @prod-build
+[HEL-1683 e2e] control longest long task: 0.0 ms (tasks: ); frames: none >= 30 ms; api: none
+
+[1A[2K[HEL-1683 e2e] probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/99d75e15-e5da-4351-b4b8-9e127174e42a/draft-preview; frames: none >= 30 ms; api: POST /api/pipelines/99d75e15-e5da-4351-b4b8-9e127174e42a/draft-preview@1126ms
+
+[1A[2K[HEL-1683 e2e] overrun longest long task: 0.0 ms; frames: none >= 30 ms; api: POST /api/pipelines/99d75e15-e5da-4351-b4b8-9e127174e42a/draft-preview@2425ms
+
+[1A[2K[5/6] [prod-build] › e2e/hel1683-regex-main-thread.spec.ts:345:7 › HEL-1683 client regex main-thread guard (live) › a single-quantifier pattern over long cells is declined to the server and never blocks the main thread @prod-build
+[1A[2K[prod-build] › e2e/hel1683-regex-main-thread.spec.ts:345:7 › HEL-1683 client regex main-thread guard (live) › a single-quantifier pattern over long cells is declined to the server and never blocks the main thread @prod-build
+[HEL-1300 e2e] throwaway user: hel1683-regex-long-1795576581198-97029@example.test
+
+[1A[2K[HEL-1697 e2e] long-cell probe longest long task: 0.0 ms (tasks: ); requests: POST /api/pipelines/347be85e-e46a-49ff-83bc-008a2beb4c83/draft-preview
+
+[1A[2K[HEL-1697 e2e] long-cell server outcome: time-budget error
+
+[1A[2K[6/6] [prod-build] › e2e/hel1683-regex-main-thread.spec.ts:400:7 › HEL-1683 client regex main-thread guard (live) › a start-anchored pattern over long cells is evaluated on the client without blocking the main thread @prod-build
+[1A[2K[prod-build] › e2e/hel1683-regex-main-thread.spec.ts:400:7 › HEL-1683 client regex main-thread guard (live) › a start-anchored pattern over long cells is evaluated on the client without blocking the main thread @prod-build
+[HEL-1300 e2e] throwaway user: hel1683-regex-anchored-1795576587270-3330@example.test
+
+[1A[2K[HEL-1807 e2e] anchored longest long task: 0.0 ms (tasks: ); requests: 
+
+userCleanup: removed 0 of 5 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 5 recorded throwaway user(s)
+[1A[2K  6 passed (26.4s)

@@ -1,0 +1,9 @@
+LT [] max=0
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+[1A[2K  2 passed (7.3s)
+LT [] max=0
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+[1A[2K  2 passed (6.0s)
+LT [] max=0
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+[1A[2K  2 passed (5.6s)

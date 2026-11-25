@@ -1,0 +1,55 @@
+
+Running 24 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795578933428-71154@example.test
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795578933440-46425@example.test
+  ✓   1 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (19.5s)
+  ✓   2 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (20.0s)
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795578953113-23118@example.test
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795578953710-88902@example.test
+  ✓   3 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (19.1s)
+  ✓   4 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (19.3s)
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795578972621-85661@example.test
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795578973466-67021@example.test
+  ✓   5 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (19.5s)
+  ✓   6 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (19.4s)
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795578992517-69678@example.test
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795578993323-63495@example.test
+  ✓   7 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (19.2s)
+  ✓   8 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (19.1s)
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795579012116-55103@example.test
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795579012938-25316@example.test
+  ✓   9 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (19.1s)
+  ✓  10 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (18.7s)
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795579031579-79790@example.test
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795579031963-93271@example.test
+  ✓  11 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (19.0s)
+  ✓  12 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (19.0s)
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795579050962-87496@example.test
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795579051279-26396@example.test
+  ✓  13 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (18.0s)
+  ✓  14 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (18.2s)
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795579069389-7976@example.test
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795579069837-40443@example.test
+  ✓  15 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (19.2s)
+  ✓  16 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (19.1s)
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795579089189-71139@example.test
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795579089635-21856@example.test
+  ✓  17 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (20.3s)
+  ✓  18 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (20.5s)
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795579109767-16562@example.test
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795579110466-76563@example.test
+  ✓  19 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (19.6s)
+  ✓  20 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (19.4s)
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795579129692-38969@example.test
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795579130290-77843@example.test
+  ✓  21 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (18.8s)
+  ✓  22 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (18.5s)
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795579148930-67320@example.test
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795579149267-52177@example.test
+  ✓  23 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (19.4s)
+  ✓  24 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (19.5s)
+userCleanup: removed 0 of 24 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 24 recorded throwaway user(s)
+
+  24 passed (3.9m)

@@ -1,0 +1,36 @@
+import { writeFileSync } from "node:fs";
+import { test } from "@playwright/test";
+import { registerAndLogin } from "./support/auth";
+import { seedWorld, setMotion } from "./support/motionPrimitivesSeed";
+
+test("hel1651 probe", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  await registerAndLogin(page, request, { prefix: "hel1651p", displayName: "HEL-1651", label: "probe", isolate: true });
+  await setMotion(request, "full");
+  const world = await seedWorld(request, "M-probe");
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: Number(process.env.RATE ?? "6") });
+  const t0 = { v: 0 };
+  const ev: string[] = [];
+  const stamp = () => (Date.now() - t0.v).toString().padStart(6);
+  page.on("request", (r) => { const u = r.url(); if (/\/api\/|echarts|Chart|\/@vite|optimized|\.tsx/.test(u)) ev.push(`${stamp()} REQ  ${u.slice(u.indexOf("//") + 2 + 15).slice(0, 110)}`); });
+  page.on("requestfinished", (r) => { const u = r.url(); if (/\/api\/|echarts|Chart|optimized/.test(u)) ev.push(`${stamp()} DONE ${u.slice(u.indexOf("//") + 2 + 15).slice(0, 110)}`); });
+  page.on("console", (m) => ev.push(`${stamp()} CONSOLE ${m.type()} ${m.text().slice(0, 140)}`));
+  page.on("framenavigated", (f) => { if (f === page.mainFrame()) ev.push(`${stamp()} NAV ${f.url()}`); });
+  t0.v = Date.now();
+  await page.goto("/dashboards");
+  ev.push(`${stamp()} GOTO-RETURNED`);
+  const sample = async (label: string) => {
+    const s = await page.evaluate(() => {
+      const c = document.querySelector(".chart-panel__canvas");
+      const cv = c?.querySelector("canvas");
+      const r = cv?.getBoundingClientRect();
+      return { hasWrap: !!c, wrap: c ? `${c.clientWidth}x${c.clientHeight}` : null, canvas: r ? `${r.width}x${r.height}` : null, status: !!c?.querySelector("[role=status]"), text: (c?.textContent ?? "").slice(0, 40) };
+    });
+    ev.push(`${stamp()} STATE ${label} ${JSON.stringify(s)}`);
+  };
+  for (let i = 0; i < 20; i++) { await page.waitForTimeout(500); await sample(`+${i * 500 + 500}`); }
+  const run = await request.get(`/api/pipelines/${world.pipelineId ?? ""}/runs/latest`).then((r) => r.status()).catch(() => -1);
+  ev.push(`runs/latest status ${run}`);
+  writeFileSync(`${process.env.OUT}`, ev.join("\n") + "\n");
+});

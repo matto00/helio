@@ -1,0 +1,48 @@
+import { appendFileSync } from "node:fs";
+import { expect, test } from "@playwright/test";
+import { registerAndLogin } from "./support/auth";
+import { seedWorld, setMotion } from "./support/motionPrimitivesSeed";
+
+// Evaluator scratch (HEL-1651): does the idle chart preload delay the first Table/Metric render, and when is the chart
+// chunk requested, with the preload (as shipped) vs emulated-without (the ChartPanel module request held until the
+// first GET /api/outputs/:id response, i.e. the pre-HEL-1651 trigger point). No product code is changed.
+const ARM = process.env.ARM ?? "fix";
+const RATE = Number(process.env.RATE ?? "6");
+const PROD = process.env.HELIO_E2E_PROD_BUILD === "1";
+const CHUNK = PROD ? /\/assets\/(ChartPanel|useChartEntranceMotion)-[^/]*\.js/ : /ChartPanel\.tsx/;
+
+test(`timing ${ARM} ${RATE}x`, { tag: PROD ? "@prod-build" : [] }, async ({ page, request }) => {
+  test.setTimeout(120_000);
+  await page.addInitScript(() => {
+    const w = window as unknown as { __m: Record<string, number> };
+    w.__m = {};
+    const mark = (k: string) => { if (w.__m[k] === undefined) w.__m[k] = Math.round(performance.now()); };
+    new MutationObserver(() => {
+      for (const td of document.querySelectorAll("td")) if (td.textContent?.trim() === "500") { mark("table500"); break; }
+      if (document.body && /\b1,805\b/.test(document.body.innerText ?? "")) mark("metric");
+      if (document.querySelector(".chart-panel__canvas canvas")) mark("canvas");
+    }).observe(document, { subtree: true, childList: true, characterData: true });
+  });
+  await registerAndLogin(page, request, { prefix: "hel1651e", displayName: "HEL-1651", label: "ev", isolate: true });
+  await setMotion(request, "full");
+  await seedWorld(request, "M-ev");
+  let outputsSeen!: () => void;
+  const outputsP = new Promise<void>((r) => (outputsSeen = r));
+  page.on("response", (r) => { if (/\/api\/outputs\/[^/?]+$/.test(new URL(r.url()).pathname)) outputsSeen(); });
+  const t: Record<string, number> = {};
+  let nav0 = 0;
+  page.on("request", (r) => { if (CHUNK.test(r.url()) && t.chunkReq === undefined) t.chunkReq = Date.now() - nav0; });
+  page.on("response", (r) => { if (/\/api\/outputs\/[^/?]+$/.test(new URL(r.url()).pathname) && t.outputsResp === undefined) t.outputsResp = Date.now() - nav0; });
+  await page.route(CHUNK, async (route) => {
+    if (ARM === "mut") await outputsP;
+    await route.continue();
+  });
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: RATE });
+  nav0 = Date.now();
+  await page.goto("/dashboards");
+  await expect(page.locator(".chart-panel__canvas canvas").first()).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(300);
+  const m = await page.evaluate(() => (window as unknown as { __m: Record<string, number> }).__m);
+  appendFileSync(process.env.OUT!, JSON.stringify({ arm: ARM, rate: RATE, ...m, ...t }) + "\n");
+});
