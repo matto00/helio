@@ -22,7 +22,12 @@ denied pipeline (none truncated) as a row whose pipeline name is a link to that 
 `canRun` SHALL also carry its own "Run to update" action that runs only that pipeline, and a row
 whose `canRun` is false SHALL carry the link but no run action. Activating a row's "Run to update"
 SHALL remove that row's action, and when no row action remains the toast SHALL be dismissed. When
-the rows exceed the toast's maximum height they SHALL scroll inside the toast. A toast carrying an
+the rows exceed the toast's maximum height they SHALL scroll inside the toast, and while rows remain
+below the visible area the list SHALL show a bottom-edge fade cue drawn in the toast surface color;
+a list that fits SHALL show no cue. The rows SHALL be ordered by pipeline name (English, numeric-aware
+collation) with the pipeline id as the tie-break, and the toast message SHALL list the pipelines in that same
+order. At phone width the first row SHALL line up with the variant icon as a single-message toast's
+text does. A toast carrying an
 action or a pipeline link SHALL NOT auto-dismiss.
 
 #### Scenario: A single AI-step denial shows specific copy and a run action
@@ -68,6 +73,34 @@ action or a pipeline link SHALL NOT auto-dismiss.
 - **WHEN** a form submit's response has no entries in `deniedPipelines` (every denied downstream
   pipeline was omitted server-side because the writer has no grant on any of them)
 - **THEN** no denial toast is shown for that write
+
+#### Scenario: Multi-denial rows are ordered by pipeline name, then id
+- **WHEN** a write denies pipelines named "Zeta", "alpha" and "Beta" whose ids sort in a different
+  order, and two further pipelines share the name "Gamma"
+- **THEN** the rows render as alpha, Beta, Gamma, Gamma, Zeta, the two "Gamma" rows are ordered by
+  pipeline id, Tab reaches the rows in that rendered order, and the toast message lists the
+  pipelines in that same order
+
+#### Scenario: The same denial set in any input order coalesces into one toast
+- **WHEN** two writes deny the same pipelines for the same reasons but the response lists them in
+  different orders
+- **THEN** both builds produce a byte-identical message and toast state holds exactly one toast
+
+#### Scenario: The first row lines up with the icon at phone width
+- **WHEN** a multi-denial toast is shown at 390px width in either theme
+- **THEN** the first row's link text sits at the same vertical offset from the variant icon as a
+  single-message toast's text does, within 1px, every link and action keeps its 44px touch extent,
+  and no row content paints at or above the toast's top border in any scroll position
+
+#### Scenario: An overflowing row list shows a cue that more rows are below
+- **WHEN** a multi-denial toast's rows exceed the list's maximum height and the list is not
+  scrolled to its end
+- **THEN** a bottom-edge fade in the toast's surface color is shown over the list, and it is gone
+  once the list is scrolled to its end
+
+#### Scenario: A row list that fits shows no overflow cue
+- **WHEN** a multi-denial toast's rows fit within the list's maximum height
+- **THEN** no overflow fade is shown
 
 ### Requirement: The pipeline's own page shows why auto-run is denied and offers a manual run
 When a pipeline's analyze response has `costVerdict.autoRunnable` false, the pipeline detail page

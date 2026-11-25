@@ -58,7 +58,7 @@ describe("buildDeniedPipelinesToast (HEL-1096 design.md D3)", () => {
 
   it(
     "the message is deterministic — identical input (fresh object references) builds a " +
-      "byte-identical message, independent of pipeline array order (sorted by id)",
+      "byte-identical message, independent of pipeline array order (sorted by name, then id)",
     () => {
       const a = buildDeniedPipelinesToast([aiDenial, rowsDenial], jest.fn());
       const b = buildDeniedPipelinesToast(
@@ -78,13 +78,15 @@ describe("buildDeniedPipelinesToast (HEL-1096 design.md D3)", () => {
 describe("buildDeniedPipelinesToast N>=2 rows (HEL-1172 D3)", () => {
   const viewerDenial: DeniedPipelineResponse = { ...rowsDenial, canRun: false };
 
-  it("is persistent and emits one row per pipeline in id order, even when given out of order", () => {
-    const toast = buildDeniedPipelinesToast([rowsDenial, aiDenial], jest.fn());
+  // HEL-1840: rewritten, not fixture drift -- the requirement changed from id order to name order
+  // ("Big pipe" (p2) now precedes "Sentiment pipe" (p1)).
+  it("is persistent and emits one row per pipeline in name order, even when given out of order", () => {
+    const toast = buildDeniedPipelinesToast([aiDenial, rowsDenial], jest.fn());
 
     expect(toast.duration).toBe(0);
-    expect(toast.items?.map((i) => i.key)).toEqual(["p1", "p2"]);
-    expect(toast.items?.map((i) => i.linkTo)).toEqual(["/pipelines/p1", "/pipelines/p2"]);
-    expect(toast.items?.map((i) => i.linkLabel)).toEqual(["Sentiment pipe", "Big pipe"]);
+    expect(toast.items?.map((i) => i.key)).toEqual(["p2", "p1"]);
+    expect(toast.items?.map((i) => i.linkTo)).toEqual(["/pipelines/p2", "/pipelines/p1"]);
+    expect(toast.items?.map((i) => i.linkLabel)).toEqual(["Big pipe", "Sentiment pipe"]);
   });
 
   it("each row's text is exactly the reason text that follows 'Name: ' in the message", () => {
@@ -102,9 +104,10 @@ describe("buildDeniedPipelinesToast N>=2 rows (HEL-1172 D3)", () => {
     const onRun = jest.fn();
     const toast = buildDeniedPipelinesToast([aiDenial, viewerDenial], onRun);
 
-    expect(toast.items?.[0].action?.label).toBe("Run to update");
-    expect(toast.items?.[1].action).toBeUndefined();
-    toast.items?.[0].action?.onClick();
+    // Name order: "Big pipe" (viewer, no action) then "Sentiment pipe" (canRun).
+    expect(toast.items?.[0].action).toBeUndefined();
+    expect(toast.items?.[1].action?.label).toBe("Run to update");
+    toast.items?.[1].action?.onClick();
     expect(onRun).toHaveBeenCalledTimes(1);
     expect(onRun).toHaveBeenCalledWith("p1");
   });
@@ -165,5 +168,47 @@ describe("rapid repeated identical denials coalesce to one toast (C7)", () => {
     store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial], jest.fn())));
     store.dispatch(pushToast(buildDeniedPipelinesToast([rowsDenial], jest.fn())));
     expect(store.getState().toasts.items).toHaveLength(2);
+  });
+});
+
+// HEL-1840 / HEL-1844 -- rows and message are ordered by name (English, numeric-aware), then id.
+describe("buildDeniedPipelinesToast name order (HEL-1840 D1)", () => {
+  const denial = (pipelineId: string, name: string): DeniedPipelineResponse => ({
+    pipelineId,
+    name,
+    reasons: [{ code: "rows-above-threshold", detail: "Estimated 50000 rows exceeds threshold" }],
+    canRun: true,
+  });
+  // Ids deliberately sort in an order different from the names; two "Gamma"s share a name.
+  const set = [
+    denial("a1", "Zeta"),
+    denial("b2", "alpha"),
+    denial("c3", "Gamma"),
+    denial("d4", "Beta"),
+    denial("0e", "Gamma"),
+    denial("f6", "Pipeline 10"),
+    denial("g7", "Pipeline 2"),
+  ];
+  const expectedKeys = ["b2", "d4", "0e", "c3", "g7", "f6", "a1"];
+
+  it("orders rows by name (case-insensitive-ish, numeric-aware), equal names by id", () => {
+    const toast = buildDeniedPipelinesToast(set, jest.fn());
+    expect(toast.items?.map((i) => i.key)).toEqual(expectedKeys);
+  });
+
+  it("builds the message lines in the same order as the rows", () => {
+    const toast = buildDeniedPipelinesToast(set, jest.fn());
+    const lines = (toast.message ?? "").split("\n");
+    expect(lines.map((l) => l.split(":")[0])).toEqual(toast.items?.map((i) => i.linkLabel));
+  });
+
+  it("the same set in two input orders is byte-identical and coalesces to one toast", () => {
+    const a = buildDeniedPipelinesToast(set, jest.fn());
+    const b = buildDeniedPipelinesToast([...set].reverse(), jest.fn());
+    expect(a.message).toBe(b.message);
+    const store = configureStore({ reducer: { toasts: toastsReducer } });
+    store.dispatch(pushToast(a));
+    store.dispatch(pushToast(b));
+    expect(store.getState().toasts.items).toHaveLength(1);
   });
 });

@@ -1,0 +1,678 @@
+FAIL src/features/pipelines/services/deniedPipelinesToast.test.ts
+  ● Console
+
+    console.error
+      A non-serializable value was detected in an action, in the path: `payload.items.0.action.onClick`. Value: [Function: onClick] 
+      Take a look at the logic that dispatched this action:  {
+        type: 'toasts/pushToast',
+        payload: {
+          variant: 'warning',
+          message: "Sentiment pipe: This pipeline calls AI, so it wasn't updated automatically.\n" +
+            'Big pipe: This pipeline processes too many rows to update automatically.',
+          duration: 0,
+          items: [ [Object], [Object] ],
+          id: '1'
+        }
+      } 
+      (See https://redux.js.org/faq/actions#why-should-type-be-a-string-why-should-my-action-types-be-constants) 
+      (To allow non-serializable values see: https://redux-toolkit.js.org/usage/usage-guide#working-with-non-serializable-data)
+
+      141 |     const store = configureStore({ reducer: { toasts: toastsReducer } });
+      142 |     for (let i = 0; i < 3; i++) {
+    > 143 |       store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial, rowsDenial], jest.fn())));
+          |             ^
+      144 |     }
+      145 |     expect(store.getState().toasts.items).toHaveLength(1);
+      146 |   });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:284:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:271:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:143:13)
+
+    console.error
+      A non-serializable value was detected in the state, in the path: `toasts.items.0.items.0.action.onClick`. Value: [Function: onClick] 
+      Take a look at the reducer(s) handling this action type: toasts/pushToast.
+      (See https://redux.js.org/faq/organizing-state#can-i-put-functions-promises-or-other-non-serializable-items-in-my-store-state)
+
+      141 |     const store = configureStore({ reducer: { toasts: toastsReducer } });
+      142 |     for (let i = 0; i < 3; i++) {
+    > 143 |       store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial, rowsDenial], jest.fn())));
+          |             ^
+      144 |     }
+      145 |     expect(store.getState().toasts.items).toHaveLength(1);
+      146 |   });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:312:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:297:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:143:13)
+
+    console.error
+      A non-serializable value was detected in an action, in the path: `payload.items.0.action.onClick`. Value: [Function: onClick] 
+      Take a look at the logic that dispatched this action:  {
+        type: 'toasts/pushToast',
+        payload: {
+          variant: 'warning',
+          message: "Sentiment pipe: This pipeline calls AI, so it wasn't updated automatically.\n" +
+            'Big pipe: This pipeline processes too many rows to update automatically.',
+          duration: 0,
+          items: [ [Object], [Object] ],
+          id: '2'
+        }
+      } 
+      (See https://redux.js.org/faq/actions#why-should-type-be-a-string-why-should-my-action-types-be-constants) 
+      (To allow non-serializable values see: https://redux-toolkit.js.org/usage/usage-guide#working-with-non-serializable-data)
+
+      141 |     const store = configureStore({ reducer: { toasts: toastsReducer } });
+      142 |     for (let i = 0; i < 3; i++) {
+    > 143 |       store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial, rowsDenial], jest.fn())));
+          |             ^
+      144 |     }
+      145 |     expect(store.getState().toasts.items).toHaveLength(1);
+      146 |   });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:284:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:271:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:143:13)
+
+    console.error
+      A non-serializable value was detected in the state, in the path: `toasts.items.0.items.0.action.onClick`. Value: [Function: onClick] 
+      Take a look at the reducer(s) handling this action type: toasts/pushToast.
+      (See https://redux.js.org/faq/organizing-state#can-i-put-functions-promises-or-other-non-serializable-items-in-my-store-state)
+
+      141 |     const store = configureStore({ reducer: { toasts: toastsReducer } });
+      142 |     for (let i = 0; i < 3; i++) {
+    > 143 |       store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial, rowsDenial], jest.fn())));
+          |             ^
+      144 |     }
+      145 |     expect(store.getState().toasts.items).toHaveLength(1);
+      146 |   });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:312:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:297:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:143:13)
+
+    console.error
+      A non-serializable value was detected in an action, in the path: `payload.items.0.action.onClick`. Value: [Function: onClick] 
+      Take a look at the logic that dispatched this action:  {
+        type: 'toasts/pushToast',
+        payload: {
+          variant: 'warning',
+          message: "Sentiment pipe: This pipeline calls AI, so it wasn't updated automatically.\n" +
+            'Big pipe: This pipeline processes too many rows to update automatically.',
+          duration: 0,
+          items: [ [Object], [Object] ],
+          id: '3'
+        }
+      } 
+      (See https://redux.js.org/faq/actions#why-should-type-be-a-string-why-should-my-action-types-be-constants) 
+      (To allow non-serializable values see: https://redux-toolkit.js.org/usage/usage-guide#working-with-non-serializable-data)
+
+      141 |     const store = configureStore({ reducer: { toasts: toastsReducer } });
+      142 |     for (let i = 0; i < 3; i++) {
+    > 143 |       store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial, rowsDenial], jest.fn())));
+          |             ^
+      144 |     }
+      145 |     expect(store.getState().toasts.items).toHaveLength(1);
+      146 |   });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:284:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:271:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:143:13)
+
+    console.error
+      A non-serializable value was detected in the state, in the path: `toasts.items.0.items.0.action.onClick`. Value: [Function: onClick] 
+      Take a look at the reducer(s) handling this action type: toasts/pushToast.
+      (See https://redux.js.org/faq/organizing-state#can-i-put-functions-promises-or-other-non-serializable-items-in-my-store-state)
+
+      141 |     const store = configureStore({ reducer: { toasts: toastsReducer } });
+      142 |     for (let i = 0; i < 3; i++) {
+    > 143 |       store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial, rowsDenial], jest.fn())));
+          |             ^
+      144 |     }
+      145 |     expect(store.getState().toasts.items).toHaveLength(1);
+      146 |   });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:312:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:297:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:143:13)
+
+    console.error
+      A non-serializable value was detected in an action, in the path: `payload.action.onClick`. Value: [Function: onClick] 
+      Take a look at the logic that dispatched this action:  {
+        type: 'toasts/pushToast',
+        payload: {
+          variant: 'warning',
+          message: "Sentiment pipe: This pipeline calls AI, so it wasn't updated automatically.",
+          duration: 0,
+          action: { label: 'Run to update', onClick: [Function: onClick] },
+          id: '4'
+        }
+      } 
+      (See https://redux.js.org/faq/actions#why-should-type-be-a-string-why-should-my-action-types-be-constants) 
+      (To allow non-serializable values see: https://redux-toolkit.js.org/usage/usage-guide#working-with-non-serializable-data)
+
+      159 |     const store = makeStore();
+      160 |     for (let i = 0; i < 3; i++) {
+    > 161 |       store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial], jest.fn())));
+          |             ^
+      162 |     }
+      163 |     expect(store.getState().toasts.items).toHaveLength(1);
+      164 |   });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:284:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:271:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:161:13)
+
+    console.error
+      A non-serializable value was detected in the state, in the path: `toasts.items.0.action.onClick`. Value: [Function: onClick] 
+      Take a look at the reducer(s) handling this action type: toasts/pushToast.
+      (See https://redux.js.org/faq/organizing-state#can-i-put-functions-promises-or-other-non-serializable-items-in-my-store-state)
+
+      159 |     const store = makeStore();
+      160 |     for (let i = 0; i < 3; i++) {
+    > 161 |       store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial], jest.fn())));
+          |             ^
+      162 |     }
+      163 |     expect(store.getState().toasts.items).toHaveLength(1);
+      164 |   });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:312:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:297:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:161:13)
+
+    console.error
+      A non-serializable value was detected in an action, in the path: `payload.action.onClick`. Value: [Function: onClick] 
+      Take a look at the logic that dispatched this action:  {
+        type: 'toasts/pushToast',
+        payload: {
+          variant: 'warning',
+          message: "Sentiment pipe: This pipeline calls AI, so it wasn't updated automatically.",
+          duration: 0,
+          action: { label: 'Run to update', onClick: [Function: onClick] },
+          id: '5'
+        }
+      } 
+      (See https://redux.js.org/faq/actions#why-should-type-be-a-string-why-should-my-action-types-be-constants) 
+      (To allow non-serializable values see: https://redux-toolkit.js.org/usage/usage-guide#working-with-non-serializable-data)
+
+      159 |     const store = makeStore();
+      160 |     for (let i = 0; i < 3; i++) {
+    > 161 |       store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial], jest.fn())));
+          |             ^
+      162 |     }
+      163 |     expect(store.getState().toasts.items).toHaveLength(1);
+      164 |   });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:284:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:271:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:161:13)
+
+    console.error
+      A non-serializable value was detected in the state, in the path: `toasts.items.0.action.onClick`. Value: [Function: onClick] 
+      Take a look at the reducer(s) handling this action type: toasts/pushToast.
+      (See https://redux.js.org/faq/organizing-state#can-i-put-functions-promises-or-other-non-serializable-items-in-my-store-state)
+
+      159 |     const store = makeStore();
+      160 |     for (let i = 0; i < 3; i++) {
+    > 161 |       store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial], jest.fn())));
+          |             ^
+      162 |     }
+      163 |     expect(store.getState().toasts.items).toHaveLength(1);
+      164 |   });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:312:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:297:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:161:13)
+
+    console.error
+      A non-serializable value was detected in an action, in the path: `payload.action.onClick`. Value: [Function: onClick] 
+      Take a look at the logic that dispatched this action:  {
+        type: 'toasts/pushToast',
+        payload: {
+          variant: 'warning',
+          message: "Sentiment pipe: This pipeline calls AI, so it wasn't updated automatically.",
+          duration: 0,
+          action: { label: 'Run to update', onClick: [Function: onClick] },
+          id: '6'
+        }
+      } 
+      (See https://redux.js.org/faq/actions#why-should-type-be-a-string-why-should-my-action-types-be-constants) 
+      (To allow non-serializable values see: https://redux-toolkit.js.org/usage/usage-guide#working-with-non-serializable-data)
+
+      159 |     const store = makeStore();
+      160 |     for (let i = 0; i < 3; i++) {
+    > 161 |       store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial], jest.fn())));
+          |             ^
+      162 |     }
+      163 |     expect(store.getState().toasts.items).toHaveLength(1);
+      164 |   });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:284:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:271:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:161:13)
+
+    console.error
+      A non-serializable value was detected in the state, in the path: `toasts.items.0.action.onClick`. Value: [Function: onClick] 
+      Take a look at the reducer(s) handling this action type: toasts/pushToast.
+      (See https://redux.js.org/faq/organizing-state#can-i-put-functions-promises-or-other-non-serializable-items-in-my-store-state)
+
+      159 |     const store = makeStore();
+      160 |     for (let i = 0; i < 3; i++) {
+    > 161 |       store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial], jest.fn())));
+          |             ^
+      162 |     }
+      163 |     expect(store.getState().toasts.items).toHaveLength(1);
+      164 |   });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:312:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:297:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:161:13)
+
+    console.error
+      A non-serializable value was detected in an action, in the path: `payload.action.onClick`. Value: [Function: onClick] 
+      Take a look at the logic that dispatched this action:  {
+        type: 'toasts/pushToast',
+        payload: {
+          variant: 'warning',
+          message: "Sentiment pipe: This pipeline calls AI, so it wasn't updated automatically.",
+          duration: 0,
+          action: { label: 'Run to update', onClick: [Function: onClick] },
+          id: '7'
+        }
+      } 
+      (See https://redux.js.org/faq/actions#why-should-type-be-a-string-why-should-my-action-types-be-constants) 
+      (To allow non-serializable values see: https://redux-toolkit.js.org/usage/usage-guide#working-with-non-serializable-data)
+
+      166 |   it("a DIFFERENT denial (different pipeline) does not coalesce with the first", () => {
+      167 |     const store = makeStore();
+    > 168 |     store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial], jest.fn())));
+          |           ^
+      169 |     store.dispatch(pushToast(buildDeniedPipelinesToast([rowsDenial], jest.fn())));
+      170 |     expect(store.getState().toasts.items).toHaveLength(2);
+      171 |   });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:284:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:271:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:168:11)
+
+    console.error
+      A non-serializable value was detected in the state, in the path: `toasts.items.0.action.onClick`. Value: [Function: onClick] 
+      Take a look at the reducer(s) handling this action type: toasts/pushToast.
+      (See https://redux.js.org/faq/organizing-state#can-i-put-functions-promises-or-other-non-serializable-items-in-my-store-state)
+
+      166 |   it("a DIFFERENT denial (different pipeline) does not coalesce with the first", () => {
+      167 |     const store = makeStore();
+    > 168 |     store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial], jest.fn())));
+          |           ^
+      169 |     store.dispatch(pushToast(buildDeniedPipelinesToast([rowsDenial], jest.fn())));
+      170 |     expect(store.getState().toasts.items).toHaveLength(2);
+      171 |   });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:312:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:297:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:168:11)
+
+    console.error
+      A non-serializable value was detected in an action, in the path: `payload.action.onClick`. Value: [Function: onClick] 
+      Take a look at the logic that dispatched this action:  {
+        type: 'toasts/pushToast',
+        payload: {
+          variant: 'warning',
+          message: 'Big pipe: This pipeline processes too many rows to update automatically.',
+          duration: 0,
+          action: { label: 'Run to update', onClick: [Function: onClick] },
+          id: '8'
+        }
+      } 
+      (See https://redux.js.org/faq/actions#why-should-type-be-a-string-why-should-my-action-types-be-constants) 
+      (To allow non-serializable values see: https://redux-toolkit.js.org/usage/usage-guide#working-with-non-serializable-data)
+
+      167 |     const store = makeStore();
+      168 |     store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial], jest.fn())));
+    > 169 |     store.dispatch(pushToast(buildDeniedPipelinesToast([rowsDenial], jest.fn())));
+          |           ^
+      170 |     expect(store.getState().toasts.items).toHaveLength(2);
+      171 |   });
+      172 | });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:284:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:271:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:169:11)
+
+    console.error
+      A non-serializable value was detected in the state, in the path: `toasts.items.0.action.onClick`. Value: [Function: onClick] 
+      Take a look at the reducer(s) handling this action type: toasts/pushToast.
+      (See https://redux.js.org/faq/organizing-state#can-i-put-functions-promises-or-other-non-serializable-items-in-my-store-state)
+
+      167 |     const store = makeStore();
+      168 |     store.dispatch(pushToast(buildDeniedPipelinesToast([aiDenial], jest.fn())));
+    > 169 |     store.dispatch(pushToast(buildDeniedPipelinesToast([rowsDenial], jest.fn())));
+          |           ^
+      170 |     expect(store.getState().toasts.items).toHaveLength(2);
+      171 |   });
+      172 | });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:312:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:297:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:169:11)
+
+    console.error
+      A non-serializable value was detected in an action, in the path: `payload.items.0.action.onClick`. Value: [Function: onClick] 
+      Take a look at the logic that dispatched this action:  {
+        type: 'toasts/pushToast',
+        payload: {
+          variant: 'warning',
+          message: 'Gamma: This pipeline processes too many rows to update automatically.\n' +
+            'Zeta: This pipeline processes too many rows to update automatically.\n' +
+            'alpha: This pipeline processes too many rows to update automatically.\n' +
+            'Gamma: This pipeline processes too many rows to update automatically.\n' +
+            'Beta: This pipeline processes too many rows to update automatically.\n' +
+            'Pipeline 10: This pipeline processes too many rows to update automatically.\n' +
+            'Pipeline 2: This pipeline processes too many rows to update automatically.',
+          duration: 0,
+          items: [
+            [Object], [Object],
+            [Object], [Object],
+            [Object], [Object],
+            [Object]
+          ],
+          id: '9'
+        }
+      } 
+      (See https://redux.js.org/faq/actions#why-should-type-be-a-string-why-should-my-action-types-be-constants) 
+      (To allow non-serializable values see: https://redux-toolkit.js.org/usage/usage-guide#working-with-non-serializable-data)
+
+      208 |     expect(a.message).toBe(b.message);
+      209 |     const store = configureStore({ reducer: { toasts: toastsReducer } });
+    > 210 |     store.dispatch(pushToast(a));
+          |           ^
+      211 |     store.dispatch(pushToast(b));
+      212 |     expect(store.getState().toasts.items).toHaveLength(1);
+      213 |   });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:284:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:271:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:210:11)
+
+    console.error
+      A non-serializable value was detected in the state, in the path: `toasts.items.0.items.0.action.onClick`. Value: [Function: onClick] 
+      Take a look at the reducer(s) handling this action type: toasts/pushToast.
+      (See https://redux.js.org/faq/organizing-state#can-i-put-functions-promises-or-other-non-serializable-items-in-my-store-state)
+
+      208 |     expect(a.message).toBe(b.message);
+      209 |     const store = configureStore({ reducer: { toasts: toastsReducer } });
+    > 210 |     store.dispatch(pushToast(a));
+          |           ^
+      211 |     store.dispatch(pushToast(b));
+      212 |     expect(store.getState().toasts.items).toHaveLength(1);
+      213 |   });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:312:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:297:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:210:11)
+
+    console.error
+      A non-serializable value was detected in an action, in the path: `payload.items.0.action.onClick`. Value: [Function: onClick] 
+      Take a look at the logic that dispatched this action:  {
+        type: 'toasts/pushToast',
+        payload: {
+          variant: 'warning',
+          message: 'Gamma: This pipeline processes too many rows to update automatically.\n' +
+            'Zeta: This pipeline processes too many rows to update automatically.\n' +
+            'alpha: This pipeline processes too many rows to update automatically.\n' +
+            'Gamma: This pipeline processes too many rows to update automatically.\n' +
+            'Beta: This pipeline processes too many rows to update automatically.\n' +
+            'Pipeline 10: This pipeline processes too many rows to update automatically.\n' +
+            'Pipeline 2: This pipeline processes too many rows to update automatically.',
+          duration: 0,
+          items: [
+            [Object], [Object],
+            [Object], [Object],
+            [Object], [Object],
+            [Object]
+          ],
+          id: '10'
+        }
+      } 
+      (See https://redux.js.org/faq/actions#why-should-type-be-a-string-why-should-my-action-types-be-constants) 
+      (To allow non-serializable values see: https://redux-toolkit.js.org/usage/usage-guide#working-with-non-serializable-data)
+
+      209 |     const store = configureStore({ reducer: { toasts: toastsReducer } });
+      210 |     store.dispatch(pushToast(a));
+    > 211 |     store.dispatch(pushToast(b));
+          |           ^
+      212 |     expect(store.getState().toasts.items).toHaveLength(1);
+      213 |   });
+      214 | });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:284:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:271:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:211:11)
+
+    console.error
+      A non-serializable value was detected in the state, in the path: `toasts.items.0.items.0.action.onClick`. Value: [Function: onClick] 
+      Take a look at the reducer(s) handling this action type: toasts/pushToast.
+      (See https://redux.js.org/faq/organizing-state#can-i-put-functions-promises-or-other-non-serializable-items-in-my-store-state)
+
+      209 |     const store = configureStore({ reducer: { toasts: toastsReducer } });
+      210 |     store.dispatch(pushToast(a));
+    > 211 |     store.dispatch(pushToast(b));
+          |           ^
+      212 |     expect(store.getState().toasts.items).toHaveLength(1);
+      213 |   });
+      214 | });
+
+      at error (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:312:21)
+      at Object.fn [as measureTime] (node_modules/@reduxjs/toolkit/src/utils.ts:9:16)
+      at measureTime (node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:297:22)
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at next (node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:277:34)
+      at Object.next [as dispatch] (node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:32:12)
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:211:11)
+
+  ● buildDeniedPipelinesToast N>=2 rows (HEL-1172 D3) › is persistent and emits one row per pipeline in name order, even when given out of order
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+      Array [
+    -   "p2",
+        "p1",
+    +   "p2",
+      ]
+
+      85 |
+      86 |     expect(toast.duration).toBe(0);
+    > 87 |     expect(toast.items?.map((i) => i.key)).toEqual(["p2", "p1"]);
+         |                                            ^
+      88 |     expect(toast.items?.map((i) => i.linkTo)).toEqual(["/pipelines/p2", "/pipelines/p1"]);
+      89 |     expect(toast.items?.map((i) => i.linkLabel)).toEqual(["Big pipe", "Sentiment pipe"]);
+      90 |   });
+
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:87:44)
+
+  ● buildDeniedPipelinesToast N>=2 rows (HEL-1172 D3) › a row has a run action only when canRun, and it runs only that pipeline
+
+    expect(received).toBeUndefined()
+
+    Received: {"label": "Run to update", "onClick": [Function onClick]}
+
+      106 |
+      107 |     // Name order: "Big pipe" (viewer, no action) then "Sentiment pipe" (canRun).
+    > 108 |     expect(toast.items?.[0].action).toBeUndefined();
+          |                                     ^
+      109 |     expect(toast.items?.[1].action?.label).toBe("Run to update");
+      110 |     toast.items?.[1].action?.onClick();
+      111 |     expect(onRun).toHaveBeenCalledTimes(1);
+
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:108:37)
+
+  ● buildDeniedPipelinesToast name order (HEL-1840 D1) › orders rows by name (case-insensitive-ish, numeric-aware), equal names by id
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 4
+    + Received  + 4
+
+      Array [
+    -   "b2",
+    -   "d4",
+        "0e",
+    +   "a1",
+    +   "b2",
+        "c3",
+    -   "g7",
+    +   "d4",
+        "f6",
+    -   "a1",
+    +   "g7",
+      ]
+
+      194 |   it("orders rows by name (case-insensitive-ish, numeric-aware), equal names by id", () => {
+      195 |     const toast = buildDeniedPipelinesToast(set, jest.fn());
+    > 196 |     expect(toast.items?.map((i) => i.key)).toEqual(expectedKeys);
+          |                                            ^
+      197 |   });
+      198 |
+      199 |   it("builds the message lines in the same order as the rows", () => {
+
+      at Object.<anonymous> (src/features/pipelines/services/deniedPipelinesToast.test.ts:196:44)
+
+FAIL src/shared/ui/ToastRowList.overflow.test.tsx
+  ● ToastRowList overflow cue (HEL-1840 D3) › marks the frame while the list overflows and is at the top
+
+    expect(received).toHaveAttribute()
+
+    received value must be an HTMLElement or an SVGElement.
+    Received has value: null
+
+      55 |     stub({ scrollHeight: 600, clientHeight: 256, scrollTop: 0 });
+      56 |     const { container } = renderList();
+    > 57 |     expect(frameOf(container)).toHaveAttribute("data-overflow-below", "true");
+         |                                ^
+      58 |   });
+      59 |
+      60 |   it("carries no mark when the rows fit", () => {
+
+      at __EXTERNAL_MATCHER_TRAP__ (node_modules/expect/build/index.js:2240:22)
+      at Object.throwingMatcher (node_modules/expect/build/index.js:2241:6)
+      at Object.<anonymous> (src/shared/ui/ToastRowList.overflow.test.tsx:57:32)
+
+  ● ToastRowList overflow cue (HEL-1840 D3) › carries no mark when the rows fit
+
+    expect(received).not.toBeNull()
+
+    Received: null
+
+      61 |     stub({ scrollHeight: 200, clientHeight: 256, scrollTop: 0 });
+      62 |     const { container } = renderList();
+    > 63 |     expect(frameOf(container)).not.toBeNull();
+         |                                    ^
+      64 |     expect(frameOf(container)).not.toHaveAttribute("data-overflow-below");
+      65 |   });
+      66 |
+
+      at Object.<anonymous> (src/shared/ui/ToastRowList.overflow.test.tsx:63:36)
+
+  ● ToastRowList overflow cue (HEL-1840 D3) › drops the mark once scrolled to the end, and returns it when scrolled back up
+
+    expect(received).not.toHaveAttribute()
+
+    received value must be an HTMLElement or an SVGElement.
+    Received has value: null
+
+      71 |     stub({ scrollHeight: 600, clientHeight: 256, scrollTop: 344 });
+      72 |     fireEvent.scroll(list);
+    > 73 |     expect(frameOf(container)).not.toHaveAttribute("data-overflow-below");
+         |                                    ^
+      74 |     stub({ scrollHeight: 600, clientHeight: 256, scrollTop: 100 });
+      75 |     fireEvent.scroll(list);
+      76 |     expect(frameOf(container)).toHaveAttribute("data-overflow-below", "true");
+
+      at __EXTERNAL_MATCHER_TRAP__ (node_modules/expect/build/index.js:2240:22)
+      at Object.throwingMatcher (node_modules/expect/build/index.js:2241:6)
+      at Object.<anonymous> (src/shared/ui/ToastRowList.overflow.test.tsx:73:36)
+
+Test Suites: 2 failed, 2 total
+Tests:       6 failed, 13 passed, 19 total
+Snapshots:   0 total
+Time:        3.745 s
+Ran all test suites matching src/features/pipelines/services/deniedPipelinesToast.test.ts|src/shared/ui/ToastRowList.overflow.test.tsx.

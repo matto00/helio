@@ -233,6 +233,15 @@ const BOX_SHADOW_EXCEPTIONS: Pin[] = [
     count: 1,
     note: "scroll-fade inset, combined top+bottom, edit-form overlay (HEL-1449)",
   },
+  // HEL-1840 -- the multi-denial toast's row-list overflow cue pairs its surface fade with the same bottom-edge inset
+  // (same 12px/35% family) so the cue shows wherever the clip lands, even in an inter-row gap.
+  {
+    file: "shared/ui/toast.css",
+    declaration:
+      "box-shadow: inset 0 -12px 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);",
+    count: 1,
+    note: "scroll-fade inset, bottom edge, toast row-list overflow cue (HEL-1840)",
+  },
 ];
 
 // D2 — the five sub-scale radii, all below the 6px floor. Default is LEAVE
