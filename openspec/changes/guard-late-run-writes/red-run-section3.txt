@@ -1,0 +1,124 @@
+[info] LateRunWritesGuardSpec:
+[info] a run reaped after its first node write (HEL-1541 3.1)
+[info] - should write no per-Output schema (W3) *** FAILED ***
+[info]   Vector("[{"name": "amount", "type": "string", "nullable": false}, {"name": "label", "type": "string", "nullable": false}]", "[]") was not equal to Vector("[]") (LateRunWritesGuardSpec.scala:111)
+[info] - should write no binary refs (W4) *** FAILED ***
+[info]   1 was not equal to 0 (LateRunWritesGuardSpec.scala:117)
+[info] - should fire no alert (W5, firing) *** FAILED ***
+[info]   Some(AlertEvent(AlertEventId("62c3e724-c64a-43b9-87a9-18713282d448"), AlertRuleId("722730c1-8241-4dcc-84f3-de432b1d9bf7"), UserId("31eceeb3-7cc8-4c5c-a34f-2db09b4a9ac4"), OutputId("b86cdf0b-847a-42a6-88fc-b8edd1ebeb3b"), 3.0, Some("0da65b2d-e033-473b-af7c-4c61a4319982"), Warning, Firing, 2026-11-25T01:40:50.503072Z, 2026-11-25T01:40:50.503072Z, None, None, None)) was not equal to None (LateRunWritesGuardSpec.scala:124)
+[info] - should resolve no alert (W5, resolve) *** FAILED ***
+[info]   None was not equal to Some(Firing) (LateRunWritesGuardSpec.scala:132)
+[info] - should write no schema-drift baseline for an owner run (W10) *** FAILED ***
+[info]   Some("[]") was not equal to None (LateRunWritesGuardSpec.scala:138)
+[info] - should write no schema-drift baseline for an editor run (W10, privileged path) *** FAILED ***
+[info]   Some("[]") was not equal to None (LateRunWritesGuardSpec.scala:145)
+[info] a run reaped between the early open-check and its upsertsource write-back (HEL-1541 3.2, W1)
+[info] - should write no dataset row, no terminal write of its own and no event, and answer 409 *** FAILED ***
+[info]   2 was not equal to 0 (LateRunWritesGuardSpec.scala:158)
+[info] - should keep the write-back rows that committed before the reap and write nothing else (W3-W5, W10 skipped) *** FAILED ***
+[info]   1 was not equal to 0 (LateRunWritesGuardSpec.scala:174)
+[info] the reaper (HEL-1541 3.3, D4)
+[info] - should skip, without waiting, a run whose write-back transaction holds its run-open key, and reap it on a later pass *** FAILED ***
+[info]   Vector("01fbe9f6-dfa4-4318-a24d-f48fe86e6e4f") contained element "01fbe9f6-dfa4-4318-a24d-f48fe86e6e4f" (LateRunWritesGuardSpec.scala:203)
+[info] a healthy, never-reaped run (HEL-1541 3.5, positive controls)
+[info] - should land every write for an owner run
+[info] - should land every write for an editor run
+[info] - should land every write when the run's own succeeded write commits before the node writes
+[info] - should land the write-back rows for a never-reaped run
+[info] LateFinisherSeamIsolationSpec:
+[info] a seam call that outlives its test
+[info] - should complete its own test's terminalWritten, not the next test's (GatedRunRepo)
+[info] - should run its own test's afterEngine hook, not the next test's (HookBackend)
+[info] - should advance its own test's node-write counter, not the next test's (HookSnapshotRepo counter)
+[info] - should invoke its own test's afterNodeWrite hook, not the next test's (HookSnapshotRepo afterNodeWrite)
+[info] - should complete its own test's foldDone, not the next test's (HookSnapshotRepo foldDone)
+[info] - should complete its own test's nodeWriteFailed, not the next test's (HookSnapshotRepo nodeWriteFailed)
+[info] - should complete its own test's binaryEntered and binarySettled, not the next test's (HookBinaryRepo)
+[info] LateFinisherRunSpec:
+[info] a late finisher (HEL-1518 item 1)
+[info] - should answer 404 when its pipeline was deleted while it executed
+[info] - should still answer 409 when its run was reaped and the pipeline still exists
+[info] a run finalized between the early open-check and a node's snapshot write (HEL-1518 item 2)
+[info] - should write nothing, publish no succeeded and answer 409 when it was reaped in that window
+[info] - should write nothing, publish no succeeded and answer 404 when its pipeline was deleted in that window
+[info] a run whose terminal write loses after the node fold (HEL-1518 D7)
+[info] - should answer 404, write nothing and publish no succeeded when its pipeline was deleted before the Output list was read
+[info] - should answer 409 and publish no succeeded when the run was reaped after its last node write
+[info] a healthy run whose own succeeded terminal write commits before its node writes (positive control, C1)
+[info] - should write every node's snapshots, history and payload, publish succeeded and finish succeeded
+[info] the in-transaction guard (HEL-1518 D3)
+[info] - should make a reap wait for an open node transaction, then finalize the run after it commits
+[info] - should let a concurrent pipeline delete finish without a deadlock when the node write holds the guard locks (history + payload inserts follow)
+[info] - should fail with Missing, writing nothing, when a pipeline delete commits first
+[info] LateFinisherDeleteAfterWonSpec:
+[info] a run whose own succeeded terminal write committed before its pipeline was deleted (HEL-1544)
+[info] - should answer success and publish succeeded when the delete also landed before the Output list was read, so no node guard runs
+[info] - should answer success and publish succeeded when the delete landed after the Output list was read, although a node guard then sees the run Missing (HEL-1564)
+[info] - should answer success, keeping the node already written, when the delete landed between two node writes (HEL-1564)
+[info] - should answer success when a post-fold binary-reference write fails because the pipeline was deleted after the run's own write won (HEL-1564)
+[info] a recovered run whose binary-reference sibling write is still in flight when the chain fails (HEL-1594, HEL-1564 D2)
+[info] - should not answer before that sibling settles, then answer success with exactly one succeeded
+[info] a binary-reference write that fails while the pipeline still exists (HEL-1564 narrowness control)
+[info] - should still fail the submit and still publish succeeded, exactly as before
+[info] a run whose terminal write lost to a delete that landed after the fold (HEL-1564 D1b)
+[info] - should answer 404, publish no succeeded, leave no run row and never start the binary-reference write when the delete lands before the terminal write *** FAILED ***
+[info]   true was not equal to false (LateFinisherDeleteAfterWonSpec.scala:142)
+[info] PipelineRunRepositorySpec:
+[info] PipelineRunRepository
+[info] - should insertRun creates a run with queued status
+[info] - should insertRun persists the passed triggerSource (scheduled)
+[info] - should insertRunInternal persists the passed triggerSource (external)
+[info] - should insertDryRun persists triggerSource manual
+[info] - should insertDryRunInternal persists triggerSource manual
+[info] - should updateRunTerminal sets succeeded status with rowCount
+[info] - should updateRunTerminal sets failed status with errorLog
+[info] - should deleteOldRuns retains only the N most recent runs
+[info] - should HEL-1578: a busy pipeline keeps a day of runs (40 runs over 20h, all kept)
+[info] - should HEL-1578: 15 runs all older than 24h are pruned to the newest 10
+[info] - should HEL-1578: the cap bounds a very busy pipeline (350 runs inside 24h keep the newest 300)
+[info] - should HEL-1541: deleteOldRuns never deletes an in-flight (completed_at NULL) run, outside the newest 10 and the 24 h window, while finished ones are *** FAILED ***
+[info]   HashSet("6e5d392d-fa8a-4115-95cb-30b4916a2e51", "0a72c825-2e34-4e68-80ea-88fea1f6f21a", "0d2adb5f-5bb2-40a4-b0d9-df4e9972ce64", "217c6ec5-1eaf-4a41-9ea4-9fae431e2fac", "30eb4f07-4e37-49f5-8f50-f36bf712565f", "fb4e3c8f-de45-47e4-b669-e42120b56fc2", "a6681a4a-2274-465a-bafa-d1b0fe7033f3", "13eca59d-79d0-4ae5-8eb3-f8a065193607", "2a7367ba-0ead-4f81-b7b1-41d5ace2f88c", "55722607-7e10-4c86-8f04-3bb1f4cbc931") did not contain element "50c42e81-ffb4-42c0-97f8-29c39723d214" (PipelineRunRepositorySpec.scala:233)
+[info] - should HEL-1541: deleteOldRuns keeps an in-flight run ranked beyond the 300 cap *** FAILED ***
+[info]   Vector("158e743a-ab42-432d-b02c-51e7ca5d1b34", "f6344c8a-e571-4d9e-b969-f9526f87eda7", "0266a91a-1dea-4349-8a7c-7590618635ce", "1690b81b-5c8e-447f-b708-ba3a5f4ca356", "a508b73e-943e-428a-8286-8564913f84a2", "6eb2bee4-f497-41e8-816a-f54bf76f71a7", "3851b01b-b5a3-437c-a6eb-aff56b4762fc", "531a3111-aff7-4c2d-bc12-bc7c581c4391", "bca31de2-39b7-40cf-a816-305fc3f9c9a6", "d6ae64dc-05dd-4078-b2c7-b9e49841d6ee", "7709893c-ef99-4b09-8f73-20f4cd5fe8da", "b7e24e7e-69de-40fc-bce1-3b913a2cafbf", "762e80d5-656d-4fd9-87a0-78e0f9329e53", "4f8e7009-613e-417c-8822-d6f53a44f1bb", "b543f6a1-f2cf-48f9-9d9c-9410a7f39675", "d051406a-a8a1-4cee-b369-033db4ec8a99", "fa1df8f4-5e43-48cd-b628-02a2c8031730", "ac1cd957-e041-4a15-84e6-ccc0520255e1", "393bd77e-a7f4-4369-a26e-851a3428fa89", "88d2a3a1-f6a5-4fb3-9ab0-1a56086420a3", "f656b765-72dd-42e5-b64f-b2dff83d977f", "10e6e180-0bbd-4416-aed7-84f3af894c78", "116aa8c5-5337-4217-9e27-7cc034cd01bf", "efb0c0f9-4376-4274-8c66-71539bddbc8c", "6f75379c-23cd-4c6d-a480-ff19d567ab64", "a4ff8ef2-257a-47e8-9c2b-ffbed68bd9bc", "3a169de2-a018-46a4-a3a9-886d3ccd6618", "c0580c1e-7ff3-4d4e-84b4-80ce7bd92590", "b37597cf-146d-44b6-bc3a-5597e84dcd24", "7db93e8f-6657-4c20-a4bf-b962655dff3c", "ac1bae84-ff59-4eff-b480-88bd094c5140", "cdaf15a4-6e5e-4f0c-be9f-3eb68b15a77f", "d0ca6c8e-ef52-42af-ba02-057906f07c56", "04266f43-e232-40b1-8ada-e7d3bc6c1b28", "319d21c3-7ca3-49fe-aa88-fea8341b9172", "23febefb-a7e0-4e49-a29e-54a5cc9d86b9", "7abcdbba-8c70-492c-96b0-8a1b4f53d422", "e2143414-fa51-4d29-8ceb-2c284bc1b245", "41cfd551-41a2-47de-bd0d-0782142564b4", "b0915a8a-7b70-4b14-9710-a5a541995f35", "3661a943-5df4-4913-830e-697e04c1186c", "21268416-3b89-4eba-9296-fb3636d75cbc", "4d33f21d-38f7-4b35-85f4-f2fd20320e89", "7b360be7-0051-41b1-9715-f90c93a3aa85", "9069d94e-d44d-405d-84d1-d0fb150b93c1", "379634f6-76af-4728-824c-5b1199c1ae56", "6a2102de-ff42-4ca7-9c10-2d781ced830d", "0fbe6ff3-8fa3-4c23-8244-194dd196664f", "379b61ad-9214-40dd-b4ef-b51b0c728276", "f2f6faa6-15e9-45c5-9448-1a61e16a21c1", "45474acb-d571-4969-aadc-d98a405ec485", "b2d8075a-cff5-4542-ba07-4bc15253b092", "564ccf80-ab6e-4da2-ad38-0f2cdc90e069", "43e16e37-19b1-454a-a1f3-08673cc2ad0e", "499535fa-a371-444b-8ef1-94c770742606", "2cd86263-ff22-4645-ac92-73c906c937cc", "ee7a6dc7-8d20-4e6e-bc74-7f8416669278", "546a9ded-a1d3-422d-93d5-e53d9d4986fb", "11da7e94-ff49-4a67-a2b3-7d3dc8c26cc5", "a8c27cae-4166-4b2a-8265-aa59d1ee0183", "1c6cd4b4-94a6-4263-827b-3b865faa3cf9", "0b218dd2-b629-438b-ba6e-c95c578a7b26", "b5b1ce96-9a5e-4915-811a-17020a272891", "1abc9e3f-7d30-4ac0-be97-38a0cd23aeb4", "13838681-ccd7-425f-8dfa-8708cc2f86f7", "5b44d00c-92d7-4a2d-b00b-9e6ebe12de09", "b84e2f74-d8f1-4359-a1eb-fc14c0581574", "1810daf9-c768-49b6-b462-a6b452ad947a", "7553d7c4-fc6c-45b2-a1a9-71e1f4feac9c", "27d5b60f-cddc-454a-9cdf-6290b682ca26", "962ed4d2-f5bf-4ece-b095-d2f18128e971", "5da09c46-eae9-4e59-b0ed-f9f479a48e88", "f51740b7-755d-4935-b67a-e9fe23f5eb8c", "b5d76562-a976-4819-947f-df180f971483", "45060742-f361-4deb-afb3-0b8e94d7d0a1", "17665d47-6376-4791-bd2c-a4df37de4f33", "b0a95168-9042-47d2-bc37-0a692d9e010c", "1719b965-9dfa-4c28-b314-b2d27c7c52d6", "f3ad2288-cd3c-4196-a163-d5f5881bafc9", "1b4a8c41-8b74-445b-9a1d-d0597235a542", "a1a3f9fd-3002-4001-a40d-36c1ddc7b682", "8477eebd-9b1c-4ad6-8833-1f78c478c43b", "ff3cd811-bae1-420b-bc88-56755ee98673", "ad5ad127-27b5-4e65-86f8-4fffaedd4667", "b8aceb07-1499-4ad9-a56e-c83ece6f68f3", "e14912a7-0736-4bad-acaa-1fa1e04cbb5c", "e50d2a00-f39f-4d8f-ac10-89ec2642e114", "d547bce9-f402-4d6a-b8ea-739b0ce6f0cd", "f4c60218-27d2-4cf8-9001-49421d52c849", "93fab60d-ffad-4dde-8aaa-fc9bafb26165", "552e3dd1-c173-431b-b490-5a0e3a4f01e9", "9f7ce552-f3f2-4288-bc11-cd6b3f865487", "5798350c-8e53-4075-8ad7-911ed07bca73", "35273b09-c806-49b0-8adf-2bef97fbfa15", "dfc5b9da-e742-488e-8c94-ed716ae77b99", "0572b346-0908-4dbb-b01f-d5a1fa65afa1", "23e060ea-c35c-4d9d-ab7d-c640e96da964", "295067bc-8b6a-4398-9014-77da2b649e6a", "88e74bfb-532d-4402-82fa-e7f7c71d0ffe", "c8397929-604f-4a0a-b14a-01283b42f51e", "76685999-c882-4f04-b237-37a8a82cb4e4", "16d14d64-f3f5-433d-bc2d-1de25f92a3a0", "ce38d39b-c596-462c-8cfc-4f5dd751de82", "e4c9f4f5-ada9-45df-b381-9371e995b9df", "1d60a7cc-c161-454c-a374-110a45868f34", "c480a7a7-2fe7-48a1-9d53-17867730448d", "8ee0b618-b41f-4e6a-9a3d-4681c5c6cc75", "73a5ab74-08d4-43ef-aae7-6d13627870f3", "b116490e-d503-4dd4-be55-9137d9899f6d", "f1e62c8e-896b-4c5f-826b-b7edb56ed0ea", "f40f646c-2f8c-4f88-b941-0b339d77af51", "9043a3fd-5a6e-4920-b471-93f09eac4261", "92ab767d-d48e-40c1-93c2-5eb3253b4570", "1f5cf52e-2cc4-4560-aceb-a92c333bec1b", "b1a049b6-bfb9-443d-8014-25935209c2d3", "2f98be93-dee5-4a02-b339-5dde1ab3c9fd", "2c07c956-1aff-49be-81c5-c27337536f1d", "10cd36f0-9d57-4ab5-ab64-a46dec002cb1", "65f58d00-52ba-428e-82a3-89c858dce4cf", "b549b6a3-61f2-4edc-bcbd-74ecd117811f", "376703e8-2998-4ade-82ef-fe1ee58f3ff5", "0b777dea-ce94-47b2-b20b-e997151e1ae8", "fd7ca958-02f0-4792-b4f4-d8ba5f2e80c8", "1f82084d-6b6d-4d7d-8218-8b2ec729de7b", "03c9ef39-cf33-4b22-b57a-0b34b0158dd3", "5eaf4239-6d85-4349-9259-86ef640700c8", "f8ff5bd2-4961-4b44-87d7-f8bb8674c1bf", "34bf0f94-9804-48e4-a0d6-d0303acaa5a5", "220733f4-a073-4183-8d90-b682ef830321", "2cad8640-8eca-41aa-b9b5-71d1a126d091", "9cf7c7a7-4f1c-4947-a387-c7d25e39ee3d", "5e65ef20-4765-4e3e-a28f-3087f7e36ca7", "86a4ff0f-434a-42dc-8dc3-853fa8ee130c", "0f5a71cc-128c-4875-bac9-59e6796d9f20", "b4b4ea3a-3568-4411-b16f-57dce4b99ed2", "9896d402-e4aa-41f6-99e8-f8022ff43c54", "2b0b7154-0e40-4a55-8f97-0964918b61c8", "0524180d-09fa-42e6-bd48-b492a9103b80", "fb2fbb8b-0090-4c5b-97d6-c0979c10fa7e", "3fe7f2c4-21b3-466d-842d-679406ee49fa", "a905dd75-4e97-41a0-a10a-868030b5b25e", "7f8edbdc-11ce-4702-bd72-4e6555b816cf", "21356469-9f69-4684-bc23-efc66a7ecb80", "cb87578a-e3f2-4514-810a-53d2a8d076cb", "14b42cbb-e5fb-4334-83d7-78dbaa97e715", "96a9a619-40be-4be2-bebb-9dec38e547bd", "a41da551-dd0f-4136-9d08-c4c578a7c3b6", "9b10f979-74e1-4df7-88aa-30793b08c7f9", "2487b5a6-9756-4486-8b41-9a39295f591e", "49c763ab-068e-4a68-8891-14b7e7d6a658", "5af73150-5bc6-4e3a-ad68-a607785d0f24", "f746bae1-9b37-4b51-ba1b-28d4be947eeb", "7ace9d99-39fe-4ab4-bb21-318475d03e45", "101a63f2-2976-4d3a-b827-b1849bb14380", "3160f2f0-706b-4c45-85a6-d7b292df20e8", "6df5c9d7-dc03-4df8-bb12-4237eccf9418", "ceaa9d86-c4f3-4abb-bc98-86169d7b7e1b", "8bf62c12-4a6b-4479-9dd3-4db8fefbdb83", "5fc6c327-a83b-4cae-881c-13aa77297df4", "a3db6d06-4d72-413f-843d-aaa16cd3c875", "8fdd09b4-3b6d-4270-8853-18bb6ea1869f", "b08b2ce8-f49b-462b-a3b9-fb7221ed6765", "b5075ced-b9b4-4177-a391-62d04bf6651c", "75f081c9-67a8-47df-888a-7019e4df7b17", "4399085b-2004-4280-ad05-4af6e000e5fa", "4d9f1c1b-785c-4615-968e-09852ce15d5a", "c55b44c1-35c7-4c03-8dc3-7c131ec77a7a", "a519851a-bf74-4758-9e05-1f0321be41aa", "9c1da8c7-5a25-4148-8d5c-4b3cbc63e6c2", "d3035a84-3906-476c-93eb-8b0f13273337", "197cfbc8-7c3f-460f-b8aa-b2002a2a9e02", "2d67a3b8-c592-4c4e-84af-0cbf33c4b5c8", "37a3d884-6335-4169-8056-502c7dfa706b", "3ab78372-bf70-4e23-97cb-2ae33c496ccd", "0e066984-254f-4519-a967-2c99bb6a6685", "285f8856-fbd6-4e67-8259-45e898746eb8", "5dd87669-ed2e-4c5f-b474-93c85093c885", "4d237323-441d-4713-b91d-e6d6a0e96390", "71a38113-f63d-4d25-8587-793814c9cd08", "539a95bb-ee81-4c2c-b669-bdeb523d1d59", "02d1185c-7843-4ea3-bf1f-5e468c6f01f6", "4f343e7d-9610-43e1-9b09-d367d20c62d0", "9871a7f2-25c8-4a0e-9f7a-1af8570b1c77", "7f588827-3d89-47e3-aab2-602a72644fdd", "e852a8bc-d4d9-449b-924f-c97d8ec55017", "5f84155c-28ad-46b4-b789-d7751b6e50c9", "45f15476-a056-4be6-be0a-d0a059792aaa", "67130caa-01d4-41fd-8555-b75203dcfe2c", "6d5df3ed-2246-44fc-a930-1226091b92b5", "9429340e-755e-43bb-aa55-5e3b4cc1e8d8", "9c3b9103-951e-4de7-ad39-6a9d3bf5f976", "3d7f4a9a-bc14-487e-a623-2b50c6ae04a1", "ede3ff61-574d-40d0-a3c1-a39058ae13bf", "7c62c1fd-281c-4f80-a983-9d34e2868a82", "b168cf1d-b225-41f2-b8e6-2d214bc916aa", "4c0cbba1-25d1-4a86-b821-2690f06e2d95", "d019d69c-b809-463d-ab0f-be136cdc360f", "c1395c13-8922-40f8-a95b-24c73f594bf3", "d8d7bc14-107d-4171-b2aa-5d2f8fb79e7e", "0f6140bc-5da3-4e85-9105-7aec10ebb99f", "0dbfcd1e-2c2c-45af-90f0-7e0e2589eeb7", "1a57ffee-0e0a-4c87-b919-1973a5e2b661", "30e0e691-fbcb-4eb8-a106-af471fbfdc1a", "07d92bea-8f7a-4ab9-9563-90d20ab41798", "4d638007-772b-457a-8081-09193c0676a3", "0187109e-cb14-42b6-8964-4f63a5b9bea3", "649cdd9b-b5a5-4a2b-af1f-a685e91dd83a", "bcc0853e-6c67-4bcb-a636-82314670a9fc", "3fbdc309-951a-4d3e-99a4-e744e310dd3d", "e1d24507-0f11-4889-bb83-d7eba8012265", "c1712b48-ac73-4fa5-bc64-34790e317efd", "27059973-7ef6-482f-8f8a-5f4d699a94cf", "65ee546d-2e93-4b89-9677-5a95b09f0df4", "89f58da6-eeeb-4f97-a766-8c8e1f146759", "e8ede7d2-80ca-4982-a22a-66538e22715f", "b9e83360-5c10-4ff7-b3b4-71027b4de7ef", "730ceee0-58c0-440d-abed-b1d56ab1116e", "c2591afc-ec49-4362-8d12-80b315cbc48a", "b3a561bc-0b56-4230-8a83-aa5d204de206", "37fbcf47-7005-476e-a93b-9e34ce886701", "9dcc38c5-f385-4dd0-81d3-cd9edc79024c", "0e7e52cc-aff0-4cba-a9fe-19a744a959a0", "7699bd85-d860-493c-aef3-95495986cb08", "87606b5c-a039-432c-b4c0-05650194221f", "4489ce7d-f3b4-45fa-a5d1-e1798e676cd2", "0d97125f-fb57-4f71-b0aa-10261ba51a04", "fee2a3ad-b580-4f5e-9c51-8588864c093a", "0f3198b7-f12c-49ed-a572-4c021a384310", "0a364a18-65c9-4f3c-b4bf-bce95e962f1f", "5eae84f2-88cf-41f0-ae1d-faa257aada07", "36b3b73f-d63c-42cb-9814-a4e1afeccf8d", "6b19acd1-f876-415c-bcdc-f187340b7d49", "a41416da-b142-4869-b04b-affb3a21b989", "dbd1fc59-3867-427d-8ccc-6d081f61da19", "ca215cec-9189-47c0-a448-d4ee338db1e6", "9932d20a-9a3a-4f92-a8b2-d21923ff6d22", "231a5d39-91a0-41d9-ace0-a77f89da0f15", "9f7f9cc5-efdf-4273-8cf1-c368139f00c4", "a2855f49-82c0-4992-930b-ac170b9575a1", "5f07412f-5b7f-4d8a-933e-6f9b8f77e6c8", "69cf629d-af72-424a-8d19-e3d9490fb8d0", "45d2a756-b4a2-43ad-a6ce-bb9059603a42", "bf5e2436-7631-429c-9037-03e02e2aec74", "d22ab040-76ba-4b5c-b179-3846e041830a", "6d56d0de-6e4b-491e-89e2-7d450d8ec135", "1eee8707-490a-4afa-9b93-7b2f6698f6eb", "693b728f-d109-4feb-b4b0-a98b5de0ea38", "a5d27460-2eed-4be7-81e6-663e658ca4de", "83ed7806-114c-432b-9066-1e5a243c64d4", "b2812f39-6d49-4b4f-863f-10a3d2238c40", "784bd539-8c37-4932-9c29-dc0bd5b83c65", "143ca55c-42d6-41e9-87ac-52a39d8d4309", "eefb4c33-f2da-4192-aeb1-6668ddae9518", "6dcbb9da-ec83-4233-ae47-90437625c104", "ce06052f-0300-4071-b210-c53e540d1303", "65da7eca-6aec-4769-8f72-611cdd634aa4", "48a87317-2da5-43ed-ae99-2755d0eeaccf", "39f9e961-72f2-462d-a3ad-55cf6198ef83", "5adc3586-f576-4acd-bbf8-d1adacd3b117", "cbb9cd4d-4853-4404-8260-44fb69dd808c", "df5eac9d-056e-485c-9db0-58bac3634dc8", "1b93392c-4c77-47fd-ba69-ac5cacc27329", "919cbd56-69a0-4202-9f9d-81d6e95e04ff", "8ed2d8af-47d1-4f7d-b40e-60baf06fcfad", "b7897615-157a-4eec-994c-efa9b1e4d1e4", "0f6a4fba-f868-4b6c-a693-cf809847b8fd", "d1d8d008-b786-4eb3-8837-eafdaa32a0bf", "053bad0f-e18e-42f1-935f-32c811685fbb", "7a27683d-4e5e-4df7-a743-e5cc64a3c76d", "001f3a71-3641-467b-a516-4c18fde88e0d", "a938bad9-8208-4ec1-8292-21319daec7d8", "c25b6189-ffce-45a6-8f1f-90c55be8a7a3", "b0febfaa-d330-4024-b360-04c113080403", "f0c4b755-0335-4d32-b5a6-c1cdbc42bb68", "1b88ca1b-0af8-40be-852d-cec80b591ae1", "c219f7d9-f40b-4321-bdd3-f5c92f644779", "84652b50-535c-456d-a422-7cd321cc5394", "ba5f0c3f-baa4-4f7d-8033-daa2dacea697", "da49551a-ba34-4717-8cab-9109400741b2", "619d4916-613c-451e-b30a-295633b32a84", "07858847-1cad-4391-bf6b-3df76ebebef5", "662e29e7-711a-4a7d-8bf9-7b4d6e2b13ad", "8877c9cd-f7a2-4bf0-b480-6e0255bfa129", "cb05369c-a48f-468f-b710-8b5a32fcab26", "a24f9675-2fe5-4ab1-a5e8-af39683bb0a9", "16c71ec9-ec74-447c-a7c9-1089981e144d", "967068fb-5520-4ac4-8fc8-c3e7107b9e89", "97d6167f-4c72-4cb1-a2af-ff060903d5a6", "7bd2890c-0e8f-477d-a3cc-843efb295088", "e4ff37ba-f45b-4071-a1f0-f6e63007913f", "70d85386-19c9-40fc-95c0-d5476f5b824e", "cf9476ab-1a93-40c2-b46d-cec1d9b6f412", "dea5d9fe-baf3-4a88-84bd-e25fe9b0ddde", "9cea7307-eab9-4748-99d0-8832eb9ae3a0", "aa564a3c-6f1e-4c3c-a358-7a9110b31c0f", "2959e337-ecfc-45de-85b0-09b8ec9e2071", "87ef19d5-38cd-4c25-9012-9fc297731bf7", "61f0aa31-1a94-44eb-aebb-89c83baf641c", "d79cbcac-d70b-4ec0-a22e-43562e127f02", "6b8cefe7-db55-456b-b1b7-30945d15cc35") did not contain element "b9ebe93b-4cf5-4b4f-84c9-35a15847ae8a" (PipelineRunRepositorySpec.scala:250)
+[info] - should listByPipeline returns runs ordered by startedAt DESC
+[info] - should listByPipeline returns empty for a pipeline with no runs
+[info] - should insertDryRun inserts a row with status dry_run and non-null completedAt
+[info] - should deleteOldDryRuns retains only the N most recent dry-run rows
+[info] - should deleteOldDryRuns does not affect normal run records
+[info] - should listByPipeline returns empty vector for a non-owner (CS2)
+[info] - should insertRun is a silent no-op for a non-owner (CS2)
+[info] - should insertDryRun is a silent no-op for a non-owner (CS2)
+[info] - should updateRunTerminal is a silent no-op for a non-owner (CS2)
+[info] - should deleteOldRuns is a silent no-op for a non-owner (CS2)
+[info] - should deleteOldRuns does not affect dry-run records
+[info] - should insertAssertions persists one row per AssertionResult, linked to the run
+[info] - should insertAssertions is a no-op for an empty results sequence
+[info] - should listAssertionsByRun (owner-scoped) returns the persisted results for the owning user
+[info] - should listAssertionsByRun (owner-scoped) returns empty for a non-owner (CS2 parity)
+[info] - should listAssertionsByRunInternal (system-context) returns results regardless of caller identity
+[info] - should listAssertionsByRunInternal returns empty for a run with no assertion results
+[info] - should insertRunInternal leaves truncated_reads NULL (queued, not-recorded-by-construction)
+[info] - should updateRunTerminalInternal persists a non-empty truncated_reads array
+[info] - should updateRunTerminalInternal persists the recorded-and-complete literal (not NULL) for a complete run
+[info] - should updateRunTerminalInternal persists the recorded-and-complete literal (not NULL) for a failed run
+[info] - should insertDryRunInternal over a truncated source persists a recorded, non-empty signal
+[info] - should a row with a NULL truncated_reads column (pre-existing shape) reads back as not-recorded
+[info] - should insertRunIfUnderConcurrencyCap inserts and returns Inserted when under the cap
+[info] - should insertRunIfUnderConcurrencyCap returns CapExceeded and inserts nothing once the owner is at the cap
+[info] - should the cap counts non-terminal runs across EVERY pipeline the owner owns, not just one
+[info] - should succeeded/failed/dry_run runs do not count toward the cap (terminal states are excluded)
+[info] - should completing a run (updateRunTerminal) frees a concurrency slot for a subsequent submission
+[info] - should insertRunIfUnderConcurrencyCap returns NotAuthorized (not CapExceeded) and inserts nothing for a non-owner (CS2 parity)
+[info] - should concurrent submissions for the same owner never exceed the concurrency cap
+[info] [hel1468-guard] ScalaTest summary: failed=12 aborted=0 unreadable=0
+[info] Run completed in 26 seconds, 611 milliseconds.
+[info] Total number of tests run: 80
+[info] Suites: completed 5, aborted 0
+[info] Tests: succeeded 68, failed 12, canceled 0, ignored 0, pending 0
+[info] *** 12 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.services.pipelines.LateFinisherDeleteAfterWonSpec
+[error] 	com.helio.services.pipelines.LateRunWritesGuardSpec
+[error] 	com.helio.infrastructure.persistence.pipelines.PipelineRunRepositorySpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 28 s, cache 87%, 27 disk cache hits, 4 onsite tasks

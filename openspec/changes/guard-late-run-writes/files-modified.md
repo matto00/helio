@@ -1,0 +1,14 @@
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunSucceededWrites.scala` — W3 (committed nodes' Output schemas), W4, W5, W10 now one group gated on the run's own `succeeded` write winning (starts after the fold settles); group is a sibling of the deleted-recovery
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunExecutor.scala` — passes the run-open guard to the write-back; `unblockedChain` re-raises `RunNoLongerOpen` first so it maps to `lateFinisher`
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala` — `RunOpenClassId`, `runOpenGuardAction`, reaper try-lock `CASE` WHERE, prune filter `completed_at IS NOT NULL`
+- `backend/src/main/scala/com/helio/infrastructure/persistence/sources/DataSourceRepository.scala` — `applyWriteBacks` takes an optional guard run first in the owner transaction
+- `docs/live-draft-preview.md` — Order O* note for the run-open advisory key and the reaper try-lock
+- `backend/src/test/scala/com/helio/services/pipelines/LateRunWritesGuardSpec.scala` — new: 3.1, 3.2, 3.3, 3.5 (red first)
+- `backend/src/test/scala/com/helio/services/pipelines/RunOpenGuardTeardownSpec.scala` — new: 3.4 guard vs workspace teardown plus the 40P01 control (not red-first)
+- `backend/src/test/scala/com/helio/services/pipelines/LateFinisherSpecBase.scala` — seams: `afterEarlyCheck`, gate on the editor terminal write, real alert service, `seedWriteBack`, `who` on `submitAsync`
+- `backend/src/test/scala/com/helio/services/pipelines/LateFinisherDeleteAfterWonSpec.scala` — 3.7a post-fold binary-write test re-expressed (design D3)
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepositorySpec.scala` — five retention tests re-seeded as terminal runs (design D8) and two new in-flight-run prune tests
+- (cycle 2) `PipelineRunRepository.scala`: `RunOpenClassId` doc moved above the HEL-1518 `RunState` doc; `PipelineRunExecutor.scala`: guard bound to a local val; `LateRunWritesGuardSpec.scala`: test 3.3 drives the real `runOpenGuardAction` via `applyWriteBacks` on the RLS app pool, `assertAppPoolEnforcesRls()` in `beforeAll`
+- `openspec/changes/guard-late-run-writes/red-run-section3.txt` — committed red run
+- `openspec/changes/guard-late-run-writes/mutations-red.txt` — per-write mutation reds (each restored afterwards)
+- `openspec/changes/guard-late-run-writes/tasks.md` — tasks ticked

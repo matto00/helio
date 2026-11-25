@@ -4,7 +4,7 @@ import com.helio.domain.insights.InsightRunTrigger
 import com.helio.services.alerts.AlertEvaluationService
 import com.helio.api.protocols.pipelines.TruncatedReadResponse
 import com.helio.api.routes.pipelines.RunStatusEvent
-import com.helio.domain.model.{AssertionResult, AuthenticatedUser, BinaryRef, DataFieldType, DataSourceId, Output, PipelineId, PipelineRootId, PipelineRunId, UserId}
+import com.helio.domain.model.{AssertionResult, AuthenticatedUser, BinaryRef, DataFieldType, DataSourceId, Output, OutputId, PipelineId, PipelineRootId, PipelineRunId, UserId}
 import com.helio.domain.engine.{NodeKey, NodeOutcome, PipelineRowJson, RootKey, SchemaField, SchemaInferenceEngine, StepKey}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.domain.history.{OutputSummaryReducer, PayloadHistoryConfig, PayloadOptIn}
@@ -16,7 +16,10 @@ import spray.json._
 import spray.json.DefaultJsonProtocol._
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ConcurrentLinkedQueue
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 /** The unblocked-success materialization chain (node snapshots, history, binary refs, alert evaluation) and its
@@ -89,6 +92,9 @@ private[pipelines] final class PipelineRunSucceededWrites(
       // pipeline and run rows it locks may belong to an owner other than the submitting editor; locking them discloses
       // nothing and writes nothing.
       val guard: Option[DBIO[Unit]] = Option(pipelineRunRepo).map(_.runGuardAction(pipelineId, runId))
+      // HEL-1541 (design.md D1): the per-Output schemas (W3) of the nodes whose write COMMITTED, applied only after the run's own
+      // `succeeded` write won (below). Appended by the sequential fold, read once after it settled.
+      val committedSchemas = new ConcurrentLinkedQueue[(OutputId, Vector[SchemaField])]()
       // HEL-905 (design.md Decisions 3, 4): a materialized node is one carrying >= 1 `outputs`
       // row. For each materialized node, `node_snapshots` is replaced atomically (per-node, via
       // `overwriteRows`'s existing delete-then-insert-in-one-transaction), sequenced only after the
@@ -154,15 +160,15 @@ private[pipelines] final class PipelineRunSucceededWrites(
                           .flatMap(pid => outputHistoryRepo.insertAction(entries.map(e => if (optedIn(e.outputId)) e.copy(payloadId = pid) else e)))
                     nodeSnapshotRepo.overwriteRowsWith(pipelineId.value, nodeStepIdOpt, nodeJsRows, explicitRootIdOpt, historyAction, guard)
                   }
-                replace.flatMap { _ =>
+                replace.map { _ =>
                   // HEL-905 (design.md Decision 4): per-Output shallow-union schema derivation
                   // over this node's own row set. Two Outputs on the same node get independently
                   // derived (but identical) schemas -- no sharing/caching needed at this scale.
+                  // HEL-1541 (design.md D1): derived here, from this node's rows, but WRITTEN only after the run's own
+                  // `succeeded` write won, so a run reaped after this node's commit never overwrites an Output schema.
                   val inferredFields = SchemaInferenceEngine.inferShallowFromJsObjects(nodeJsRows)
                   val schema = inferredFields.map(f => SchemaField(f.name, DataFieldType.asString(f.dataType), Some(f.nullable))).toVector
-                  Future
-                    .sequence(nodeOutputs.map(o => outputRepo.updateSchemaInternal(o.id, schema)))
-                    .map(_ => ())
+                  nodeOutputs.foreach(o => committedSchemas.add(o.id -> schema))
                 }
               }
             }
@@ -185,16 +191,16 @@ private[pipelines] final class PipelineRunSucceededWrites(
       // explicit "rows, trunkOf(...).lastOption, and the binary-ref key must all be derived from
       // the same root and the same node" agreement. `trunkOfRoot` (not the ambiguous whole-
       // pipeline `trunkOf`) is what makes this hold under multi-root.
-      val trunkLastStepIdFut: Future[Option[String]] =
+      def trunkLastStepIdFut(): Future[Option[String]] =
         if (binaryRefRepo != null)
           for {
             steps        <- pipelineStepRepo.listByPipelineInternal(pipelineId)
             rootIdOfStep <- pipelineStepRepo.rootIdsOf(pipelineId)
           } yield pipelineStepRepo.trunkOfRoot(steps, rootIdOfStep, PipelineRootId(lowestRootId)).lastOption.map(_.id.value)
         else Future.successful(None)
-      val binaryRefsUpsert =
+      def binaryRefsUpsert(): Future[Unit] =
         if (binaryRefRepo != null)
-          trunkLastStepIdFut.flatMap { trunkLastStepId =>
+          trunkLastStepIdFut().flatMap { trunkLastStepId =>
             val explicitRootId = if (trunkLastStepId.isEmpty) Some(lowestRootId) else None
             binaryRefRepo.overwriteForNode(pipelineId.value, trunkLastStepId, extractBinaryRefs(pipelineId, trunkLastStepId, resultRows), explicitRootId)
           }
@@ -212,7 +218,7 @@ private[pipelines] final class PipelineRunSucceededWrites(
       // DIFFERENT node's rows -- evaluating an Output's rules against the wrong node's data is
       // worse than not evaluating them at all) and logged, since every node the walk actually
       // materializes always has an outcome; a miss here means a real bug elsewhere.
-      val alertEvaluation =
+      def alertEvaluation(): Future[Unit] =
         if (alertEvaluationService != null)
           outputRepo.listByPipelineInternal(pipelineId).flatMap { outputs =>
             Future
@@ -294,7 +300,7 @@ private[pipelines] final class PipelineRunSucceededWrites(
       // HEL-1503 (design.md D1/D2): the source is read as the PIPELINE OWNER sees it (what the owner's analyze compares
       // against), whoever submitted; the write follows the run's persistence mode -- owner-scoped for the owner's own
       // run, privileged for an editor's admitted run (its owner-scoped write would touch 0 rows).
-      val baselineUpsert: Future[Unit] =
+      def baselineUpsert(): Future[Unit] =
         dataSourceRepo.findByIdOwnedByInternal(sourceDataSourceId, pipelineOwnerId)
           .map(_.map(_.inferredSchema).getOrElse(Vector.empty))
           .flatMap { schema =>
@@ -306,21 +312,37 @@ private[pipelines] final class PipelineRunSucceededWrites(
             log.warn(s"HEL-462: schema-drift baseline capture failed for pipeline ${pipelineId.value}", ex)
             Future.successful(())
           }
+      // HEL-1541 (design.md D1/D3): W3 (the committed nodes' Output schemas), W4 (binary refs), W5 (alert evaluation) and W10
+      // (the schema-drift baseline) run only after the run's own `succeeded` write WON, like `last_run_*`: that write is the
+      // conditional `completed_at IS NULL` UPDATE, so once it won the run is terminal-succeeded and can no longer be reaped,
+      // and a run that lost (reaped, or deleted) writes none of them. They take no new lock. The group starts once the node
+      // fold has SETTLED (success or failure) and the terminal write has returned, so a node failure after a won write still
+      // runs it, exactly as the former eager siblings did. One `afterTerminalWin` call: a lost write logs one WARN for the
+      // group. All four are started together and the group settles only when every one has, so a failing part never leaves a
+      // sibling in flight behind the answer (HEL-1594 D2).
+      val gatedWrites: Future[Unit] =
+        materializedWrites.transform(_ => Success(())).flatMap(_ => updateRun).flatMap { won =>
+          afterTerminalWin(runId, "succeeded", won) {
+            val schemas = Future.sequence(committedSchemas.asScala.toVector.map { case (outputId, schema) => outputRepo.updateSchemaInternal(outputId, schema) }).map(_ => ())
+            val parts   = Seq(schemas, binaryRefsUpsert(), alertEvaluation(), baselineUpsert())
+            Future.sequence(parts.map(_.transform(Success(_)))).flatMap(results =>
+              results.collectFirst { case Failure(e) => e }.fold(Future.unit)(Future.failed)
+            )
+          }
+        }
         val chain: Future[Option[String]] = for {
           _ <- materializedWrites
-          _ <- binaryRefsUpsert
-          _ <- alertEvaluation
           won <- updateRun
           _ <- updateMeta
           _ <- cancelAutoRun
           _ <- assertionsInsert
-          _ <- baselineUpsert
+          _ <- gatedWrites
           _ <- failIfLostTerminalWrite(runId, won)
         } yield None
         // HEL-1564: a failure after the run's own `succeeded` write won, with the pipeline gone, answers success.
         deletedRecovery.recover(
           pipelineId = pipelineId, runId = runId, chain = chain, won = updateRun,
-          siblings = Seq(materializedWrites, binaryRefsUpsert, alertEvaluation, updateMeta, cancelAutoRun, assertionsInsert, baselineUpsert)
+          siblings = Seq(materializedWrites, updateMeta, cancelAutoRun, assertionsInsert, gatedWrites)
         )
     }
     // HEL-1366: `succeeded` is published only after the whole chain (snapshots, run status,

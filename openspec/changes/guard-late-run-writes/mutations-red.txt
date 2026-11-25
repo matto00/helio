@@ -1,0 +1,48 @@
+=== mutation W3 (restored afterwards) ===
+[info] - should write no per-Output schema (W3) *** FAILED ***
+[info] Tests: succeeded 12, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+=== mutation W4 (restored afterwards) ===
+[info] - should write no binary refs (W4) *** FAILED ***
+[info] - should keep the write-back rows that committed before the reap and write nothing else (W3-W5, W10 skipped) *** FAILED ***
+[info] Tests: succeeded 11, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+=== mutation W5 (restored afterwards) ===
+[info] - should fire no alert (W5, firing) *** FAILED ***
+[info] - should resolve no alert (W5, resolve) *** FAILED ***
+[info] Tests: succeeded 11, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+=== mutation W10 (restored afterwards) ===
+[info] - should write no schema-drift baseline for an owner run (W10) *** FAILED ***
+[info] - should write no schema-drift baseline for an editor run (W10, privileged path) *** FAILED ***
+[info] - should keep the write-back rows that committed before the reap and write nothing else (W3-W5, W10 skipped) *** FAILED ***
+[info] Tests: succeeded 10, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
+=== mutation W1 (restored afterwards) ===
+[info] - should write no dataset row, no terminal write of its own and no event, and answer 409 *** FAILED ***
+[info] Tests: succeeded 12, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+=== mutation REAPER (cycle 1, raw-SQL holder; superseded by the cycle-2 entry below) ===
+[info] - should skip, without waiting, a run whose write-back transaction holds its run-open key, and reap it on a later pass *** FAILED ***
+[info] Tests: succeeded 12, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+=== mutation PRUNE (restored afterwards) ===
+[info] - should HEL-1541: deleteOldRuns never deletes an in-flight (completed_at NULL) run, outside the newest 10 and the 24 h window, while finished ones are *** FAILED ***
+[info]   HashSet("edfcfd8a-ace7-4a45-b70f-025df9235b17", "73988512-6fd7-4999-afb8-f2f905a2e2ec", "3db7bd48-3d84-4c09-86b6-3443236d3538", "420ee6aa-3feb-4cb0-b0ca-95c608ed4bf7", "c96bae22-c33e-4513-86c7-390c0ac074b5", "ae
+[info] - should HEL-1541: deleteOldRuns keeps an in-flight run ranked beyond the 300 cap *** FAILED ***
+[info] Tests: succeeded 41, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+
+=== CYCLE 2 (evaluation-1 CR1): test 3.3 now drives the REAL runOpenGuardAction through applyWriteBacks on the RLS app pool ===
+--- mutation NOLOCK: remove pg_advisory_xact_lock_shared from runOpenGuardAction, keep the read (restored afterwards) ---
+[info] - should skip, without waiting, a run whose REAL write-back guard holds its run-open key on the RLS app pool, and reap it on a later pass *** FAILED ***
+[info] Tests: succeeded 12, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+--- mutation REAPER: remove the reaper try-lock (old WHERE) (restored afterwards) ---
+[info] - should skip, without waiting, a run whose REAL write-back guard holds its run-open key on the RLS app pool, and reap it on a later pass *** FAILED ***
+[info] Tests: succeeded 12, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+--- mutation W1: remove the write-back guard (None) (restored afterwards) ---
+[info] - should write no dataset row, no terminal write of its own and no event, and answer 409 *** FAILED ***
+[info] Tests: succeeded 12, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***

@@ -368,6 +368,22 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       case Some(_)                                               => DBIO.failed(RunNoLongerOpen(RunState.Terminal))
     }
 
+  /** HEL-1541 (design.md D4): the write-back transaction's run-open guard, composed as the FIRST action of its owner
+    * transaction. Takes the run-scoped SHARED advisory key (two-`int4` form with [[RunOpenClassId]], a key space PostgreSQL
+    * keeps apart from every single-`bigint` advisory key such as the cycle lock), then reads whether the run is still open
+    * (a plain read: no pipeline or run row lock, so Order O* gains no lock). [[reapStaleRunsInternal]] try-locks the same key
+    * exclusively and skips a run whose write-back transaction is open. Fails the transaction with [[RunNoLongerOpen]] before
+    * anything was written when the run is gone (`Missing`) or already terminal (`Terminal`: unlike [[runGuardAction]], the
+    * run's own `succeeded` write cannot have landed yet, the write-back runs before it). Runs in the caller's user context;
+    * the owner's `pipeline_runs_owner` policy admits the read (a run the owner cannot see reads as `Missing`). */
+  def runOpenGuardAction(runId: PipelineRunId): DBIO[Unit] =
+    (sql"SELECT count(*) FROM (SELECT pg_advisory_xact_lock_shared($RunOpenClassId, hashtext(${runId.value}))) k".as[Int] andThen
+      sql"SELECT completed_at IS NULL FROM pipeline_runs WHERE id = ${runId.value}".as[Boolean].headOption).flatMap {
+      case Some(true)  => DBIO.successful(())
+      case Some(false) => DBIO.failed(RunNoLongerOpen(RunState.Terminal))
+      case None        => DBIO.failed(RunNoLongerOpen(RunState.Missing))
+    }
+
   /** HEL-1511 (design.md D1): one conditional UPDATE refreshing the heartbeat of the given live runs. Always
     * system context: on the RLS user pool there is no request-bound user, so it would match 0 rows in prod. An
     * empty set issues no query. Returns the number of rows stamped. */
@@ -387,7 +403,10 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * concurrent heartbeat or reap that commits first makes this statement re-evaluate its WHERE on the updated row
     * and skip it. The pipeline's `last_run_*` becomes failed only for a run with no newer non-dry run. "Newer" is
     * the row-value `(started_at, id)` order the latest-run reads use (HEL-1626): on an equal `started_at` the greater
-    * id wins, a deterministic choice, not a claim that it started later (ids are random UUIDs). */
+    * id wins, a deterministic choice, not a claim that it started later (ids are random UUIDs).
+    * HEL-1541 (design.md D4): the WHERE is a `CASE`, which fixes the evaluation order, so the run-open advisory key is
+    * try-locked (never waited for) only for an open, non-dry, stale row; a run whose write-back transaction holds the key
+    * is skipped and reaped by a later pass. */
   def reapStaleRunsInternal(
       now: Instant,
       staleAfterSeconds: Long,
@@ -406,9 +425,11 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
                                    THEN 'Run abandoned: no heartbeat for ' || floor(extract(epoch FROM ($nowTs::timestamptz - heartbeat_at)))::bigint
                                         || ' s (the server running it likely stopped)'
                                    ELSE $legacyReason END
-              WHERE completed_at IS NULL AND status <> 'dry_run'
-                AND ((heartbeat_at IS NOT NULL AND heartbeat_at < $staleCutoff)
-                  OR (heartbeat_at IS NULL AND started_at < $legacyCutoff))
+              WHERE CASE WHEN completed_at IS NULL AND status <> 'dry_run'
+                          AND ((heartbeat_at IS NOT NULL AND heartbeat_at < $staleCutoff)
+                            OR (heartbeat_at IS NULL AND started_at < $legacyCutoff))
+                         THEN pg_try_advisory_xact_lock($RunOpenClassId, hashtext(id))
+                         ELSE false END
               RETURNING id, pipeline_id, started_at, error_log
             ), last_run AS (
               UPDATE pipelines p
@@ -518,7 +539,9 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     val action = runsTable
       .filter(r =>
         r.pipelineId === pid && r.status =!= "dry_run" &&
-          (!(r.id.in(newestN) || r.id.in(inWindow)) || !r.id.in(capped))
+          (!(r.id.in(newestN) || r.id.in(inWindow)) || !r.id.in(capped)) &&
+          // HEL-1541 (design.md D8): ranking is unchanged (an open run still counts), but an in-flight run is never deleted.
+          r.completedAt.isDefined
       )
       .delete
 
@@ -744,6 +767,11 @@ object PipelineRunRepository {
   val RetentionWindowHours: Long = 24L
   /** HEL-1578: hard cap on kept real runs per pipeline, bounding a very busy pipeline. */
   val RetentionMaxRuns: Int = 300
+
+  /** HEL-1541: the class id (first `int4`) of the run-scoped advisory key `pg_advisory_xact_lock_shared(class, hashtext(runId))`
+    * the write-back transaction holds and the reaper try-locks. A dedicated value so the key space is apart from every
+    * single-`bigint` advisory key (the cycle lock, the `pipeline-run-concurrency` hashes). */
+  val RunOpenClassId: Int = 1380013617 // 0x52554E31, "RUN1"
 
   /** HEL-1518: where a run stands. `Missing` = no row (deleted with its pipeline, or pruned). */
   sealed trait RunState

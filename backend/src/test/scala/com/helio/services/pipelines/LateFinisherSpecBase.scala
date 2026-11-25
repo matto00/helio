@@ -4,13 +4,16 @@ import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
 import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeKey, PipelineExecutionBackend, PipelineExecutionOutcome}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
 import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputRepository, PipelineRunRepository}
+import com.helio.services.alerts.AlertEvaluationService
 import spray.json.JsObject
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.services.ServiceError
 import com.helio.spark.PipelineRunCache
-import com.helio.testsupport.NodePayloadFixtures
+import com.helio.domain.steps.{UpsertMode, UpsertSourceConfig, UpsertTarget}
+import com.helio.testsupport.{DatasetRowsTestSupport, NodePayloadFixtures}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.stream.Materializer
@@ -86,7 +89,15 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
   @volatile protected var terminalGate: Future[Unit] = Future.unit
   /** Completed once the run's own terminal write has returned (committed or lost), so a hook can wait for it. */
   @volatile protected var terminalWritten: Promise[Unit] = Promise[Unit]()
+  /** HEL-1541: runs once, right AFTER the executor's early open-check returned (`runStateInternal`'s first call), so a reap
+   *  can be ordered between that check and the write-back transaction. One-shot: the hook is cleared before it runs. */
+  @volatile protected var afterEarlyCheck: () => Future[Unit] = () => Future.unit
   protected final class GatedRunRepo(c: DbContext) extends PipelineRunRepository(c) {
+    override def runStateInternal(runId: PipelineRunId): Future[PipelineRunRepository.RunState] = {
+      val hook = afterEarlyCheck
+      afterEarlyCheck = () => Future.unit
+      super.runStateInternal(runId).flatMap(state => hook().map(_ => state))
+    }
     override def updateRunTerminal(
         runId: PipelineRunId, status: String, completedAt: Instant, rowCount: Option[Int], errorLog: Option[String],
         user: AuthenticatedUser, truncatedReadsJson: Option[String], stepRowCountsJson: Option[String]
@@ -94,6 +105,17 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
       val gate    = terminalGate
       val written = terminalWritten // HEL-1565: bound at call start, so a late write completes ITS test's promise only
       gate.flatMap(_ => super.updateRunTerminal(runId, status, completedAt, rowCount, errorLog, user, truncatedReadsJson, stepRowCountsJson))
+        .andThen { case _ => written.trySuccess(()) }
+    }
+
+    /** HEL-1541: an EDITOR's run finalizes through the privileged counterpart, so the same gate must hold it back. */
+    override def updateRunTerminalInternal(
+        runId: PipelineRunId, status: String, completedAt: Instant, rowCount: Option[Int], errorLog: Option[String],
+        truncatedReadsJson: Option[String], stepRowCountsJson: Option[String]
+    ): Future[Boolean] = {
+      val gate    = terminalGate
+      val written = terminalWritten
+      gate.flatMap(_ => super.updateRunTerminalInternal(runId, status, completedAt, rowCount, errorLog, truncatedReadsJson, stepRowCountsJson))
         .andThen { case _ => written.trySuccess(()) }
     }
   }
@@ -158,6 +180,7 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
     beforeNodeFold = () => Future.unit
     beforeOutputList = () => Future.unit
     terminalGate = Future.unit
+    afterEarlyCheck = () => Future.unit
     terminalWritten = Promise[Unit]()
     afterNodeWrite = _ => Future.unit
     foldDone = Promise[Unit]()
@@ -173,13 +196,19 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
     super.afterEach()
   }
 
+  /** HEL-1541: the real alert evaluator, so a seeded rule really fires or resolves on a run (no rule seeded: a no-op). */
+  protected lazy val alertRuleRepo: AlertRuleRepository   = new AlertRuleRepository(ctx)
+  protected lazy val alertEventRepo: AlertEventRepository = new AlertEventRepository(ctx)
+  protected lazy val alertService: AlertEvaluationService  = new AlertEvaluationService(alertRuleRepo, alertEventRepo, historyRepo)
+
   protected def service(hookedSnapshots: Boolean = false, binaryRefs: BinaryRefRepository = null): PipelineRunService = {
     val fs = new LocalFileSystem(Paths.get("/"))
     new PipelineRunService(
       pipelineRepo, stepRepo, dataSourceRepo, new GatedRunRepo(ctx), new PipelineRunCache(), registry, fs,
       executionBackend = new HookBackend(new InProcessExecutionBackend(new InProcessPipelineEngine(fs), stepRepo)),
       outputRepo = new HookOutputRepo(ctx), nodeSnapshotRepo = if (hookedSnapshots) new HookSnapshotRepo(ctx) else snapshotRepo, outputHistoryRepo = historyRepo,
-      binaryRefRepo = binaryRefs, nodePayloadRepo = payloadRepo, payloadConfig = payloadConfig
+      binaryRefRepo = binaryRefs, nodePayloadRepo = payloadRepo, payloadConfig = payloadConfig,
+      alertEvaluationService = alertService
     )
   }
 
@@ -191,6 +220,28 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
     val p     = seedPayloadPipeline(owner)
     awaitDb(outputRepo.insertInternal(p.pid, None, UserId(owner), "root-out", OutputKind.Table, explicitRootId = Some(PipelineRootId(p.pid.value))))
     Fx(owner, p)
+  }
+
+  /** A pipeline with a root-bound Output and an `upsertsource` step appending the root's two rows to a second dataset. */
+  protected def seedWriteBack(): (Fx, String) = {
+    val owner  = seedUser("beta")
+    val dsId   = UUID.randomUUID().toString
+    val target = UUID.randomUUID().toString
+    val pid    = UUID.randomUUID().toString
+    awaitDb(db.run(DBIO.seq(
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+             VALUES ($dsId, 'ds', 'dataset', '{}', $owner::uuid, now(), now())""",
+      DatasetRowsTestSupport.seedActionsFromRaw(dsId, """{"columns":[{"name":"name","type":"string"}],"rows":[["alice"],["bob"]]}"""),
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+             VALUES ($target, 'ds-target', 'dataset', '{}', $owner::uuid, now(), now())""",
+      DatasetRowsTestSupport.seedActionsFromRaw(target, """{"columns":[{"name":"name","type":"string"}],"rows":[]}"""),
+      sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pid, 'pipe', $owner::uuid, now(), now())""",
+      sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
+    )))
+    awaitDb(outputRepo.insertInternal(PipelineId(pid), None, UserId(owner), "root-out", OutputKind.Table, explicitRootId = Some(PipelineRootId(pid))))
+    val step = awaitDb(stepRepo.insertInternal(PipelineId(pid), "upsertsource", UpsertSourceConfig(UpsertTarget.ExistingSource(target), UpsertMode.Append),
+      enabled = true, None, explicitRootId = None, actingUserId = owner))
+    (Fx(owner, PayloadFx(PipelineId(pid), step.id, "", "")), target)
   }
 
   protected def scalar(sqlText: String): String =
@@ -217,9 +268,9 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
   protected def submitWith(fx: Fx, binary: Boolean = true): Try[Either[ServiceError, _]] = Try(Await.result(submitAsync(fx, binary), 60.seconds))
 
   /** Non-blocking [[submitWith]] (HEL-1594): the caller owns the wait, so it can observe the answer NOT having arrived. */
-  protected def submitAsync(fx: Fx, binary: Boolean = true): Future[Either[ServiceError, _]] = {
+  protected def submitAsync(fx: Fx, binary: Boolean = true, who: Option[String] = None): Future[Either[ServiceError, _]] = {
     registry.subscribe(fx.pid.value).runWith(Sink.foreach[RunStatusEvent](e => events.add(fx.pid.value -> e)))(mat)
-    service(hookedSnapshots = true, binaryRefs = if (binary) new HookBinaryRepo(ctx) else null).submit(fx.pid, isDry = false, AuthenticatedUser(UserId(fx.owner)))
+    service(hookedSnapshots = true, binaryRefs = if (binary) new HookBinaryRepo(ctx) else null).submit(fx.pid, isDry = false, AuthenticatedUser(UserId(who.getOrElse(fx.owner))))
   }
 
   protected def eventsOf(fx: Fx): Vector[String] = {

@@ -125,15 +125,21 @@ class LateFinisherDeleteAfterWonSpec extends LateFinisherSpecBase {
 
   "a run whose terminal write lost to a delete that landed after the fold (HEL-1564 D1b)" should {
 
-    "answer 404, publish no succeeded and leave no run row when a post-fold binary-reference write then fails on the deleted pipeline" in {
+    // HEL-1541 (design D1/D3), re-expressed ON PURPOSE -- not a fixture edited to pass. The binary-reference write used to be an
+    // eager sibling of the node fold and was the failure point here (a post-fold write failing on the deleted pipeline). It now
+    // starts only after the run's own `succeeded` write WON, so for a run whose write lost to this delete it never starts at all:
+    // the delete completes before the held terminal write is released, the write loses, and the answer is the same 404 with no
+    // run row, while the binary-reference write is never entered.
+    "answer 404, publish no succeeded, leave no run row and never start the binary-reference write when the delete lands before the terminal write" in {
       val fx = seed()
       val deleted = Promise[Unit]()
       terminalGate = deleted.future // the run's own write must lose: it is held until the delete finished
-      val done = foldDone
+      val entered = binaryEntered
       binaryTarget = (fx.pid.value, fx.p.stepId.value)
-      beforeBinaryWrite = () => done.future.flatMap(_ => deletePipeline(fx)).andThen { case _ => deleted.trySuccess(()) }
+      beforeNodeFold = () => deletePipeline(fx).andThen { case _ => deleted.trySuccess(()) }
       val res = submitWith(fx)
       res shouldBe Success(Left(ServiceError.NotFound(s"Pipeline not found: ${fx.pid.value}")))
+      entered.isCompleted shouldBe false // the gated write never started for a lost terminal write
       eventsOf(fx) should not contain "succeeded"
       count("pipeline_runs", "pipeline_id", fx.pid.value) shouldBe 0
     }

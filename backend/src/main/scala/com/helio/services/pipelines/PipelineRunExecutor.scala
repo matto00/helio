@@ -470,7 +470,11 @@ private[pipelines] final class PipelineRunExecutor(
       retain:             Set[NodeKey],
       autoRunGeneration:  Option[Long]
   ): Future[Either[ServiceError, Option[String]]] = {
-    Future.unit.flatMap(_ => applyPendingWriteBacks(writeBackSink, pipelineOwnerId, user)).recoverWith {
+    Future.unit.flatMap(_ => applyPendingWriteBacks(writeBackSink, pipelineOwnerId, user, runId)).recoverWith {
+      // HEL-1541 (design.md D5): the write-back's run-open guard tripped -- the run was reaped or deleted after the early
+      // check and nothing was written. A late finish, not a write-back failure: no `failed` terminal write, no event;
+      // `onRunSuccess` maps it to `lateFinisher` (409 / 404).
+      case e: PipelineRunRepository.RunNoLongerOpen => Future.failed(e)
       // HEL-1370: a failed (non-IllegalStateException) write-back Future is a run failure too:
       // record it and publish the one terminal `failed`, then re-fail with the original exception
       // (even if that bookkeeping fails) so every `submit` caller sees the outcome it always did.
@@ -494,13 +498,16 @@ private[pipelines] final class PipelineRunExecutor(
   private def applyPendingWriteBacks(
       writeBackSink:   WriteBackSink,
       pipelineOwnerId: UserId,
-      triggeringUser:  AuthenticatedUser
+      triggeringUser:  AuthenticatedUser,
+      runId:           PipelineRunId
   ): Future[Either[String, Unit]] = {
     val writes = writeBackSink.writes
     if (writes.isEmpty) Future.successful(Right(()))
     else {
       val ownerUser = AuthenticatedUser(pipelineOwnerId, triggeringUser.source, triggeringUser.tokenId)
-      dataSourceRepo.applyWriteBacks(ownerUser, writes, pipelineStepRepo, DataSourceService.DatasetMaxRows)
+      // HEL-1541 (design.md D4): `None` when no run repository is wired (fixtures), matching the early-check rule.
+      val guard = Option(pipelineRunRepo).map(_.runOpenGuardAction(runId))
+      dataSourceRepo.applyWriteBacks(ownerUser, writes, pipelineStepRepo, DataSourceService.DatasetMaxRows, guard)
     }
   }
 }
