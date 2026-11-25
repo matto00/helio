@@ -1,0 +1,17 @@
+Stretch sweep of the probe force (injected stylesheet `.ui-modal[open]{animation-duration:N ms !important}`), no wait,
+one run each unless noted. Spec's real ordering: limit read at ~170-200ms wall clock after the name is visible, the
+controls then read over a ~160-280ms loop. Resting card content-right (raw, measured after entrance) = 872 (872.000).
+Resting limit would therefore be 872.5 (+0.5 margin); HEL-1613 measured 872.374 and 871.53-871.87 mid-entrance.
+
+stretch  duration  limit(read mid-entrance)  maxControlRight  result
+10x      2800ms    868.39 / 868.48           868.26 / n.a.    pass (x2; edge nearly static, too slow to move between reads)
+5x       1400ms    869.147                   869.115          pass
+4x       1120ms    869.540                   869.539 / 869.367 pass (x2)
+3x        840ms    869.909 / 869.909 / 870.141 / 870.159      maxRight 869.966 / 869.966 / 870.161  FAIL x4 of 4 (ui-select__trigger right=870.0 limit=869.9)
+2x        560ms    871.057 / 871.097         871.057 / 871.213  pass, FAIL (1 of 2)
+1x        280ms    872.298                   871.929          pass
+
+Reading: the false overflow needs the edge to be MOVING between the limit read and the control reads, so a larger
+stretch (slower edge) does not help; 10x/5x did NOT go red. 3x is the smallest-effort stretch that reproduces
+reliably, with an overshoot of 0.02-0.06px, the same order as the observed ~0.1px flake. This is a deviation from
+the skeptic's 5-10x preference, forced by measurement. It does not prove the entrance caused the observed CI flake.

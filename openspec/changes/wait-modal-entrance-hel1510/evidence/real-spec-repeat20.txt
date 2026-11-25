@@ -1,0 +1,3 @@
+# REAL spec, no force, --repeat-each=20 --workers=2, nice -n 19. 2026-11-25T05:37:58Z
+userCleanup: removed 0 of 20 conversation folders, 0 failed
+[1A[2K  20 passed (53.7s)
