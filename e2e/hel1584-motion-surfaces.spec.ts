@@ -3,6 +3,7 @@ import { writeFileSync } from "node:fs";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 import { CSRF_HEADER, registerAndLogin } from "./support/auth";
+import { maybeThrottleCpu } from "./support/cpuThrottle";
 import { evidencePath } from "./support/evidencePath";
 import {
   clearLog,
@@ -54,6 +55,7 @@ async function start(
   await page.emulateMedia({ reducedMotion: mode === "os-reduce" ? "reduce" : "no-preference" });
   const world = await seedWorld(request, `M-${label}`);
   await setTheme(page, theme);
+  await maybeThrottleCpu(page);
   return world;
 }
 

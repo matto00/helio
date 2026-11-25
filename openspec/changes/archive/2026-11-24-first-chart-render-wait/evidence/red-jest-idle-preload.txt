@@ -1,0 +1,44 @@
+FAIL src/features/panels/hooks/useChartPreloadOnMount.test.tsx
+  ● Test suite failed to run
+
+    [96msrc/features/panels/hooks/useChartPreloadOnMount.test.tsx[0m:[93m6[0m:[93m40[0m - [91merror[0m[90m TS2307: [0mCannot find module './useChartPreloadOnMount' or its corresponding type declarations.
+
+    [7m6[0m import { useChartPreloadOnMount } from "./useChartPreloadOnMount";
+    [7m [0m [91m                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+    [96msrc/features/panels/hooks/useChartPreloadOnMount.test.tsx[0m:[93m7[0m:[93m10[0m - [91merror[0m[90m TS2724: [0m'"../ui/renderers/chartPanelModule"' has no exported member named 'preloadChartPanelWhenIdle'. Did you mean 'preloadChartPanel'?
+
+    [7m7[0m import { preloadChartPanelWhenIdle } from "../ui/renderers/chartPanelModule";
+    [7m [0m [91m         ~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+      [96msrc/features/panels/ui/renderers/chartPanelModule.ts[0m:[93m24[0m:[93m17[0m
+        [7m24[0m export function preloadChartPanel(): void {
+        [7m  [0m [96m                ~~~~~~~~~~~~~~~~~[0m
+        'preloadChartPanel' is declared here.
+
+FAIL src/features/panels/ui/renderers/chartPanelModule.idle.test.ts
+  ● Test suite failed to run
+
+    [96msrc/features/panels/ui/renderers/chartPanelModule.idle.test.ts[0m:[93m10[0m:[93m26[0m - [91merror[0m[90m TS2724: [0m'"./chartPanelModule"' has no exported member named 'preloadChartPanelWhenIdle'. Did you mean 'preloadChartPanel'?
+
+    [7m10[0m import { loadChartPanel, preloadChartPanelWhenIdle } from "./chartPanelModule";
+    [7m  [0m [91m                         ~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+      [96msrc/features/panels/ui/renderers/chartPanelModule.ts[0m:[93m24[0m:[93m17[0m
+        [7m24[0m export function preloadChartPanel(): void {
+        [7m  [0m [96m                ~~~~~~~~~~~~~~~~~[0m
+        'preloadChartPanel' is declared here.
+    [96msrc/features/panels/ui/renderers/chartPanelModule.idle.test.ts[0m:[93m54[0m:[93m24[0m - [91merror[0m[90m TS2551: [0mProperty 'preloadChartPanelWhenIdle' does not exist on type 'typeof import("/home/matt/Development/helio/.claude/worktrees/bug/first-chart-render-wait/hel-1651/frontend/src/features/panels/ui/renderers/chartPanelModule")'. Did you mean 'preloadChartPanel'?
+
+    [7m54[0m     const stop = fresh.preloadChartPanelWhenIdle();
+    [7m  [0m [91m                       ~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+      [96msrc/features/panels/ui/renderers/chartPanelModule.ts[0m:[93m24[0m:[93m17[0m
+        [7m24[0m export function preloadChartPanel(): void {
+        [7m  [0m [96m                ~~~~~~~~~~~~~~~~~[0m
+        'preloadChartPanel' is declared here.
+
+Test Suites: 2 failed, 2 total
+Tests:       0 total
+Snapshots:   0 total
+Time:        3.458 s
+Ran all test suites matching src/features/panels/ui/renderers/chartPanelModule.idle|src/features/panels/hooks/useChartPreloadOnMount.

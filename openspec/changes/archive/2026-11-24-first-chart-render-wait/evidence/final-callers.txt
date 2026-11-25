@@ -1,0 +1,326 @@
+
+Running 68 tests using 2 workers
+
+[1A[2K[1/68] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: full / dark
+[1A[2K[2/68] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: full / light
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: full / dark
+[HEL-1300 e2e] throwaway user: hel1584-full-dark-1795565896468-713@example.test
+
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: full / light
+[HEL-1300 e2e] throwaway user: hel1584-full-light-1795565896468-47652@example.test
+
+[1A[2K[3/68] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: subtle / light
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: subtle / light
+[HEL-1300 e2e] throwaway user: hel1584-subtle-light-1795565908396-9771@example.test
+
+[1A[2K[4/68] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: subtle / dark
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: subtle / dark
+[HEL-1300 e2e] throwaway user: hel1584-subtle-dark-1795565908670-2050@example.test
+
+[1A[2K[5/68] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: off / light
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: off / light
+[HEL-1300 e2e] throwaway user: hel1584-off-light-1795565919604-62498@example.test
+
+[1A[2K[6/68] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: off / dark
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: off / dark
+[HEL-1300 e2e] throwaway user: hel1584-off-dark-1795565919921-12006@example.test
+
+[1A[2K[7/68] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: os-reduce / light
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: os-reduce / light
+[HEL-1300 e2e] throwaway user: hel1584-os-reduce-light-1795565931999-8028@example.test
+
+[1A[2K[8/68] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: os-reduce / dark
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: os-reduce / dark
+[HEL-1300 e2e] throwaway user: hel1584-os-reduce-dark-1795565932327-62864@example.test
+
+[1A[2K[9/68] [dev] › e2e/hel1584-motion-surfaces.spec.ts:352:7 › HEL-1584 when the grid enters › a warm tab switch, a Home round trip and an edit refetch play no entrance; an added panel pops
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:352:7 › HEL-1584 when the grid enters › a warm tab switch, a Home round trip and an edit refetch play no entrance; an added panel pops
+[HEL-1300 e2e] throwaway user: hel1584-warm-1795565943344-30207@example.test
+
+[1A[2K[10/68] [dev] › e2e/hel1584-motion-surfaces.spec.ts:447:9 › HEL-1584 the new crossfade layers keep their container's width › grid root, phone stack and a lazily loaded route at 1440px
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:447:9 › HEL-1584 the new crossfade layers keep their container's width › grid root, phone stack and a lazily loaded route at 1440px
+[HEL-1300 e2e] throwaway user: hel1584-width1440-1795565943697-89809@example.test
+
+[1A[2K[11/68] [dev] › e2e/hel1584-motion-surfaces.spec.ts:447:9 › HEL-1584 the new crossfade layers keep their container's width › grid root, phone stack and a lazily loaded route at 375px
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:447:9 › HEL-1584 the new crossfade layers keep their container's width › grid root, phone stack and a lazily loaded route at 375px
+[HEL-1300 e2e] throwaway user: hel1584-width375-1795565952827-73473@example.test
+
+[1A[2K[12/68] [dev] › e2e/hel1584-motion-surfaces.spec.ts:500:7 › HEL-1584 chart refresh › a same-shape data refresh morphs the series in place under Full (bars never collapse to zero)
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:500:7 › HEL-1584 chart refresh › a same-shape data refresh morphs the series in place under Full (bars never collapse to zero)
+[HEL-1300 e2e] throwaway user: hel1584-refresh-1795565958789-16464@example.test
+
+[1A[2K[13/68] [dev] › e2e/hel1584-motion-surfaces.spec.ts:607:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (light)
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:607:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (light)
+[HEL-1300 e2e] throwaway user: hel1584-save-light-1795565961818-99340@example.test
+
+[1A[2K[14/68] [dev] › e2e/hel1584-motion-surfaces.spec.ts:607:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (dark)
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:607:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (dark)
+[HEL-1300 e2e] throwaway user: hel1584-save-dark-1795565968045-11174@example.test
+
+[1A[2K[15/68] [dev] › e2e/hel1656-pull-to-refresh.spec.ts:196:9 › HEL-1656 pull to refresh at 375 › a pull past the threshold refreshes each output panel once, runs no pipeline, and opens no detail
+[1A[2K[dev] › e2e/hel1656-pull-to-refresh.spec.ts:196:9 › HEL-1656 pull to refresh at 375 › a pull past the threshold refreshes each output panel once, runs no pipeline, and opens no detail
+[HEL-1300 e2e] throwaway user: hel1656-pull375-1795565970561-43717@example.com
+
+[1A[2K[16/68] [dev] › e2e/hel1656-pull-to-refresh.spec.ts:226:9 › HEL-1656 pull to refresh at 375 › a short pull releases back with no request
+[1A[2K[dev] › e2e/hel1656-pull-to-refresh.spec.ts:226:9 › HEL-1656 pull to refresh at 375 › a short pull releases back with no request
+[HEL-1300 e2e] throwaway user: hel1656-short375-1795565976748-66066@example.com
+
+[1A[2K[17/68] [dev] › e2e/hel1656-pull-to-refresh.spec.ts:248:9 › HEL-1656 pull to refresh at 375 › an engaged touchmove is cancelable and prevented, so the page does not scroll natively
+[1A[2K[dev] › e2e/hel1656-pull-to-refresh.spec.ts:248:9 › HEL-1656 pull to refresh at 375 › an engaged touchmove is cancelable and prevented, so the page does not scroll natively
+[HEL-1300 e2e] throwaway user: hel1656-cancel375-1795565977051-63504@example.com
+
+[1A[2K[18/68] [dev] › e2e/hel1656-pull-to-refresh.spec.ts:276:9 › HEL-1656 pull to refresh at 375 › a scrolled page scrolls natively upward and never engages
+[1A[2K[dev] › e2e/hel1656-pull-to-refresh.spec.ts:276:9 › HEL-1656 pull to refresh at 375 › a scrolled page scrolls natively upward and never engages
+[HEL-1300 e2e] throwaway user: hel1656-scrolled375-1795565982355-89575@example.com
+
+[1A[2K[19/68] [dev] › e2e/hel1656-pull-to-refresh.spec.ts:340:9 › HEL-1656 pull to refresh at 375 › an upward drag scrolls the page and never engages
+[1A[2K[dev] › e2e/hel1656-pull-to-refresh.spec.ts:340:9 › HEL-1656 pull to refresh at 375 › an upward drag scrolls the page and never engages
+[HEL-1300 e2e] throwaway user: hel1656-up375-1795565982589-59821@example.com
+
+[1A[2K[20/68] [dev] › e2e/hel1656-pull-to-refresh.spec.ts:368:9 › HEL-1656 pull to refresh at 375 › overscroll is contained on the phone dashboard only
+[1A[2K[dev] › e2e/hel1656-pull-to-refresh.spec.ts:368:9 › HEL-1656 pull to refresh at 375 › overscroll is contained on the phone dashboard only
+[HEL-1300 e2e] throwaway user: hel1656-contain375-1795565988209-69487@example.com
+
+[1A[2K[21/68] [dev] › e2e/hel1656-pull-to-refresh.spec.ts:196:9 › HEL-1656 pull to refresh at 390 › a pull past the threshold refreshes each output panel once, runs no pipeline, and opens no detail
+[1A[2K[dev] › e2e/hel1656-pull-to-refresh.spec.ts:196:9 › HEL-1656 pull to refresh at 390 › a pull past the threshold refreshes each output panel once, runs no pipeline, and opens no detail
+[HEL-1300 e2e] throwaway user: hel1656-pull390-1795565988254-37514@example.com
+
+[1A[2K[22/68] [dev] › e2e/hel1656-pull-to-refresh.spec.ts:226:9 › HEL-1656 pull to refresh at 390 › a short pull releases back with no request
+[1A[2K[dev] › e2e/hel1656-pull-to-refresh.spec.ts:226:9 › HEL-1656 pull to refresh at 390 › a short pull releases back with no request
+[HEL-1300 e2e] throwaway user: hel1656-short390-1795565994672-44878@example.com
+
+[1A[2K[23/68] [dev] › e2e/hel1656-pull-to-refresh.spec.ts:248:9 › HEL-1656 pull to refresh at 390 › an engaged touchmove is cancelable and prevented, so the page does not scroll natively
+[1A[2K[dev] › e2e/hel1656-pull-to-refresh.spec.ts:248:9 › HEL-1656 pull to refresh at 390 › an engaged touchmove is cancelable and prevented, so the page does not scroll natively
+[HEL-1300 e2e] throwaway user: hel1656-cancel390-1795565996274-86560@example.com
+
+[1A[2K[24/68] [dev] › e2e/hel1656-pull-to-refresh.spec.ts:276:9 › HEL-1656 pull to refresh at 390 › a scrolled page scrolls natively upward and never engages
+[1A[2K[dev] › e2e/hel1656-pull-to-refresh.spec.ts:276:9 › HEL-1656 pull to refresh at 390 › a scrolled page scrolls natively upward and never engages
+[HEL-1300 e2e] throwaway user: hel1656-scrolled390-1795566000290-65145@example.com
+
+[1A[2K[25/68] [dev] › e2e/hel1656-pull-to-refresh.spec.ts:340:9 › HEL-1656 pull to refresh at 390 › an upward drag scrolls the page and never engages
+[1A[2K[dev] › e2e/hel1656-pull-to-refresh.spec.ts:340:9 › HEL-1656 pull to refresh at 390 › an upward drag scrolls the page and never engages
+[HEL-1300 e2e] throwaway user: hel1656-up390-1795566001759-58896@example.com
+
+[1A[2K[26/68] [dev] › e2e/hel1656-pull-to-refresh.spec.ts:368:9 › HEL-1656 pull to refresh at 390 › overscroll is contained on the phone dashboard only
+[1A[2K[dev] › e2e/hel1656-pull-to-refresh.spec.ts:368:9 › HEL-1656 pull to refresh at 390 › overscroll is contained on the phone dashboard only
+[HEL-1300 e2e] throwaway user: hel1656-contain390-1795566005976-38051@example.com
+
+[1A[2K[27/68] [dev] › e2e/hel1656-pull-to-refresh.spec.ts:399:9 › HEL-1656 pull to refresh motion levels › Motion off: nothing translates mid-pull and the release still refreshes
+[1A[2K[dev] › e2e/hel1656-pull-to-refresh.spec.ts:399:9 › HEL-1656 pull to refresh motion levels › Motion off: nothing translates mid-pull and the release still refreshes
+[HEL-1300 e2e] throwaway user: hel1656-motionoff-1795566007241-11082@example.com
+
+[1A[2K[28/68] [dev] › e2e/hel1656-pull-to-refresh.spec.ts:399:9 › HEL-1656 pull to refresh motion levels › Motion subtle: nothing translates mid-pull and the release still refreshes
+[1A[2K[dev] › e2e/hel1656-pull-to-refresh.spec.ts:399:9 › HEL-1656 pull to refresh motion levels › Motion subtle: nothing translates mid-pull and the release still refreshes
+[HEL-1300 e2e] throwaway user: hel1656-motionsubtle-1795566013686-71226@example.com
+
+[1A[2K[29/68] [dev] › e2e/hel1656-pull-to-refresh.spec.ts:434:7 › HEL-1656 pull to refresh motion levels › Full motion: the stack follows the finger damped, then settles to rest
+[1A[2K[dev] › e2e/hel1656-pull-to-refresh.spec.ts:434:7 › HEL-1656 pull to refresh motion levels › Full motion: the stack follows the finger damped, then settles to rest
+[HEL-1300 e2e] throwaway user: hel1656-follow-1795566014039-6521@example.com
+
+[1A[2K[30/68] [dev] › e2e/hel1656-pull-to-refresh.spec.ts:459:7 › HEL-1656 screenshots at 430 (light): resting, pulling and busy
+[1A[2K[dev] › e2e/hel1656-pull-to-refresh.spec.ts:459:7 › HEL-1656 screenshots at 430 (light): resting, pulling and busy
+[HEL-1300 e2e] throwaway user: hel1656-shotslight-1795566019720-54765@example.com
+
+[1A[2K[31/68] [dev] › e2e/hel1656-pull-to-refresh.spec.ts:459:7 › HEL-1656 screenshots at 430 (dark): resting, pulling and busy
+[1A[2K[dev] › e2e/hel1656-pull-to-refresh.spec.ts:459:7 › HEL-1656 screenshots at 430 (dark): resting, pulling and busy
+[HEL-1300 e2e] throwaway user: hel1656-shotsdark-1795566019897-24040@example.com
+
+[1A[2K[32/68] [dev] › e2e/hel1657-layout-save-last-saved.spec.ts:11:5 › a drag-only save shows 'Last saved just now' in the meta row
+[1A[2K[dev] › e2e/hel1657-layout-save-last-saved.spec.ts:11:5 › a drag-only save shows 'Last saved just now' in the meta row
+[HEL-1300 e2e] throwaway user: hel1657-layout-save-1795566025271-62257@example.test
+
+[1A[2K[33/68] [dev] › e2e/hel1681-refresh-control.spec.ts:108:9 › HEL-1681 refresh button at 375 › a single tap refreshes each output panel once, runs no pipeline, and shows a busy cue
+[1A[2K[dev] › e2e/hel1681-refresh-control.spec.ts:108:9 › HEL-1681 refresh button at 375 › a single tap refreshes each output panel once, runs no pipeline, and shows a busy cue
+[HEL-1300 e2e] throwaway user: hel1681-tap375-1795566025591-65841@example.com
+
+[1A[2K[34/68] [dev] › e2e/hel1681-refresh-control.spec.ts:147:9 › HEL-1681 refresh button at 375 › keyboard: Enter on the focused button refreshes once and announces Refreshing then Refreshed
+[1A[2K[dev] › e2e/hel1681-refresh-control.spec.ts:147:9 › HEL-1681 refresh button at 375 › keyboard: Enter on the focused button refreshes once and announces Refreshing then Refreshed
+[HEL-1300 e2e] throwaway user: hel1681-key375-1795566030796-45118@example.com
+
+[1A[2K[35/68] [dev] › e2e/hel1681-refresh-control.spec.ts:182:9 › HEL-1681 refresh button at 375 › a second activation while a round is busy sends nothing
+[1A[2K[dev] › e2e/hel1681-refresh-control.spec.ts:182:9 › HEL-1681 refresh button at 375 › a second activation while a round is busy sends nothing
+[HEL-1300 e2e] throwaway user: hel1681-busy375-1795566031778-33954@example.com
+
+[1A[2K[36/68] [dev] › e2e/hel1681-refresh-control.spec.ts:204:9 › HEL-1681 refresh button at 375 › the tap area is at least 44x44, inside the panel list, and leaves the chip row its own taps
+[1A[2K[dev] › e2e/hel1681-refresh-control.spec.ts:204:9 › HEL-1681 refresh button at 375 › the tap area is at least 44x44, inside the panel list, and leaves the chip row its own taps
+[HEL-1300 e2e] throwaway user: hel1681-area375-1795566036666-59373@example.com
+
+[1A[2K[37/68] [dev] › e2e/hel1681-refresh-control.spec.ts:262:9 › HEL-1681 refresh button at 375 › showing the button does not move the stack's resting position
+[1A[2K[dev] › e2e/hel1681-refresh-control.spec.ts:262:9 › HEL-1681 refresh button at 375 › showing the button does not move the stack's resting position
+[HEL-1300 e2e] throwaway user: hel1681-shift375-1795566038835-74249@example.com
+
+[1A[2K[38/68] [dev] › e2e/hel1681-refresh-control.spec.ts:290:9 › HEL-1681 refresh button at 375 › no button on a dashboard with no output-bound panel
+[1A[2K[dev] › e2e/hel1681-refresh-control.spec.ts:290:9 › HEL-1681 refresh button at 375 › no button on a dashboard with no output-bound panel
+[HEL-1300 e2e] throwaway user: hel1681-none375-1795566041529-30181@example.com
+
+[1A[2K[39/68] [dev] › e2e/hel1681-refresh-control.spec.ts:108:9 › HEL-1681 refresh button at 430 › a single tap refreshes each output panel once, runs no pipeline, and shows a busy cue
+[1A[2K[dev] › e2e/hel1681-refresh-control.spec.ts:108:9 › HEL-1681 refresh button at 430 › a single tap refreshes each output panel once, runs no pipeline, and shows a busy cue
+[HEL-1300 e2e] throwaway user: hel1681-tap430-1795566043861-71009@example.com
+
+[1A[2K[40/68] [dev] › e2e/hel1681-refresh-control.spec.ts:147:9 › HEL-1681 refresh button at 430 › keyboard: Enter on the focused button refreshes once and announces Refreshing then Refreshed
+[1A[2K[dev] › e2e/hel1681-refresh-control.spec.ts:147:9 › HEL-1681 refresh button at 430 › keyboard: Enter on the focused button refreshes once and announces Refreshing then Refreshed
+[HEL-1300 e2e] throwaway user: hel1681-key430-1795566045761-2821@example.com
+
+[1A[2K[41/68] [dev] › e2e/hel1681-refresh-control.spec.ts:182:9 › HEL-1681 refresh button at 430 › a second activation while a round is busy sends nothing
+[1A[2K[dev] › e2e/hel1681-refresh-control.spec.ts:182:9 › HEL-1681 refresh button at 430 › a second activation while a round is busy sends nothing
+[HEL-1300 e2e] throwaway user: hel1681-busy430-1795566050214-81681@example.com
+
+[1A[2K[42/68] [dev] › e2e/hel1681-refresh-control.spec.ts:204:9 › HEL-1681 refresh button at 430 › the tap area is at least 44x44, inside the panel list, and leaves the chip row its own taps
+[1A[2K[dev] › e2e/hel1681-refresh-control.spec.ts:204:9 › HEL-1681 refresh button at 430 › the tap area is at least 44x44, inside the panel list, and leaves the chip row its own taps
+[HEL-1300 e2e] throwaway user: hel1681-area430-1795566051793-37231@example.com
+
+[1A[2K[43/68] [dev] › e2e/hel1681-refresh-control.spec.ts:262:9 › HEL-1681 refresh button at 430 › showing the button does not move the stack's resting position
+[1A[2K[dev] › e2e/hel1681-refresh-control.spec.ts:262:9 › HEL-1681 refresh button at 430 › showing the button does not move the stack's resting position
+[HEL-1300 e2e] throwaway user: hel1681-shift430-1795566056766-71298@example.com
+
+[1A[2K[44/68] [dev] › e2e/hel1681-refresh-control.spec.ts:290:9 › HEL-1681 refresh button at 430 › no button on a dashboard with no output-bound panel
+[1A[2K[dev] › e2e/hel1681-refresh-control.spec.ts:290:9 › HEL-1681 refresh button at 430 › no button on a dashboard with no output-bound panel
+[HEL-1300 e2e] throwaway user: hel1681-none430-1795566057078-76429@example.com
+
+[1A[2K[45/68] [dev] › e2e/hel1681-refresh-control.spec.ts:309:5 › Full motion: after a pull-started round the settling indicator reads Refreshed, never Pull to refresh
+[1A[2K[dev] › e2e/hel1681-refresh-control.spec.ts:309:5 › Full motion: after a pull-started round the settling indicator reads Refreshed, never Pull to refresh
+[HEL-1300 e2e] throwaway user: hel1681-settle-1795566061280-70261@example.com
+
+[1A[2K[46/68] [dev] › e2e/hel1681-refresh-control.spec.ts:347:5 › no refresh button at 1280
+[1A[2K[dev] › e2e/hel1681-refresh-control.spec.ts:347:5 › no refresh button at 1280
+[HEL-1300 e2e] throwaway user: hel1681-desk-1795566061867-1861@example.com
+
+[1A[2K[47/68] [dev] › e2e/hel1681-refresh-control.spec.ts:361:5 › crossing 768px keeps the same zoom container and a non-zero grid width
+[1A[2K[dev] › e2e/hel1681-refresh-control.spec.ts:361:5 › crossing 768px keeps the same zoom container and a non-zero grid width
+[HEL-1300 e2e] throwaway user: hel1681-cross-1795566066495-62710@example.com
+
+[1A[2K[48/68] [dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 phone 375, light › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[1A[2K[dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 phone 375, light › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[HEL-1300 e2e] throwaway user: hel1738-q375touchlight-1795566067920-63989@example.com
+
+[1A[2K[49/68] [dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 phone 430, light › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[1A[2K[dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 phone 430, light › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[HEL-1300 e2e] throwaway user: hel1738-q430touchlight-1795566071149-34551@example.com
+
+[1A[2K[50/68] [dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 desktop browser at 375 (non-touch), light › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[1A[2K[dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 desktop browser at 375 (non-touch), light › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[HEL-1300 e2e] throwaway user: hel1738-q375mouselight-1795566073370-51683@example.com
+
+[1A[2K[51/68] [dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 phone 375, dark › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[1A[2K[dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 phone 375, dark › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[HEL-1300 e2e] throwaway user: hel1738-q375touchdark-1795566076561-99807@example.com
+
+[1A[2K[52/68] [dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 phone 430, dark › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[1A[2K[dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 phone 430, dark › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[HEL-1300 e2e] throwaway user: hel1738-q430touchdark-1795566078756-42519@example.com
+
+[1A[2K[53/68] [dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 desktop browser at 375 (non-touch), dark › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[1A[2K[dev] › e2e/hel1738-refresh-during-first-load.spec.ts:163:11 › HEL-1738 desktop browser at 375 (non-touch), dark › a press during the first load queues exactly one refresh per panel, held busy until it settles
+[HEL-1300 e2e] throwaway user: hel1738-q375mousedark-1795566081445-89259@example.com
+
+[1A[2K[54/68] [dev] › e2e/hel1738-refresh-during-first-load.spec.ts:242:5 › at 1280 there is no refresh button and the first load sends one request per panel
+[1A[2K[dev] › e2e/hel1738-refresh-during-first-load.spec.ts:242:5 › at 1280 there is no refresh button and the first load sends one request per panel
+[HEL-1300 e2e] throwaway user: hel1738-desk1280-1795566084176-14930@example.com
+
+[1A[2K[55/68] [dev] › e2e/hel1746-ask-ui.spec.ts:251:9 › ask: keyboard-only drawer, cited answer, chip provenance, real pin placed (keyless failed state), focus return (light desktop)
+[1A[2K[dev] › e2e/hel1746-ask-ui.spec.ts:251:9 › ask: keyboard-only drawer, cited answer, chip provenance, real pin placed (keyless failed state), focus return (light desktop)
+[HEL-1746 e2e] user 57ac84b8-6f4f-48fe-bd68-0a14bac180e6; tier set for 57ac84b8-6f4f-48fe-bd68-0a14bac180e6
+
+[1A[2K[HEL-1746 e2e] created source 1c9a780d-1cac-4e05-a755-e1e9f157cb3f pipeline a3e0ea50-338e-41c1-b6b1-22a28546116b outputs dfe8ac53-5a3b-494f-8397-eb327ddf1146 94d76d69-58fa-4a65-9e33-11da3098cf7f dashboard c7568a8d-8dfb-4be4-b293-4bea6a2e3f2c
+
+[1A[2K[56/68] [dev] › e2e/hel1746-ask-ui.spec.ts:421:9 › ask: a viewer sees no pin, a free user sees the upsell and sends no ask, and the error states (light desktop)
+[1A[2K[dev] › e2e/hel1746-ask-ui.spec.ts:421:9 › ask: a viewer sees no pin, a free user sees the upsell and sends no ask, and the error states (light desktop)
+[HEL-1746 e2e] user 1d85155b-c6ec-4f60-812b-86bf648a2cbc; tier set for 1d85155b-c6ec-4f60-812b-86bf648a2cbc
+
+[1A[2K[HEL-1746 e2e] created source a4f76d8d-2675-44d3-98d6-ce55f21500e0 pipeline e3712413-62b1-4380-8de6-8c9f766f5caa outputs 29fa711b-27e8-4894-a4f9-8d6d0ac6dd44 8774d400-1c2e-485f-b0c6-46fc8de7b857 dashboard e7a59405-a98d-45d1-918f-68ac982611b6
+
+[1A[2K[HEL-1746 e2e] free user aa8160f3-e8d5-405a-afff-ef3bbf6fc92b left on the free tier
+
+[1A[2K[57/68] [dev] › e2e/hel1746-ask-ui.spec.ts:251:9 › ask: keyboard-only drawer, cited answer, chip provenance, real pin placed (keyless failed state), focus return (light phone)
+[1A[2K[dev] › e2e/hel1746-ask-ui.spec.ts:251:9 › ask: keyboard-only drawer, cited answer, chip provenance, real pin placed (keyless failed state), focus return (light phone)
+[HEL-1746 e2e] user 8ef6f4c2-6b5e-404c-92ef-f5d8eb2efce3; tier set for 8ef6f4c2-6b5e-404c-92ef-f5d8eb2efce3
+
+[1A[2K[HEL-1746 e2e] created source dd21fe38-b8e1-459b-a5b2-315e72285c1a pipeline 5c3b8b2e-1322-4ba2-96b0-ea48e10745f6 outputs 19f6a25b-6b30-45dd-9168-530d74945f94 1a146164-1038-4985-a27a-e75722d0c310 dashboard 0a2baec4-0b05-45f1-abc0-f028714138c4
+
+[1A[2K[HEL-1746 e2e] Ask button at 390px: {"height":32,"hitAbove":true,"hitBelow":true,"hitFar":false}
+
+[1A[2K[HEL-1746 e2e] Pin as insight button at 390px: {"height":32,"hitAbove":true,"hitBelow":true,"hitFar":false}
+
+[1A[2K[58/68] [dev] › e2e/hel1746-ask-ui.spec.ts:421:9 › ask: a viewer sees no pin, a free user sees the upsell and sends no ask, and the error states (light phone)
+[1A[2K[dev] › e2e/hel1746-ask-ui.spec.ts:421:9 › ask: a viewer sees no pin, a free user sees the upsell and sends no ask, and the error states (light phone)
+[HEL-1746 e2e] user a9d1edc8-3b0c-4a98-beaa-e6e598bc36f1; tier set for a9d1edc8-3b0c-4a98-beaa-e6e598bc36f1
+
+[1A[2K[HEL-1746 e2e] created source 5c6b1f28-cedc-41c2-891e-3106223cec8b pipeline fab450d2-26b4-47e2-bc89-79bb6515338c outputs 210c5a67-b4d9-48f1-83a9-309c22c8ed38 9f3228fe-c727-43d1-a158-46a6c79b0f00 dashboard 2a3ff180-d23a-43f3-97a3-dfc549d8da89
+
+[1A[2K[HEL-1746 e2e] free user 4c82acc1-2e46-4045-80ca-7058979a78c0 left on the free tier
+
+[1A[2K[59/68] [dev] › e2e/hel1746-ask-ui.spec.ts:251:9 › ask: keyboard-only drawer, cited answer, chip provenance, real pin placed (keyless failed state), focus return (dark desktop)
+[1A[2K[dev] › e2e/hel1746-ask-ui.spec.ts:251:9 › ask: keyboard-only drawer, cited answer, chip provenance, real pin placed (keyless failed state), focus return (dark desktop)
+[HEL-1746 e2e] user f52610eb-b71d-486c-8d30-2c5eb52e56dc; tier set for f52610eb-b71d-486c-8d30-2c5eb52e56dc
+
+[1A[2K[HEL-1746 e2e] created source 2b776d2c-8a5e-4268-a1eb-2e47a267bd66 pipeline 7fe6210b-e70e-437e-b8f9-9146b47fb89b outputs dabe4cb2-7666-4a9e-8a31-8c1ab498089c e36033fe-63a3-42c5-89b3-081b25894a11 dashboard 4de7e93f-283a-43c4-9cff-e086b5592956
+
+[1A[2K[60/68] [dev] › e2e/hel1746-ask-ui.spec.ts:421:9 › ask: a viewer sees no pin, a free user sees the upsell and sends no ask, and the error states (dark desktop)
+[1A[2K[dev] › e2e/hel1746-ask-ui.spec.ts:421:9 › ask: a viewer sees no pin, a free user sees the upsell and sends no ask, and the error states (dark desktop)
+[HEL-1746 e2e] user 9fb9ed46-bcb5-40ee-93d1-1d94cd6d84eb; tier set for 9fb9ed46-bcb5-40ee-93d1-1d94cd6d84eb
+
+[1A[2K[HEL-1746 e2e] created source 12b4b8a6-0d9b-4cbe-b0ee-279264b24724 pipeline 52916681-f84f-44f7-9080-5bf9d3c04f47 outputs 0e022c68-142e-43d2-ae21-4b87570fdfae 36a111c6-a661-4fb9-b5d2-ce374b5d3b00 dashboard 3b608688-774a-45bf-a378-b5bc938b6e4d
+
+[1A[2K[HEL-1746 e2e] free user a17a5d27-f515-4de5-aa91-4748748f1f6d left on the free tier
+
+[1A[2K[61/68] [dev] › e2e/hel1746-ask-ui.spec.ts:251:9 › ask: keyboard-only drawer, cited answer, chip provenance, real pin placed (keyless failed state), focus return (dark phone)
+[1A[2K[dev] › e2e/hel1746-ask-ui.spec.ts:251:9 › ask: keyboard-only drawer, cited answer, chip provenance, real pin placed (keyless failed state), focus return (dark phone)
+[HEL-1746 e2e] user b37f235a-7168-4e7c-b0dc-578f40517e14; tier set for b37f235a-7168-4e7c-b0dc-578f40517e14
+
+[1A[2K[HEL-1746 e2e] created source ca424f72-f320-4acb-910e-4e440cd4d182 pipeline b6e1ba8a-3415-41d2-8284-2c12b0d942dc outputs 58180c12-d2f6-4f06-8606-9d139eff6e7f 6b504bd7-1465-43a5-a71c-5b4767af8b53 dashboard 18c1d287-4bed-4395-9758-ee8290caca74
+
+[1A[2K[HEL-1746 e2e] Ask button at 390px: {"height":32,"hitAbove":true,"hitBelow":true,"hitFar":false}
+
+[1A[2K[HEL-1746 e2e] Pin as insight button at 390px: {"height":32,"hitAbove":true,"hitBelow":true,"hitFar":false}
+
+[1A[2K[62/68] [dev] › e2e/hel1746-ask-ui.spec.ts:421:9 › ask: a viewer sees no pin, a free user sees the upsell and sends no ask, and the error states (dark phone)
+[1A[2K[dev] › e2e/hel1746-ask-ui.spec.ts:421:9 › ask: a viewer sees no pin, a free user sees the upsell and sends no ask, and the error states (dark phone)
+[HEL-1746 e2e] user a86c0a8f-bf54-43e2-abea-003d478e4f0b; tier set for a86c0a8f-bf54-43e2-abea-003d478e4f0b
+
+[1A[2K[HEL-1746 e2e] created source 8921eb73-7a14-47ee-b403-41e6e0a68fc4 pipeline f81a830b-ea28-489a-8f18-9ff38f2dafca outputs 6e80a0a7-a014-4a36-a3d9-13b297cf6014 f3c469d6-c54c-4eef-9b22-b24fc9275ade dashboard dfb8966c-8020-4222-84b8-a33c48e1bfb8
+
+[1A[2K[HEL-1746 e2e] free user 8a122658-b510-4449-9aae-ea4c73b034a4 left on the free tier
+
+[1A[2K[63/68] [dev] › e2e/hel1746-ask-ui.spec.ts:564:7 › ask: at a narrow desktop width Ask moves into the kebab and focus returns to the kebab trigger (light)
+[1A[2K[dev] › e2e/hel1746-ask-ui.spec.ts:564:7 › ask: at a narrow desktop width Ask moves into the kebab and focus returns to the kebab trigger (light)
+[HEL-1746 e2e] user 393b29a6-5258-47f7-b4eb-82f9d0b1c8d3; tier set for 393b29a6-5258-47f7-b4eb-82f9d0b1c8d3
+
+[1A[2K[HEL-1746 e2e] created source a91f46a8-fbe1-48ab-b1f4-bcceef9b1eea pipeline e9e459ba-064c-41ac-988c-ea88e3e8deb2 outputs 5c6db534-f88a-4557-8234-ebdf63247bb9 fe0067d7-c34a-48f5-a9c4-21b6a6d6abb1 dashboard 71d6109d-2f05-425a-ac8e-260318860baf
+
+[1A[2K[HEL-1746 e2e] meta row width at 900px viewport: 596
+
+[1A[2K[64/68] [dev] › e2e/hel1746-ask-ui.spec.ts:591:7 › ask: the Output sheet asks about a saved Output, pins through the real backend, and disables Pin during a draft (light)
+[1A[2K[dev] › e2e/hel1746-ask-ui.spec.ts:591:7 › ask: the Output sheet asks about a saved Output, pins through the real backend, and disables Pin during a draft (light)
+[HEL-1746 e2e] user 3d8d8e27-af14-4e17-a653-32defee1c8af; tier set for 3d8d8e27-af14-4e17-a653-32defee1c8af
+
+[1A[2K[HEL-1746 e2e] created source 20fbb0e2-9dc2-4603-95a1-ad52e62b08f0 pipeline 7b73f418-fb2d-4364-8ada-a89769aacfaa outputs 85f4e36c-beaa-4421-89f2-86b9b2ec12f3 10da0ad6-abf9-4ba2-b664-64c62b236b41 dashboard 5bf7366f-570e-484d-a8ff-c330ac9326e6
+
+[1A[2K[65/68] [dev] › e2e/hel1746-ask-ui.spec.ts:665:7 › ask: the Output sheet on a phone asks, shows the answer and the pin, in frame (light)
+[1A[2K[dev] › e2e/hel1746-ask-ui.spec.ts:665:7 › ask: the Output sheet on a phone asks, shows the answer and the pin, in frame (light)
+[HEL-1746 e2e] user 53eda2e1-0579-4fc2-a41d-b5148845dc42; tier set for 53eda2e1-0579-4fc2-a41d-b5148845dc42
+
+[1A[2K[HEL-1746 e2e] created source c55acd19-ba26-42cc-b847-96e9ef4052c6 pipeline c9a835c3-1f79-4dda-941d-44d1468fe091 outputs ff02cdd8-7025-40bc-bd35-6c40456452af ccce08b5-8e81-40d6-b4e2-3484a17d4cba dashboard 1851c215-5271-4c7a-8ac3-8386a9bc9302
+
+[1A[2K[66/68] [dev] › e2e/hel1746-ask-ui.spec.ts:564:7 › ask: at a narrow desktop width Ask moves into the kebab and focus returns to the kebab trigger (dark)
+[1A[2K[dev] › e2e/hel1746-ask-ui.spec.ts:564:7 › ask: at a narrow desktop width Ask moves into the kebab and focus returns to the kebab trigger (dark)
+[HEL-1746 e2e] user 5bd001cd-93a2-4455-8120-a60e5495f993; tier set for 5bd001cd-93a2-4455-8120-a60e5495f993
+
+[1A[2K[HEL-1746 e2e] created source 0967a4b0-0340-491c-a1ad-95947f47dc59 pipeline 96adde0f-e065-4737-bd0f-75575d1e954b outputs af4ac131-942a-4e55-b8f9-39ac8a039307 bdf4eead-333d-4989-96fb-bd9711f489fb dashboard 0da7aef3-ac8b-4076-a9b3-51e56a627ab0
+
+[1A[2K[HEL-1746 e2e] meta row width at 900px viewport: 596
+
+[1A[2K[67/68] [dev] › e2e/hel1746-ask-ui.spec.ts:591:7 › ask: the Output sheet asks about a saved Output, pins through the real backend, and disables Pin during a draft (dark)
+[1A[2K[dev] › e2e/hel1746-ask-ui.spec.ts:591:7 › ask: the Output sheet asks about a saved Output, pins through the real backend, and disables Pin during a draft (dark)
+[HEL-1746 e2e] user 0297d6a4-d436-47cd-a4a0-12366cc196be; tier set for 0297d6a4-d436-47cd-a4a0-12366cc196be
+
+[1A[2K[HEL-1746 e2e] created source c9a64e01-71ea-4e0e-b1be-d93455da7b39 pipeline e3d0ec41-f4f2-4e24-b362-2effe5272bab outputs 054b30ca-d5df-491c-93d2-62320c49571c a1b645d5-457b-4347-9cce-e57aa6b97027 dashboard 1b7f1e70-6baa-471d-b84e-b193ed8656f5
+
+[1A[2K[68/68] [dev] › e2e/hel1746-ask-ui.spec.ts:665:7 › ask: the Output sheet on a phone asks, shows the answer and the pin, in frame (dark)
+[1A[2K[dev] › e2e/hel1746-ask-ui.spec.ts:665:7 › ask: the Output sheet on a phone asks, shows the answer and the pin, in frame (dark)
+[HEL-1746 e2e] user bf6b42c2-9802-46e7-a263-b98e4b8ce7cd; tier set for bf6b42c2-9802-46e7-a263-b98e4b8ce7cd
+
+[1A[2K[HEL-1746 e2e] created source dcf68fb4-240f-4885-b874-60c3cafebd84 pipeline e06b15f0-8938-4170-b7a0-cdb38a8a8c37 outputs 9f47b3d3-0357-4201-9334-83b6006ef999 2124fbe7-2895-4a4f-bcf2-4f07bb15e2d6 dashboard 01dd42dc-da8c-41b6-a229-c9786b4e4b39
+
+userCleanup: removed 0 of 76 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 76 recorded throwaway user(s)
+[1A[2K  68 passed (4.8m)

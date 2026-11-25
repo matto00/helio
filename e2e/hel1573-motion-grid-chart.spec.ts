@@ -3,6 +3,7 @@ import { writeFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
 import { CSRF_HEADER, registerAndLogin } from "./support/auth";
+import { maybeThrottleCpu } from "./support/cpuThrottle";
 import { evidencePath } from "./support/evidencePath";
 import { clearLog, log, RECORDER } from "./support/motionRecorder";
 import { post, seedWorld, setMotion } from "./support/motionPrimitivesSeed";
@@ -111,7 +112,15 @@ test.describe("HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1)
     await setMotion(request, "full");
     const world = await seedWorld(request, "M-chart");
     await page.mouse.move(5, 5);
+    await maybeThrottleCpu(page);
     await page.goto("/dashboards");
+    // HEL-1651: wait for the dashboard's data to be on screen (a seeded Table row), the state the chart's own render
+    // follows, so the canvas assertion below measures the chart's chunk + init and not the app's startup waterfall (auth,
+    // dashboards, panels, Output metadata), which on a slow host alone outlasts 5s. The wait has the grid helper's 15s
+    // ceiling; the canvas assertion keeps the 5s default and is unchanged.
+    await expect(page.getByRole("cell", { name: "500", exact: true }).first()).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(page.locator(".chart-panel__canvas canvas").first()).toBeVisible();
     await page.waitForTimeout(2500);
 
@@ -238,6 +247,10 @@ test.describe("HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1)
       chart.setOption(asLine, true);
       await wait(1200);
       const from = w.__chartEdges.length;
+      // HEL-1651: the line-state sum, so a frame sampled before zrender repainted the replayed option (the recorder's own
+      // animation-frame tick can run ahead of zrender's repaint, and then still sees the line render) is not mistaken for
+      // the replay's first frame. Only frames from the first one that differs from it count.
+      const stale = w.__chartBars[w.__chartBars.length - 1]?.sum;
       const t0 = performance.now();
       chart.setOption({ ...applied }, true);
       await wait(1500);
@@ -250,13 +263,17 @@ test.describe("HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1)
           start = null;
         }
       }
-      const sums = w.__chartBars.filter((b) => b.t >= t0).map((b) => b.sum);
+      const sinceSet = w.__chartBars.filter((b) => b.t >= t0).map((b) => b.sum);
+      const firstPainted = sinceSet.findIndex((sum) => sum !== stale);
+      const sums = firstPainted < 0 ? [] : sinceSet.slice(firstPainted);
       return {
         appliedAnimationDuration: applied.animationDuration,
         longestSpanMs: longest,
+        paintedFrames: sums.length,
         barGrowMinRatio: Math.min(...sums) / (sums[sums.length - 1] || 1),
       };
     });
+    expect(replay.paintedFrames, "the recreated view was painted and sampled").toBeGreaterThan(0);
     expect(replay.longestSpanMs, "a recreated view does not replay the entrance").toBeLessThan(60);
     expect(
       replay.barGrowMinRatio,
@@ -400,6 +417,7 @@ test.describe("HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1)
     await registerAndLogin(page, request, { ...AUTH, label: "fit", isolate: true });
     await setMotion(request, "full");
     const world = await seedWorld(request, "M-fit");
+    await maybeThrottleCpu(page);
     await page.goto(`/dashboards/${world.dashboardId}`);
     await waitForPanelGrid(page, 3);
     await expect(page.locator(".chart-panel__canvas canvas").first()).toBeVisible();

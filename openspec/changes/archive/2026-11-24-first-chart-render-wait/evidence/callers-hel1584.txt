@@ -1,0 +1,62 @@
+
+Running 14 tests using 2 workers
+
+[1A[2K[1/14] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: full / dark
+[1A[2K[2/14] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: full / light
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: full / dark
+[HEL-1300 e2e] throwaway user: hel1584-full-dark-1795563229824-36048@example.test
+
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: full / light
+[HEL-1300 e2e] throwaway user: hel1584-full-light-1795563229824-52217@example.test
+
+[1A[2K[3/14] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: subtle / light
+[1A[2K[4/14] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: subtle / dark
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: subtle / light
+[HEL-1300 e2e] throwaway user: hel1584-subtle-light-1795563241864-89092@example.test
+
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: subtle / dark
+[HEL-1300 e2e] throwaway user: hel1584-subtle-dark-1795563241877-35757@example.test
+
+[1A[2K[5/14] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: off / light
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: off / light
+[HEL-1300 e2e] throwaway user: hel1584-off-light-1795563253319-1460@example.test
+
+[1A[2K[6/14] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: off / dark
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: off / dark
+[HEL-1300 e2e] throwaway user: hel1584-off-dark-1795563253395-90735@example.test
+
+[1A[2K[7/14] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: os-reduce / light
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: os-reduce / light
+[HEL-1300 e2e] throwaway user: hel1584-os-reduce-light-1795563264742-53231@example.test
+
+[1A[2K[8/14] [dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: os-reduce / dark
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:345:9 › HEL-1584 grid, modal and palette: os-reduce / dark
+[HEL-1300 e2e] throwaway user: hel1584-os-reduce-dark-1795563264887-91969@example.test
+
+[1A[2K[9/14] [dev] › e2e/hel1584-motion-surfaces.spec.ts:352:7 › HEL-1584 when the grid enters › a warm tab switch, a Home round trip and an edit refetch play no entrance; an added panel pops
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:352:7 › HEL-1584 when the grid enters › a warm tab switch, a Home round trip and an edit refetch play no entrance; an added panel pops
+[HEL-1300 e2e] throwaway user: hel1584-warm-1795563276436-31520@example.test
+
+[1A[2K[10/14] [dev] › e2e/hel1584-motion-surfaces.spec.ts:447:9 › HEL-1584 the new crossfade layers keep their container's width › grid root, phone stack and a lazily loaded route at 1440px
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:447:9 › HEL-1584 the new crossfade layers keep their container's width › grid root, phone stack and a lazily loaded route at 1440px
+[HEL-1300 e2e] throwaway user: hel1584-width1440-1795563276613-96909@example.test
+
+[1A[2K[11/14] [dev] › e2e/hel1584-motion-surfaces.spec.ts:447:9 › HEL-1584 the new crossfade layers keep their container's width › grid root, phone stack and a lazily loaded route at 375px
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:447:9 › HEL-1584 the new crossfade layers keep their container's width › grid root, phone stack and a lazily loaded route at 375px
+[HEL-1300 e2e] throwaway user: hel1584-width375-1795563285728-41097@example.test
+
+[1A[2K[12/14] [dev] › e2e/hel1584-motion-surfaces.spec.ts:500:7 › HEL-1584 chart refresh › a same-shape data refresh morphs the series in place under Full (bars never collapse to zero)
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:500:7 › HEL-1584 chart refresh › a same-shape data refresh morphs the series in place under Full (bars never collapse to zero)
+[HEL-1300 e2e] throwaway user: hel1584-refresh-1795563291728-46514@example.test
+
+[1A[2K[13/14] [dev] › e2e/hel1584-motion-surfaces.spec.ts:607:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (light)
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:607:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (light)
+[HEL-1300 e2e] throwaway user: hel1584-save-light-1795563294316-49431@example.test
+
+[1A[2K[14/14] [dev] › e2e/hel1584-motion-surfaces.spec.ts:607:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (dark)
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:607:9 › HEL-1584 save and run feedback › a layout save pops a check beside the save state under Full (dark)
+[HEL-1300 e2e] throwaway user: hel1584-save-dark-1795563300493-1689@example.test
+
+userCleanup: removed 0 of 14 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 14 recorded throwaway user(s)
+[1A[2K  14 passed (1.3m)

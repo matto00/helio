@@ -1,0 +1,22 @@
+import { expect, test } from "@playwright/test";
+import { registerAndLogin } from "./support/auth";
+import { seedWorld, setMotion } from "./support/motionPrimitivesSeed";
+
+// HEL-1651 scratch: long tasks (>50ms) while a dashboard with a chart opens on the PRODUCTION build.
+test("hel1651 longtask", { tag: "@prod-build" }, async ({ page, request }) => {
+  test.setTimeout(120_000);
+  await page.addInitScript(() => {
+    (window as unknown as { __lt: number[][] }).__lt = [];
+    new PerformanceObserver((l) => {
+      for (const e of l.getEntries()) (window as unknown as { __lt: number[][] }).__lt.push([Math.round(e.startTime), Math.round(e.duration)]);
+    }).observe({ type: "longtask", buffered: true });
+  });
+  await registerAndLogin(page, request, { prefix: "hel1651l", displayName: "HEL-1651", label: "lt", isolate: true });
+  await setMotion(request, "full");
+  await seedWorld(request, "M-lt");
+  await page.goto("/dashboards");
+  await expect(page.locator(".chart-panel__canvas canvas").first()).toBeVisible();
+  await page.waitForTimeout(2000);
+  const lt = await page.evaluate(() => (window as unknown as { __lt: number[][] }).__lt);
+  console.log("HEL1651_LT " + JSON.stringify(lt) + " max=" + Math.max(0, ...lt.map((x) => x[1])));
+});

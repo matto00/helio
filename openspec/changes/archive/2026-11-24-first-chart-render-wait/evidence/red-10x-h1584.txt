@@ -1,0 +1,14 @@
+
+Running 2 tests using 2 workers
+
+[1A[2K[1/2] [dev] › e2e/hel1584-motion-surfaces.spec.ts:500:7 › HEL-1584 chart refresh › a same-shape data refresh morphs the series in place under Full (bars never collapse to zero)
+[1A[2K[2/2] [dev] › e2e/hel1584-motion-surfaces.spec.ts:500:7 › HEL-1584 chart refresh › a same-shape data refresh morphs the series in place under Full (bars never collapse to zero)
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:500:7 › HEL-1584 chart refresh › a same-shape data refresh morphs the series in place under Full (bars never collapse to zero)
+[HEL-1300 e2e] throwaway user: hel1584-refresh-1795561771940-43150@example.test
+
+[1A[2K[dev] › e2e/hel1584-motion-surfaces.spec.ts:500:7 › HEL-1584 chart refresh › a same-shape data refresh morphs the series in place under Full (bars never collapse to zero)
+[HEL-1300 e2e] throwaway user: hel1584-refresh-1795561771940-86948@example.test
+
+userCleanup: removed 0 of 2 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 2 recorded throwaway user(s)
+[1A[2K  2 passed (21.1s)

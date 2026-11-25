@@ -1,0 +1,47 @@
+
+Running 20 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1573-c2-1795578375364-16468@example.test
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795578375364-70221@example.test
+  ✓   2 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:23:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › grid: dragging / resizing / placeholder-resizing keep transition none, and our timing wins in either stylesheet order (8.5s)
+[HEL-1300 e2e] throwaway user: hel1573-drag-1795578383273-72733@example.test
+  ✓   1 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (17.5s)
+[HEL-1300 e2e] throwaway user: hel1573-fit-1795578392239-50062@example.test
+  ✓   3 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:307:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › grid: a real drag and a real resize track the pointer with no transition, and the siblings then reflow at the move token (9.2s)
+[HEL-1300 e2e] throwaway user: hel1573-c2-1795578393328-75058@example.test
+  ✓   5 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:23:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › grid: dragging / resizing / placeholder-resizing keep transition none, and our timing wins in either stylesheet order (7.0s)
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795578399876-55573@example.test
+  ✓   4 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:412:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › shrinking a mounted panel after load keeps every chart canvas and table inside its card (Crossfade sizing, C3) (11.0s)
+[HEL-1300 e2e] throwaway user: hel1573-drag-1795578404132-30915@example.test
+  ✓   7 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:307:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › grid: a real drag and a real resize track the pointer with no transition, and the siblings then reflow at the move token (9.2s)
+[HEL-1300 e2e] throwaway user: hel1573-fit-1795578412871-83009@example.test
+  ✓   6 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (13.6s)
+[HEL-1300 e2e] throwaway user: hel1573-c2-1795578414362-46771@example.test
+  ✓   9 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:23:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › grid: dragging / resizing / placeholder-resizing keep transition none, and our timing wins in either stylesheet order (6.4s)
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795578420363-63206@example.test
+  ✓   8 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:412:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › shrinking a mounted panel after load keeps every chart canvas and table inside its card (Crossfade sizing, C3) (9.9s)
+[HEL-1300 e2e] throwaway user: hel1573-drag-1795578423684-90372@example.test
+  ✓  11 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:307:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › grid: a real drag and a real resize track the pointer with no transition, and the siblings then reflow at the move token (10.2s)
+[HEL-1300 e2e] throwaway user: hel1573-fit-1795578433422-66424@example.test
+  ✓  10 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (14.1s)
+[HEL-1300 e2e] throwaway user: hel1573-c2-1795578435276-74046@example.test
+  ✓  13 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:23:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › grid: dragging / resizing / placeholder-resizing keep transition none, and our timing wins in either stylesheet order (6.5s)
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795578441325-12662@example.test
+  ✓  12 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:412:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › shrinking a mounted panel after load keeps every chart canvas and table inside its card (Crossfade sizing, C3) (9.8s)
+[HEL-1300 e2e] throwaway user: hel1573-drag-1795578444011-65477@example.test
+  ✓  15 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:307:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › grid: a real drag and a real resize track the pointer with no transition, and the siblings then reflow at the move token (9.5s)
+[HEL-1300 e2e] throwaway user: hel1573-fit-1795578453152-8312@example.test
+  ✓  14 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (13.7s)
+[HEL-1300 e2e] throwaway user: hel1573-c2-1795578455862-98441@example.test
+  ✓  17 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:23:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › grid: dragging / resizing / placeholder-resizing keep transition none, and our timing wins in either stylesheet order (6.3s)
+[HEL-1300 e2e] throwaway user: hel1573-chart-1795578461791-3154@example.test
+  ✓  16 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:412:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › shrinking a mounted panel after load keeps every chart canvas and table inside its card (Crossfade sizing, C3) (10.0s)
+[HEL-1300 e2e] throwaway user: hel1573-drag-1795578463909-82433@example.test
+  ✓  19 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:307:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › grid: a real drag and a real resize track the pointer with no transition, and the siblings then reflow at the move token (9.4s)
+[HEL-1300 e2e] throwaway user: hel1573-fit-1795578472976-25399@example.test
+  ✓  18 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:105:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › chart: the entrance runs about the standard token (not 1000ms) once per mount, and a refresh does not replay it (13.6s)
+  ✓  20 [dev] › e2e/hel1573-motion-grid-chart.spec.ts:412:7 › HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1) › shrinking a mounted panel after load keeps every chart canvas and table inside its card (Crossfade sizing, C3) (9.2s)
+userCleanup: removed 0 of 20 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 20 recorded throwaway user(s)
+
+  20 passed (1.8m)

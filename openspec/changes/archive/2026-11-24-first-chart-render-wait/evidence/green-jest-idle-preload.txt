@@ -1,0 +1,6 @@
+
+Test Suites: 32 passed, 32 total
+Tests:       410 passed, 410 total
+Snapshots:   0 total
+Time:        6.826 s
+Ran all test suites matching src/features/panels/ui/renderers|src/features/panels/hooks/useChartPreload|src/features/panels/ui/PanelList|src/features/dashboards/ui/DashboardRoute.
