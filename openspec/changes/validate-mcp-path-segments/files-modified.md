@@ -1,9 +1,0 @@
-- `helio-mcp/src/pathSegment.ts` — new `pathSegment` helper and `HelioInvalidIdError`
-- `helio-mcp/src/httpClient.ts` — `HelioRequestUrlError`; `//` and origin check in `buildUrl`
-- `helio-mcp/src/helioApi.ts` — every `/api/` path id goes through `pathSegment`; validate-first in `getDashboard`/`listSourceObjects`
-- `helio-mcp/src/oauth/familyClient.ts` — `rotate` uses `pathSegment`; invalid id maps to refused/unknown
-- `helio-mcp/src/pathSegment.test.ts` — unit tests
-- `helio-mcp/src/httpClient.originGuard.test.ts` — buildUrl origin tests
-- `helio-mcp/src/pathSegment.toolSeam.test.ts` — tool-level tests
-- `helio-mcp/src/oauth/familyClient.test.ts` — rotate test
-- `helio-mcp/src/requestPathGuard.test.ts` — GUARD
