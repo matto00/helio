@@ -1,0 +1,12 @@
+# hel1572 "C11 flake candidate :126" (HEL-1622 D5, reported only; not removed from any list)
+Resolved by title via `git show 943b5dd73^:e2e/hel1572-appearance-preferences.spec.ts`: line 126 there is
+  test("re-renders headings with no reload and survives a fresh browser context (another device)")
+(today at ~line 200). That test has no fonts.ready wait and no geometry measurement; none of the four converted sites is in it
+(the converted sites are in the "under Mono ... clipped" test, the "equal-digit durations" test, and two hel1579 tests).
+HEL-1826's recorded root cause (archive 2026-11-22-deflake-hel1820-e2e-specs/root-cause.md, T3, CONFIRMED): the app sends
+unordered `PATCH /api/users/me/preferences` writes (Serif, Mono, Serif); a slow earlier Mono write landed last, so /api/auth/me
+stayed `mono`. A preference-write ordering race, unrelated to font loading; HEL-1826 fixed the test (selectTypeStyle waits for
+each save) and left the app defect as a follow-up candidate.
+Evidence from this change: the test failed 0 of 20 in the 20x run (q1: 160 passed = 8 tests x 20), and it does not contain a
+converted wait, so this conversion cannot explain it and does not fix or mask it. The conversion cannot plausibly explain a
+flake whose cause is write ordering. Verdict: NOT explained by this conversion; keep it on the list.

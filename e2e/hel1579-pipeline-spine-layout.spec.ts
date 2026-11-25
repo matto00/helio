@@ -8,6 +8,7 @@ import {
 } from "./support/apiRequestCounter";
 import { registerAndLogin } from "./support/auth";
 import { evidencePath } from "./support/evidencePath";
+import { waitForWebFonts } from "./support/webFonts";
 
 // HEL-1579 (design.md D11): the desktop pipeline page as a step spine, focused editor and preview table,
 // proven against the running app. Seeds a 3-step pipeline over HTTP (user cleanup is the global teardown's,
@@ -293,7 +294,7 @@ test.describe("HEL-1579 pipeline detail step spine (live)", () => {
           width,
         );
         // No header item may overlap the next (the pipeline name once ran under the status chip at 820px).
-        await page.evaluate(() => document.fonts.ready);
+        await waitForWebFonts(page.locator(".spine-header"));
         const boxes = await page.evaluate(() =>
           Array.from(
             document.querySelectorAll<HTMLElement>(
@@ -462,7 +463,7 @@ test.describe("HEL-1579 pipeline detail step spine (live)", () => {
           await handle.focus();
           await page.keyboard.press("End");
         }
-        await page.evaluate(() => document.fonts.ready);
+        await waitForWebFonts(page.locator(".pipeline-detail-page--spine"));
         if (listWidth === "default") {
           // HEL-1608: the committed 1280 invariant -- the spine track stays 270-340px with the list at default.
           const spine = await page.locator(".spine-body__spine").boundingBox();

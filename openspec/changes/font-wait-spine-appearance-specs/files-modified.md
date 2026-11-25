@@ -1,0 +1,3 @@
+- `e2e/hel1579-pipeline-spine-layout.spec.ts` — S1 (.spine-header) and S2 (.pipeline-detail-page--spine) fonts.ready waits become waitForWebFonts; import added
+- `e2e/hel1572-appearance-preferences.spec.ts` — S3 (.app-shell) and S4 (Run history dialog) fonts.ready waits become waitForWebFonts
+- `openspec/changes/font-wait-spine-appearance-specs/**` — planning docs and evidence (.txt)

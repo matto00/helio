@@ -669,7 +669,7 @@ test.describe("HEL-1572 Appearance tap targets", () => {
       await page.goto("/settings");
       await assertTypeStyleActive(page, "mono");
       await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
-      await page.evaluate(() => document.fonts.ready);
+      await waitForWebFonts(page.locator(".app-shell"));
       const clipped = await findClipped(page, [
         ".appearance button",
         ".appearance .appearance__label",
@@ -761,7 +761,7 @@ test.describe("HEL-1572 tabular numerals under every style", () => {
       await page.getByRole("button", { name: "Pipeline actions" }).click();
       await page.getByRole("menuitem", { name: "Run history" }).click();
       await expect(page.locator(".run-history-modal__row-duration").first()).toBeVisible();
-      await page.evaluate(() => document.fonts.ready);
+      await waitForWebFonts(page.getByRole("dialog", { name: "Run history" }));
 
       const { ones, eights } = await widths(".run-history-modal__row-duration");
       expect(Math.abs(ones - eights), `${style}: 1111 vs 8888`).toBeLessThanOrEqual(0.5);

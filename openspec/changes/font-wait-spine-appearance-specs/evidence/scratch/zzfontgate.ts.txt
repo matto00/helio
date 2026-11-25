@@ -1,0 +1,294 @@
+import fs from "node:fs";
+import path from "node:path";
+
+import type { Page } from "@playwright/test";
+
+// SCRATCH (HEL-1622): font hold gate for the held-font runs. Env:
+//  FONT_HOLD      csv of: css | all | Fraunces | "Schibsted Grotesk" | "JetBrains Mono" | none
+//                 (css = hold the stylesheet response; family = hold that family's gstatic .woff2 responses)
+//  FONT_TIMER_MS  release this arm's holds this long after arm() (concurrent release; unset = held until next arm)
+//  FONT_AT        "wait" = release right after the wait point returns (measurement races the swap)
+//  FONT_RACE_MS   pre-conversion only: race the original fonts.ready against this many ms (log "blocked")
+//  FONT_NEVER     "1" = never release holds (not even at next arm)
+const FIX = path.resolve(__dirname, "fixtures/web-fonts");
+const urlFamily = new Map<string, string>();
+{
+  const manifest = JSON.parse(fs.readFileSync(path.join(FIX, "manifest.json"), "utf8"));
+  for (const entry of Object.values<{ file: string }>(manifest.css)) {
+    const css = fs.readFileSync(path.join(FIX, "files", entry.file), "utf8");
+    for (const m of css.matchAll(/@font-face\s*\{([^}]*)\}/g)) {
+      const fam = /font-family:\s*'([^']+)'/.exec(m[1])?.[1];
+      const url = /url\(([^)]+)\)/.exec(m[1])?.[1];
+      if (fam && url) urlFamily.set(url, fam);
+    }
+  }
+}
+
+interface Hold {
+  p: Promise<void>;
+  go: () => void;
+  released: boolean;
+}
+interface St {
+  holds: Map<string, Hold>;
+  seen: Record<string, number>;
+  held: Record<string, number>;
+  iter: number;
+  timers: NodeJS.Timeout[];
+}
+const states = new WeakMap<Page, Promise<St>>();
+const holdEnv = () =>
+  (process.env.FONT_HOLD ?? "none")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+const wantsHold = (key: string) => {
+  const h = holdEnv();
+  if (h.includes("all")) return key !== "css";
+  return h.includes(key);
+};
+const bump = (o: Record<string, number>, k: string) => (o[k] = (o[k] ?? 0) + 1);
+
+function install(page: Page): Promise<St> {
+  let cur = states.get(page);
+  if (cur) return cur;
+  cur = (async () => {
+    const st: St = { holds: new Map(), seen: {}, held: {}, iter: 0, timers: [] };
+    await page.route(/fonts\.googleapis\.com\/css2/, async (route) => {
+      bump(st.seen, "css");
+      const h = st.holds.get("css");
+      if (h && !h.released) {
+        bump(st.held, "css");
+        await h.p;
+      }
+      await route.continue().catch(() => undefined);
+    });
+    await page.route(/fonts\.gstatic\.com/, async (route) => {
+      const fam = urlFamily.get(route.request().url()) ?? "?";
+      bump(st.seen, fam);
+      const h = st.holds.get(fam);
+      if (h && !h.released) {
+        bump(st.held, fam);
+        await h.p;
+      }
+      await route.continue().catch(() => undefined);
+    });
+    return st;
+  })();
+  states.set(page, cur);
+  return cur;
+}
+
+function release(st: St) {
+  for (const h of st.holds.values()) {
+    h.released = true;
+    h.go();
+  }
+}
+
+const dumpFn = () => {
+  const link = document.querySelector<HTMLLinkElement>(
+    'link[rel="stylesheet"][href*="fonts.googleapis.com/css2"]',
+  );
+  const faces = [...document.fonts];
+  const by: Record<string, Record<string, number>> = {};
+  for (const f of faces) {
+    const fam = f.family.replace(/["']/g, "");
+    by[fam] ??= {};
+    by[fam][f.status] = (by[fam][f.status] ?? 0) + 1;
+  }
+  return {
+    media: link?.media ?? null,
+    status: document.fonts.status,
+    loading: faces.filter((f) => f.status === "loading").length,
+    faces: by,
+  };
+};
+
+export async function dump(page: Page, label: string): Promise<void> {
+  const st = await install(page);
+  // HEL-1622 cycle 2: FONT_SITE_RELEASE_MS releases this arm's holds N ms AFTER the site's before-wait dump, so the
+  // fonts are still held when the test reaches the wait site (a release before the site is non-discriminating).
+  const siteMs = process.env.FONT_SITE_RELEASE_MS;
+  if (siteMs && label.endsWith("before-wait")) {
+    const mine = [...st.holds.values()];
+    setTimeout(() => {
+      for (const h of mine) {
+        h.released = true;
+        h.go();
+      }
+    }, Number(siteMs));
+  }
+  let d: unknown;
+  try {
+    d = await page.evaluate(dumpFn);
+  } catch (e) {
+    d = `dump failed: ${String(e).slice(0, 80)}`;
+  }
+  console.log(
+    `[gate] ${label} iter=${st.iter} seen=${JSON.stringify(st.seen)} held=${JSON.stringify(st.held)} fonts=${JSON.stringify(d)}`,
+  );
+}
+
+/** Replaces `page.goto(url)`: re-arm the hold (fresh per navigation), then goto with waitUntil "commit". */
+export async function gotoHeld(page: Page, url: string): Promise<void> {
+  const st = await install(page);
+  if (st.iter > 0) await dump(page, "before-next-goto");
+  for (const t of st.timers) clearTimeout(t);
+  st.timers = [];
+  if (process.env.FONT_NEVER !== "1") release(st);
+  st.holds = new Map();
+  st.iter++;
+  const keys = ["css", "Fraunces", "Schibsted Grotesk", "JetBrains Mono"];
+  const mine = new Map<string, Hold>();
+  for (const k of keys) {
+    if (!wantsHold(k)) continue;
+    let go!: () => void;
+    const p = new Promise<void>((r) => (go = r));
+    mine.set(k, { p, go, released: false });
+  }
+  st.holds = mine;
+  const ms = process.env.FONT_TIMER_MS;
+  if (ms && mine.size > 0)
+    st.timers.push(
+      setTimeout(() => {
+        for (const h of mine.values()) {
+          h.released = true;
+          h.go();
+        }
+      }, Number(ms)),
+    );
+  await page.goto(url, { waitUntil: "commit" });
+  // Harness refinement (HEL-1622): "commit" returns before the app stylesheet/JS ran, so a precondition read right
+  // after goto (assertTypeStyleActive reads body computed font) would see unstyled Times: INVALID, not red.
+  // DOMContentLoaded is not held by font requests (only `load` is).
+  await page.waitForLoadState("domcontentloaded");
+}
+
+/** Pre-conversion stand-in for `await page.evaluate(() => document.fonts.ready)`: the same wait, plus state dumps. */
+export async function wait(page: Page, label: string): Promise<void> {
+  const st = await install(page);
+  await dump(page, `${label} before-wait`);
+  const t0 = Date.now();
+  const race = process.env.FONT_RACE_MS;
+  let outcome = "resolved";
+  const ready = page.evaluate(() => document.fonts.ready.then(() => undefined));
+  if (race) {
+    const r = await Promise.race([
+      ready.then(() => "resolved"),
+      new Promise<string>((res) => setTimeout(() => res("blocked"), Number(race))),
+    ]);
+    outcome = r;
+  } else {
+    await ready;
+  }
+  console.log(`[gate] ${label} original fonts.ready ${outcome} after ${Date.now() - t0}ms`);
+  await dump(page, `${label} after-wait (measurement starts here)`);
+  await values(page, label);
+  if (process.env.FONT_AT === "wait") release(st);
+}
+
+export async function endDump(page: Page): Promise<void> {
+  if (page.isClosed()) return;
+  await dump(page, "test-end");
+}
+
+/** Logs the measured quantities the site's assertions read (never asserts). */
+export async function values(page: Page, site: string): Promise<void> {
+  let v: unknown;
+  try {
+    v = await page.evaluate((s) => {
+      const r = (n: number) => Math.round(n * 100) / 100;
+      if (s === "S1" || s === "S2") {
+        const header = document.querySelector<HTMLElement>(".spine-header")!;
+        const items = Array.from(
+          header.querySelectorAll<HTMLElement>(
+            ".spine-header__name, .ui-status-chip, .spine-header__run-status, .spine-header__meta, .spine-header__chip, .spine-header__btn, .popover__trigger",
+          ),
+        )
+          .filter((el) => el.offsetWidth > 0)
+          .map((el) => el.getBoundingClientRect())
+          .sort((a, b) => a.x - b.x);
+        let minGap = Infinity;
+        for (let i = 1; i < items.length; i++) minGap = Math.min(minGap, items[i].x - items[i - 1].right);
+        const doc = document.documentElement;
+        const spine = document.querySelector<HTMLElement>(".spine-body__spine")?.getBoundingClientRect().width;
+        const main = document.querySelector(".spine-body__main")?.getBoundingClientRect().right;
+        const acts = Array.from(document.querySelectorAll<HTMLElement>(".step-focused__actions button")).map(
+          (el) => el.getBoundingClientRect().right,
+        );
+        return {
+          vw: innerWidth,
+          headerH: r(header.getBoundingClientRect().height),
+          headerOverflow: header.scrollWidth - header.clientWidth,
+          minItemGap: r(minGap),
+          docOverV: doc.scrollHeight - innerHeight,
+          docOverH: doc.scrollWidth - innerWidth,
+          spineW: spine === undefined ? null : r(spine),
+          maxActionRightMinusMain: main === undefined || acts.length === 0 ? null : r(Math.max(...acts) - main),
+        };
+      }
+      if (s === "S3") {
+        const sel = [".appearance button", ".appearance .appearance__label", ".appearance .appearance__type-card-title", ".app-command-bar button", ".bottom-nav button", ".bottom-nav a", ".app-rail a", ".app-rail button"];
+        let worst = -Infinity;
+        let worstEl = "";
+        let n = 0;
+        for (const el of document.querySelectorAll<HTMLElement>(sel.join(","))) {
+          const st = getComputedStyle(el);
+          if (st.display === "inline" || st.display === "none" || st.textOverflow === "ellipsis" || !el.textContent?.trim()) continue;
+          const range = document.createRange();
+          let left = Infinity, right = -Infinity;
+          const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+          for (let node = w.nextNode(); node; node = w.nextNode()) {
+            if (!node.textContent?.trim()) continue;
+            let hidden = false;
+            for (let up = node.parentElement; up && up !== el.parentElement; up = up.parentElement)
+              if (getComputedStyle(up).opacity === "0") hidden = true;
+            if (hidden) continue;
+            range.selectNodeContents(node);
+            const rc = range.getBoundingClientRect();
+            left = Math.min(left, rc.left);
+            right = Math.max(right, rc.right);
+          }
+          n++;
+          const over = right - left - el.clientWidth;
+          if (over > worst) { worst = over; worstEl = `${el.className} "${el.textContent.trim().slice(0, 20)}"`; }
+        }
+        return { vw: innerWidth, measured: n, worstTextOverBox: r(worst), worstEl, threshold: 1 };
+      }
+      const el = document.querySelector<HTMLElement>(".run-history-modal__row-duration");
+      if (!el) return "no duration el";
+      const c = el.cloneNode(true) as HTMLElement;
+      c.style.minWidth = "0";
+      c.style.display = "inline-block";
+      el.parentElement!.appendChild(c);
+      c.textContent = "1111";
+      const ones = c.getBoundingClientRect().width;
+      c.textContent = "8888";
+      const eights = c.getBoundingClientRect().width;
+      c.remove();
+      return { typeStyle: document.documentElement.dataset.typeStyle, ones: r(ones), eights: r(eights), diff: r(Math.abs(ones - eights)), threshold: 0.5, family: getComputedStyle(el).fontFamily.slice(0, 40) };
+    }, site);
+  } catch (e) {
+    v = `values failed: ${String(e).slice(0, 80)}`;
+  }
+  console.log(`[gate] ${site} VALUES ${JSON.stringify(v)}`);
+}
+
+/** Logs how many elements `container` matches and whether it contains every target selector (strictness proof). */
+export async function contain(page: Page, label: string, container: string, targets: string[]): Promise<void> {
+  const r = await page.evaluate(
+    ([c, t]) => {
+      const els = Array.from(document.querySelectorAll(c));
+      return {
+        container: c,
+        matches: els.length,
+        contains: Object.fromEntries(
+          (t as string[]).map((s) => [s, els.length === 1 ? els[0].querySelectorAll(s).length : -1]),
+        ),
+      };
+    },
+    [container, targets] as const,
+  );
+  console.log(`[gate] ${label} CONTAINER ${JSON.stringify(r)}`);
+}

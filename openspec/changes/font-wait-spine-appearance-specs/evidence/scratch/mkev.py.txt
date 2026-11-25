@@ -1,0 +1,27 @@
+import re, sys, glob, os
+variant = sys.argv[1]   # pre | post
+prefix = {"pre": "red", "post": "green"}[variant]
+EV = "/home/matt/Development/helio/.claude/worktrees/task/fonts-ready-wait-conversion/HEL-1622/openspec/changes/font-wait-spine-appearance-specs/evidence/"
+os.makedirs(EV, exist_ok=True)
+ansi = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+order = ["none","css","cssrel","cssnever","cssT","allrace","sch","jb","fr","allT","schT","jbT","frT","allnever"]
+for S in ["S1","S2","S3","S4"]:
+    files = sorted(glob.glob(f"{variant}-{S}-*.txt"), key=lambda f: order.index(f.split("-")[2][:-4]) if f.split("-")[2][:-4] in order else 99)
+    out = [f"# {prefix.upper()} runs, site {S} ({'pre-conversion code' if variant=='pre' else 'converted code'}), scratch copy of the real spec with the HEL-1622 gate",
+           "# (see evidence/scratch/*.txt for harness sources). Every run: --workers=1, nice -n 19, lane servers + lane DB.", ""]
+    for f in files:
+        mode = f.split("-")[2][:-4]
+        txt = ansi.sub("", open(f, errors="replace").read())
+        keep = []
+        lines = txt.split("\n")
+        i = 0
+        while i < len(lines):
+            l = lines[i]
+            if l.startswith("[gate]") or l.startswith("# ") or re.search(r"^\s+\d+ (passed|failed|flaky)", l) or "Error:" in l or l.strip().startswith(("Expected", "Received", "> ")) or re.search(r"^\s+\d+ \|", l) :
+                keep.append(l.rstrip())
+            i += 1
+        out.append(f"===== mode {mode} =====")
+        out += keep
+        out.append("")
+    open(EV + f"{prefix}-{S}.txt", "w").write("\n".join(out))
+    print(prefix, S, len(files))

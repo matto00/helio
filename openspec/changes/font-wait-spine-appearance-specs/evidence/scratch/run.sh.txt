@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# usage: run.sh <out.txt> <spec> <grep> [extra playwright args]; env FONT_* passed through
+set -u
+WT=/home/matt/Development/helio/.claude/worktrees/task/fonts-ready-wait-conversion/HEL-1622
+export DATABASE_URL=jdbc:postgresql://localhost:5432/helio_hel1622 DB_USER=matt DEV_PORT=7054 BACKEND_PORT=9961 ANTHROPIC_API_KEY=
+out="/home/matt/Development/helio/.concertino/scratch/HEL-1622/$1"; spec="$2"; grep="$3"; shift 3
+cd "$WT"
+{
+  echo "# FONT_HOLD=${FONT_HOLD-} FONT_TIMER_MS=${FONT_TIMER_MS-} FONT_AT=${FONT_AT-} FONT_RACE_MS=${FONT_RACE_MS-} FONT_NEVER=${FONT_NEVER-}"
+  echo "# spec=$spec grep=$grep"
+  nice -n 19 npx playwright test "$spec" -g "$grep" --workers=1 --reporter=line "$@" 2>&1
+  echo "# exit=$?"
+} > "$out"
+grep -aE "passed|failed|flaky|# exit|^ +Error|Expected|Received|at .*spec.ts:[0-9]+|INVALID|Timeout" "$out" | sed "s/\x1b\[[0-9;]*[A-Za-z]//g" | cut -c1-260 | head -25

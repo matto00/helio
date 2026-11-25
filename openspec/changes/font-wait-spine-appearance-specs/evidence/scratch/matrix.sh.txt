@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# usage: matrix.sh <pre|post> <site S1..S4> [mode ...]
+set -u
+V="$1"; S="$2"; shift 2
+case "$S" in
+ S1) SPEC="e2e/zzhel1579-pipeline-spine-layout-$V.spec.ts"; G="820/900/1100px";;
+ S2) SPEC="e2e/zzhel1579-pipeline-spine-layout-$V.spec.ts"; G="sweep 769-1100px";;
+ S3) SPEC="e2e/zzhel1572-appearance-preferences-$V.spec.ts"; G="under Mono no Appearance";;
+ S4) SPEC="e2e/zzhel1572-appearance-preferences-$V.spec.ts"; G="equal-digit durations render";;
+esac
+cd /home/matt/Development/helio/.concertino/scratch/HEL-1622
+for m in "$@"; do
+  unset FONT_SITE_RELEASE_MS FONT_HOLD FONT_TIMER_MS FONT_AT FONT_RACE_MS FONT_NEVER
+  case "$m" in
+   none)       export FONT_HOLD=none;;
+   siteCss)    export FONT_HOLD=css FONT_SITE_RELEASE_MS=1000;;
+   siteAll)    export FONT_HOLD=all FONT_SITE_RELEASE_MS=1000;;
+   siteSch)    export FONT_HOLD="Schibsted Grotesk" FONT_SITE_RELEASE_MS=1000;;
+   css)        export FONT_HOLD=css;;
+   cssrel)     export FONT_HOLD=css FONT_AT=wait;;
+   cssnever)   export FONT_HOLD=css FONT_NEVER=1;;
+   cssT)       export FONT_HOLD=css FONT_TIMER_MS=1500;;
+   allT)       export FONT_HOLD=all FONT_TIMER_MS=1500;;
+   allrace)    export FONT_HOLD=all FONT_RACE_MS=2500 FONT_TIMER_MS=9000;;
+   allnever)   export FONT_HOLD=all FONT_NEVER=1;;
+   sch)        export FONT_HOLD="Schibsted Grotesk" FONT_RACE_MS=2500 FONT_TIMER_MS=9000;;
+   jb)         export FONT_HOLD="JetBrains Mono" FONT_RACE_MS=2500 FONT_TIMER_MS=9000;;
+   fr)         export FONT_HOLD="Fraunces" FONT_RACE_MS=2500 FONT_TIMER_MS=9000;;
+   schT)       export FONT_HOLD="Schibsted Grotesk" FONT_TIMER_MS=1500;;
+   jbT)        export FONT_HOLD="JetBrains Mono" FONT_TIMER_MS=1500;;
+   frT)        export FONT_HOLD="Fraunces" FONT_TIMER_MS=1500;;
+  esac
+  echo "=== $V $S $m"
+  ./run.sh "$V-$S-$m.txt" "$SPEC" "$G" ${EXTRA:-} | grep -aE "passed|failed|# exit|Timeout|Expected|Received|Error:" | head -6
+done

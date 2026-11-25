@@ -1,0 +1,34 @@
+# HEL-1622 pre-conversion forced-delay results (base 793802e50 code, scratch copies, waitUntil commit + domcontentloaded)
+# Mechanism: page.route (see delay-mechanism.txt). Per-iteration fonts state dumps are in red-S<n>.txt ([gate] ... after-wait).
+# Modes: none = no hold (baseline) | css = stylesheet held for the whole iteration (fallback-only, no web face exists)
+#  | cssrel = stylesheet held, released right after the original wait returns (measurement races the swap)
+#  | allrace / sch / jb / fr = face(s) held; the original fonts.ready raced against 2.5s (NON-FAITHFUL: the real wait
+#    blocks while a face loads), measurement runs held, fonts released 9s after goto
+#  | allT = faithful: all faces held, released 1.5s after goto; the original wait blocks until release.
+# Fraunces: S1/S2 pages never request it (fr runs: held={}); S3 and S4/serif do (held counts non-zero).
+
+S1 hel1579:296 "820/900/1100px [dark|light]: the header keeps one row"  -> NO RED POSSIBLE
+   modes run (dark+light tests, 4 widths each, every iteration held per dump): none css cssrel allrace sch jb fr allT, all pass.
+   values identical held vs none, per width (820/900/1100/1280): headerH 44, minItemGap 4/4/8/8, headerOverflow 0, docOver 0/0
+   (threshold: height<60, gap>=-0.5, doc extents<=viewport). Metric-matched fallbacks leave nothing to move.
+   Note: in allrace/sch/jb the later page.screenshot blocks until release (Playwright waits for fonts), hence the 9s release.
+S2 hel1579:465 "sweep 769-1100px"                                      -> NO RED POSSIBLE
+   modes: none css cssrel allrace sch jb fr allT, all pass. Both phases ran held: spine-track phase (spineW 273.27 / 280.16
+   inside 269.5-340.5) and the 43-width sweep (iteration-end dumps still loading for allrace/sch/jb; stylesheet still
+   media=print for css). Values identical held vs none.
+S3 hel1572:672 "under Mono no Appearance control ... is clipped"      -> NO RED POSSIBLE
+   modes: none css cssrel allrace sch jb fr allT, all pass; fr = Fraunces held alone (held={"Fraunces":N}, status loading).
+   worstTextOverBox 0 (threshold 1) at 375/768/820/1280 in every mode (24 elements measured at 820/1280, 23 at 375/768).
+S4 hel1572:764 "equal-digit durations render at equal width"          -> RED (mode css; also allrace, sch)
+   css:     "Error: sans: 1111 vs 8888 / Expected: <= 0.5 / Received: 2.995849609375" at real-spec hel1572 line 767 (scratch line 768, offset by the added import; site is 764;
+            failure is the measurement that follows it). Dump at the site: fonts.ready resolved after 4ms, media=print,
+            status=loaded, loading=0, held={"css":1} (vacuous wait, stylesheet held, fallback face). VALUES: ones 24.99,
+            eights 27.99, diff 3 (none baseline: 31.97 / 31.97, diff 0).
+   allrace and sch (non-faithful race, Schibsted held): same assertion, Received: 3. NOT a red of the real code
+            (the real wait blocks while Schibsted loads, so allT/faithful passes); the css state is the faithful red.
+   jb / fr (Fraunces held for serif) / cssrel / allT / none: pass. cssrel passes because the release raced the measurement.
+# Cycle 2: paired discriminating run for S4: mode siteCss (hold released 1000ms after the site's before-wait dump) RED again,
+#  "Received: 2.9996337890625", fonts.ready resolved after 10ms, media=print (pre-S4-siteCss in red-S4.txt); siteAll/siteSch pass pre.
+# Recorded harness deviation (beyond design's "waitUntil commit only"): gotoHeld = goto(url,{waitUntil:"commit"}) THEN
+#  waitForLoadState("domcontentloaded"). Reason: the first S3 run with commit alone was INVALID (assertTypeStyleActive read the body
+#  font as unstyled Times right after commit); discarded. Applied identically to red, green and never-released runs.
