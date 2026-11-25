@@ -261,8 +261,10 @@ error-severity assertion failure (see `pipeline-assert-fail-policy`) SHALL also 
 `"failed"`, with `row_count` unset (`null`) and `error_log` set to a descriptive summary naming the
 failing rule(s) — distinct from the generic message used for an unrelated execution exception. The
 backend SHALL then delete the pipeline's non-dry `pipeline_runs` rows that are neither among its 10 most recent
-nor started within the last 24 hours, and SHALL keep at most 300 rows in all (the 300 most recent), so a day of
-history survives for the Home timeline (HEL-1578, owner answer `keep-24h`). Dry-run retention is unchanged. These
+nor started within the last 24 hours, and SHALL delete every terminal run beyond the 300 most recent, so a day of
+history survives for the Home timeline (HEL-1578, owner answer `keep-24h`). This pruning SHALL never delete a
+run that is not yet terminal (`completed_at` unset): an open run is kept whatever its rank. Dry-run retention is
+unchanged. These
 side-effects SHALL be skipped when `pipelineRunRepo` is unavailable (null-safe guard).
 
 In addition, at each status transition the backend SHALL publish a `RunStatusEvent` to
@@ -332,6 +334,11 @@ with a descriptive `error_log` and publish exactly one `failed` event.
 #### Scenario: The cap bounds a very busy pipeline
 - **WHEN** a pipeline has 350 real runs started within the last 24 hours and a new run completes
 - **THEN** only the 300 most recent remain
+
+#### Scenario: An in-flight run is never pruned
+- **WHEN** a pipeline's oldest real run is still queued or running, it is neither among the 10 most recent nor
+  started within the last 24 hours, and a new run is admitted
+- **THEN** the in-flight run's row is kept, and the terminal runs outside the kept set are deleted
 
 ### Requirement: POST /api/pipelines/:id/run executes a rest_api or sql base source
 The run endpoint SHALL load rows for every root of the pipeline, whatever source kind each root binds, before the walk begins. A root binding a `rest_api` or `sql` source SHALL be fetched exactly as a single-source pipeline fetches it today.

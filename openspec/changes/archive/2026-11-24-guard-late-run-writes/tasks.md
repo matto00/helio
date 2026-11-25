@@ -3,6 +3,7 @@
 - [C1] Red first: the Tests group (section 3) is written and its red run recorded and COMMITTED (as .txt under this change dir) before any section 1-2 production edit.
 - [C2] Deterministic only: drive the reap between the early check and each write with a test hook, the harness's held terminal write (LateFinisherSpecBase `terminalGate`), or ordered transactions; wait on pg_stat_activity lock waits, never sleep.
 - [C3] Any app-pool (owner-context) run check (W1 write-back) is proven on an RLS-enforcing pool (Hel1503EditorRunGapsSpec harness), never only a superuser pool; if it cannot read under RLS, escalate.
+- [C4] (RETIRED at design gate round 1, superseded by C5/C6) No migration; no change to reaper, heartbeat or retention counts.
 - [C6] No migration; no change to the heartbeat, stale bound or retention counts; the only reaper change is the non-waiting advisory try-lock (design D4). (Supersedes round-1 "no reaper change".)
 - [C5] No new run-row or pipeline-row lock anywhere (design D1/D7); every new lock is the W1 shared advisory key (first in its transaction) or the reaper's try-lock.
 
