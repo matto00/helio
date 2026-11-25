@@ -153,7 +153,7 @@ class PublicRouteOwnerIdLeakApiSpec
   }
 
   /** Table Output with a schema, real snapshot rows and one history point, owned by `ownerId`. */
-  private final case class Seeded(rowsPanel: String, insightPanel: String)
+  private final case class Seeded(rowsPanel: String, insightPanel: String, formPanel: String)
 
   private def seedPanels(dashId: String): Seeded = {
     val now    = Instant.now()
@@ -169,7 +169,22 @@ class PublicRouteOwnerIdLeakApiSpec
     val (ipid, ioid) = seedInsightOutput(ownerId)
     addInsight(ioid, ipid, now, markdown = Some("Revenue is up."))
     addPoint(ioid, ipid, now, Some(7.0))
-    Seeded(rows, seedPanel(dashId, Some(ioid)))
+    val insightP = seedPanel(dashId, Some(ioid))
+    // HEL-1587: a form panel bound to a dataset owned by the distinctive id, and a stored layout naming every panel.
+    val formSrc  = UUID.randomUUID().toString
+    val formP    = UUID.randomUUID().toString
+    val formCfg  = s"""{"dataSourceId":"$formSrc","fields":[{"sourceField":"qty","control":"number"}],"submit":{"writeMode":"append"}}"""
+    awaitDb(db.run(DBIO.seq(
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at, dataset_schema)
+               VALUES ($formSrc::uuid, 'ds', 'dataset', '{}'::jsonb, ${ownerId}::uuid, now(), now(), '[{"name":"qty","type":"integer","required":true}]'::jsonb)""",
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id, form_config)
+               VALUES ($formP, $dashId, 'F', $ownerId, now(), now(), '{"background":"transparent","color":"inherit","transparency":0.0}',
+                       'form', ${ownerId}::uuid, $formCfg::jsonb)"""
+    )))
+    val items  = Seq(rows, insightP, formP).zipWithIndex.map { case (id, i) => s"""{"panelId":"$id","x":${i * 3},"y":0,"w":3,"h":3}""" }.mkString(",")
+    val layout = s"""{"lg":[$items],"md":[$items],"sm":[$items],"xs":[$items]}"""
+    awaitDb(db.run(sqlu"""UPDATE dashboards SET layout = $layout::jsonb WHERE id = $dashId"""))
+    Seeded(rows, insightP, formP)
   }
 
   // ---------------------------------------------------------------- cases
@@ -201,7 +216,10 @@ class PublicRouteOwnerIdLeakApiSpec
           s"/api/dashboards/$dash/panels/${s.rowsPanel}/insight$q", // 404: not an insight Output
           s"/api/dashboards/$dash/panels/${UUID.randomUUID()}/insight$q",
           s"/api/dashboards/$dash/panels/${UUID.randomUUID()}/history$q",
-          s"/api/dashboards/$dash/panels/${s.rowsPanel}/rows${sep}offset=-1"
+          s"/api/dashboards/$dash/panels/${s.rowsPanel}/rows${sep}offset=-1",
+          s"/api/dashboards/$dash/panels/${s.formPanel}/form-schema$q",
+          s"/api/dashboards/$dash/panels/${s.rowsPanel}/form-schema$q", // 404: not a form
+          s"/api/dashboards/$dash/panels/${UUID.randomUUID()}/form-schema$q"
         )
       }
       val scenarios: Seq[(String, Option[String], Seq[String])] = Seq(
@@ -231,6 +249,15 @@ class PublicRouteOwnerIdLeakApiSpec
       }
       request("GET", s"/api/dashboards/$publicDash/panels/${pub.rowsPanel}/insight") ~> routes ~> check {
         status shouldBe StatusCodes.NotFound
+      }
+      // HEL-1587: the new routes carry real data on a public dashboard (the guard is not vacuous for them).
+      request("GET", s"/api/dashboards/$publicDash/panels/${pub.formPanel}/form-schema") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[String] should include("qty")
+      }
+      request("GET", s"/api/dashboards/$publicDash/panels") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[JsObject].fields("layout").asJsObject.fields("lg").asInstanceOf[JsArray].elements.size shouldBe 3
       }
       request("GET", s"/api/dashboards/$privateDash/panels/${priv.insightPanel}/insight") ~> routes ~> check {
         status shouldBe StatusCodes.NotFound

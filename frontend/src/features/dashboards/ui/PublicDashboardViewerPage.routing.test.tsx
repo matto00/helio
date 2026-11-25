@@ -20,6 +20,7 @@ import { toastsReducer } from "../../toasts/state/toastsSlice";
 import { App } from "../../../app/App";
 import { buildShareUrl } from "./DashboardShareDialog";
 import * as publicDashboardService from "../services/publicDashboardService";
+import { publicPanelsResult } from "../../../test/publicPanelsResult";
 
 jest.mock("../../auth/services/authService", () => ({
   getMeRequest: jest.fn().mockRejectedValue(new Error("unauthenticated")),
@@ -66,7 +67,7 @@ beforeEach(() => {
 
 describe("a minted share link resolves against the real router", () => {
   it("renders the public viewer, not NotFoundPage, at the URL DashboardShareDialog composes", async () => {
-    fetchPublicDashboardPanelsMock.mockResolvedValueOnce([]);
+    fetchPublicDashboardPanelsMock.mockResolvedValueOnce(publicPanelsResult([]));
 
     renderAtPath(mintedSharePath("dash-1", "valid-token"));
 
@@ -77,9 +78,11 @@ describe("a minted share link resolves against the real router", () => {
   });
 
   it("renders the fetched panels", async () => {
-    fetchPublicDashboardPanelsMock.mockResolvedValueOnce([
-      { id: "p1", title: "Revenue", type: "text" } as never,
-    ]);
+    fetchPublicDashboardPanelsMock.mockResolvedValueOnce(
+      publicPanelsResult([
+        { id: "p1", title: "Revenue", type: "text", config: { content: "Quarterly" } } as never,
+      ]),
+    );
 
     renderAtPath(mintedSharePath("dash-1", "valid-token"));
 

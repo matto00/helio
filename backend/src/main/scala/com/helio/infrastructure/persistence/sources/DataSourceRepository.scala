@@ -1052,6 +1052,17 @@ class DataSourceRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pipe
     }
   }
 
+  /** HEL-1587 design D2 (b): [[getDeclaredSchema]] with an explicit `owner_id` predicate, for the public form-schema read. The
+   *  public caller is anonymous, so the read runs in the FORM OWNER's context (`ownerId`) on the app pool; this predicate
+   *  makes "the dataset belongs to the form's owner" hold under ANY database role, not only under RLS (which a BYPASSRLS
+   *  test or admin role would skip). `None` for a missing dataset or one `ownerId` does not own. */
+  def getDeclaredSchemaOwnedBy(id: DataSourceId, ownerId: UserId): Future[Option[Vector[DatasetFieldDeclaration]]] = {
+    val query = table.filter(d => d.id === id.value && d.ownerId === UUID.fromString(ownerId.value)).map(_.datasetSchema).result.headOption
+    ctx.withUserContext(ownerId.value)(query).map { schemaColOpt =>
+      schemaColOpt.map(_.map(_.parseJson.convertTo[Vector[DatasetFieldDeclaration]]).getOrElse(Vector.empty))
+    }
+  }
+
   /** HEL-1095 design.md D2/D3/D4: `sum(delta)` over a dataset source's rows, for one field
    *  identified by its DECLARED POSITIONAL INDEX (`dataset_rows.data` is a positional JSONB
    *  array -- design.md's Risks section -- so the caller resolves `field`'s index against

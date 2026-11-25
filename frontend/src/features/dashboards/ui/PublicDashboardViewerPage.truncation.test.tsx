@@ -16,6 +16,7 @@ import { panelsReducer } from "../../panels/state/panelsSlice";
 import * as publicDashboardService from "../services/publicDashboardService";
 import { resetHistoryCache } from "../../panels/history/outputHistoryCache";
 import type { OutputPanel } from "../../panels/types/panel";
+import { publicPanelsResult } from "../../../test/publicPanelsResult";
 
 jest.mock("echarts-for-react/lib/core", () => ({
   __esModule: true,
@@ -73,7 +74,7 @@ const PAGE = [
 beforeEach(() => {
   jest.clearAllMocks();
   resetHistoryCache();
-  fetchPanels.mockResolvedValue([chartPanel]);
+  fetchPanels.mockResolvedValue(publicPanelsResult([chartPanel]));
   fetchMeta.mockResolvedValue({
     kind: "chart",
     config: { chartType: "line", fieldMapping: { xAxis: "day", yAxis: "amount" } },

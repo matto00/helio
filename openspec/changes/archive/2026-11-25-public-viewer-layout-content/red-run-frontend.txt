@@ -1,0 +1,205 @@
+FAIL src/features/dashboards/ui/PublicDashboardViewerPage.content.test.tsx
+  ● Test suite failed to run
+
+    src/features/dashboards/ui/PublicDashboardViewerPage.content.test.tsx:92:58 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    92     fetchPublicDashboardPanelsMock.mockResolvedValueOnce(publicPanelsResult([tablePanel]));
+                                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    src/features/dashboards/ui/PublicDashboardViewerPage.content.test.tsx:120:58 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    120     fetchPublicDashboardPanelsMock.mockResolvedValueOnce(publicPanelsResult([tablePanel]));
+                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    src/features/dashboards/ui/PublicDashboardViewerPage.content.test.tsx:159:58 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    159     fetchPublicDashboardPanelsMock.mockResolvedValueOnce(publicPanelsResult([panelWithControl]));
+                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+FAIL src/features/panels/ui/form/FormFieldControl.test.tsx
+  ● Test suite failed to run
+
+    src/features/panels/ui/form/FormFieldControl.test.tsx:482:9 - error TS2322: Type '{ field: FormFieldSpec; declared: DatasetFieldResponse; value: FormFieldValue; error: null; onChange: () => void; onBlur: () => void; disabled: true; }' is not assignable to type 'IntrinsicAttributes & FormFieldControlProps'.
+      Property 'disabled' does not exist on type 'IntrinsicAttributes & FormFieldControlProps'.
+
+    482         disabled
+                ~~~~~~~~
+    src/features/panels/ui/form/FormFieldControl.test.tsx:493:90 - error TS2345: Argument of type '"string" | "integer" | "date"' is not assignable to parameter of type 'DatasetFieldType'.
+      Type '"date"' is not assignable to type 'DatasetFieldType'.
+
+    493     const { container } = renderDisabled({ sourceField: "f", control, label: "L" }, decl(type));
+                                                                                                 ~~~~
+    src/features/panels/ui/form/FormFieldControl.test.tsx:521:9 - error TS2322: Type '{ field: { sourceField: string; control: "counter"; label: string; }; declared: DatasetFieldResponse; value: string; error: null; onChange: Mock<any, any, any>; onBlur: () => void; disabled: true; }' is not assignable to type 'IntrinsicAttributes & FormFieldControlProps'.
+      Property 'disabled' does not exist on type 'IntrinsicAttributes & FormFieldControlProps'.
+
+    521         disabled
+                ~~~~~~~~
+
+FAIL src/features/dashboards/ui/PublicDashboardViewerPage.layout.test.tsx
+  ● Test suite failed to run
+
+    src/features/dashboards/ui/PublicDashboardViewerPage.layout.test.tsx:75:64 - error TS2339: Property 'fetchPublicFormSchema' does not exist on type 'typeof import("/home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/frontend/src/features/dashboards/services/publicDashboardService")'.
+
+    75 const fetchFormSchemaMock = jest.mocked(publicDashboardService.fetchPublicFormSchema);
+                                                                      ~~~~~~~~~~~~~~~~~~~~~
+    src/features/dashboards/ui/PublicDashboardViewerPage.layout.test.tsx:181:7 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    181       publicPanelsResult([outputPanel, markdownPanel, imagePanel], twoColumn),
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    src/features/dashboards/ui/PublicDashboardViewerPage.layout.test.tsx:204:7 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    204       publicPanelsResult([outputPanel, markdownPanel, imagePanel], twoColumn),
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    src/features/dashboards/ui/PublicDashboardViewerPage.layout.test.tsx:217:7 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    217       publicPanelsResult([outputPanel, markdownPanel, imagePanel], twoColumn),
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    src/features/dashboards/ui/PublicDashboardViewerPage.layout.test.tsx:228:7 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    228       publicPanelsResult([outputPanel, markdownPanel, imagePanel], twoColumn),
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    src/features/dashboards/ui/PublicDashboardViewerPage.layout.test.tsx:242:7 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    242       publicPanelsResult([outputPanel, markdownPanel, imagePanel], gap),
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    src/features/dashboards/ui/PublicDashboardViewerPage.layout.test.tsx:257:7 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    257       publicPanelsResult([outputPanel, markdownPanel, imagePanel], short),
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    src/features/dashboards/ui/PublicDashboardViewerPage.layout.test.tsx:267:7 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    267       publicPanelsResult([outputPanel, markdownPanel, imagePanel], twoColumn),
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    src/features/dashboards/ui/PublicDashboardViewerPage.layout.test.tsx:282:7 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    282       publicPanelsResult([outputPanel, markdownPanel, imagePanel], {
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    283         ...twoColumn,
+        ~~~~~~~~~~~~~~~~~~~~~
+    ... 
+    285         md: [item("out", 0, 0, 5, 6), item("md", 0, 0, 5, 6), item("img", 0, 0, 10, 5)],
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    286       }),
+        ~~~~~~~~
+    src/features/dashboards/ui/PublicDashboardViewerPage.layout.test.tsx:307:7 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    307       publicPanelsResult(
+              ~~~~~~~~~~~~~~~~~~~
+    308         [
+        ~~~~~~~~~
+    ... 
+    319         },
+        ~~~~~~~~~~
+    320       ),
+        ~~~~~~~
+    src/features/dashboards/ui/PublicDashboardViewerPage.layout.test.tsx:352:7 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    352       publicPanelsResult([hostileMd, hostileImg, dataImg], {
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    353         lg: [],
+        ~~~~~~~~~~~~~~~
+    ... 
+    356         xs: [],
+        ~~~~~~~~~~~~~~~
+    357       }),
+        ~~~~~~~~
+    src/features/dashboards/ui/PublicDashboardViewerPage.layout.test.tsx:374:7 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    374       publicPanelsResult(
+              ~~~~~~~~~~~~~~~~~~~
+    375         [
+        ~~~~~~~~~
+    ... 
+    386         { lg: [], md: [item("frm", 0, 0, 5, 5)], sm: [], xs: [] },
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    387       ),
+        ~~~~~~~
+    src/features/dashboards/ui/PublicDashboardViewerPage.layout.test.tsx:425:7 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    425       publicPanelsResult([formPanel], { lg: [], md: [item("frm", 0, 0, 5, 6)], sm: [], xs: [] }),
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    src/features/dashboards/ui/PublicDashboardViewerPage.layout.test.tsx:459:7 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    459       publicPanelsResult([formPanel], { lg: [], md: [item("frm", 0, 0, 5, 6)], sm: [], xs: [] }),
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+FAIL src/features/dashboards/ui/PublicDashboardViewerPage.history.test.tsx
+  ● Test suite failed to run
+
+    src/features/dashboards/ui/PublicDashboardViewerPage.history.test.tsx:117:64 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    117   fetchPublicDashboardPanelsMock.mockReset().mockResolvedValue(publicPanelsResult([metricPanel]));
+                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+FAIL src/features/dashboards/ui/PublicDashboardViewerPage.routing.test.tsx
+  ● Test suite failed to run
+
+    src/features/dashboards/ui/PublicDashboardViewerPage.routing.test.tsx:70:58 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    70     fetchPublicDashboardPanelsMock.mockResolvedValueOnce(publicPanelsResult([]));
+                                                                ~~~~~~~~~~~~~~~~~~~~~~
+    src/features/dashboards/ui/PublicDashboardViewerPage.routing.test.tsx:81:58 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    81     fetchPublicDashboardPanelsMock.mockResolvedValueOnce(publicPanelsResult([
+                                                                ~~~~~~~~~~~~~~~~~~~~
+    82       { id: "p1", title: "Revenue", type: "text", config: { content: "Quarterly" } } as never,
+       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    83     ]));
+       ~~~~~~
+
+FAIL src/features/dashboards/ui/PublicDashboardViewerPage.truncation.test.tsx
+  ● Test suite failed to run
+
+    src/features/dashboards/ui/PublicDashboardViewerPage.truncation.test.tsx:77:33 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    77   fetchPanels.mockResolvedValue(publicPanelsResult([chartPanel]));
+                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+FAIL src/features/dashboards/ui/PublicDashboardViewerPage.filteredMetric.test.tsx
+  ● Test suite failed to run
+
+    src/features/dashboards/ui/PublicDashboardViewerPage.filteredMetric.test.tsx:68:33 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    68   fetchPanels.mockResolvedValue(publicPanelsResult([metricPanel]));
+                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+FAIL src/features/dashboards/ui/PublicDashboardViewerPage.provenance.test.tsx
+  ● Test suite failed to run
+
+    src/features/dashboards/ui/PublicDashboardViewerPage.provenance.test.tsx:40:84 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    40   jest.mocked(publicDashboardService.fetchPublicDashboardPanels).mockResolvedValue(publicPanelsResult([panel]));
+                                                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+FAIL src/features/dashboards/ui/PublicDashboardViewerPage.crossFilter.test.tsx
+  ● Test suite failed to run
+
+    src/features/dashboards/ui/PublicDashboardViewerPage.crossFilter.test.tsx:42:54 - error TS2345: Argument of type '{ panels: Panel[]; layout: DashboardLayout; }' is not assignable to parameter of type 'Panel[] | Promise<Panel[]>'.
+
+    42     fetchPublicDashboardPanels.mockResolvedValueOnce(publicPanelsResult([panel]));
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+FAIL src/features/dashboards/services/publicDashboardService.layout.test.ts
+  ● Test suite failed to run
+
+    src/features/dashboards/services/publicDashboardService.layout.test.ts:3:38 - error TS2305: Module '"./publicDashboardService"' has no exported member 'fetchPublicFormSchema'.
+
+    3 import { fetchPublicDashboardPanels, fetchPublicFormSchema } from "./publicDashboardService";
+                                           ~~~~~~~~~~~~~~~~~~~~~
+    src/features/dashboards/services/publicDashboardService.layout.test.ts:15:19 - error TS2339: Property 'panels' does not exist on type 'Panel[]'.
+
+    15     expect(result.panels).toEqual([{ id: "p" }]);
+                         ~~~~~~
+    src/features/dashboards/services/publicDashboardService.layout.test.ts:16:19 - error TS2339: Property 'layout' does not exist on type 'Panel[]'.
+
+    16     expect(result.layout).toEqual(layout);
+                         ~~~~~~
+    src/features/dashboards/services/publicDashboardService.layout.test.ts:22:19 - error TS2339: Property 'layout' does not exist on type 'Panel[]'.
+
+    22     expect(result.layout).toEqual({ lg: [], md: [], sm: [], xs: [] });
+                         ~~~~~~
+
+
+Test Suites: 10 failed, 3 passed, 13 total
+Tests:       18 passed, 18 total
+Snapshots:   0 total
+Time:        5.275 s
+Ran all test suites matching src/features/dashboards/ui/PublicDashboardViewerPage|src/features/dashboards/services/publicDashboardService|src/features/panels/ui/form/FormFieldControl.test.tsx.

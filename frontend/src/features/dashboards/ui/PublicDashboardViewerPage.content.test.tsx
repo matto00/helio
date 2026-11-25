@@ -10,6 +10,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { Provider } from "react-redux";
 
 import { PublicDashboardViewerPage } from "./PublicDashboardViewerPage";
+import { publicPanelsResult } from "../../../test/publicPanelsResult";
 import { authReducer } from "../../auth/state/authSlice";
 import { panelsReducer } from "../../panels/state/panelsSlice";
 import { updateOutput } from "../../pipelines/services/outputService";
@@ -88,7 +89,7 @@ beforeEach(() => {
 
 describe("PublicDashboardViewerPage renders real output-panel content (HEL-1190 D1)", () => {
   it("shows a table-kind panel's actual rows, not just its title/kind", async () => {
-    fetchPublicDashboardPanelsMock.mockResolvedValueOnce([tablePanel]);
+    fetchPublicDashboardPanelsMock.mockResolvedValueOnce(publicPanelsResult([tablePanel]));
     fetchPublicOutputMetaMock.mockResolvedValueOnce({
       kind: "table",
       config: {},
@@ -116,7 +117,7 @@ describe("PublicDashboardViewerPage renders real output-panel content (HEL-1190 
   // sort click. `usePublicPanelData` always reconstructs `ownerId: null`, so `canWrite` is
   // structurally false regardless of the authenticated user id matching the real owner.
   it("issues no PATCH when an authenticated OWNER session clicks a column sort on the public view", async () => {
-    fetchPublicDashboardPanelsMock.mockResolvedValueOnce([tablePanel]);
+    fetchPublicDashboardPanelsMock.mockResolvedValueOnce(publicPanelsResult([tablePanel]));
     fetchPublicOutputMetaMock.mockResolvedValueOnce({
       kind: "table",
       config: {},
@@ -155,7 +156,7 @@ describe("PublicDashboardViewerPage — viewer controls (HEL-1190 D1-D4, task 5.
   };
 
   it("renders the control bar and composes a selection into the public rows request", async () => {
-    fetchPublicDashboardPanelsMock.mockResolvedValueOnce([panelWithControl]);
+    fetchPublicDashboardPanelsMock.mockResolvedValueOnce(publicPanelsResult([panelWithControl]));
     fetchPublicOutputMetaMock.mockResolvedValue({
       kind: "table",
       config: {},

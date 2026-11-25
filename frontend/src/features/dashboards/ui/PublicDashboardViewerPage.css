@@ -33,14 +33,42 @@
   color: var(--app-text);
 }
 
-.public-dashboard-viewer__panel-kind {
-  font-size: var(--text-xs);
-  color: var(--app-text-muted);
-  text-transform: capitalize;
+/* HEL-1587 — a card's title row: the title (heading) with the provenance trigger at the trailing end, beside it. */
+.public-dashboard-viewer__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
-/* HEL-1207 — the public viewer's provenance trigger row, above the panel content. */
-.public-dashboard-viewer__provenance-row {
+/* HEL-1587 — the read-only grid. The 1200px cap is lifted so the lg breakpoint (>= 1440px container) is reachable on a
+   wide screen; the side padding stays, so a 1440px viewport is a ~1408px container (breakpoint md). */
+.public-dashboard-viewer--grid {
+  max-width: none;
+}
+
+/* The cell card reuses `.panel-grid-card` (surface, border, radius, shadow, container query, title typography) and only
+   removes its interactive affordance: nothing on a public cell opens a detail view. */
+.public-dashboard-viewer__card {
+  cursor: default;
+  justify-content: flex-start;
+}
+
+.public-dashboard-viewer__card-body {
+  flex: 1;
+  min-height: 0;
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.public-dashboard-viewer__card-body > .panel-content {
+  flex: 1;
+}
+
+.public-dashboard-viewer__preview-note {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
 }

@@ -1,0 +1,103 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.13.0.3)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/project
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/build.sbt:247:8 
+247 |        exclude("org.apache.pekko", "*")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/build.sbt:248:8 
+248 |        exclude("com.typesafe.akka", "akka-actor_2.13")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/build.sbt:249:8 
+249 |        exclude("com.typesafe.akka", "akka-stream_2.13")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/build.sbt:250:8 
+250 |        exclude("com.typesafe.akka", "akka-slf4j_2.13")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/build.sbt:251:8 
+251 |        exclude("org.slf4j", "slf4j-log4j12")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/build.sbt:252:8 
+252 |        exclude("org.apache.logging.log4j", "log4j-slf4j2-impl"),
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/build.sbt:254:8 
+254 |        exclude("org.apache.pekko", "*")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/build.sbt:255:8 
+255 |        exclude("com.typesafe.akka", "akka-actor_2.13")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/build.sbt:256:8 
+256 |        exclude("com.typesafe.akka", "akka-stream_2.13")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/build.sbt:257:8 
+257 |        exclude("com.typesafe.akka", "akka-slf4j_2.13")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/build.sbt:258:8 
+258 |        exclude("org.slf4j", "slf4j-log4j12")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/build.sbt:259:8 
+259 |        exclude("org.apache.logging.log4j", "log4j-slf4j2-impl")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/)
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[info] compiling 873 Scala sources to /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/target/out/jvm/scala-2.13.15/helio-backend/test-classes ...
+[error] /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/src/test/scala/com/helio/api/routes/dashboards/PublicFormSchemaRlsSpec.scala:33:25: not found: type PublicFormSchemaResolver
+[error]   private var resolver: PublicFormSchemaResolver = _
+[error]                         ^
+[error] /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/src/test/scala/com/helio/api/routes/dashboards/PublicFormSchemaRlsSpec.scala:65:20: not found: type PublicFormSchemaResolver
+[error]     resolver = new PublicFormSchemaResolver(new PanelRepository(ctx), new DataSourceRepository(ctx), None)
+[error]                    ^
+[error] /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/src/test/scala/com/helio/api/routes/dashboards/PublicRouteOwnerIdLeakSpec.scala:110:24: unknown parameter name: dashboardRepoOpt
+[error]       dashboardRepoOpt = Some(dashboardRepo), dataSourceRepoOpt = Some(dataSourceRepo))(typedSystem).routes
+[error]                        ^
+[error] /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/src/test/scala/com/helio/api/routes/dashboards/PublicRouteOwnerIdLeakSpec.scala:110:65: unknown parameter name: dataSourceRepoOpt
+[error]       dashboardRepoOpt = Some(dashboardRepo), dataSourceRepoOpt = Some(dataSourceRepo))(typedSystem).routes
+[error]                                                                 ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/src/test/scala/com/helio/infrastructure/persistence/V114BackfillSignupEventsSpec.scala:103:9: A try without a catch or finally is equivalent to putting its body in a block; no exceptions are handled.
+[warn]         try {
+[warn]         ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/public-viewer-layout-content/HEL-1587/backend/src/test/scala/com/helio/infrastructure/persistence/dashboards/DashboardLayoutRepairRlsSpec.scala:162:17: reference to ctx is ambiguous;
+[warn] it is both defined in the enclosing class DashboardLayoutRepairRlsSpec and inherited in the enclosing anonymous class as value ctx (defined in class DashboardRepository)
+[warn] In Scala 2, symbols inherited from a superclass shadow symbols defined in an outer scope.
+[warn] Such references are ambiguous in Scala 3. To continue using the inherited symbol, write `this.ctx`.
+[warn] Or use `-Wconf:msg=legacy-binding:s` to silence this warning. [quickfixable]
+[warn]           await(ctx.withSystemContext(sqlu"""UPDATE dashboards SET layout = $concurrent WHERE id = ${i.value}"""))
+[warn]                 ^
+[warn] two warnings found
+[error] four errors found
+[error] (Test / compileIncremental) Compilation failed
+[error] elapsed time: 33 s, cache 94%, 16 disk cache hits, 1 onsite task

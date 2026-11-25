@@ -12,6 +12,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { Provider } from "react-redux";
 
 import { PublicDashboardViewerPage } from "./PublicDashboardViewerPage";
+import { publicPanelsResult } from "../../../test/publicPanelsResult";
 import { authReducer } from "../../auth/state/authSlice";
 import { panelsReducer } from "../../panels/state/panelsSlice";
 import * as publicDashboardService from "../services/publicDashboardService";
@@ -113,7 +114,7 @@ beforeEach(() => {
   // the first one's cache entry.
   resetHistoryCache();
   resetComparisonStore();
-  fetchPublicDashboardPanelsMock.mockReset().mockResolvedValue([metricPanel]);
+  fetchPublicDashboardPanelsMock.mockReset().mockResolvedValue(publicPanelsResult([metricPanel]));
   fetchPublicOutputMetaMock.mockReset().mockResolvedValue({
     kind: "metric",
     config: METRIC_CONFIG,

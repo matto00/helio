@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/panels/public-form-schema-response.schema.json",
+  "title": "PublicFormSchemaResponse",
+  "description": "Response body of GET /api/dashboards/:dashboardId/panels/:panelId/form-schema (HEL-1587), readable behind the dashboard's sharing gate (share token, public dashboard or grant): ONLY the fields the form binds (`config.fields[].sourceField`), in the dataset's declared order, as exactly name/type/required. No `default`, no row, no data source id, no row cap and no owner id. A non-form panel, a panel of another dashboard, an unknown panel and a missing dataset (or one the form's owner does not own) all answer the same 404.",
+  "type": "object",
+  "required": ["fields"],
+  "properties": {
+    "fields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "required"],
+        "properties": {
+          "name": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": [
+              "string",
+              "integer",
+              "float",
+              "boolean",
+              "timestamp",
+              "string-body",
+              "binary-ref"
+            ]
+          },
+          "required": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

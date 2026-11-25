@@ -1,0 +1,88 @@
+== backend mutation 1: owner predicate dropped (withUserContext kept)
+[info] - should answer 404 and reveal nothing when the form's dataset belongs to a user other than the form's owner *** FAILED ***
+[info] Tests: succeeded 10, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+== backend mutation 2: predicate dropped AND withSystemContext
+[info] - should answer NotFound for a dataset the form's owner does not own *** FAILED ***
+[info] Tests: succeeded 1, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+
+== mutation noCompactor removed
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › keeps a vertical gap at its stored y (noCompactor), not pulled up
+Tests:       1 failed, 46 passed, 47 total
+== mutation preview controls not disabled
+  ● PublicDashboardViewerPage form preview (HEL-1587) › shows the labels with every control disabled, no submit control, and sends no submit request
+Tests:       1 failed, 46 passed, 47 total
+== mutation counter not disabled
+  ● FormFieldControl disabled prop (HEL-1587) › disables a counter's spinbutton and both step buttons, and ignores the keyboard
+  ● PublicDashboardViewerPage form preview (HEL-1587) › shows the labels with every control disabled, no submit control, and sends no submit request
+Tests:       2 failed, 45 passed, 47 total
+== mutation preview issues a submit (no-submit guard)
+  ● PublicDashboardViewerPage form preview (HEL-1587) › shows the labels with every control disabled, no submit control, and sends no submit request
+Tests:       1 failed, 46 passed, 47 total
+
+################ CYCLE 2 (evaluation-1 CR1/CR3) ################
+== CR1 red (before the measureBeforeMount fix): phone cold load mounted bodies twice
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › mounts each panel body once on a phone cold load (never the grid at the 1280px default first)
+    Expected number of calls: 1
+    Received number of calls: 2
+Tests:       1 failed, 13 passed, 14 total
+
+== cycle2 mutation: grid branch forced to the stack (showGrid = false)
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › places the panels side by side at md from the stored md layout (a 1440px viewport is a ~1408px container)
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › resolves lg for a container of 1440px or more (12 columns, lg items)
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › resolves sm for 768-1099px
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › keeps a vertical gap at its stored y (noCompactor), not pulled up
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › marks a minimum-height cell data-short-card, as the signed-in grid does
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › renders no drag, resize, edit or menu affordance on any cell
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › sends no layout save or repair request for the dashboard's owner, across breakpoint changes
+Tests:       7 failed, 7 passed, 14 total
+== cycle2 mutation: non-output, non-form panels revert to title + type name
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › places the panels side by side at md from the stored md layout (a 1440px viewport is a ~1408px container)
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › resolves lg for a container of 1440px or more (12 columns, lg items)
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › resolves sm for 768-1099px
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › keeps the existing stacked list below 768px
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › mounts each panel body once on a phone cold load (never the grid at the 1280px default first)
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › keeps a vertical gap at its stored y (noCompactor), not pulled up
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › marks a minimum-height cell data-short-card, as the signed-in grid does
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › renders no drag, resize, edit or menu affordance on any cell
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › sends no layout save or repair request for the dashboard's owner, across breakpoint changes
+  ● PublicDashboardViewerPage content panels (HEL-1587) › renders markdown, image (with caption), text and divider through the shared renderers
+  ● PublicDashboardViewerPage content panels (HEL-1587) › renders hostile markdown and a hostile image URL inert
+Tests:       11 failed, 3 passed, 14 total
+== cycle2 mutation: no measureBeforeMount (the CR1 fix removed)
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › mounts each panel body once on a phone cold load (never the grid at the 1280px default first)
+Tests:       1 failed, 13 passed, 14 total
+
+NOTE (a): with ONLY the owner_id predicate removed, PublicFormSchemaRlsSpec stayed GREEN (RLS alone yields 404: the single failure below is in PublicLayoutAndFormSchemaRoutesSpec, the ordinary BYPASSRLS harness, as designed).
+== (a) ONLY the owner_id predicate removed (withUserContext kept): PublicFormSchemaRlsSpec + route spec
+[info] - should answer 404 and reveal nothing when the form's dataset belongs to a user other than the form's owner *** FAILED ***
+[info] Tests: succeeded 10, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.dashboards.PublicLayoutAndFormSchemaRoutesSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 5 s, cache 93%, 28 disk cache hits, 2 onsite tasks
+== layout filter: panel-id filter dropped in storedLayoutFor
+[info] - should give a share-token viewer the stored layout, filtered to the response's panels, with exactly the item keys *** FAILED ***
+[info] Tests: succeeded 10, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.dashboards.PublicLayoutAndFormSchemaRoutesSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 5 s, cache 93%, 28 disk cache hits, 2 onsite tasks
+== form-schema: bound-field filter dropped
+[info] - should return only the bound fields, in declared order, with exactly name/type/required and no default *** FAILED ***
+[info] - should read the form owner's OWN dataset (owner-positive control) *** FAILED ***
+[info] Tests: succeeded 9, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.dashboards.PublicFormSchemaRlsSpec
+[error] 	com.helio.api.routes.dashboards.PublicLayoutAndFormSchemaRoutesSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+
+################ CYCLE 3 (skeptic-final-1) ################
+== red before the stack-order and provenance-row changes
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › orders the phone stack by the stored xs layout (y, then x), not the API order
+  ● PublicDashboardViewerPage grid layout (HEL-1587) › puts the output panel's provenance trigger beside its title, in the card's title row (grid and stack)
+Tests:       2 failed, 14 passed, 16 total

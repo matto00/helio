@@ -32,6 +32,17 @@ final case class DashboardLayoutResponse(
     sm: Vector[DashboardLayoutItemResponse],
     xs: Vector[DashboardLayoutItemResponse]
 )
+/** HEL-1587: `GET /api/dashboards/:id/panels` -- the paged panel list plus the dashboard's stored layout, each breakpoint
+ *  filtered to the panels in this response. Items carry exactly `panelId, x, y, w, h`; no layout version, appearance or
+ *  owner id. */
+final case class PublicPanelListResponse(
+    items: Vector[PanelResponse],
+    total: Int,
+    offset: Int,
+    limit: Int,
+    layout: DashboardLayoutResponse
+)
+
 final case class DashboardResponse(
     id: String,
     name: String,
@@ -249,6 +260,7 @@ trait DashboardProtocol extends SprayJsonSupport with DefaultJsonProtocol with P
   implicit val dashboardAppearanceResponseFormat: RootJsonFormat[DashboardAppearanceResponse] = jsonFormat2(DashboardAppearanceResponse.apply)
   implicit val dashboardLayoutItemResponseFormat: RootJsonFormat[DashboardLayoutItemResponse] = jsonFormat5(DashboardLayoutItemResponse.apply)
   implicit val dashboardLayoutResponseFormat: RootJsonFormat[DashboardLayoutResponse]         = jsonFormat4(DashboardLayoutResponse.apply)
+  implicit val publicPanelListResponseFormat: RootJsonFormat[PublicPanelListResponse]        = jsonFormat5(PublicPanelListResponse.apply)
   implicit val dashboardResponseFormat: RootJsonFormat[DashboardResponse]                     = jsonFormat10(DashboardResponse.apply)
   implicit val layoutConflictResponseFormat: RootJsonFormat[LayoutConflictResponse]           = jsonFormat2(LayoutConflictResponse.apply)
   implicit val dashboardsResponseFormat: RootJsonFormat[DashboardsResponse]                   = jsonFormat1(DashboardsResponse.apply)

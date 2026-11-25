@@ -6,6 +6,8 @@
 
 import { httpClient } from "../../../services/httpClient";
 import type { Panel } from "../../panels/types/panel";
+import type { DashboardLayout } from "../types/dashboard";
+import type { DatasetFieldType } from "../../sources/types/dataSource";
 import type { PagedResult } from "../../../types/models";
 import { preloadChartPanel } from "../../panels/ui/renderers/chartPanelModule";
 import {
@@ -20,15 +22,45 @@ import type {
   PublicOutputMeta,
 } from "../../pipelines/types/output";
 
+/** HEL-1587: the panel list also carries the dashboard's stored layout (each breakpoint filtered to the listed panels). */
+export interface PublicDashboardPanels {
+  panels: Panel[];
+  layout: DashboardLayout;
+}
+
 export async function fetchPublicDashboardPanels(
   dashboardId: string,
   token: string,
-): Promise<Panel[]> {
-  const response = await httpClient.get<PagedResult<Panel>>(
+): Promise<PublicDashboardPanels> {
+  const response = await httpClient.get<PagedResult<Panel> & { layout?: DashboardLayout }>(
     `/api/dashboards/${dashboardId}/panels`,
     { params: { token } },
   );
-  return response.data.items;
+  // A missing `layout` (an older server) degrades to empty breakpoints: every panel is then auto-placed.
+  return {
+    panels: response.data.items,
+    layout: response.data.layout ?? { lg: [], md: [], sm: [], xs: [] },
+  };
+}
+
+/** HEL-1587: `GET /api/dashboards/:dashboardId/panels/:panelId/form-schema` -- exactly `name`/`type`/`required` of ONLY the
+ *  fields a form panel binds, readable behind the share link. Feeds the read-only form preview. */
+export interface PublicFormFieldDeclaration {
+  name: string;
+  type: DatasetFieldType;
+  required: boolean;
+}
+
+export async function fetchPublicFormSchema(
+  dashboardId: string,
+  panelId: string,
+  token: string,
+): Promise<{ fields: PublicFormFieldDeclaration[] }> {
+  const response = await httpClient.get<{ fields: PublicFormFieldDeclaration[] }>(
+    `/api/dashboards/${dashboardId}/panels/${panelId}/form-schema`,
+    { params: { token } },
+  );
+  return response.data;
 }
 
 export interface PublicPanelRowsResult {

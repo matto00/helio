@@ -3,6 +3,8 @@ package com.helio.api.routes.dashboards
 import com.helio.api._
 import com.helio.domain.model._
 import com.helio.domain.panels.OutputPanel
+import com.helio.api.protocols.dashboards.{DashboardLayoutItemResponse, DashboardLayoutResponse, PublicPanelListResponse}
+import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository}
 import com.helio.services.panels.OutputControlsValidator
@@ -16,7 +18,8 @@ final class PublicPanelListResolver(
     userOpt: Option[AuthenticatedUser],
     outputRepo: OutputRepository,
     pipelineRepoOpt: Option[PipelineRepository],
-    nodeSnapshotRepoOpt: Option[NodeSnapshotRepository]
+    nodeSnapshotRepoOpt: Option[NodeSnapshotRepository],
+    dashboardRepoOpt: Option[DashboardRepository] = None
 )(implicit executionContext: ExecutionContext) {
 
   // HEL-1189 design.md D5 — same convention `ApiRoutes.scala` uses to wire `PanelService`'s own
@@ -74,7 +77,7 @@ final class PublicPanelListResolver(
   /** The panel-list route's `resultF` body: `findAllByDashboardId -> per-panel resolve ->
    *  PanelResponse.fromDomain`, incl. the `ownerView` rule. Moved verbatim from the route's
    *  authorized block (HEL-1291); `access` is that block's resolved `ResourceAccess`. */
-  def panelList(dashboardId: String, page: Page, access: ResourceAccess): Future[PagedResult[PanelResponse]] =
+  def panelList(dashboardId: String, page: Page, access: ResourceAccess): Future[PublicPanelListResponse] =
     // HEL-590 evaluation-2.md CR-A: `access` here is the directive's resolved `ResourceAccess`
     // (Owner/Editor/Viewer, however it was granted -- including via a share token, which
     // matches none of `findAllByDashboardId`'s own owner/grantee/public-grant predicates).
@@ -101,7 +104,39 @@ final class PublicPanelListResolver(
               val ownerView = access == ResourceAccess.Owner || userOpt.exists(_.id.value == panel.ownerId.value)
               PanelResponse.fromDomain(panel, dataAsOf, orphanedControlIds = Some(orphanedIds), includeOwnerId = ownerView)
             }
-            PagedResult(responses, paged.total, paged.offset, paged.limit)
+            (responses, paged)
+          }
+          .flatMap { case (responses, paged) =>
+            storedLayoutFor(dashboardId, paged.items.map(_.id.value).toSet).map { layout =>
+              PublicPanelListResponse(responses, paged.total, paged.offset, paged.limit, layout)
+            }
           }
       }
+
+  /** HEL-1587 design D1: the dashboard's stored layout, each breakpoint filtered to the ids of the panels in THIS response
+   *  (stale ids of deleted panels and panels outside the page are dropped), projected to `panelId, x, y, w, h`.
+   *  Called only inside the route's `authorizeResourceWithSharing` block, which has already admitted the caller for exactly
+   *  this dashboard id; only `layout` is read out of the row. A row that cannot be read (deleted mid-request, repo not wired)
+   *  degrades to empty breakpoints, never a failed page. */
+  private def storedLayoutFor(dashboardId: String, panelIds: Set[String]): Future[DashboardLayoutResponse] = {
+    def project(items: Vector[DashboardLayoutItem]): Vector[DashboardLayoutItemResponse] =
+      items.filter(i => panelIds.contains(i.panelId.value)).map(DashboardLayoutItemResponse.fromDomain)
+    val empty = DashboardLayoutResponse(Vector.empty, Vector.empty, Vector.empty, Vector.empty)
+    dashboardRepoOpt match {
+      case None => Future.successful(empty)
+      case Some(repo) =>
+        // Privileged (RLS-bypassing) read, correct here: the caller was already admitted for this dashboard id by
+        // `authorizeResourceWithSharing` (a share token has no user for RLS to key on), and only `layout` is projected below.
+        repo.findByIdInternal(DashboardId(dashboardId)).map {
+          case Some(dashboard) =>
+            DashboardLayoutResponse(
+              project(dashboard.layout.lg),
+              project(dashboard.layout.md),
+              project(dashboard.layout.sm),
+              project(dashboard.layout.xs)
+            )
+          case None => empty
+        }
+    }
+  }
 }

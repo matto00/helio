@@ -463,3 +463,83 @@ describe("FormFieldControl", () => {
     });
   });
 });
+
+describe("FormFieldControl disabled prop (HEL-1587)", () => {
+  const decl = (type: DatasetFieldResponse["type"]): DatasetFieldResponse => ({
+    name: "f",
+    type,
+    required: false,
+  });
+  function renderDisabled(
+    field: FormFieldSpec,
+    declared: DatasetFieldResponse,
+    value: FormFieldValue = "",
+  ) {
+    return render(
+      <FormFieldControl
+        field={field}
+        declared={declared}
+        value={value}
+        error={null}
+        onChange={() => {}}
+        onBlur={() => {}}
+        disabled
+      />,
+    );
+  }
+
+  it.each([
+    ["text", "string"],
+    ["textarea", "string"],
+    ["number", "integer"],
+    ["date", "timestamp"],
+  ] as const)("disables a %s control", (control, type) => {
+    const { container } = renderDisabled({ sourceField: "f", control, label: "L" }, decl(type));
+    expect(container.querySelector("input, textarea")).toBeDisabled();
+  });
+
+  it("disables select, checkbox and file", () => {
+    const sel = renderDisabled(
+      { sourceField: "f", control: "select", label: "S", options: ["a"] },
+      decl("string"),
+    );
+    expect(sel.container.querySelector("button")).toBeDisabled();
+    sel.unmount();
+    const chk = renderDisabled(
+      { sourceField: "f", control: "checkbox", label: "C" },
+      decl("boolean"),
+      false,
+    );
+    expect(chk.container.querySelector("input")).toBeDisabled();
+    chk.unmount();
+    const file = renderDisabled(
+      { sourceField: "f", control: "file", label: "F" },
+      decl("binary-ref"),
+      null,
+    );
+    expect(file.container.querySelector("input[type='file']")).toBeDisabled();
+  });
+
+  it("disables a counter's spinbutton and both step buttons, and ignores the keyboard", () => {
+    const onChange = jest.fn();
+    render(
+      <FormFieldControl
+        field={{ sourceField: "f", control: "counter", label: "Hits" }}
+        declared={decl("integer")}
+        value="0"
+        error={null}
+        onChange={onChange}
+        onBlur={() => {}}
+        disabled
+      />,
+    );
+    expect(screen.getByRole("spinbutton", { name: "Hits" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: /Increase Hits/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Decrease Hits/ })).toBeDisabled();
+    fireEvent.keyDown(screen.getByRole("spinbutton", { name: "Hits" }), { key: "ArrowUp" });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});

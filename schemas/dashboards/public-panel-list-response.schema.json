@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboards/public-panel-list-response.schema.json",
+  "title": "PublicPanelListResponse",
+  "description": "Response body of GET /api/dashboards/:id/panels (HEL-1587): the paged panel list plus the dashboard's stored layout, each breakpoint filtered to the panels in THIS response (stale ids and panels outside the page are dropped). Layout items carry exactly panelId/x/y/w/h: no layout version, appearance, dashboard name or owner id. Served behind the same authorizeResourceWithSharing gate as the list.",
+  "type": "object",
+  "required": ["items", "total", "offset", "limit", "layout"],
+  "properties": {
+    "items": { "type": "array", "items": { "$ref": "../panels/panel.schema.json" } },
+    "total": { "type": "integer", "minimum": 0 },
+    "offset": { "type": "integer", "minimum": 0 },
+    "limit": { "type": "integer", "minimum": 1 },
+    "layout": { "$ref": "dashboard-layout.schema.json" }
+  },
+  "additionalProperties": false
+}
