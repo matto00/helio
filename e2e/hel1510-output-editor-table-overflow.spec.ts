@@ -90,6 +90,18 @@ test("table Output editor at 1100px: an 86-char column name overflows nothing", 
     const name = card.locator(".table-display-fields__column-key", { hasText: LONG_NAME });
     await expect(name).toBeVisible();
 
+    // HEL-1621: the dialog's own entrance animation (`ui-modal-in`) still moves the card edge by up to
+    // ~0.7px for ~100ms after the name is visible; `limit` and the control rights are read at different
+    // instants, so wait for the dialog's finite animations to finish before any geometry read.
+    await dialog.evaluate((el) =>
+      Promise.all(
+        el
+          .getAnimations()
+          .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+          .map((a) => a.finished),
+      ).catch(() => {}),
+    );
+
     const limit = (await contentRight(card)) + 0.5;
     const controls = card.locator(
       [

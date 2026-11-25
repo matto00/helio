@@ -1,0 +1,21 @@
+--- /home/matt/Development/helio/.concertino/scratch/HEL-1621/probe-with-wait.ts	2026-11-24 21:37:40.331125727 -0800
++++ e2e/zzprobe1621-output-editor-table-overflow.spec.ts	2026-11-24 21:37:40.341538586 -0800
+@@ -99,18 +99,6 @@
+     const name = card.locator(".table-display-fields__column-key", { hasText: LONG_NAME });
+     await expect(name).toBeVisible();
+ 
+-    // HEL-1621: the dialog's own entrance animation (`ui-modal-in`) still moves the card edge by up to
+-    // ~0.7px for ~100ms after the name is visible; `limit` and the control rights are read at different
+-    // instants, so wait for the dialog's finite animations to finish before any geometry read.
+-    await dialog.evaluate((el) =>
+-      Promise.all(
+-        el
+-          .getAnimations()
+-          .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+-          .map((a) => a.finished),
+-      ).catch(() => {}),
+-    );
+-
+     const limit = (await contentRight(card)) + 0.5;
+     console.log(
+       `[HEL-1621 probe] limit=${limit} anims=` +

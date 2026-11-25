@@ -1,0 +1,16 @@
+# GREEN: forced 3x entrance + wait. 2026-11-25T05:37:16Z
+[1A[2K[HEL-1621 probe] limit=872.5 anims=[]
+[1A[2K[HEL-1621 probe] stretch=840ms loopMs=139 maxRight=872 limit=872.5
+[1A[2K[HEL-1621 probe] resting card content-right=872
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+[1A[2K  1 passed (5.5s)
+[1A[2K[HEL-1621 probe] limit=872.5 anims=[]
+[1A[2K[HEL-1621 probe] stretch=840ms loopMs=129 maxRight=872 limit=872.5
+[1A[2K[HEL-1621 probe] resting card content-right=872
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+[1A[2K  1 passed (5.4s)
+[1A[2K[HEL-1621 probe] limit=872.5 anims=[]
+[1A[2K[HEL-1621 probe] stretch=840ms loopMs=126 maxRight=872 limit=872.5
+[1A[2K[HEL-1621 probe] resting card content-right=872
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+[1A[2K  1 passed (5.4s)

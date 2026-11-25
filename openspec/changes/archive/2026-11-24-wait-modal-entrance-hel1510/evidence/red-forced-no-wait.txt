@@ -1,0 +1,59 @@
+# RED: forced slowed entrance (3x = 840ms, injected stylesheet animation-duration), NO wait. 2026-11-25T05:28:49Z
+# DEV_PORT=7053 lane DB helio_hel1621, nice -n 19, workers=1
+
+Running 1 test using 1 worker
+
+[1A[2K[1/1] [dev] › e2e/zzprobe1621-output-editor-table-overflow.spec.ts:35:5 › table Output editor at 1100px: an 86-char column name overflows nothing
+[1A[2K[dev] › e2e/zzprobe1621-output-editor-table-overflow.spec.ts:35:5 › table Output editor at 1100px: an 86-char column name overflows nothing
+[HEL-1300 e2e] throwaway user: hel1510-1795584530832-72514@example.test
+
+[1A[2K[HEL-1510 e2e] created user ed47ea13-b3d1-42d2-8208-7bcd6b483d3e
+
+[1A[2K[HEL-1510 e2e] created source ed1f9bc9-bc6f-4f87-adb7-9ee8021b71f5 pipeline 0ded2f71-35a7-445d-81c6-ecfd7866e02f output e7f1d66e-788a-48c6-b6dc-70ebc2e8af2e
+
+[1A[2K[HEL-1621 probe] limit=869.9093933105469 anims=[{"n":"ui-modal-in","d":840,"t":166.7159999944605,"st":"running"}]
+
+[1A[2K[HEL-1621 probe] stretch=840ms loopMs=184 maxRight=869.966552734375 limit=869.9093933105469
+
+[1A[2K[HEL-1621 probe] resting card content-right=872
+
+[1A[2K[HEL-1510 e2e] deleting pipeline 0ded2f71-35a7-445d-81c6-ecfd7866e02f source ed1f9bc9-bc6f-4f87-adb7-9ee8021b71f5
+
+[1A[2K  1) [dev] › e2e/zzprobe1621-output-editor-table-overflow.spec.ts:35:5 › table Output editor at 1100px: an 86-char column name overflows nothing 
+
+    Error: controls past the Configuration card content box
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoEqual[2m([22m[32mexpected[39m[2m) // deep equality[22m
+
+    [32m- Expected  - 1[39m
+    [31m+ Received  + 3[39m
+
+    [32m- Array [][39m
+    [31m+ Array [[39m
+    [31m+   "ui-select__trigger right=870.0 limit=869.9",[39m
+    [31m+ ][39m
+
+      139 |       `[HEL-1621 probe] stretch=${stretchMs}ms loopMs=${Date.now() - loopStart} maxRight=${maxRight} limit=${limit}`,
+      140 |     );
+    > 141 |     expect(overflows, `controls past the Configuration card content box`).toEqual([]);
+          |                                                                           ^
+      142 |
+      143 |     // The Modal's scrolling body (not the preview table section, which scrolls by design).
+      144 |     const body = dialog.locator(".ui-modal__body");
+
+    Error Context: test-results/zzprobe1621-output-editor--7d359-lumn-name-overflows-nothing-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/zzprobe1621-output-editor--7d359-lumn-name-overflows-nothing-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/zzprobe1621-output-editor--7d359-lumn-name-overflows-nothing-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 1 recorded throwaway user(s)
+[1A[2K  1 failed
+    [dev] › e2e/zzprobe1621-output-editor-table-overflow.spec.ts:35:5 › table Output editor at 1100px: an 86-char column name overflows nothing 
+exit=1

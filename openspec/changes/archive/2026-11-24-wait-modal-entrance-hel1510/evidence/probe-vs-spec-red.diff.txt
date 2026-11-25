@@ -1,0 +1,75 @@
+--- e2e/hel1510-output-editor-table-overflow.spec.ts	2026-11-24 21:17:17.542633244 -0800
++++ e2e/zzprobe1621-output-editor-table-overflow.spec.ts	2026-11-24 21:28:49.348161247 -0800
+@@ -40,6 +40,15 @@
+   expect(LONG_NAME.length).toBe(86);
+   await page.setViewportSize({ width: 1100, height: 900 });
+   await page.addInitScript(() => window.localStorage.setItem("helio-theme", "light"));
++  // HEL-1621 PROBE FORCE: stretch the dialog entrance 0.28s -> 2.8s (10x) with an injected stylesheet.
++  const stretchMs = Math.round(280 * Number(process.env.PROBE_X ?? "3"));
++  await page.addInitScript((ms) => {
++    document.addEventListener("DOMContentLoaded", () => {
++      const st = document.createElement("style");
++      st.textContent = `.ui-modal[open] { animation-duration: ${ms}ms !important; }`;
++      document.head.appendChild(st);
++    });
++  }, stretchMs);
+   await registerAndLogin(page, request, {
+     prefix: "hel1510",
+     displayName: "HEL-1510",
+@@ -91,6 +100,19 @@
+     await expect(name).toBeVisible();
+ 
+     const limit = (await contentRight(card)) + 0.5;
++    console.log(
++      `[HEL-1621 probe] limit=${limit} anims=` +
++        (await dialog.evaluate((el) =>
++          JSON.stringify(
++            el.getAnimations().map((a) => ({
++              n: (a as CSSAnimation).animationName,
++              d: a.effect?.getComputedTiming().duration,
++              t: a.currentTime,
++              st: a.playState,
++            })),
++          ),
++        )),
++    );
+     const controls = card.locator(
+       [
+         ".table-display-fields__column-row input",
+@@ -103,13 +125,19 @@
+     const count = await controls.count();
+     expect(count).toBeGreaterThanOrEqual(3 * 4 + 1);
+     const overflows: string[] = [];
++    let maxRight = 0;
++    const loopStart = Date.now();
+     for (let i = 0; i < count; i++) {
+       const right = await controls.nth(i).evaluate((n) => n.getBoundingClientRect().right);
++      maxRight = Math.max(maxRight, right);
+       if (right > limit) {
+         const label = await controls.nth(i).evaluate((n) => n.className || n.tagName);
+         overflows.push(`${label} right=${right.toFixed(1)} limit=${limit.toFixed(1)}`);
+       }
+     }
++    console.log(
++      `[HEL-1621 probe] stretch=${stretchMs}ms loopMs=${Date.now() - loopStart} maxRight=${maxRight} limit=${limit}`,
++    );
+     expect(overflows, `controls past the Configuration card content box`).toEqual([]);
+ 
+     // The Modal's scrolling body (not the preview table section, which scrolls by design).
+@@ -124,6 +152,16 @@
+     expect(nameBox?.width ?? 0).toBeGreaterThan(0);
+     await expect(name).toHaveAttribute("title", LONG_NAME);
+   } finally {
++    // HEL-1621 PROBE: raw resting card content-right, after the entrance has finished.
++    await page
++      .getByRole("dialog")
++      .evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)))
++      .catch(() => {});
++    const restCard = page
++      .getByRole("dialog")
++      .locator(".output-editor-sheet__group--card")
++      .filter({ has: page.getByRole("heading", { name: "Configuration" }) });
++    console.log(`[HEL-1621 probe] resting card content-right=${await contentRight(restCard)}`);
+     if (ids) {
+       console.log(`[HEL-1510 e2e] deleting pipeline ${ids.pipeline} source ${ids.source}`);
+       await request.delete(`/api/pipelines/${ids.pipeline}`, { headers: CSRF });

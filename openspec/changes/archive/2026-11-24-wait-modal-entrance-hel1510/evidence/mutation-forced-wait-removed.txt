@@ -1,0 +1,19 @@
+# MUTATION: forced 3x entrance, wait removed from probe. 2026-11-25T05:37:40Z
+[1A[2K[HEL-1621 probe] stretch=840ms loopMs=183 maxRight=869.9667358398438 limit=869.9090423583984
+[1A[2K[HEL-1621 probe] resting card content-right=872
+    [31m+   "ui-select__trigger right=870.0 limit=869.9",[39m
+      139 |       `[HEL-1621 probe] stretch=${stretchMs}ms loopMs=${Date.now() - loopStart} maxRight=${maxRight} limit=${limit}`,
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+[1A[2K  1 failed
+[1A[2K[HEL-1621 probe] stretch=840ms loopMs=212 maxRight=869.9659423828125 limit=869.9095306396484
+[1A[2K[HEL-1621 probe] resting card content-right=872
+    [31m+   "ui-select__trigger right=870.0 limit=869.9",[39m
+      139 |       `[HEL-1621 probe] stretch=${stretchMs}ms loopMs=${Date.now() - loopStart} maxRight=${maxRight} limit=${limit}`,
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+[1A[2K  1 failed
+[1A[2K[HEL-1621 probe] stretch=840ms loopMs=185 maxRight=870.1615600585938 limit=870.140869140625
+[1A[2K[HEL-1621 probe] resting card content-right=872
+    [31m+   "ui-select__trigger right=870.2 limit=870.1",[39m
+      139 |       `[HEL-1621 probe] stretch=${stretchMs}ms loopMs=${Date.now() - loopStart} maxRight=${maxRight} limit=${limit}`,
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+[1A[2K  1 failed
