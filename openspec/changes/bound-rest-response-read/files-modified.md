@@ -1,0 +1,7 @@
+- `backend/src/main/scala/com/helio/domain/connectors/RemoteErrorText.scala` — `MaxBodyBytes` (4096) and `readBodyPrefix` bounded prefix read
+- `backend/src/main/scala/com/helio/domain/connectors/RestApiConnectorDriver.scala` — status-first branching; bounded non-2xx read; explicit 2xx limit (`maxStrictBytes`); count-not-hold fold for connection tests
+- `backend/src/main/scala/com/helio/services/sources/ContentSourceSupport.scala` — `fetchUrl` cancels a non-2xx entity instead of reading it
+- `backend/src/test/scala/com/helio/domain/connectors/RemoteErrorBodyPrefixSpec.scala` — new helper spec (pulled bytes, cancellation, relation test)
+- `backend/src/test/scala/com/helio/domain/connectors/RestApiConnectorDriverErrorCapSpec.scala` — endless/huge bound, multibyte/malformed guards, two-sided 2xx ceiling, fetchUrl endless
+- `backend/src/test/scala/com/helio/testkit/RemoteErrorBodyStub.scala` — additive stub routes with per-request emitted-byte counters
+- `openspec/changes/bound-rest-response-read/evidence/*.txt` — red run, green run, mutation M1-M5 reds, measurements

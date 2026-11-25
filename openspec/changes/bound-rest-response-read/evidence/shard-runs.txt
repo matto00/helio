@@ -1,0 +1,7 @@
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Suites: completed 40, aborted 0
+[info] Tests: succeeded 400, failed 0, canceled 0, ignored 0, pending 0
+--- shard 2
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Suites: completed 11, aborted 0
+[info] Tests: succeeded 412, failed 0, canceled 0, ignored 0, pending 0

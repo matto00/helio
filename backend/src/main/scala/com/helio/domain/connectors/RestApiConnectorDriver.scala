@@ -11,6 +11,7 @@ import org.apache.pekko.http.scaladsl.model._
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken, RawHeader}
 import org.apache.pekko.http.scaladsl.settings.ConnectionPoolSettings
 import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Sink
 import org.slf4j.LoggerFactory
 import spray.json._
 
@@ -348,24 +349,25 @@ class RestApiConnectorDriver(
         Http(system.classicSystem)
           .singleRequest(request, settings = settings)
           .flatMap { response =>
-            response.entity.toStrict(30.seconds).map { entity =>
-              val body = entity.data.utf8String
-              // HEL-879 design.md Decision 3: explicit 2xx-range check, matching
-              // ContentSourceSupport.fetchUrl's idiom -- `StatusCode.isSuccess()`
-              // is `true` for 3xx too (`Redirection` extends the same
-              // `HttpSuccess` marker as `Success`), which would otherwise parse
-              // a redirect stub's body as though it were the real response.
-              val code = response.status.intValue()
-              if (code >= 200 && code < 300) {
-                Try(body.parseJson).toEither.left.map { e =>
+            // HEL-1877: branch on the status BEFORE reading the body, so a non-2xx body is read only up to
+            // `RemoteErrorText.MaxBodyBytes` (then the connection is closed) instead of whole.
+            // HEL-879 design.md Decision 3: explicit 2xx-range check, matching
+            // ContentSourceSupport.fetchUrl's idiom -- `StatusCode.isSuccess()`
+            // is `true` for 3xx too (`Redirection` extends the same
+            // `HttpSuccess` marker as `Success`), which would otherwise parse
+            // a redirect stub's body as though it were the real response.
+            val code = response.status.intValue()
+            if (code >= 200 && code < 300) {
+              response.entity.toStrict(30.seconds, maxStrictBytes).map { entity =>
+                Try(entity.data.utf8String.parseJson).toEither.left.map { e =>
                   // HEL-311: keep the curated category prefix, drop the raw
                   // parser-exception tail; log the cause.
                   log.error("Failed to parse JSON response from REST source", e)
                   "Failed to parse JSON response"
                 }
-              } else {
-                Left(RemoteErrorText.cap(s"HTTP $code: $body"))
               }
+            } else {
+              errorText(response, code).map(Left(_))
             }
           }
           .recover { case e =>
@@ -376,6 +378,41 @@ class RestApiConnectorDriver(
           }
     }
 
+  /** HEL-1877: the limit `HttpEntity.toStrict(timeout)` applies when given no byte argument -- the same key, config and
+   *  logic as Pekko HTTP 1.1.0's own (`private[http]`) `getPossiblyInfiniteBytes`, reproduced here so the 2xx limit is
+   *  passed explicitly yet stays identical to today's, including under a config change (8 MiB by default). */
+  private def maxStrictBytes: Long = {
+    val config = system.classicSystem.settings.config
+    val key    = "pekko.http.parsing.max-to-strict-bytes"
+    if (config.getString(key) == "infinite") Long.MaxValue else config.getBytes(key).longValue
+  }
+
+  /** HEL-1877: the capped `HTTP <code>: <body>` text of a non-2xx response, reading at most
+   *  `RemoteErrorText.MaxBodyBytes` of the body, within the same 30 s ceiling as before. */
+  private def errorText(response: HttpResponse, code: Int): Future[String] =
+    RemoteErrorText
+      .readBodyPrefix(response.entity.dataBytes, RemoteErrorText.MaxBodyBytes, 30.seconds)
+      .map(prefix => RemoteErrorText.cap(s"HTTP $code: ${prefix.utf8String}"))
+
+  /** HEL-1877: a connection test needs only the status of a 2xx, but a body over the 2xx limit (or slower than 30 s)
+   *  still reports `Request failed`, as `toStrict` did. The body is counted, never held; a declared Content-Length over
+   *  the limit fails at once and the entity is cancelled (releasing the connection) without being read. */
+  private def countWithinLimit(entity: ResponseEntity): Future[Unit] = {
+    val limit = maxStrictBytes
+    entity.contentLengthOption match {
+      case Some(length) if length > limit =>
+        entity.dataBytes.runWith(Sink.cancelled)
+        Future.failed(new IllegalStateException(s"response body of $length bytes exceeds $limit"))
+      case _ =>
+        entity.dataBytes
+          .scan(0L)(_ + _.length)
+          .map { total => if (total > limit) throw new IllegalStateException(s"response body exceeds $limit bytes") else total }
+          .completionTimeout(30.seconds)
+          .runWith(Sink.ignore)
+          .map(_ => ())
+    }
+  }
+
   private def issueTest(request: HttpRequest): Future[Either[String, Unit]] =
     guardedPoolSettings(request) match {
       case Left(err) => Future.successful(Left(err))
@@ -383,13 +420,9 @@ class RestApiConnectorDriver(
         Http(system.classicSystem)
           .singleRequest(request, settings = settings)
           .flatMap { response =>
-            response.entity.toStrict(30.seconds).map { entity =>
-              val code = response.status.intValue()
-              if (code >= 200 && code < 300)
-                Right(())
-              else
-                Left(RemoteErrorText.cap(s"HTTP $code: ${entity.data.utf8String}"))
-            }
+            val code = response.status.intValue()
+            if (code >= 200 && code < 300) countWithinLimit(response.entity).map(_ => Right(()))
+            else errorText(response, code).map(Left(_))
           }
           .recover { case e =>
             log.error("REST source request failed", e)

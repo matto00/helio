@@ -1,0 +1,4 @@
+Measured emitted/pulled bytes after the change (design D6 bounds: /endless <= 5120, /huge < 8388608):
+- helper spec, infinite 256 B source: pulled 4096 (bound 5120)
+- /endless (paced 256 B / 50 ms), fetch: emitted 4096; connection test: emitted 4096; fetchUrl: emitted 512
+- /huge (64 MiB, 64 KiB chunks), fetch: 786432, connection test: 720896 (before the change: 11403264 / 8650752, red)

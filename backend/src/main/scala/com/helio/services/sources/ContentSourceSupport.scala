@@ -5,6 +5,7 @@ import org.apache.pekko.http.scaladsl.{ClientTransport, Http}
 import org.apache.pekko.http.scaladsl.model.HttpRequest
 import org.apache.pekko.http.scaladsl.settings.ConnectionPoolSettings
 import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Sink
 import com.helio.domain.model.{DataField, DataFieldType}
 import org.slf4j.LoggerFactory
 
@@ -346,20 +347,24 @@ object ContentSourceSupport {
         Http(system.classicSystem)
           .singleRequest(HttpRequest(uri = url), settings = poolSettings)
           .flatMap { response =>
-            response.entity.toStrict(30.seconds, fetchSizeLimitBytes).map { entity =>
-              // Root cause (probe-confirmed): Pekko HTTP's `StatusCode.isSuccess`
-              // is `true` for *any* non-4xx/5xx status — `Redirection` (3xx)
-              // extends the same `HttpSuccess` marker trait as `Success` (2xx),
-              // distinguished only by `isRedirection`. Using `isSuccess` alone
-              // here would treat a 3xx response's body (e.g. a redirect stub
-              // page) as successfully-fetched content instead of rejecting it —
-              // this is exactly the redirect-to-internal case the SSRF guard
-              // must close, since Pekko's low-level client never auto-follows
-              // the redirect itself. Checking the 2xx range explicitly is what
-              // actually fixes this (not a cosmetic rename of `isSuccess`).
-              val code = response.status.intValue()
-              if (code >= 200 && code < 300) Right(entity.data.toArray)
-              else Left(s"Upstream returned HTTP $code")
+            // HEL-1877: the non-2xx message carries no body, so stop reading it (cancelling the entity releases the
+            // connection) instead of reading up to 100 MiB to discard it.
+            // Root cause (probe-confirmed): Pekko HTTP's `StatusCode.isSuccess`
+            // is `true` for *any* non-4xx/5xx status — `Redirection` (3xx)
+            // extends the same `HttpSuccess` marker trait as `Success` (2xx),
+            // distinguished only by `isRedirection`. Using `isSuccess` alone
+            // here would treat a 3xx response's body (e.g. a redirect stub
+            // page) as successfully-fetched content instead of rejecting it —
+            // this is exactly the redirect-to-internal case the SSRF guard
+            // must close, since Pekko's low-level client never auto-follows
+            // the redirect itself. Checking the 2xx range explicitly is what
+            // actually fixes this (not a cosmetic rename of `isSuccess`).
+            val code = response.status.intValue()
+            if (code >= 200 && code < 300)
+              response.entity.toStrict(30.seconds, fetchSizeLimitBytes).map(entity => Right(entity.data.toArray))
+            else {
+              response.entity.dataBytes.runWith(Sink.cancelled)
+              Future.successful(Left(s"Upstream returned HTTP $code"))
             }
           }
           .recover { case e =>
