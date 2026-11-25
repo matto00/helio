@@ -221,6 +221,22 @@ const DATASETS: Dataset[] = [
       ["n/a", "4", "a"],
     ],
   },
+  {
+    // HEL-1517 GUARD (item 5): an {xAxis, series} mapping with NO yAxis plots one point per row (the
+    // auto-detected series), so a repeated-instant vertical bar must fall back to categories. Failable
+    // by mutating `onePointPerRow` to `seriesCol === -1` (skeptic mutation M2).
+    label: "x+series without a yAxis",
+    repeatsInstant: true,
+    hasNumericColumn: true,
+    hasSeriesMapping: true,
+    headers: ["day", "amount", "region"],
+    mapping: { xAxis: "day", series: "region" },
+    rows: [
+      ["2026-10-01", "2", "a"],
+      ["2026-10-01", "1", "b"],
+      ["2026-10-02", "4", "a"],
+    ],
+  },
 ];
 
 const AGGREGATES: Array<GroupedAggregate | undefined> = [

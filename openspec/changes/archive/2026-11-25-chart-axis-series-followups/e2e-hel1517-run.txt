@@ -1,0 +1,67 @@
+
+Running 4 tests using 1 worker
+
+[HEL-1517 e2e] created user 7d0697ed-41a9-4f87-a13a-5a3c7d701cfd
+[HEL-1517 e2e] created data-source e74713dd-bac1-46cd-bc03-3e93a91a69c4
+[HEL-1517 e2e] created pipeline 91eda64d-870e-413a-b493-f3d70e46bce6
+[HEL-1517 e2e] created output cea9adab-34c8-46a4-8b32-427b567d5110
+[HEL-1517 e2e] created output 26c29dec-09ac-487b-9f6d-218c6ddbe815
+[HEL-1517 e2e] created dashboard 62d7428c-e42c-4a80-ab49-7b57a4ef321c
+[HEL-1517 e2e] created panel 4db354d7-72a9-425e-8aba-8863423691ba
+[HEL-1517 e2e] created panel 23731217-5c49-4545-8d08-5f10fa09df02
+[HEL-1517 e2e] light-1440 axis {"type":"time","minInterval":86400000,"ticks":[1788220800000,1788307200000,1788393600000,1788480000000,1788566400000]}
+[HEL-1517 e2e] light-1440 marks {"coords":[[1788393600000,5],[1788566400000,2]],"pixels":[[549.1499999999069,65],[941.3999999999069,132.8]],"nearby":[[{"type":"path","stroke":"#5470c6","fill":"#fff"}],[{"type":"path","stroke":"#5470c6","fill":"#fff"}]]}
+[HEL-1517 e2e] light-1440 sum series A [7,null,5,null,2]
+[HEL-1517 e2e] DELETE /api/dashboards/62d7428c-e42c-4a80-ab49-7b57a4ef321c -> 204
+[HEL-1517 e2e] DELETE /api/pipelines/91eda64d-870e-413a-b493-f3d70e46bce6 -> 204
+[HEL-1517 e2e] DELETE /api/data-sources/e74713dd-bac1-46cd-bc03-3e93a91a69c4 -> 204
+  ✓  1 [dev] › e2e/hel1517-chart-followups.spec.ts:111:7 › chart follow-ups render on a dashboard (light-1440) (8.0s)
+[HEL-1517 e2e] created user 71f5829a-3c9f-44f3-880c-e735725854cb
+[HEL-1517 e2e] created data-source a2a56614-46a2-49af-a595-837df00d272a
+[HEL-1517 e2e] created pipeline 1a7ab1ba-1a2b-4fe3-9eb2-c1588125f8d5
+[HEL-1517 e2e] created output ed29822f-7770-497a-9bb9-02186e285561
+[HEL-1517 e2e] created output b3731d9b-58bf-4398-9060-455f9c3321dd
+[HEL-1517 e2e] created dashboard e1879788-4198-487a-a50a-509cf76a0a03
+[HEL-1517 e2e] created panel 618ca20a-b752-4b5e-bc2a-6b07896b6dad
+[HEL-1517 e2e] created panel d72b45e0-f67c-4538-9d52-7c6ab50b1c92
+[HEL-1517 e2e] dark-1440 axis {"type":"time","minInterval":86400000,"ticks":[1788220800000,1788307200000,1788393600000,1788480000000,1788566400000]}
+[HEL-1517 e2e] dark-1440 marks {"coords":[[1788393600000,5],[1788566400000,2]],"pixels":[[549.1499999999069,65],[941.3999999999069,132.8]],"nearby":[[{"type":"path","stroke":"#5470c6","fill":"#fff"}],[{"type":"path","stroke":"#5470c6","fill":"#fff"}]]}
+[HEL-1517 e2e] dark-1440 sum series A [7,null,5,null,2]
+[HEL-1517 e2e] DELETE /api/dashboards/e1879788-4198-487a-a50a-509cf76a0a03 -> 204
+[HEL-1517 e2e] DELETE /api/pipelines/1a7ab1ba-1a2b-4fe3-9eb2-c1588125f8d5 -> 204
+[HEL-1517 e2e] DELETE /api/data-sources/a2a56614-46a2-49af-a595-837df00d272a -> 204
+  ✓  2 [dev] › e2e/hel1517-chart-followups.spec.ts:111:7 › chart follow-ups render on a dashboard (dark-1440) (6.8s)
+[HEL-1517 e2e] created user 9f9a7f37-94d7-4cc0-8430-cb6cfeffd215
+[HEL-1517 e2e] created data-source 1fd9405a-5c61-4002-9f49-5264dc5dcfc7
+[HEL-1517 e2e] created pipeline 8001ae1c-71e9-4356-b3c6-3bd4d046876d
+[HEL-1517 e2e] created output c5bf36ab-1fdf-4833-b308-d480a17f731a
+[HEL-1517 e2e] created output 1751b413-070d-428d-83e1-b375b64f66e6
+[HEL-1517 e2e] created dashboard 81281f04-85e6-4b4c-9097-6f3dc87af0c0
+[HEL-1517 e2e] created panel ad760f9e-8069-477e-be72-c43ddfc85034
+[HEL-1517 e2e] created panel 9291cbfe-395b-4c60-b70f-d80aa3e9af47
+[HEL-1517 e2e] light-375 axis {"type":"time","minInterval":86400000,"ticks":[1788220800000,1788307200000,1788393600000,1788480000000,1788566400000]}
+[HEL-1517 e2e] light-375 marks {"coords":[[1788393600000,5],[1788566400000,2]],"pixels":[[166,11],[307,51.2]],"nearby":[[{"type":"path","stroke":"#5470c6","fill":"#fff"}],[{"type":"path","stroke":"#5470c6","fill":"#fff"}]]}
+[HEL-1517 e2e] light-375 sum series A [7,null,5,null,2]
+[HEL-1517 e2e] DELETE /api/dashboards/81281f04-85e6-4b4c-9097-6f3dc87af0c0 -> 204
+[HEL-1517 e2e] DELETE /api/pipelines/8001ae1c-71e9-4356-b3c6-3bd4d046876d -> 204
+[HEL-1517 e2e] DELETE /api/data-sources/1fd9405a-5c61-4002-9f49-5264dc5dcfc7 -> 204
+  ✓  3 [dev] › e2e/hel1517-chart-followups.spec.ts:111:7 › chart follow-ups render on a dashboard (light-375) (6.4s)
+[HEL-1517 e2e] created user f62dc129-063f-41d0-b7f2-d2588fce62ef
+[HEL-1517 e2e] created data-source bec30130-aba1-43f1-80d1-2e51ef506f56
+[HEL-1517 e2e] created pipeline 216e1a46-cc30-4ae3-8c84-471cf3303b7c
+[HEL-1517 e2e] created output 069822d6-d212-4bfd-b0e5-2a251d293842
+[HEL-1517 e2e] created output 29c3f814-6802-47f2-953d-cab7702dec19
+[HEL-1517 e2e] created dashboard 255e6ab4-f2bd-48ba-a250-664115aea6a8
+[HEL-1517 e2e] created panel 8692a226-ab32-4c27-9795-8195ace5dea3
+[HEL-1517 e2e] created panel e272cb3e-a601-46ba-b1cf-b107c71cc1ec
+[HEL-1517 e2e] dark-375 axis {"type":"time","minInterval":86400000,"ticks":[1788220800000,1788307200000,1788393600000,1788480000000,1788566400000]}
+[HEL-1517 e2e] dark-375 marks {"coords":[[1788393600000,5],[1788566400000,2]],"pixels":[[166,11],[307,51.2]],"nearby":[[{"type":"path","stroke":"#5470c6","fill":"#fff"}],[{"type":"path","stroke":"#5470c6","fill":"#fff"}]]}
+[HEL-1517 e2e] dark-375 sum series A [7,null,5,null,2]
+[HEL-1517 e2e] DELETE /api/dashboards/255e6ab4-f2bd-48ba-a250-664115aea6a8 -> 204
+[HEL-1517 e2e] DELETE /api/pipelines/216e1a46-cc30-4ae3-8c84-471cf3303b7c -> 204
+[HEL-1517 e2e] DELETE /api/data-sources/bec30130-aba1-43f1-80d1-2e51ef506f56 -> 204
+  ✓  4 [dev] › e2e/hel1517-chart-followups.spec.ts:111:7 › chart follow-ups render on a dashboard (dark-375) (7.6s)
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 4 recorded throwaway user(s)
+
+  4 passed (29.7s)

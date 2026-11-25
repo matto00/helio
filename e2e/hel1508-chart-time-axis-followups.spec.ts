@@ -298,6 +298,23 @@ for (const { theme, width } of CASES) {
       console.log(`[HEL-1508 e2e] ${label} gap tooltip ${JSON.stringify(tip)}`);
       expect(tip).toBe("");
 
+      // 3b. HEL-1517 positive control: the same locator and route DO read a tooltip off a real point, so
+      // the empty-at-a-gap assertion above cannot pass vacuously (a wrong tooltip locator, or a tooltip
+      // that never shows, would turn this red). Hidden first so the gap's state cannot leak either way.
+      await withChart(cards.line, (chart) => chart.dispatchAction({ type: "hideTip" }));
+      await withChart(cards.line, (chart) =>
+        chart.dispatchAction({ type: "showTip", seriesIndex: 0, dataIndex: 0 }),
+      );
+      await page.waitForTimeout(500);
+      const realTip = (await cards.line.locator(".chart-tooltip").first().innerText()).replace(
+        /\s+/g,
+        " ",
+      );
+      console.log(`[HEL-1508 e2e] ${label} real-point tooltip ${JSON.stringify(realTip)}`);
+      expect(realTip).not.toBe("");
+      expect(realTip).toContain("5");
+      await withChart(cards.line, (chart) => chart.dispatchAction({ type: "hideTip" }));
+
       // 4. Scatter: the row with no numeric y is not drawn; the empty x is counted.
       const scatter = await withChart(cards.scatter, (chart) => ({
         axis: chart.getOption().xAxis?.[0]?.type,

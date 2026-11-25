@@ -34,19 +34,58 @@ function seriesArray(option: EChartsOption): MutableSeries[] {
 }
 
 function applyLine(option: EChartsOption, line: LineChartOptions): EChartsOption {
-  const series = seriesArray(option).map((s) => ({
-    ...s,
-    ...(line.smooth ? { smooth: true } : {}),
-    // Absent → leave ECharts' default (markers on). Only an explicit value
-    // overrides it, so a persisted `false` reliably hides the markers.
-    ...(line.showPoints === false
-      ? { showSymbol: false }
-      : line.showPoints === true
-        ? { showSymbol: true }
-        : {}),
-    ...(line.areaFill ? { areaStyle: {} } : {}),
-  }));
+  const markersOff = line.showPoints === false;
+  const series = seriesArray(option).map((s) => {
+    const next: MutableSeries = {
+      ...s,
+      ...(line.smooth ? { smooth: true } : {}),
+      // Absent → leave ECharts' default (markers on). Only an explicit value
+      // overrides it, so a persisted `false` reliably hides the markers.
+      ...(markersOff
+        ? { showSymbol: false }
+        : line.showPoints === true
+          ? { showSymbol: true }
+          : {}),
+      ...(line.areaFill ? { areaStyle: {} } : {}),
+    };
+    const isolated = markersOff ? isolatedPointCoords(next.data, option) : [];
+    return isolated.length > 0 ? { ...next, markPoint: isolatedMarkPoint(isolated) } : next;
+  });
   return { ...option, series } as EChartsOption;
+}
+
+/** HEL-1517 — a marker for a value with no numeric neighbour, which a markers-off line would not draw
+ *  at all (a line needs two points). A `markPoint` rather than per-item symbols: ECharts builds no symbols
+ *  for a series with `showSymbol: false`, and re-enabling it with `symbol: "none"` elsewhere would remove
+ *  the hover marker every other point has today. `silent` keeps it out of clicks and tooltips. */
+function isolatedMarkPoint(coords: Array<[unknown, number]>) {
+  return {
+    silent: true,
+    symbol: "emptyCircle",
+    symbolSize: 4,
+    label: { show: false },
+    data: coords.map((coord) => ({ coord })),
+  };
+}
+
+const isNumericY = (y: unknown): y is number => typeof y === "number" && !Number.isNaN(y);
+
+/** `[x, y]` of every point whose y is numeric and whose previous and next points (where they exist) have
+ *  none. The x is the point's INDEX on a category axis (a name would resolve to its first occurrence when
+ *  an x repeats, and `relabelBlankCategory` renames `"null"` later), or its instant on a time axis. */
+function isolatedPointCoords(data: unknown, option: EChartsOption): Array<[unknown, number]> {
+  if (!Array.isArray(data)) return [];
+  const xAxis = option.xAxis as { type?: string } | undefined;
+  const timeAxis = !!xAxis && !Array.isArray(xAxis) && xAxis.type === "time";
+  const coords: Array<[unknown, number]> = [];
+  data.forEach((item, i) => {
+    const y = pointY(item);
+    if (!isNumericY(y)) return;
+    if (isNumericY(pointY(data[i - 1])) || isNumericY(pointY(data[i + 1]))) return;
+    const x = timeAxis ? (item as { value: unknown[] }).value[0] : i;
+    coords.push([x, y]);
+  });
+  return coords;
 }
 
 /** A point's y: the item itself, or `value[1]` of a time-axis `{name, value: [t, y]}` item. */

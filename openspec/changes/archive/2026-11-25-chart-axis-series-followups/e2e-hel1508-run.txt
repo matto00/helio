@@ -1,0 +1,103 @@
+
+Running 4 tests using 1 worker
+
+[HEL-1508 e2e] created user e4a8161e-f807-47df-a761-a63f1dd961c6
+[HEL-1508 e2e] created data-source 7ac13b65-71f0-4a81-a023-f4299178c4ad
+[HEL-1508 e2e] created pipeline 4d34fbbd-87e4-4f4a-8dc4-22f5b29839cd
+[HEL-1508 e2e] created output 5778127e-c855-4f78-b961-beee330e8e18
+[HEL-1508 e2e] created output c7004495-47f4-4362-bd54-b5ce444007f2
+[HEL-1508 e2e] created output 9e062c11-b333-4833-b348-aaf448f6c9e6
+[HEL-1508 e2e] created output 6fd9fac3-7180-45c7-b1b8-8f075d599f04
+[HEL-1508 e2e] created output da51f4ea-83d0-45b7-8428-50cac4e50605
+[HEL-1508 e2e] created dashboard 2b210702-2fe8-48eb-87fd-25c50c3a03ad
+[HEL-1508 e2e] created panel 985e39eb-581e-4476-9cad-f4242d86897a
+[HEL-1508 e2e] created panel 44c42cec-a257-4046-9bdb-c677e0aad6fe
+[HEL-1508 e2e] created panel 885c3666-06bd-42ed-a622-620719768bab
+[HEL-1508 e2e] created panel a3d6fd6b-8bb9-44a3-930a-5f4f0861fcd7
+[HEL-1508 e2e] created panel b5d128a4-2381-440e-bb88-32ae815c210b
+[HEL-1508 e2e] light-1440 bar {"axis":"category","xs":["2026-09-01","2026-09-01","2026-09-02","2026-09-04",""],"values":[5,9,null,7,3],"barX":[181.2195,338.1195]}
+[HEL-1508 e2e] light-1440 line {"axis":"time","ys":[5,9,null,7]}
+[HEL-1508 e2e] light-1440 gap tooltip ""
+[HEL-1508 e2e] light-1440 real-point tooltip "2026-09-01 value: 5"
+[HEL-1508 e2e] light-1440 scatter {"axis":"time","points":3}
+[HEL-1508 e2e] light-1440 agg axis time
+[HEL-1508 e2e] DELETE /api/dashboards/2b210702-2fe8-48eb-87fd-25c50c3a03ad -> 204
+[HEL-1508 e2e] DELETE /api/pipelines/4d34fbbd-87e4-4f4a-8dc4-22f5b29839cd -> 204
+[HEL-1508 e2e] DELETE /api/data-sources/7ac13b65-71f0-4a81-a023-f4299178c4ad -> 204
+  ✓  1 [dev] › e2e/hel1508-chart-time-axis-followups.spec.ts:119:7 › time-axis follow-ups render on a dashboard (light-1440) (9.4s)
+[HEL-1508 e2e] created user f68e43e9-e4b1-4b3b-9376-327fb6d5b8d9
+[HEL-1508 e2e] created data-source f12d33aa-3457-4df0-a625-2c5d24824f5d
+[HEL-1508 e2e] created pipeline 04dd515b-a2d8-449e-aeb5-9debfae7b323
+[HEL-1508 e2e] created output 8ce94a1b-2c12-4e15-ba34-fac603e24ace
+[HEL-1508 e2e] created output bd50dbe6-fa08-4ed3-a70c-5037c30ccd94
+[HEL-1508 e2e] created output cc6964c5-408d-4139-9bd4-f0877659fbc0
+[HEL-1508 e2e] created output 39262c39-4746-4eee-beaa-86fc721795ab
+[HEL-1508 e2e] created output 959b5f23-ad99-41b3-9195-77ec2463e2cd
+[HEL-1508 e2e] created dashboard a11d71ad-f997-46a5-8a6e-255cefd80e8b
+[HEL-1508 e2e] created panel 83f606b8-3f7a-43a8-88b1-5ceffc06a431
+[HEL-1508 e2e] created panel 47aa0265-1e53-4c2e-b453-ec2d2bc3209f
+[HEL-1508 e2e] created panel c79975c6-77f3-4e7b-a20f-5ad0e8a2f144
+[HEL-1508 e2e] created panel f5a2e956-5dde-4f77-916b-f537c03d492c
+[HEL-1508 e2e] created panel 4be21257-e9bd-4faf-ac6a-4283572345b5
+[HEL-1508 e2e] dark-1440 bar {"axis":"category","xs":["2026-09-01","2026-09-01","2026-09-02","2026-09-04",""],"values":[5,9,null,7,3],"barX":[181.2195,338.1195]}
+[HEL-1508 e2e] dark-1440 line {"axis":"time","ys":[5,9,null,7]}
+[HEL-1508 e2e] dark-1440 gap tooltip ""
+[HEL-1508 e2e] dark-1440 real-point tooltip "2026-09-01 value: 5"
+[HEL-1508 e2e] dark-1440 scatter {"axis":"time","points":3}
+[HEL-1508 e2e] dark-1440 agg axis time
+[HEL-1508 e2e] DELETE /api/dashboards/a11d71ad-f997-46a5-8a6e-255cefd80e8b -> 204
+[HEL-1508 e2e] DELETE /api/pipelines/04dd515b-a2d8-449e-aeb5-9debfae7b323 -> 204
+[HEL-1508 e2e] DELETE /api/data-sources/f12d33aa-3457-4df0-a625-2c5d24824f5d -> 204
+  ✓  2 [dev] › e2e/hel1508-chart-time-axis-followups.spec.ts:119:7 › time-axis follow-ups render on a dashboard (dark-1440) (10.0s)
+[HEL-1508 e2e] created user c592eaa0-17b7-49f0-bacb-d8f543b531ce
+[HEL-1508 e2e] created data-source 712a116b-4615-4424-bdcd-7816dca5f424
+[HEL-1508 e2e] created pipeline 2ee6d21b-28c4-4072-a1e1-6d022331834c
+[HEL-1508 e2e] created output 8130e159-436e-45cd-b4cf-321e7a80f1df
+[HEL-1508 e2e] created output 48c43cb1-1c3d-4917-bdd2-2bbfa547a755
+[HEL-1508 e2e] created output c6015e18-6d5b-41f3-ba80-c53c92465fdc
+[HEL-1508 e2e] created output db4d3d44-2a3b-4ff7-b65c-5a95eac339e1
+[HEL-1508 e2e] created output 46492fc9-98e5-4af9-be52-8a7ad4798f79
+[HEL-1508 e2e] created dashboard 810fc799-0274-4eec-a692-4022b775bbca
+[HEL-1508 e2e] created panel 91ffd3d1-2b39-4ab6-a23a-313bf446089d
+[HEL-1508 e2e] created panel b4492312-b2c8-4d2e-96f0-fbc0c909c832
+[HEL-1508 e2e] created panel c10587e6-7457-4515-a29e-4fec94ef2df8
+[HEL-1508 e2e] created panel fcd36499-6c03-4bc3-b459-bb088398991f
+[HEL-1508 e2e] created panel 5985a494-4b46-4e5b-98e4-ce81f373e094
+[HEL-1508 e2e] light-375 bar {"axis":"category","xs":["2026-09-01","2026-09-01","2026-09-02","2026-09-04",""],"values":[5,9,null,7,3],"barX":[39.74199999999999,96.142]}
+[HEL-1508 e2e] light-375 line {"axis":"time","ys":[5,9,null,7]}
+[HEL-1508 e2e] light-375 gap tooltip ""
+[HEL-1508 e2e] light-375 real-point tooltip "2026-09-01 value: 5"
+[HEL-1508 e2e] light-375 scatter {"axis":"time","points":3}
+[HEL-1508 e2e] light-375 agg axis time
+[HEL-1508 e2e] DELETE /api/dashboards/810fc799-0274-4eec-a692-4022b775bbca -> 204
+[HEL-1508 e2e] DELETE /api/pipelines/2ee6d21b-28c4-4072-a1e1-6d022331834c -> 204
+[HEL-1508 e2e] DELETE /api/data-sources/712a116b-4615-4424-bdcd-7816dca5f424 -> 204
+  ✓  3 [dev] › e2e/hel1508-chart-time-axis-followups.spec.ts:119:7 › time-axis follow-ups render on a dashboard (light-375) (10.2s)
+[HEL-1508 e2e] created user 6ab26c0a-4e4a-4e0d-9f0a-a5913225f3c3
+[HEL-1508 e2e] created data-source 12611dab-8e8f-4545-826f-8a3ca36b554b
+[HEL-1508 e2e] created pipeline 1de3197b-16d3-4959-8d25-e9bdf9f1d779
+[HEL-1508 e2e] created output c3c6db40-7fdb-4041-89f4-8a7e919feb1a
+[HEL-1508 e2e] created output 0cf4d449-cbfa-4f05-8c79-308b73b3db6e
+[HEL-1508 e2e] created output d9ad32bb-263e-45f3-a76f-be95298a696f
+[HEL-1508 e2e] created output 599e8f03-0dff-491a-8219-6eb6344e55b8
+[HEL-1508 e2e] created output 7a4a611d-58ff-40ef-b19d-88ee5f82390d
+[HEL-1508 e2e] created dashboard f89ba826-43de-4261-aa10-9575bc7e6e79
+[HEL-1508 e2e] created panel cb83eac9-f85a-4532-b2c3-7c4752b2b3e4
+[HEL-1508 e2e] created panel f9037716-04fb-4a51-bf97-12480183cb5d
+[HEL-1508 e2e] created panel d93f4c92-c9e7-4a43-84d8-5b3c1abec6c1
+[HEL-1508 e2e] created panel 90e542cf-8828-4606-92e0-0df15171d07c
+[HEL-1508 e2e] created panel 716ef095-daf1-46dc-b7ab-5c0f79d2f9e9
+[HEL-1508 e2e] dark-375 bar {"axis":"category","xs":["2026-09-01","2026-09-01","2026-09-02","2026-09-04",""],"values":[5,9,null,7,3],"barX":[39.74199999999999,96.142]}
+[HEL-1508 e2e] dark-375 line {"axis":"time","ys":[5,9,null,7]}
+[HEL-1508 e2e] dark-375 gap tooltip ""
+[HEL-1508 e2e] dark-375 real-point tooltip "2026-09-01 value: 5"
+[HEL-1508 e2e] dark-375 scatter {"axis":"time","points":3}
+[HEL-1508 e2e] dark-375 agg axis time
+[HEL-1508 e2e] DELETE /api/dashboards/f89ba826-43de-4261-aa10-9575bc7e6e79 -> 204
+[HEL-1508 e2e] DELETE /api/pipelines/1de3197b-16d3-4959-8d25-e9bdf9f1d779 -> 204
+[HEL-1508 e2e] DELETE /api/data-sources/12611dab-8e8f-4545-826f-8a3ca36b554b -> 204
+  ✓  4 [dev] › e2e/hel1508-chart-time-axis-followups.spec.ts:119:7 › time-axis follow-ups render on a dashboard (dark-375) (8.7s)
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 4 recorded throwaway user(s)
+
+  4 passed (39.1s)

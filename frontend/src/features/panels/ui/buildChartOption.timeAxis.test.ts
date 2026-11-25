@@ -52,7 +52,8 @@ describe("a multi-series chart plots a gap, not 0, where a series has no value (
     const [, b] = seriesOf(
       build("bar", { rows: withBlank, headers: SERIES_HEADERS, fieldMapping: SERIES_MAPPING }),
     );
-    expect(b.data).toEqual([2, null, null]);
+    // HEL-1517: the two (Mon, B) rows above are added (2 + 2), not last-wins.
+    expect(b.data).toEqual([4, null, null]);
   });
 
   it("shows a gap as an em dash in the tooltip, never 0 or undefined", () => {

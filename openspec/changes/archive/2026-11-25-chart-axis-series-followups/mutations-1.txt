@@ -1,0 +1,146 @@
+HEL-1517 mutation runs: each mutation applied, the full spec files run, then reverted (git checkout).
+
+=== MUTATION 1a drop minInterval (src/features/panels/ui/buildChartOption.ts) exit=1 RED
+  old: '{ type: "time", minInterval: timeAxisMinInterval(timeInstants) }'
+  new: '{ type: "time" }'
+Test Suites: 1 failed, 4 passed, 5 total
+Tests:       3 failed, 714 passed, 717 total
+● item 1: a time axis never ticks finer than its data › sets a one-day minimum on an aggregation grouped by a daily timestamp
+● item 1: a time axis never ticks finer than its data › sets a one-day minimum on whole-day raw rows
+● item 1: a time axis never ticks finer than its data › sets a one-hour minimum on whole-hour data that is not all midnight
+
+=== MUTATION 1b return hour for whole-day data (src/utils/chartTimeAxis.ts) exit=1 RED
+  old: '[MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE, MS_PER_SECOND].find'
+  new: '[MS_PER_HOUR, MS_PER_MINUTE, MS_PER_SECOND].find'
+Test Suites: 2 failed, 3 passed, 5 total
+Tests:       4 failed, 713 passed, 717 total
+● item 1: a time axis never ticks finer than its data › sets a one-day minimum on an aggregation grouped by a daily timestamp
+● item 1: a time axis never ticks finer than its data › sets a one-day minimum on whole-day raw rows
+● timeAxisMinInterval › is one day for a single midnight and for instants before 1970
+● timeAxisMinInterval › is one day when every instant is a whole UTC day
+
+=== MUTATION 2a last-wins in the category branch (src/features/panels/ui/chartDataOptions.ts) exit=1 RED
+  old: 'data: allX.map((x) => sums.get(g)?.get(x) ?? null),'
+  new: 'data: allX.map((x) => { const ys = rawRows.filter((r) => (r[seriesCol] ?? "") === g && (r[xCol] ?? "") === x).map((r) => parseFloat(r[yCol] ?? "")).filter((n) => !isNaN(n)); return ys.length ? ys[ys.length - 1] : null; }),'
+Test Suites: 2 failed, 3 passed, 5 total
+Tests:       3 failed, 714 passed, 717 total
+● GUARD: the summed-rows note and the plotted sums match an independent brute force › category, triple and pair, a non-numeric y
+● GUARD: the summed-rows note and the plotted sums match an independent brute force › category, two series, one duplicated cell
+● item 2: rows sharing an x and series are summed › adds two rows at one category x and series
+
+=== MUTATION 2b last-wins in the time branch (src/features/panels/ui/chartTimeDataOptions.ts) exit=1 RED
+  old: 'value: [t, sums.get(g)?.get(t) ?? null],'
+  new: 'value: [t, (() => { const ys = timed.filter((r) => r.t === t && (r.row[seriesCol] ?? "") === g).map((r) => parseFloat(r.row[yCol] ?? "")).filter((n) => !isNaN(n)); return ys.length ? ys[ys.length - 1] : null; })()],'
+Test Suites: 2 failed, 3 passed, 5 total
+Tests:       3 failed, 714 passed, 717 total
+● GUARD: the summed-rows note and the plotted sums match an independent brute force › time bar with an unreadable date
+● GUARD: the summed-rows note and the plotted sums match an independent brute force › time, two spellings of one instant plus an intraday same-date pair
+● item 2: rows sharing an x and series are summed › adds two spellings of one instant on a time axis
+
+=== MUTATION 2c count only the extra rows (src/utils/chartSeriesNotes.ts) exit=1 RED
+  old: 'if (n >= 2) summedRows += n;'
+  new: 'if (n >= 2) summedRows += n - 1;'
+Test Suites: 2 failed, 3 passed, 5 total
+Tests:       9 failed, 708 passed, 717 total
+● ChartRenderer chart footnotes (HEL-1517) › joins the no-readable-date note and the summed-rows note on one line
+● ChartRenderer chart footnotes (HEL-1517) › shows the summed-rows note alone on a category chart
+● GUARD: the summed-rows note and the plotted sums match an independent brute force › category, triple and pair, a non-numeric y
+● GUARD: the summed-rows note and the plotted sums match an independent brute force › category, two series, one duplicated cell
+● GUARD: the summed-rows note and the plotted sums match an independent brute force › covers a summed cell in the matrix (the guard is not vacuous)
+● GUARD: the summed-rows note and the plotted sums match an independent brute force › time bar with an unreadable date
+● GUARD: the summed-rows note and the plotted sums match an independent brute force › time, two spellings of one instant plus an intraday same-date pair
+● summedRowsNote › counts every row that took part in a sum of two or more (category)
+● summedRowsNote › says 'time' on a time axis and sums spellings of one instant
+
+=== MUTATION 2d count a non-numeric-y row (src/utils/chartSeriesNotes.ts) exit=1 RED
+  old: '    if (Number.isNaN(y)) continue;\n    const series = row[seriesCol] ?? "";\n    const bySum'
+  new: '    const series = row[seriesCol] ?? "";\n    if (Number.isNaN(y)) { const c0 = counts.get(series) ?? new Map<K, number>(); c0.set(key, (c0.get(key) ?? 0) + 1); counts.set(series, c0); continue; }\n    const bySum'
+Test Suites: 1 failed, 4 passed, 5 total
+Tests:       2 failed, 715 passed, 717 total
+● GUARD: the summed-rows note and the plotted sums match an independent brute force › category, triple and pair, a non-numeric y
+● summedRowsNote › is null for different times on one date, a non-numeric y, distinct keys and other charts
+
+=== MUTATION 2e key the time note by raw x instead of instant (src/utils/chartSeriesNotes.ts) exit=1 RED
+  old: 'entries: plan.timePlan.timed.map(({ t, row }) => ({ key: t, row })) };'
+  new: 'entries: plan.timePlan.timed.map(({ row }) => ({ key: row[xCol] ?? "", row })) };'
+Test Suites: 2 failed, 3 passed, 5 total
+Tests:       3 failed, 714 passed, 717 total
+● ChartRenderer chart footnotes (HEL-1517) › joins the no-readable-date note and the summed-rows note on one line
+● GUARD: the summed-rows note and the plotted sums match an independent brute force › time, two spellings of one instant plus an intraday same-date pair
+● summedRowsNote › says 'time' on a time axis and sums spellings of one instant
+
+=== MUTATION 3a restore non-numeric scatter x -> 0 (src/features/panels/ui/chartDataOptions.ts) exit=0 SURVIVED
+  old: 'const point = [parseFloat(r[xCol] ?? ""), parseFloat(r[yCol] ?? "")];'
+  new: 'const xv = parseFloat(r[xCol] ?? ""); const point = [isNaN(xv) ? 0 : xv, parseFloat(r[yCol] ?? "")];'
+Test Suites: 5 passed, 5 total
+Tests:       717 passed, 717 total
+
+
+=== MUTATION 3a' (with the filter dropped too) (src/features/panels/ui/chartDataOptions.ts) exit=1 RED
+  old: '(r) => !isNaN(parseFloat(r[yCol] ?? "")) && !isNaN(parseFloat(r[xCol] ?? "")),'
+  new: '(r) => !isNaN(parseFloat(r[yCol] ?? "")),'
+Test Suites: 1 failed, 4 passed, 5 total
+Tests:       2 failed, 715 passed, 717 total
+● item 3: a scatter does not plot a non-numeric x at 0 › applies per colour group and keeps an emptied group's legend entry
+● item 3: a scatter does not plot a non-numeric x at 0 › draws no point for a row whose x is not numeric
+
+=== MUTATION 3b drop the no-numeric-x note (src/utils/chartSeriesNotes.ts) exit=1 RED
+  old: '  if (omitted === 0) return null;'
+  new: '  if (omitted >= 0) return null;'
+Test Suites: 2 failed, 3 passed, 5 total
+Tests:       2 failed, 715 passed, 717 total
+● ChartRenderer chart footnotes (HEL-1517) › shows the no-numeric-x note for a scatter
+● scatterOmittedNote › counts every row whose x is not numeric, singular and plural
+
+=== MUTATION 4a remove the markPoint (src/utils/chartTypeOptions.ts) exit=1 RED
+  old: 'return isolated.length > 0 ? { ...next, markPoint: isolatedMarkPoint(isolated) } : next;'
+  new: 'return next;'
+Test Suites: 1 failed, 4 passed, 5 total
+Tests:       6 failed, 711 passed, 717 total
+● item 4: an isolated value keeps a marker on a line with markers off › does not mark a point with one numeric neighbour
+● item 4: an isolated value keeps a marker on a line with markers off › is silent, so a click never lands on it
+● item 4: an isolated value keeps a marker on a line with markers off › marks a value between two gaps, and an end value whose only neighbour is a gap
+● item 4: an isolated value keeps a marker on a line with markers off › marks the only value of a series
+● item 4: an isolated value keeps a marker on a line with markers off › places a marker by category index, so a repeated category lands where it is drawn
+● item 4: an isolated value keeps a marker on a line with markers off › uses the instant as the coord on a time axis
+
+=== MUTATION 4b mark every numeric point (src/utils/chartTypeOptions.ts) exit=1 RED
+  old: 'if (isNumericY(pointY(data[i - 1])) || isNumericY(pointY(data[i + 1]))) return;'
+  new: 'if (false) return;'
+Test Suites: 1 failed, 4 passed, 5 total
+Tests:       3 failed, 714 passed, 717 total
+● item 4: an isolated value keeps a marker on a line with markers off › does not mark a point with one numeric neighbour
+● item 4: an isolated value keeps a marker on a line with markers off › marks a value between two gaps, and an end value whose only neighbour is a gap
+● item 4: an isolated value keeps a marker on a line with markers off › marks nothing when every value has a numeric neighbour
+
+=== MUTATION 4c mark a point with one numeric neighbour (src/utils/chartTypeOptions.ts) exit=1 RED
+  old: 'if (isNumericY(pointY(data[i - 1])) || isNumericY(pointY(data[i + 1]))) return;'
+  new: 'if (isNumericY(pointY(data[i - 1])) && isNumericY(pointY(data[i + 1]))) return;'
+Test Suites: 1 failed, 4 passed, 5 total
+Tests:       3 failed, 714 passed, 717 total
+● item 4: an isolated value keeps a marker on a line with markers off › does not mark a point with one numeric neighbour
+● item 4: an isolated value keeps a marker on a line with markers off › marks a value between two gaps, and an end value whose only neighbour is a gap
+● item 4: an isolated value keeps a marker on a line with markers off › marks nothing when every value has a numeric neighbour
+
+=== MUTATION 4d category name as the coord (src/utils/chartTypeOptions.ts) exit=1 RED
+  old: 'const x = timeAxis ? (item as { value: unknown[] }).value[0] : i;'
+  new: 'const x = timeAxis ? (item as { value: unknown[] }).value[0] : ((option.xAxis as { data?: unknown[] }).data?.[i] ?? i);'
+Test Suites: 1 failed, 4 passed, 5 total
+Tests:       4 failed, 713 passed, 717 total
+● item 4: an isolated value keeps a marker on a line with markers off › does not mark a point with one numeric neighbour
+● item 4: an isolated value keeps a marker on a line with markers off › marks a value between two gaps, and an end value whose only neighbour is a gap
+● item 4: an isolated value keeps a marker on a line with markers off › marks the only value of a series
+● item 4: an isolated value keeps a marker on a line with markers off › places a marker by category index, so a repeated category lands where it is drawn
+
+=== MUTATION M2 onePointPerRow = seriesCol === -1 (src/utils/chartTimePlan.ts) exit=1 RED
+  old: 'const onePointPerRow = yCol === -1 || seriesCol === -1;'
+  new: 'const onePointPerRow = seriesCol === -1;'
+Test Suites: 1 failed, 4 passed, 5 total
+Tests:       1 failed, 716 passed, 717 total
+● GUARD: the plan, the option's x axis and the footnote agree for every chart › bar / x+series without a yAxis / vertical / raw / timestamp
+
+=== MUTATION 3a-full restore x -> 0 (filter AND fallback restored) exit=1 RED
+  note: mutation 3a above (fallback alone) SURVIVED because the numeric-x filter makes the fallback unreachable (an equivalent mutation); this one restores the shipped pre-change behaviour.
+Tests:       2 failed, 715 passed, 717 total
+● item 3: a scatter does not plot a non-numeric x at 0 › applies per colour group and keeps an emptied group's legend entry
+● item 3: a scatter does not plot a non-numeric x at 0 › draws no point for a row whose x is not numeric

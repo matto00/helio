@@ -1,0 +1,176 @@
+
+Running 4 tests using 1 worker
+
+[HEL-1517 e2e] created user e8e07d08-8d1b-49c8-a514-0174100a2880
+[HEL-1517 e2e] created data-source ef3d9d6c-22a0-48b9-a092-2cbc70ad9ce4
+[HEL-1517 e2e] created pipeline 72b630f4-b565-4631-a8cb-d5fbb6a470ee
+[HEL-1517 e2e] created output 51521334-7eef-4711-a7d3-c4a296a23365
+[HEL-1517 e2e] created output 2e86c045-9bc6-4504-989b-9efe0352367c
+[HEL-1517 e2e] created dashboard 8cda7288-9597-4e4d-9e8d-950ffa698615
+[HEL-1517 e2e] created panel a143aa3f-d3b2-44e2-8c58-66fde434fb70
+[HEL-1517 e2e] created panel 3584ab4e-4d51-411c-af22-ccb7e5b322e7
+[HEL-1517 e2e] light-1440 axis {"type":"time","minInterval":86400000,"ticks":[1788220800000,1788307200000,1788393600000,1788480000000,1788566400000]}
+[HEL-1517 e2e] light-1440 marks {"coords":[[1788393600000,5],[1788566400000,2]],"pixels":[[549.1499999999069,65],[941.3999999999069,132.8]],"nearby":[[],[]]}
+[HEL-1517 e2e] DELETE /api/dashboards/8cda7288-9597-4e4d-9e8d-950ffa698615 -> 204
+[HEL-1517 e2e] DELETE /api/pipelines/72b630f4-b565-4631-a8cb-d5fbb6a470ee -> 204
+[HEL-1517 e2e] DELETE /api/data-sources/ef3d9d6c-22a0-48b9-a092-2cbc70ad9ce4 -> 204
+  ✘  1 [dev] › e2e/hel1517-chart-followups.spec.ts:111:7 › chart follow-ups render on a dashboard (light-1440) (7.1s)
+[HEL-1517 e2e] created user e0307df0-19b4-4697-a7f3-e6ce367d2945
+[HEL-1517 e2e] created data-source 8e6fda14-1d70-40ae-ab5a-ad2c6834e5a6
+[HEL-1517 e2e] created pipeline 198ae721-9b5f-450b-ba22-ff5b1a231c47
+[HEL-1517 e2e] created output 972ade0c-4bde-44c0-83a8-d6f91ccfc46b
+[HEL-1517 e2e] created output 12599027-dd30-480f-96ed-816c294e55ab
+[HEL-1517 e2e] created dashboard abf0560e-7b1e-460b-88e0-b552a92132e0
+[HEL-1517 e2e] created panel 52642251-c917-4fcd-bc4b-6e4a370df432
+[HEL-1517 e2e] created panel 4a5a97a2-0ae1-4137-be90-afaca15548da
+[HEL-1517 e2e] dark-1440 axis {"type":"time","minInterval":86400000,"ticks":[1788220800000,1788307200000,1788393600000,1788480000000,1788566400000]}
+[HEL-1517 e2e] dark-1440 marks {"coords":[[1788393600000,5],[1788566400000,2]],"pixels":[[549.1499999999069,65],[941.3999999999069,132.8]],"nearby":[[],[]]}
+[HEL-1517 e2e] DELETE /api/dashboards/abf0560e-7b1e-460b-88e0-b552a92132e0 -> 204
+[HEL-1517 e2e] DELETE /api/pipelines/198ae721-9b5f-450b-ba22-ff5b1a231c47 -> 204
+[HEL-1517 e2e] DELETE /api/data-sources/8e6fda14-1d70-40ae-ab5a-ad2c6834e5a6 -> 204
+  ✘  2 [dev] › e2e/hel1517-chart-followups.spec.ts:111:7 › chart follow-ups render on a dashboard (dark-1440) (7.3s)
+[HEL-1517 e2e] created user 1722a33e-dc00-4b43-8d0b-4c0b5cedec1d
+[HEL-1517 e2e] created data-source 750ba8ec-62b9-48a7-8b9f-85af317763d2
+[HEL-1517 e2e] created pipeline 202e6ea2-44ee-4230-9f4b-f35b2d141051
+[HEL-1517 e2e] created output 0cf8dc9b-35ea-498b-9cf8-0c2b1cdff64c
+[HEL-1517 e2e] created output 730d1b54-9790-4975-96ac-7abc0a469f65
+[HEL-1517 e2e] created dashboard e74d1c1a-d985-4d29-a6d6-5e0d1b6da041
+[HEL-1517 e2e] created panel c807e4dd-8df2-46b9-9a21-3917c3bb468e
+[HEL-1517 e2e] created panel efd0744c-5f12-4740-8cfe-ab13fc916b97
+[HEL-1517 e2e] light-375 axis {"type":"time","minInterval":86400000,"ticks":[1788220800000,1788307200000,1788393600000,1788480000000,1788566400000]}
+[HEL-1517 e2e] light-375 marks {"coords":[[1788393600000,5],[1788566400000,2]],"pixels":[[166,11],[307,51.2]],"nearby":[[],[]]}
+[HEL-1517 e2e] DELETE /api/dashboards/e74d1c1a-d985-4d29-a6d6-5e0d1b6da041 -> 204
+[HEL-1517 e2e] DELETE /api/pipelines/202e6ea2-44ee-4230-9f4b-f35b2d141051 -> 204
+[HEL-1517 e2e] DELETE /api/data-sources/750ba8ec-62b9-48a7-8b9f-85af317763d2 -> 204
+  ✘  3 [dev] › e2e/hel1517-chart-followups.spec.ts:111:7 › chart follow-ups render on a dashboard (light-375) (7.0s)
+[HEL-1517 e2e] created user fdcd2c9d-0e92-47f1-96d8-6c27d09d6426
+[HEL-1517 e2e] created data-source e62c5ad7-36d6-437b-a68e-ce9b3568a193
+[HEL-1517 e2e] created pipeline c6387f34-8bd0-4da9-a3f8-ba8711da1255
+[HEL-1517 e2e] created output d2129951-5627-4640-bda9-37deb22d2b2b
+[HEL-1517 e2e] created output ad820c69-7a07-4e98-a010-d67b70eeb5ba
+[HEL-1517 e2e] created dashboard 182f0de3-3d9c-42f6-89f0-e9c83e3e120b
+[HEL-1517 e2e] created panel 01704181-c9f5-463b-8607-b4728260f34b
+[HEL-1517 e2e] created panel 70b3a011-1475-418a-b959-10ebaee19ac5
+[HEL-1517 e2e] dark-375 axis {"type":"time","minInterval":86400000,"ticks":[1788220800000,1788307200000,1788393600000,1788480000000,1788566400000]}
+[HEL-1517 e2e] dark-375 marks {"coords":[[1788393600000,5],[1788566400000,2]],"pixels":[[166,11],[307,51.2]],"nearby":[[],[]]}
+[HEL-1517 e2e] DELETE /api/dashboards/182f0de3-3d9c-42f6-89f0-e9c83e3e120b -> 204
+[HEL-1517 e2e] DELETE /api/pipelines/c6387f34-8bd0-4da9-a3f8-ba8711da1255 -> 204
+[HEL-1517 e2e] DELETE /api/data-sources/e62c5ad7-36d6-437b-a68e-ce9b3568a193 -> 204
+  ✘  4 [dev] › e2e/hel1517-chart-followups.spec.ts:111:7 › chart follow-ups render on a dashboard (dark-375) (6.1s)
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 4 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/hel1517-chart-followups.spec.ts:111:7 › chart follow-ups render on a dashboard (light-1440) 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoHaveLength[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected length: [32m1[39m
+    Received length: [31m0[39m
+    Received array:  [31m[][39m
+
+      288 |       // One ringed (stroked, non-line) symbol is on the canvas at each marker's pixel, in the series colour.
+      289 |       for (const symbols of drawn!.nearby) {
+    > 290 |         expect(symbols).toHaveLength(1);
+          |                         ^
+      291 |         expect(symbols[0].type).toBe("path");
+      292 |         expect(typeof symbols[0].stroke).toBe("string");
+      293 |       }
+        at /home/matt/Development/helio/.claude/worktrees/bug/chart-time-axis-followups/HEL-1517/e2e/hel1517-chart-followups.spec.ts:290:25
+
+    Error Context: test-results/hel1517-chart-followups-ch-84039--on-a-dashboard-light-1440--dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1517-chart-followups-ch-84039--on-a-dashboard-light-1440--dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1517-chart-followups-ch-84039--on-a-dashboard-light-1440--dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [dev] › e2e/hel1517-chart-followups.spec.ts:111:7 › chart follow-ups render on a dashboard (dark-1440) 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoHaveLength[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected length: [32m1[39m
+    Received length: [31m0[39m
+    Received array:  [31m[][39m
+
+      288 |       // One ringed (stroked, non-line) symbol is on the canvas at each marker's pixel, in the series colour.
+      289 |       for (const symbols of drawn!.nearby) {
+    > 290 |         expect(symbols).toHaveLength(1);
+          |                         ^
+      291 |         expect(symbols[0].type).toBe("path");
+      292 |         expect(typeof symbols[0].stroke).toBe("string");
+      293 |       }
+        at /home/matt/Development/helio/.claude/worktrees/bug/chart-time-axis-followups/HEL-1517/e2e/hel1517-chart-followups.spec.ts:290:25
+
+    Error Context: test-results/hel1517-chart-followups-ch-3ae03-r-on-a-dashboard-dark-1440--dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1517-chart-followups-ch-3ae03-r-on-a-dashboard-dark-1440--dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1517-chart-followups-ch-3ae03-r-on-a-dashboard-dark-1440--dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [dev] › e2e/hel1517-chart-followups.spec.ts:111:7 › chart follow-ups render on a dashboard (light-375) 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoHaveLength[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected length: [32m1[39m
+    Received length: [31m0[39m
+    Received array:  [31m[][39m
+
+      288 |       // One ringed (stroked, non-line) symbol is on the canvas at each marker's pixel, in the series colour.
+      289 |       for (const symbols of drawn!.nearby) {
+    > 290 |         expect(symbols).toHaveLength(1);
+          |                         ^
+      291 |         expect(symbols[0].type).toBe("path");
+      292 |         expect(typeof symbols[0].stroke).toBe("string");
+      293 |       }
+        at /home/matt/Development/helio/.claude/worktrees/bug/chart-time-axis-followups/HEL-1517/e2e/hel1517-chart-followups.spec.ts:290:25
+
+    Error Context: test-results/hel1517-chart-followups-ch-c89c0-r-on-a-dashboard-light-375--dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1517-chart-followups-ch-c89c0-r-on-a-dashboard-light-375--dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1517-chart-followups-ch-c89c0-r-on-a-dashboard-light-375--dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [dev] › e2e/hel1517-chart-followups.spec.ts:111:7 › chart follow-ups render on a dashboard (dark-375) 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoHaveLength[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected length: [32m1[39m
+    Received length: [31m0[39m
+    Received array:  [31m[][39m
+
+      288 |       // One ringed (stroked, non-line) symbol is on the canvas at each marker's pixel, in the series colour.
+      289 |       for (const symbols of drawn!.nearby) {
+    > 290 |         expect(symbols).toHaveLength(1);
+          |                         ^
+      291 |         expect(symbols[0].type).toBe("path");
+      292 |         expect(typeof symbols[0].stroke).toBe("string");
+      293 |       }
+        at /home/matt/Development/helio/.claude/worktrees/bug/chart-time-axis-followups/HEL-1517/e2e/hel1517-chart-followups.spec.ts:290:25
+
+    Error Context: test-results/hel1517-chart-followups-ch-aebf0-er-on-a-dashboard-dark-375--dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1517-chart-followups-ch-aebf0-er-on-a-dashboard-dark-375--dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1517-chart-followups-ch-aebf0-er-on-a-dashboard-dark-375--dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4 failed
+    [dev] › e2e/hel1517-chart-followups.spec.ts:111:7 › chart follow-ups render on a dashboard (light-1440) 
+    [dev] › e2e/hel1517-chart-followups.spec.ts:111:7 › chart follow-ups render on a dashboard (dark-1440) 
+    [dev] › e2e/hel1517-chart-followups.spec.ts:111:7 › chart follow-ups render on a dashboard (light-375) 
+    [dev] › e2e/hel1517-chart-followups.spec.ts:111:7 › chart follow-ups render on a dashboard (dark-375) 

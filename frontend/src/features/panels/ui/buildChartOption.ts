@@ -21,6 +21,7 @@ import { applyChartOverlay } from "./chartOverlayOption";
 import { relabelBlankCategory } from "../../../utils/blankLabel";
 import type { ReferenceMarks } from "../../../utils/referenceMarks";
 import { applyReferenceMarks } from "./referenceMarksOption";
+import { timeAxisMinInterval } from "../../../utils/chartTimeAxis";
 import type { ChartFieldTypes } from "../../../utils/chartTimeAxis";
 import { resolveChartPlan } from "../../../utils/chartTimePlan";
 import { applyTimeAxisTooltip, plottedInstants } from "./timeAxisOption";
@@ -214,7 +215,7 @@ export function buildChartOption({
         ...(dataOption.xAxis as object),
         ...(appearanceOption.xAxis as object),
         // HEL-1305 — the appearance's category type must not clobber the data builder's time axis.
-        ...(timeInstants ? { type: "time" } : {}),
+        ...(timeInstants ? { type: "time", minInterval: timeAxisMinInterval(timeInstants) } : {}),
         nameTextStyle: textStyle,
         axisLabel: {
           ...(appearanceOption.xAxis as { axisLabel?: object } | undefined)?.axisLabel,

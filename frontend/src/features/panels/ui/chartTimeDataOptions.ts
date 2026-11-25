@@ -8,6 +8,7 @@ import type { ScatterChartOptions } from "../types/panel";
 import type { ChartType } from "../../../utils/chartAppearance";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 import { makeScatterSymbolSize } from "../../../utils/chartTypeOptions";
+import { sumBySeriesAndKey } from "../../../utils/chartSeriesNotes";
 import type { AggregatePoint, TimedRow } from "../../../utils/chartTimePlan";
 
 const TIME_X_AXIS = { type: "time" } as const;
@@ -40,8 +41,8 @@ export function buildTimeSingleSeries(
 }
 
 /** Multi-series: one shared, sorted list of distinct instants for every series; a series with no
- *  numeric value at an instant gets `null` (a gap), never 0 (owner ruling 2). The lookup is keyed by
- *  instant so two spellings of one instant never produce a false gap; the point `name` is the
+ *  numeric value at an instant gets `null` (a gap), never 0 (owner ruling 2). Values are summed by
+ *  instant so two spellings of one instant never produce a false gap (their values add, HEL-1517); the point `name` is the
  *  first-seen raw spelling. */
 export function buildTimeMultiSeries(
   rawRows: string[][],
@@ -56,15 +57,12 @@ export function buildTimeMultiSeries(
     if (!nameByInstant.has(t)) nameByInstant.set(t, row[xCol] ?? "");
   }
   const groups = [...new Set(rawRows.map((r) => r[seriesCol] ?? ""))];
-  const lookup = new Map<string, Map<number, number>>();
-  for (const { t, row } of timed) {
-    const y = parseFloat(row[yCol] ?? "");
-    if (Number.isNaN(y)) continue;
-    const g = row[seriesCol] ?? "";
-    const byInstant = lookup.get(g) ?? new Map<number, number>();
-    byInstant.set(t, y);
-    lookup.set(g, byInstant);
-  }
+  // HEL-1517 — rows at one instant and series are added together (the footnote counts them).
+  const { sums } = sumBySeriesAndKey(
+    timed.map(({ t, row }) => ({ key: t, row })),
+    yCol,
+    seriesCol,
+  );
   return {
     xAxis: TIME_X_AXIS,
     legend: { data: groups },
@@ -73,7 +71,7 @@ export function buildTimeMultiSeries(
       name: g,
       data: [...nameByInstant].map(([t, name]) => ({
         name,
-        value: [t, lookup.get(g)?.get(t) ?? null],
+        value: [t, sums.get(g)?.get(t) ?? null],
       })),
     })),
   } as Partial<EChartsOption>;
