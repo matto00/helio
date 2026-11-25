@@ -1,0 +1,26 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.13.0.3)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/bound-rest-response-read/HEL-1877/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/bound-rest-response-read/HEL-1877/backend/)
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/bug/bound-rest-response-read/HEL-1877/backend/target/out/jvm/scala-2.13.15/helio-backend/test-classes ...
+[error] /home/matt/Development/helio/.claude/worktrees/bug/bound-rest-response-read/HEL-1877/backend/src/test/scala/com/helio/domain/connectors/RemoteErrorBodyPrefixSpec.scala:33:23: value MaxBodyBytes is not a member of object com.helio.domain.connectors.RemoteErrorText
+[error]       RemoteErrorText.MaxBodyBytes should be >= 4 * RemoteErrorText.MaxCodePoints + 4
+[error]                       ^
+[error] /home/matt/Development/helio/.claude/worktrees/bug/bound-rest-response-read/HEL-1877/backend/src/test/scala/com/helio/domain/connectors/RemoteErrorBodyPrefixSpec.scala:45:49: value readBodyPrefix is not a member of object com.helio.domain.connectors.RemoteErrorText
+[error]       val prefix = Await.result(RemoteErrorText.readBodyPrefix(source, 4096, 30.seconds), 15.seconds)
+[error]                                                 ^
+[error] /home/matt/Development/helio/.claude/worktrees/bug/bound-rest-response-read/HEL-1877/backend/src/test/scala/com/helio/domain/connectors/RemoteErrorBodyPrefixSpec.scala:53:49: value readBodyPrefix is not a member of object com.helio.domain.connectors.RemoteErrorText
+[error]       val prefix = Await.result(RemoteErrorText.readBodyPrefix(Source(List(ByteString("ab"), ByteString("cd"))), 4096, 30.seconds), 5.seconds)
+[error]                                                 ^
+[error] /home/matt/Development/helio/.claude/worktrees/bug/bound-rest-response-read/HEL-1877/backend/src/test/scala/com/helio/domain/connectors/RemoteErrorBodyPrefixSpec.scala:57:36: value readBodyPrefix is not a member of object com.helio.domain.connectors.RemoteErrorText
+[error]       Await.result(RemoteErrorText.readBodyPrefix(Source.empty[ByteString], 4096, 30.seconds), 5.seconds) shouldBe ByteString.empty
+[error]                                    ^
+[error] /home/matt/Development/helio/.claude/worktrees/bug/bound-rest-response-read/HEL-1877/backend/src/test/scala/com/helio/domain/connectors/RemoteErrorBodyPrefixSpec.scala:62:38: value readBodyPrefix is not a member of object com.helio.domain.connectors.RemoteErrorText
+[error]         Await.result(RemoteErrorText.readBodyPrefix(slow, 4096, 300.millis), 5.seconds)
+[error]                                      ^
+[error] 5 errors found
+[error] (Test / compileIncremental) Compilation failed
+[error] No tests match the patterns: com.helio.domain.connectors.RemoteErrorBodyPrefixSpec
+[error] The following patterns were specified but no tests were found in any subproject:
+[error]   - com.helio.domain.connectors.RemoteErrorBodyPrefixSpec
+[error] Available tests:

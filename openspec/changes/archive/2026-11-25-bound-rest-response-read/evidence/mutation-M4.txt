@@ -1,0 +1,118 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.13.0.3)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/bound-rest-response-read/HEL-1877/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/bound-rest-response-read/HEL-1877/backend/)
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/bug/bound-rest-response-read/HEL-1877/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+12:14:45,818 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+12:14:45,818 |-INFO in ch.qos.logback.classic.util.ContextInitializer@53a46edb - No custom configurators were discovered as a service.
+12:14:45,818 |-INFO in ch.qos.logback.classic.util.ContextInitializer@53a46edb - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+12:14:45,819 |-INFO in ch.qos.logback.classic.util.ContextInitializer@53a46edb - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+12:14:45,820 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+12:14:45,821 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/bug/bound-rest-response-read/HEL-1877/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backe
+12:14:45,850 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+12:14:45,851 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@90f398 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+12:14:45,851 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+12:14:45,853 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+12:14:45,854 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@90f398 - value "plain" substituted for "${LOG_APPENDER}"
+12:14:45,854 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+12:14:45,854 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+12:14:45,854 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+12:14:45,857 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+12:14:45,872 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+12:14:45,872 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+12:14:45,872 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+12:14:45,872 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@90f398 - value "INFO" substituted for "${LOG_LEVEL}"
+12:14:45,872 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+12:14:45,872 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@90f398 - value "plain" substituted for "${LOG_APPENDER}"
+12:14:45,872 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+12:14:45,872 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@379826ad - End of configuration.
+12:14:45,873 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@646708fa - Registering current configuration as safe fallback point
+12:14:45,875 |-INFO in ch.qos.logback.classic.util.ContextInitializer@53a46edb - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 54 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+12:14:45.877 INFO  [com-helio-domain-connectors-RestApiConnectorDriverErrorCapSpec-pekko.actor.default-dispatcher-5] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] RestApiConnectorDriverErrorCapSpec:
+[info] RestApiConnectorDriver non-2xx error text
+[info] - should cap an oversized body on the fetch path (issueAndParse)
+[info] - should cap an oversized body on the connection-test path (issueTest)
+[info] - should not split a surrogate pair at the cut on the fetch path
+[info] - should not split a surrogate pair at the cut on the connection-test path
+[info] - should leave a short error unchanged on both paths
+[info] - should equal the capped full body for a multibyte body cut inside a character, on both paths
+[info] - should equal the capped full body for malformed UTF-8 in the head, on both paths
+[info] RestApiConnectorDriver error body read bound (HEL-1877)
+[info] - should stop reading a never-ending error body at the byte bound on the fetch path
+[info]   + /endless emitted bytes at completion: 4096 
+[info] - should stop reading a never-ending error body at the byte bound on the connection-test path
+[info]   + /endless emitted bytes at completion: 4096 
+[info] - should not read a 64 MiB error body past the old 8 MiB ceiling on the fetch path
+[info]   + /huge fetch emitted bytes at completion: 1048576 
+[info] - should not read a 64 MiB error body past the old 8 MiB ceiling on the connection-test path
+[info]   + /huge test emitted bytes at completion: 983040 
+[info] RestApiConnectorDriver 2xx size ceiling (HEL-1877)
+[info] - should accept a body of exactly 8388608 bytes, chunked and with Content-Length, on fetch
+[info] - should accept a body of exactly 8388608 bytes, chunked and with Content-Length, on the connection test
+12:14:47.951 ERROR [com-helio-domain-connectors-RestApiConnectorDriverErrorCapSpec-pekko.actor.default-dispatcher-6] c.h.d.c.RestApiConnectorDriver - REST source request failed
+org.apache.pekko.http.scaladsl.model.EntityStreamException: Request too large: Request was longer than the maximum of 8388608
+12:14:47.959 ERROR [com-helio-domain-connectors-RestApiConnectorDriverErrorCapSpec-pekko.actor.default-dispatcher-6] c.h.d.c.RestApiConnectorDriver - REST source request failed
+org.apache.pekko.http.scaladsl.model.EntityStreamException: Request too large: Request of size 8388609 was longer than the maximum of 8388608
+[info] - should report Request failed for 8388609 bytes, chunked and with Content-Length, on fetch
+[info] - should report Request failed for 8388609 bytes, chunked and with Content-Length, on the connection test *** FAILED ***
+[info]   Right(<(), the Unit value>) was not equal to Left("Request failed") (RestApiConnectorDriverErrorCapSpec.scala:137)
+[info] ContentSourceSupport.fetchUrl non-2xx (HEL-1877)
+[info] - should stop reading a never-ending non-2xx body and report the status
+[info]   + fetchUrl /endless emitted bytes at completion: 512 
+12:14:48.002 INFO  [com-helio-domain-connectors-RestApiConnectorDriverErrorCapSpec-pekko.actor.default-dispatcher-10] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[WARN] [11/25/2026 12:14:48.007] [com-helio-domain-connectors-RestApiConnectorDriverErrorCapSpec-pekko.actor.default-dispatcher-14] [com-helio-domain-connectors-RestApiConnectorDriverErrorCapSpec/Pool(shared->http://localhost:45001)] [0 (WaitingForResponseEnti
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+12:14:48,449 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+12:14:48,449 |-INFO in ch.qos.logback.classic.util.ContextInitializer@12e3733c - No custom configurators were discovered as a service.
+12:14:48,450 |-INFO in ch.qos.logback.classic.util.ContextInitializer@12e3733c - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+12:14:48,450 |-INFO in ch.qos.logback.classic.util.ContextInitializer@12e3733c - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+12:14:48,451 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+12:14:48,452 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/bug/bound-rest-response-read/HEL-1877/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backe
+12:14:48,481 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+12:14:48,482 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@22065b9d - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+12:14:48,482 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+12:14:48,485 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+12:14:48,486 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@22065b9d - value "plain" substituted for "${LOG_APPENDER}"
+12:14:48,486 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+12:14:48,486 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+12:14:48,486 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+12:14:48,489 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+12:14:48,501 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+12:14:48,501 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+12:14:48,501 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+12:14:48,501 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@22065b9d - value "INFO" substituted for "${LOG_LEVEL}"
+12:14:48,501 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+12:14:48,501 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@22065b9d - value "plain" substituted for "${LOG_APPENDER}"
+12:14:48,501 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+12:14:48,502 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@58b1e08e - End of configuration.
+12:14:48,502 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@2034160f - Registering current configuration as safe fallback point
+12:14:48,504 |-INFO in ch.qos.logback.classic.util.ContextInitializer@12e3733c - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 52 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+12:14:48.506 INFO  [remote-error-body-prefix-spec-pekko.actor.default-dispatcher-5] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] RemoteErrorBodyPrefixSpec:
+[info] RemoteErrorText.MaxBodyBytes
+[info] - should leave room for 500 four-byte code points plus three bytes of decoder lookahead
+[info] RemoteErrorText.readBodyPrefix
+[info] - should pull a bounded number of bytes from an infinite source, cancel it, and return exactly the limit
+[info]   + bytes pulled from the infinite source: 4096 
+[info] - should return a short body whole
+[info] - should return an empty body as empty
+[info] - should fail when the body is slower than the timeout
+12:14:48.995 INFO  [remote-error-body-prefix-spec-pekko.actor.default-dispatcher-6] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 3 seconds, 685 milliseconds.
+[info] Total number of tests run: 21
+[info] Suites: completed 2, aborted 0
+[info] Tests: succeeded 20, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.domain.connectors.RestApiConnectorDriverErrorCapSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 5 s, cache 93%, 28 disk cache hits, 2 onsite tasks
