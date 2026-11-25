@@ -1,0 +1,11 @@
+[info] - should append one row on the owner's source for an editor, then replay it with no second row, no audit-driven debounce and no seq *** FAILED ***
+[info] - should append once, then replay the original row for the same key, user and panel *** FAILED ***
+[info] - should answer KeyConflict for another user or another panel, writing nothing *** FAILED ***
+[info] - should append exactly one row for a same-key re-send and replay the original row with 200 *** FAILED ***
+[info] - should answer a counter lost-ack re-send with the original row, one row in the dataset *** FAILED ***
+[info] - should replay with 200 even when the dataset's shape changed since the original (the lookup comes first) *** FAILED ***
+[info] - should record one audit event for the append and none for the replay *** FAILED ***
+[info] - should replay to a non-owner editor without a seq *** FAILED ***
+[info] - should be read by the server under the same field name: the second post replays *** FAILED ***
+[info] Tests: succeeded 25, failed 9, canceled 0, ignored 0, pending 0
+[info] *** 9 TESTS FAILED ***

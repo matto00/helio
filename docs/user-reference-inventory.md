@@ -28,6 +28,7 @@ three columns and the `| Table | Column | ON DELETE |` header exactly.
 | `dashboard_folders`            | `owner_id`             | CASCADE   |
 | `dashboards`                   | `owner_id`             | NO ACTION |
 | `data_sources`                 | `owner_id`             | CASCADE   |
+| `dataset_rows`                 | `submit_user_id`       | SET NULL  |
 | `image_uploads`                | `owner_id`             | CASCADE   |
 | `invite_codes`                 | `user_id`              | NO ACTION |
 | `mcp_refresh_families`         | `user_id`              | CASCADE   |
@@ -50,7 +51,7 @@ three columns and the `| Table | Column | ON DELETE |` header exactly.
 
 `NO ACTION` blocks the whole `DELETE FROM users` statement (SQLSTATE `23503`) while any referencing row exists.
 `CASCADE` deletes the referencing rows with the user.
-`SET NULL` keeps the referencing row and clears the column (`pipeline_runs.triggered_by_user_id`: a run stays in the owner's history with its trigger user cleared; `pipeline_auto_run_debounce.triggered_by_user_id`: a pending auto-run stays armed with its last-writer user cleared, and its run then records the pipeline owner as the trigger).
+`SET NULL` keeps the referencing row and clears the column (`pipeline_runs.triggered_by_user_id`: a run stays in the owner's history with its trigger user cleared; `pipeline_auto_run_debounce.triggered_by_user_id`: a pending auto-run stays armed with its last-writer user cleared, and its run then records the pipeline owner as the trigger; `dataset_rows.submit_user_id`: a keyed submit's row stays in the dataset with its submitter cleared, and that key can then only answer a conflict).
 
 ## Indirect and non-FK user references
 

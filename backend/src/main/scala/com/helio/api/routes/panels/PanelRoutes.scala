@@ -41,7 +41,7 @@ final class PanelRoutes(
    *  `ErrorResponse(message)` every other route already emits. */
   private def completeSubmit(result: Future[Either[FormSubmitError, FormSubmitResult]]): Route =
     onSuccess(result) {
-      case Right(r) => complete(StatusCodes.Created, FormSubmitResponse.fromDomain(r))
+      case Right(r) => complete(if (r.replayed) StatusCodes.OK else StatusCodes.Created, FormSubmitResponse.fromDomain(r))
       case Left(FormSubmitError(err, fieldErrors, _)) if fieldErrors.nonEmpty =>
         complete(
           ServiceResponse.statusCodeFor(err),
@@ -132,7 +132,7 @@ final class PanelRoutes(
           post {
             concat(
               entity(as[FormSubmitRequest]) { request =>
-                completeSubmit(panelService.submitForm(panelId, request.values.fields, user))
+                completeSubmit(panelService.submitForm(panelId, request.values.fields, user, submitKey = request.submitKey))
               },
               submitFormMultipartRoute(panelId)
             )

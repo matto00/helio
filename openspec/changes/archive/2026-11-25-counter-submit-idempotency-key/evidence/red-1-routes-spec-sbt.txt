@@ -1,0 +1,41 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.13.0.3)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/counter-submit-idempotency-key/HEL-1175/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/counter-submit-idempotency-key/HEL-1175/backend/)
+[info] compiling 867 Scala sources to /home/matt/Development/helio/.claude/worktrees/bug/counter-submit-idempotency-key/HEL-1175/backend/target/out/jvm/scala-2.13.15/helio-backend/test-classes ...
+[info] done compiling
+[info] FormSubmitIdempotencyRoutesSpec:
+[info] a keyed JSON submit
+[info] - should append exactly one row for a same-key re-send and replay the original row with 200 *** FAILED ***
+[info]   400 Bad Request was not equal to 201 Created (FormSubmitIdempotencyRoutesSpec.scala:56)
+[info] - should answer a counter lost-ack re-send with the original row, one row in the dataset *** FAILED ***
+[info]   400 Bad Request was not equal to 201 Created (FormSubmitIdempotencyRoutesSpec.scala:75)
+[info] - should still append for two different keys *** FAILED ***
+[info]   400 Bad Request was not equal to 201 Created (FormSubmitIdempotencyRoutesSpec.scala:82)
+[info] - should replay with 200 even when the dataset's shape changed since the original (the lookup comes first) *** FAILED ***
+[info]   400 Bad Request was not equal to 201 Created (FormSubmitIdempotencyRoutesSpec.scala:93)
+[info] - should record one audit event for the append and none for the replay *** FAILED ***
+[info]   400 Bad Request was not equal to 201 Created (FormSubmitIdempotencyRoutesSpec.scala:104)
+[info] - should replay to a non-owner editor without a seq *** FAILED ***
+[info]   400 Bad Request was not equal to 201 Created (FormSubmitIdempotencyRoutesSpec.scala:116)
+[info] - should refuse a different submitter's same-key submit with 409 and reveal no row *** FAILED ***
+[info]   400 Bad Request was not equal to 201 Created (FormSubmitIdempotencyRoutesSpec.scala:130)
+[info] - should refuse the same submitter's same-key submit through a different panel with 409 *** FAILED ***
+[info]   400 Bad Request was not equal to 201 Created (FormSubmitIdempotencyRoutesSpec.scala:147)
+[info] an unkeyed or malformed-key submit
+[info] - should append one row per submit and answer 201 each time, exactly as before
+[info] - should reject a non-UUID string as a submitKey with 400 and write nothing
+[info] - should reject a number as a submitKey with 400 and write nothing
+[info] - should reject null as a submitKey with 400 and write nothing
+[info] - should reject a short-form UUID string as a submitKey with 400 and write nothing
+[info] - should reject an empty string as a submitKey with 400 and write nothing
+[info] - should still reject an unknown top-level key
+[info] [hel1468-guard] ScalaTest summary: failed=8 aborted=0 unreadable=0
+[info] Run completed in 4 seconds, 221 milliseconds.
+[info] Total number of tests run: 15
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 7, failed 8, canceled 0, ignored 0, pending 0
+[info] *** 8 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.panels.FormSubmitIdempotencyRoutesSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 5 s, cache 93%, 27 disk cache hits, 2 onsite tasks

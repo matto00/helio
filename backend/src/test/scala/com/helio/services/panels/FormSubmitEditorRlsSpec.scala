@@ -13,6 +13,7 @@ import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.services.ServiceError
 import com.helio.services.pipelines.{AutoRunTriggerService, EvaluatedPipeline, PipelineRunGuardConfig, PipelineRunService, PipelineSchedulerService, TriggerSource}
 import com.helio.services.sources.DataSourceService
 import com.helio.spark.PipelineRunCache
@@ -263,6 +264,70 @@ class FormSubmitEditorRlsSpec extends AnyWordSpec with Matchers with BeforeAndAf
       val denied = denialFor(s, ownerUser)
       denied.flatMap(_.reasons.map(_.code)) shouldBe Vector("rows-above-threshold")
       denied.head.reasons.head.detail shouldBe "Estimated 12345 rows exceeds the auto-run threshold of 10000"
+    }
+  }
+
+  // HEL-1175: the keyed submit under the real NOBYPASSRLS role, in the form owner's context, through the real service.
+  private def keyedSubmit(s: Seeded, writer: AuthenticatedUser, key: UUID) =
+    await(panelService.submitForm(s.panelId, Map("quantity" -> JsNumber(3)), writer, submitKey = Some(key)))
+
+  private def debounceRows(s: Seeded): Int =
+    await(ctx.withSystemContext(sql"SELECT count(*) FROM pipeline_auto_run_debounce WHERE pipeline_id = ${s.pipelineId}".as[Int].head))
+
+  "a keyed form submit, as the NOBYPASSRLS role (HEL-1175)" should {
+
+    "append one row on the owner's source for an editor, then replay it with no second row, no audit-driven debounce and no seq" in {
+      val s = seed(); val key = UUID.randomUUID()
+      val first = keyedSubmit(s, editorUser, key).toOption.get
+      first.write.replayed shouldBe false
+      debounceRows(s) shouldBe 1
+      await(ctx.withSystemContext(sqlu"DELETE FROM pipeline_auto_run_debounce WHERE pipeline_id = ${s.pipelineId}"))
+
+      val second = keyedSubmit(s, editorUser, key).toOption.get
+      second.write.replayed shouldBe true
+      second.writerIsFormOwner shouldBe false
+      second.write.rows.map(_.id) shouldBe first.write.rows.map(_.id)
+      second.write.deniedPipelines shouldBe empty
+      rowCount(s.sourceId) shouldBe 1
+      debounceRows(s) shouldBe 0
+    }
+
+    "refuse a different submitter's same-key submit with a conflict, writing nothing" in {
+      val s = seed(); val key = UUID.randomUUID()
+      keyedSubmit(s, editorUser, key) shouldBe a[Right[_, _]]
+      keyedSubmit(s, ownerUser, key).left.toOption.get.err shouldBe a[ServiceError.Conflict]
+      rowCount(s.sourceId) shouldBe 1
+    }
+
+    "keep the row when its panel is deleted, clear the reference, and then only ever conflict" in {
+      val s = seed(); val key = UUID.randomUUID()
+      keyedSubmit(s, ownerUser, key) shouldBe a[Right[_, _]]
+      await(ctx.withSystemContext(sqlu"DELETE FROM panels WHERE id = ${s.panelId.value}"))
+      rowCount(s.sourceId) shouldBe 1
+      await(ctx.withSystemContext(sql"SELECT submit_panel_id FROM dataset_rows WHERE data_source_id = ${s.sourceId}".as[Option[String]].head)) shouldBe None
+      // the panel is gone, so the same key can only be tried through another panel: a conflict, never a replay
+      val other = seed()
+      await(ctx.withSystemContext(sqlu"UPDATE panels SET form_config = jsonb_set(form_config, '{dataSourceId}', to_jsonb(${s.sourceId}::text)) WHERE id = ${other.panelId.value}"))
+      keyedSubmit(other, ownerUser, key).left.toOption.get.err shouldBe a[ServiceError.Conflict]
+      rowCount(s.sourceId) shouldBe 1
+    }
+
+    "keep the row when its submitting editor is deleted, clear the reference, and then only ever conflict" in {
+      val s = seed(); val key = UUID.randomUUID()
+      val victim = UserId(UUID.randomUUID().toString)
+      await(ctx.withSystemContext(DBIO.seq(
+        sqlu"""INSERT INTO users (id, email, created_at) VALUES (${victim.value}::uuid, ${victim.value + "@test.local"}, now())""",
+        sqlu"""INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role, created_at)
+               VALUES ('dashboard', ${s.dashboardId}, ${victim.value}::uuid, 'editor', now())"""
+      )))
+      keyedSubmit(s, AuthenticatedUser(victim), key) shouldBe a[Right[_, _]]
+      await(ctx.withSystemContext(DBIO.seq(
+        sqlu"DELETE FROM resource_permissions WHERE grantee_id = ${victim.value}::uuid",
+        sqlu"DELETE FROM users WHERE id = ${victim.value}::uuid"
+      )))
+      rowCount(s.sourceId) shouldBe 1
+      await(ctx.withSystemContext(sql"SELECT submit_user_id::text FROM dataset_rows WHERE data_source_id = ${s.sourceId}".as[Option[String]].head)) shouldBe None
+      keyedSubmit(s, ownerUser, key).left.toOption.get.err shouldBe a[ServiceError.Conflict]
     }
   }
 }

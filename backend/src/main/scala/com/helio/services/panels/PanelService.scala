@@ -18,6 +18,7 @@ import com.helio.services.panels.PanelServiceHelpers._
 import spray.json._
 
 import java.time.Instant
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Business logic for `/api/panels`. Absorbs the prior `PanelPatchService` so
@@ -114,7 +115,8 @@ final class PanelService(
       panelId: PanelId,
       values:  Map[String, JsValue],
       user:    AuthenticatedUser,
-      files:   Map[String, (String, Array[Byte])] = Map.empty
+      files:   Map[String, (String, Array[Byte])] = Map.empty,
+      submitKey: Option[UUID] = None
   ): Future[Either[FormSubmitError, FormSubmitResult]] =
     panelRepo.findById(panelId, Some(user)).flatMap {
       case None => Future.successful(Left(FormSubmitError(ServiceError.NotFound("Panel not found"))))
@@ -127,7 +129,7 @@ final class PanelService(
               if (files.isEmpty) {
                 val build: (Vector[DatasetFieldDeclaration], Instant) => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]] =
                   (declaration, now) => FormSubmission.buildRow(panel.config, declaration, values, now)
-                dataSourceService.appendFormRow(panel.config.dataSourceId, build, panelId, user, panel.ownerId)
+                dataSourceService.appendFormRow(panel.config.dataSourceId, build, panelId, user, panel.ownerId, submitKey)
               } else formFiles.submitFormWithFiles(panelId, panel, values, files, user)
             written.map {
               case Right(result) => Right(FormSubmitResult(result, writerIsFormOwner = isFormOwner))
