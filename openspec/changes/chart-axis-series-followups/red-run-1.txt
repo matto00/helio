@@ -1,0 +1,394 @@
+FAIL src/utils/chartSeriesNotes.test.ts
+  ● Test suite failed to run
+
+    [96msrc/utils/chartSeriesNotes.test.ts[0m:[93m8[0m:[93m52[0m - [91merror[0m[90m TS2307: [0mCannot find module './chartSeriesNotes' or its corresponding type declarations.
+
+    [7m8[0m import { scatterOmittedNote, summedRowsNote } from "./chartSeriesNotes";
+    [7m [0m [91m                                                   ~~~~~~~~~~~~~~~~~~~~[0m
+
+FAIL src/features/panels/ui/buildChartOption.chartFollowups.test.ts (6.509 s)
+  ● item 1: a time axis never ticks finer than its data › sets a one-day minimum on whole-day raw rows
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 86400000
+    Received: undefined
+
+      33 |     ]);
+      34 |     expect(xAxisOf(option).type).toBe("time");
+    > 35 |     expect(minIntervalOf(option)).toBe(DAY);
+         |                                   ^
+      36 |   });
+      37 |
+      38 |   it("sets a one-hour minimum on whole-hour data that is not all midnight", () => {
+
+      at Object.<anonymous> (src/features/panels/ui/buildChartOption.chartFollowups.test.ts:35:35)
+
+  ● item 1: a time axis never ticks finer than its data › sets a one-hour minimum on whole-hour data that is not all midnight
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 3600000
+    Received: undefined
+
+      44 |         ]),
+      45 |       ),
+    > 46 |     ).toBe(HOUR);
+         |       ^
+      47 |   });
+      48 |
+      49 |   it("sets no minimum when an instant has a millisecond part", () => {
+
+      at Object.<anonymous> (src/features/panels/ui/buildChartOption.chartFollowups.test.ts:46:7)
+
+  ● item 1: a time axis never ticks finer than its data › sets a one-day minimum on an aggregation grouped by a daily timestamp
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 86400000
+    Received: undefined
+
+      71 |     });
+      72 |     expect(xAxisOf(option).type).toBe("time");
+    > 73 |     expect(minIntervalOf(option)).toBe(DAY);
+         |                                   ^
+      74 |   });
+      75 |
+      76 |   it("sets no minimum on a category axis", () => {
+
+      at Object.<anonymous> (src/features/panels/ui/buildChartOption.chartFollowups.test.ts:73:35)
+
+  ● item 2: rows sharing an x and series are summed › adds two rows at one category x and series
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+    @@ -1,10 +1,10 @@
+      Array [
+        Array [
+          "A",
+          Array [
+    -       7,
+    +       4,
+            1,
+          ],
+        ],
+        Array [
+          "B",
+
+      108 |       { day: "string" },
+      109 |     );
+    > 110 |     expect(seriesOf(option).map((s) => [s.name, s.data])).toEqual([
+          |                                                           ^
+      111 |       ["A", [7, 1]],
+      112 |       ["B", [9, null]],
+      113 |     ]);
+
+      at Object.<anonymous> (src/features/panels/ui/buildChartOption.chartFollowups.test.ts:110:59)
+
+  ● item 2: rows sharing an x and series are summed › adds two spellings of one instant on a time axis
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+      Array [
+        Object {
+          "name": "2026-10-01",
+          "value": Array [
+            1790812800000,
+    -       7,
+    +       5,
+          ],
+        },
+      ]
+
+      137 |     );
+      138 |     expect(xAxisOf(option).type).toBe("time");
+    > 139 |     expect(seriesOf(option)[0].data).toEqual([
+          |                                      ^
+      140 |       { name: "2026-10-01", value: [utc("2026-10-01T00:00:00"), 7] },
+      141 |     ]);
+      142 |   });
+
+      at Object.<anonymous> (src/features/panels/ui/buildChartOption.chartFollowups.test.ts:139:38)
+
+  ● item 3: a scatter does not plot a non-numeric x at 0 › draws no point for a row whose x is not numeric
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 0
+    + Received  + 4
+
+    @@ -2,9 +2,13 @@
+        Array [
+          1,
+          10,
+        ],
+        Array [
+    +     0,
+    +     20,
+    +   ],
+    +   Array [
+          3,
+          30,
+        ],
+      ]
+
+      173 |       ["3", "30", "a"],
+      174 |     ]);
+    > 175 |     expect(seriesOf(option)[0].data).toEqual([
+          |                                      ^
+      176 |       [1, 10],
+      177 |       [3, 30],
+      178 |     ]);
+
+      at Object.<anonymous> (src/features/panels/ui/buildChartOption.chartFollowups.test.ts:175:38)
+
+  ● item 3: a scatter does not plot a non-numeric x at 0 › applies per colour group and keeps an emptied group's legend entry
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 6
+
+    @@ -8,8 +8,13 @@
+            ],
+          ],
+        ],
+        Array [
+          "b",
+    -     Array [],
+    +     Array [
+    +       Array [
+    +         0,
+    +         20,
+    +       ],
+    +     ],
+        ],
+      ]
+
+      187 |       { chartOptions: { scatter: { colorField: "g" } } },
+      188 |     );
+    > 189 |     expect(seriesOf(option).map((s) => [s.name, s.data])).toEqual([
+          |                                                           ^
+      190 |       ["a", [[1, 10]]],
+      191 |       ["b", []],
+      192 |     ]);
+
+      at Object.<anonymous> (src/features/panels/ui/buildChartOption.chartFollowups.test.ts:189:59)
+
+  ● item 4: an isolated value keeps a marker on a line with markers off › marks a value between two gaps, and an end value whose only neighbour is a gap
+
+    expect(received).toEqual(expected) // deep equality
+
+    Expected: [[0, 4], [2, 7]]
+    Received: undefined
+
+      209 |
+      210 |   it("marks a value between two gaps, and an end value whose only neighbour is a gap", () => {
+    > 211 |     expect(marks(category(["4", "n/a", "7", "n/a", "5", "6"]))).toEqual([
+          |                                                                 ^
+      212 |       [0, 4],
+      213 |       [2, 7],
+      214 |     ]);
+
+      at Object.<anonymous> (src/features/panels/ui/buildChartOption.chartFollowups.test.ts:211:65)
+
+  ● item 4: an isolated value keeps a marker on a line with markers off › marks the only value of a series
+
+    expect(received).toEqual(expected) // deep equality
+
+    Expected: [[1, 9]]
+    Received: undefined
+
+      216 |
+      217 |   it("marks the only value of a series", () => {
+    > 218 |     expect(marks(category(["n/a", "9", "n/a"]))).toEqual([[1, 9]]);
+          |                                                  ^
+      219 |     expect(marks(category(["9"]))).toEqual([[0, 9]]);
+      220 |   });
+      221 |
+
+      at Object.<anonymous> (src/features/panels/ui/buildChartOption.chartFollowups.test.ts:218:50)
+
+  ● item 4: an isolated value keeps a marker on a line with markers off › does not mark a point with one numeric neighbour
+
+    expect(received).toEqual(expected) // deep equality
+
+    Expected: [[4, 5]]
+    Received: undefined
+
+      225 |
+      226 |   it("does not mark a point with one numeric neighbour", () => {
+    > 227 |     expect(marks(category(["1", "2", "n/a", "n/a", "5"]))).toEqual([[4, 5]]);
+          |                                                            ^
+      228 |   });
+      229 |
+      230 |   it("is silent, so a click never lands on it", () => {
+
+      at Object.<anonymous> (src/features/panels/ui/buildChartOption.chartFollowups.test.ts:227:60)
+
+  ● item 4: an isolated value keeps a marker on a line with markers off › is silent, so a click never lands on it
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: undefined
+
+      229 |
+      230 |   it("is silent, so a click never lands on it", () => {
+    > 231 |     expect((seriesOf(category(["n/a", "9", "n/a"]))[0] as Mark).markPoint?.silent).toBe(true);
+          |                                                                                    ^
+      232 |   });
+      233 |
+      234 |   it("places a marker by category index, so a repeated category lands where it is drawn", () => {
+
+      at Object.<anonymous> (src/features/panels/ui/buildChartOption.chartFollowups.test.ts:231:84)
+
+  ● item 4: an isolated value keeps a marker on a line with markers off › places a marker by category index, so a repeated category lands where it is drawn
+
+    expect(received).toEqual(expected) // deep equality
+
+    Expected: [[0, 1], [2, 3]]
+    Received: undefined
+
+      233 |
+      234 |   it("places a marker by category index, so a repeated category lands where it is drawn", () => {
+    > 235 |     expect(marks(category(["1", "n/a", "3"], ["a", "b", "a"]))).toEqual([
+          |                                                                 ^
+      236 |       [0, 1],
+      237 |       [2, 3],
+      238 |     ]);
+
+      at Object.<anonymous> (src/features/panels/ui/buildChartOption.chartFollowups.test.ts:235:65)
+
+  ● item 4: an isolated value keeps a marker on a line with markers off › uses the instant as the coord on a time axis
+
+    expect(received).toEqual(expected) // deep equality
+
+    Expected: [[1790812800000, 1], [1790985600000, 3]]
+    Received: undefined
+
+      251 |       chartOptions: off,
+      252 |     });
+    > 253 |     expect(marks(option)).toEqual([
+          |                           ^
+      254 |       [utc("2026-10-01T00:00:00"), 1],
+      255 |       [utc("2026-10-03T00:00:00"), 3],
+      256 |     ]);
+
+      at Object.<anonymous> (src/features/panels/ui/buildChartOption.chartFollowups.test.ts:253:27)
+
+FAIL src/utils/chartTimeAxis.minInterval.test.ts
+  ● Test suite failed to run
+
+    [96msrc/utils/chartTimeAxis.minInterval.test.ts[0m:[93m2[0m:[93m10[0m - [91merror[0m[90m TS2305: [0mModule '"./chartTimeAxis"' has no exported member 'timeAxisMinInterval'.
+
+    [7m2[0m import { timeAxisMinInterval } from "./chartTimeAxis";
+    [7m [0m [91m         ~~~~~~~~~~~~~~~~~~~[0m
+
+FAIL src/features/panels/ui/renderers/ChartRenderer.followupNotes.test.tsx
+  ● ChartRenderer chart footnotes (HEL-1517) › joins the no-readable-date note and the summed-rows note on one line
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "1 row with no readable date not shown. 2 rows with the same time and series were added together."
+    Received: "1 row with no readable date not shown."
+
+      49 |     const notes = container.querySelectorAll(".chart-panel__skipped-note");
+      50 |     expect(notes).toHaveLength(1);
+    > 51 |     expect(notes[0].textContent).toBe(
+         |                                  ^
+      52 |       "1 row with no readable date not shown. 2 rows with the same time and series were added together.",
+      53 |     );
+      54 |     expect(notes[0].getAttribute("title")).toBe(notes[0].textContent);
+
+      at Object.<anonymous> (src/features/panels/ui/renderers/ChartRenderer.followupNotes.test.tsx:51:34)
+
+  ● ChartRenderer chart footnotes (HEL-1517) › shows the summed-rows note alone on a category chart
+
+    TestingLibraryElementError: Unable to find an element with the text: 2 rows with the same x value and series were added together.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+    Ignored nodes: comments, script, style
+    [36m<body>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"panel-content panel-content--chart"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"chart-panel__canvas"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"height: 100%; width: 100%;"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mdata-testid[39m=[32m"echarts"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</body>[39m
+
+      69 |     screen.getByTestId("echarts");
+      70 |     expect(
+    > 71 |       screen.getByText("2 rows with the same x value and series were added together."),
+         |              ^
+      72 |     ).toBeInTheDocument();
+      73 |   });
+      74 |
+
+      at Object.getElementError (node_modules/@testing-library/dom/dist/config.js:37:19)
+      at node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+      at node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+      at node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+      at Object.<anonymous> (src/features/panels/ui/renderers/ChartRenderer.followupNotes.test.tsx:71:14)
+
+  ● ChartRenderer chart footnotes (HEL-1517) › shows the no-numeric-x note for a scatter
+
+    TestingLibraryElementError: Unable to find an element with the text: 1 row with no numeric x value not shown.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+    Ignored nodes: comments, script, style
+    [36m<body>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"panel-content panel-content--chart"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"chart-panel__canvas"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"height: 100%; width: 100%;"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mdata-testid[39m=[32m"echarts"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</body>[39m
+
+      86 |     await settleChartMount();
+      87 |     screen.getByTestId("echarts");
+    > 88 |     expect(screen.getByText("1 row with no numeric x value not shown.")).toBeInTheDocument();
+         |                   ^
+      89 |   });
+      90 | });
+      91 |
+
+      at Object.getElementError (node_modules/@testing-library/dom/dist/config.js:37:19)
+      at node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+      at node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+      at node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+      at Object.<anonymous> (src/features/panels/ui/renderers/ChartRenderer.followupNotes.test.tsx:88:19)
+
+Test Suites: 4 failed, 1 passed, 5 total
+Tests:       16 failed, 686 passed, 702 total
+Snapshots:   0 total
+Time:        7.524 s
+Ran all test suites matching src/utils/chartTimeAxis.minInterval.test.ts|src/utils/chartSeriesNotes.test.ts|src/features/panels/ui/buildChartOption.chartFollowups.test.ts|src/features/panels/ui/renderers/ChartRenderer.followupNotes.test.tsx|src/features/panels/ui/chartTimePlan.test.ts.

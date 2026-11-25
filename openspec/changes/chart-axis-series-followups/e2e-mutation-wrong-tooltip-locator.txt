@@ -1,0 +1,56 @@
+
+Running 1 test using 1 worker
+
+[HEL-1508 e2e] created user 0ef941ba-58c5-4ac8-be26-c58e80a3ef61
+[HEL-1508 e2e] created data-source f0a71761-a5af-452d-a73d-a787fae3ede8
+[HEL-1508 e2e] created pipeline 4e037a70-75d8-442b-b23c-602a6006a3f3
+[HEL-1508 e2e] created output 57dba51b-0603-4bc4-80f1-9ebf3d7ad7e0
+[HEL-1508 e2e] created output 502b173d-bff5-4dff-a421-b594d53e298b
+[HEL-1508 e2e] created output 558b29ac-d2d2-4322-8dff-83b9a98837e2
+[HEL-1508 e2e] created output 00f9b9ef-66e0-47d8-b4de-4d74eecc1d2f
+[HEL-1508 e2e] created output 8d40fe8e-6d33-40b7-a64b-9304d68c6a20
+[HEL-1508 e2e] created dashboard 0d06b133-1637-4991-a299-01281fafda50
+[HEL-1508 e2e] created panel 00234677-836e-447b-98cc-932f0b1bf1ad
+[HEL-1508 e2e] created panel 673967e5-1306-41f9-9732-4e8ac2c5a0e7
+[HEL-1508 e2e] created panel 2d59cd87-2b2f-41a1-a63c-d68123726618
+[HEL-1508 e2e] created panel 61fca4fb-0f7d-48f2-876b-c5b609f24e53
+[HEL-1508 e2e] created panel b2c2af3c-dade-4794-9fcb-7216b15570ec
+[HEL-1508 e2e] light-1440 bar {"axis":"category","xs":["2026-09-01","2026-09-01","2026-09-02","2026-09-04",""],"values":[5,9,null,7,3],"barX":[181.2195,338.1195]}
+[HEL-1508 e2e] light-1440 line {"axis":"time","ys":[5,9,null,7]}
+[HEL-1508 e2e] light-1440 gap tooltip ""
+[HEL-1508 e2e] DELETE /api/dashboards/0d06b133-1637-4991-a299-01281fafda50 -> 204
+[HEL-1508 e2e] DELETE /api/pipelines/4e037a70-75d8-442b-b23c-602a6006a3f3 -> 204
+[HEL-1508 e2e] DELETE /api/data-sources/f0a71761-a5af-452d-a73d-a787fae3ede8 -> 204
+  ✘  1 [dev] › e2e/hel1508-chart-time-axis-followups.spec.ts:119:7 › time-axis follow-ups render on a dashboard (light-1440) (27.7s)
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 1 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/hel1508-chart-time-axis-followups.spec.ts:119:7 › time-axis follow-ups render on a dashboard (light-1440) 
+
+    TimeoutError: locator.innerText: Timeout 20000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('article').filter({ hasText: 'HEL-1508 PLine' }).first().locator('.chart-tooltip-WRONG').first()[22m
+
+
+      307 |       );
+      308 |       await page.waitForTimeout(500);
+    > 309 |       const realTip = (await cards.line.locator(".chart-tooltip-WRONG").first().innerText()).replace(
+          |                                                                                 ^
+      310 |         /\s+/g,
+      311 |         " ",
+      312 |       );
+        at /home/matt/Development/helio/.claude/worktrees/bug/chart-time-axis-followups/HEL-1517/e2e/hel1508-chart-time-axis-followups.spec.ts:309:81
+
+    Error Context: test-results/hel1508-chart-time-axis-fo-0ea38--on-a-dashboard-light-1440--dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1508-chart-time-axis-fo-0ea38--on-a-dashboard-light-1440--dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1508-chart-time-axis-fo-0ea38--on-a-dashboard-light-1440--dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [dev] › e2e/hel1508-chart-time-axis-followups.spec.ts:119:7 › time-axis follow-ups render on a dashboard (light-1440) 

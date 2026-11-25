@@ -21,6 +21,7 @@ import {
   LegendComponent,
   MarkAreaComponent,
   MarkLineComponent,
+  MarkPointComponent,
   TooltipComponent,
   VisualMapComponent,
 } from "echarts/components";
@@ -45,6 +46,9 @@ echarts.use([
   // HEL-1306: `markLine` / `markArea`, the reference lines and bands (`referenceMarksOption.ts`).
   MarkLineComponent,
   MarkAreaComponent,
+  // HEL-1517: `markPoint`, the marker kept on a value standing alone between gaps on a markers-off line
+  // (`chartTypeOptions.ts`); an unregistered `markPoint` is dropped silently.
+  MarkPointComponent,
   // Only renderer `ChartPanel` needs; SVGRenderer is never opted into.
   CanvasRenderer,
 ]);

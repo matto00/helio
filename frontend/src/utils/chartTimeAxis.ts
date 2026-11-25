@@ -62,6 +62,20 @@ export function allMidnightUtc(instants: readonly number[]): boolean {
   return instants.every((t) => ((t % MS_PER_DAY) + MS_PER_DAY) % MS_PER_DAY === 0);
 }
 
+const MS_PER_HOUR = 3_600_000;
+const MS_PER_MINUTE = 60_000;
+const MS_PER_SECOND = 1_000;
+
+/** HEL-1517 — the finest tick a time axis may use: the largest of day/hour/minute/second (ms) that
+ *  divides every instant in UTC, so whole-day data never gets hour ticks (nor a time-of-day label); `undefined`
+ *  when an instant has a millisecond part or there are none. */
+export function timeAxisMinInterval(instants: readonly number[]): number | undefined {
+  if (instants.length === 0) return undefined;
+  return [MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE, MS_PER_SECOND].find((unit) =>
+    instants.every((t) => ((t % unit) + unit) % unit === 0),
+  );
+}
+
 const pad = (n: number, width = 2) => String(n).padStart(width, "0");
 
 /** `yyyy-MM-dd` (or `yyyy-MM-dd HH:mm` with `withTime`) of an epoch-millis instant, in UTC. */

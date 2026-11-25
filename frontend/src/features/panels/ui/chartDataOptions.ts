@@ -3,6 +3,7 @@ import type { EChartsOption } from "echarts";
 import type { HistogramChartOptions, ScatterChartOptions } from "../types/panel";
 import type { ChartType } from "../../../utils/chartAppearance";
 import { makeScatterSymbolSize } from "../../../utils/chartTypeOptions";
+import { sumBySeriesAndKey } from "../../../utils/chartSeriesNotes";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 // HEL-572 — kept as a SEPARATE, echarts-import-free module (see its own
 // header comment) so `usePanelCardInspect.ts`/`PanelFullscreenOverlay.tsx` can reuse
@@ -135,11 +136,13 @@ export function buildDataOptionCore(
     const sizeCol = scatterOptions?.sizeField ? headers.indexOf(scatterOptions.sizeField) : -1;
     const colorCol = scatterOptions?.colorField ? headers.indexOf(scatterOptions.colorField) : -1;
 
-    // HEL-1508 — a row with no numeric y draws no point.
-    const plotted = rawRows.filter((r) => !isNaN(parseFloat(r[yCol] ?? "")));
+    // HEL-1508 — a row with no numeric y draws no point; HEL-1517 — nor does one with no numeric x
+    // (`scatterOmittedNote` counts those for the footnote).
+    const plotted = rawRows.filter(
+      (r) => !isNaN(parseFloat(r[yCol] ?? "")) && !isNaN(parseFloat(r[xCol] ?? "")),
+    );
     const toPoint = (r: string[]): number[] => {
-      const xVal = parseFloat(r[xCol] ?? "");
-      const point = [isNaN(xVal) ? 0 : xVal, parseFloat(r[yCol] ?? "")];
+      const point = [parseFloat(r[xCol] ?? ""), parseFloat(r[yCol] ?? "")];
       if (sizeCol !== -1) {
         const sizeVal = parseFloat(r[sizeCol] ?? "");
         point.push(isNaN(sizeVal) ? 0 : sizeVal);
@@ -202,14 +205,12 @@ export function buildDataOptionCore(
     const allX = [...new Set(rawRows.map((r) => r[xCol] ?? ""))];
     const groups = [...new Set(rawRows.map((r) => r[seriesCol] ?? ""))];
 
-    const lookup: Record<string, Record<string, number>> = {};
-    for (const row of rawRows) {
-      const x = row[xCol] ?? "";
-      const g = row[seriesCol] ?? "";
-      const y = parseFloat(row[yCol] ?? "");
-      if (!lookup[g]) lookup[g] = {};
-      if (!isNaN(y)) lookup[g][x] = y;
-    }
+    // HEL-1517 — rows sharing an x and series are added together (the footnote counts them).
+    const { sums } = sumBySeriesAndKey(
+      rawRows.map((row) => ({ key: row[xCol] ?? "", row })),
+      yCol,
+      seriesCol,
+    );
 
     return {
       xAxis: { type: "category", data: allX },
@@ -218,7 +219,7 @@ export function buildDataOptionCore(
         type: chartType,
         name: g,
         // HEL-1305 — no value for this series at this x is a gap, not a real zero.
-        data: allX.map((x) => lookup[g]?.[x] ?? null),
+        data: allX.map((x) => sums.get(g)?.get(x) ?? null),
       })),
     };
   }

@@ -7,6 +7,7 @@ import type { ChartAggregationSpec, ChartOverlay } from "../../history/chartOver
 import type { ReferenceMarks } from "../../../../utils/referenceMarks";
 import { PanelSuspenseFallback } from "../../../../shared/ui/SuspenseFallback";
 import type { ChartFieldTypes } from "../../../../utils/chartTimeAxis";
+import { scatterOmittedNote, summedRowsNote } from "../../../../utils/chartSeriesNotes";
 import { resolveChartPlan, timeAxisOmittedNote } from "../../../../utils/chartTimePlan";
 import { binHistogram } from "../../../../utils/histogramBins";
 import { loadChartPanel } from "./chartPanelModule";
@@ -94,24 +95,26 @@ export function ChartRenderer({
     );
   }, [isHistogram, rawRows, headers, fieldMapping, chartOptions]);
   // HEL-1508 — the same resolver `buildChartOption` uses, over exactly the props `ChartPanel` gets, so
-  // the note counts what the chart's time axis actually left out.
-  const timeNote = useMemo(
-    () =>
-      timeAxisOmittedNote(
-        resolveChartPlan({
-          appearance,
-          rawRows,
-          headers,
-          fieldMapping,
-          chartAggregate,
-          chartOptions,
-          fieldTypes,
-        }).timePlan,
-      ),
-    [appearance, rawRows, headers, fieldMapping, chartAggregate, chartOptions, fieldTypes],
-  );
-  // Histogram and time axis are mutually exclusive, so at most one of the two applies.
-  const footnote = skippedNote ?? timeNote;
+  // the notes count what the chart actually left out or added together (HEL-1517).
+  const chartNotes = useMemo(() => {
+    const plan = resolveChartPlan({
+      appearance,
+      rawRows,
+      headers,
+      fieldMapping,
+      chartAggregate,
+      chartOptions,
+      fieldTypes,
+    });
+    return [
+      timeAxisOmittedNote(plan.timePlan),
+      scatterOmittedNote(plan, rawRows, headers, fieldMapping),
+      summedRowsNote(plan, rawRows, headers, fieldMapping),
+    ];
+  }, [appearance, rawRows, headers, fieldMapping, chartAggregate, chartOptions, fieldTypes]);
+  // HEL-1517 — the notes that apply together share the one footnote line, in a fixed order. (A histogram
+  // plots no time axis, scatter or series, so its note never meets another in practice.)
+  const footnote = [skippedNote, ...chartNotes].filter(Boolean).join(" ") || null;
   return (
     <div className="panel-content panel-content--chart">
       <div className="chart-panel__canvas">
