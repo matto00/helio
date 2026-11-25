@@ -1,0 +1,13 @@
+Mutation: panel-insight
+Kind: owner-entity: output.ownerId (pipeline/output owner)
+File: backend/src/main/scala/com/helio/api/routes/dashboards/PublicPanelInsightResolver.scala
+Replaced: 'Right(OutputInsightResponses.public(record, panels))'
+With:     'Right({ val r0 = OutputInsightResponses.public(record, panels); r0.copy(render = r0.render.map(x => x.copy(markdown = x.markdown + output.ownerId.value))) })'
+Exit: 1
+
+[info] - should leak the owner id in no response for anonymous, share-token and non-owner callers *** FAILED ***
+[info]   java.lang.AssertionError: [anonymous / public] GET /api/dashboards/5d43f3f1-d894-46d4-996f-8875d4618ce7/panels/7706d901-0f17-47fb-8713-7c464c33aade/insight (status 200 OK) leaked owner id 0badc0de-1248-4abc-8def-0123456789ab at: $.render.markdown value 'Revenue is up.0badc0de-1248-4abc-8def-0123456789ab'
+[info] Tests: succeeded 5, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful

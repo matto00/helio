@@ -1,0 +1,56 @@
+S1-domain-eval-spark-testsupport-testkit-root: exit 0, 71s
+  patterns: DevEnvSpec ScalaTestSummaryGuardSpec com.helio.domain.* com.helio.eval.* com.helio.spark.* com.helio.testsupport.* com.helio.testkit.*
+  [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+  [info] Suites: completed 159, aborted 0
+  [info] Tests: succeeded 3546, failed 0, canceled 0, ignored 0, pending 0
+  [info] All tests passed.
+S2-infrastructure: exit 0, 200s
+  patterns: com.helio.infrastructure.*
+  [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+  [info] Suites: completed 125, aborted 0
+  [info] Tests: succeeded 1241, failed 0, canceled 0, ignored 0, pending 0
+  [info] All tests passed.
+S3-services-pipelines: exit 0, 198s
+  patterns: com.helio.services.pipelines.*
+  [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+  [info] Suites: completed 103, aborted 0
+  [info] Tests: succeeded 793, failed 0, canceled 2, ignored 0, pending 0
+  [info] All tests passed.
+S4-services-patchsets-sources-assistant: exit 0, 149s
+  patterns: com.helio.services.patchsets.* com.helio.services.sources.* com.helio.services.assistant.*
+  [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+  [info] Suites: completed 92, aborted 0
+  [info] Tests: succeeded 994, failed 0, canceled 3, ignored 0, pending 0
+  [info] All tests passed.
+S5-services-rest: exit 0, 112s
+  patterns: com.helio.services.OutputRepositoryRequiredSpec com.helio.services.agents.* com.helio.services.alerts.* com.helio.services.ask.* com.helio.services.audit.* com.helio.services.auth.* com.helio.services.dashboards.* com.helio.services.firstrun.* com.helio.services.home.* com.helio.services.insights.* com.helio.services.panels.* com.helio.services.proposals.* com.helio.services.ratelimit.* com.helio.services.sharing.* com.helio.services.telemetry.* com.helio.services.workspace.*
+  [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+  [info] Suites: completed 79, aborted 0
+  [info] Tests: succeeded 885, failed 0, canceled 0, ignored 0, pending 0
+  [info] All tests passed.
+S6-api-routes-pipelines: exit 0, 335s
+  patterns: com.helio.api.routes.pipelines.*
+  [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+  [info] Suites: completed 84, aborted 0
+  [info] Tests: succeeded 1103, failed 0, canceled 0, ignored 0, pending 0
+  [info] All tests passed.
+S7-api-routes-dashboards-proposals-patchsets: exit 0, 168s
+  patterns: com.helio.api.routes.dashboards.* com.helio.api.routes.proposals.* com.helio.api.routes.patchsets.*
+  [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+  [info] Suites: completed 60, aborted 0
+  [info] Tests: succeeded 495, failed 0, canceled 0, ignored 0, pending 0
+  [info] All tests passed.
+S8-api-routes-rest: exit 0, 183s
+  patterns: com.helio.api.routes.ResourceTaggingSpec com.helio.api.routes.RunResponseMarshallingSpec com.helio.api.routes.admin.* com.helio.api.routes.agents.* com.helio.api.routes.alerts.* com.helio.api.routes.ask.* com.helio.api.routes.assistant.* com.helio.api.routes.audit.* com.helio.api.routes.auth.* com.helio.api.routes.firstrun.* com.helio.api.routes.home.* com.helio.api.routes.hooks.* com.helio.api.routes.mcp.* com.helio.api.routes.panels.* com.helio.api.routes.sources.* com.helio.api.routes.telemetry.*
+  [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+  [info] Suites: completed 46, aborted 0
+  [info] Tests: succeeded 684, failed 0, canceled 0, ignored 0, pending 0
+  [info] All tests passed.
+S9-api-http-protocols-toplevel: exit 0, 103s
+  patterns: com.helio.api.http.* com.helio.api.protocols.* com.helio.api.ApiRoutesAlertHistoryWiringSpec com.helio.api.ApiRoutesCorsErrorHandlingSpec com.helio.api.ApiRoutesPipelineRunGuardSpec com.helio.api.ApiRoutesSpec com.helio.api.ApiTokenAuthSpec com.helio.api.AuditMutationInstrumentationSpec com.helio.api.InlineSourceLeakApiRoutesWiringSpec com.helio.api.NodePayloadWiringSpec com.helio.api.OutputHistoryPayloadsAvailableSpec
+  [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+  [info] Suites: completed 41, aborted 0
+  [info] Tests: succeeded 714, failed 0, canceled 0, ignored 0, pending 0
+  [info] All tests passed.
+
+COVERAGE CHECK: 670 spec classes found by source scan; 0 missing from the union of shard logs (789 suites completed, 0 aborted, 0 failed tests; 5 canceled tests in S3/S4 are assumption-cancels, pre-existing). Lane DB helio_hel1248, nice -n 19 sbt -J-Xmx3g, branch includes origin/main merge a62c2116f.

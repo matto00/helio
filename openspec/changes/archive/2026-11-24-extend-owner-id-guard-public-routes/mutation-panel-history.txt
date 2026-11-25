@@ -1,0 +1,14 @@
+Mutation: panel-history
+Kind: owner-entity: output.ownerId (pipeline/output owner)
+File: backend/src/main/scala/com/helio/api/routes/dashboards/PublicPanelHistoryResolver.scala
+Replaced: 'Right(OutputHistoryResponses.public(r))'
+With:     'Right(OutputHistoryResponses.public(r).copy(compare = Some(output.ownerId.value)))'
+Exit: 1
+
+[info] - should leak the owner id in no response for anonymous, share-token and non-owner callers *** FAILED ***
+[info]   java.lang.AssertionError: [anonymous / public] GET /api/dashboards/478a323a-7ec7-4564-840b-6f5415b2acd9/panels/fd2e7735-5afd-4f30-9f82-04e2f89113b3/history (status 200 OK) leaked owner id 0badc0de-1248-4abc-8def-0123456789ab at: $.compare value '0badc0de-1248-4abc-8def-0123456789ab'
+[info] - should have exactly the scanned set declared, and a guarded request issued for every declared entry *** FAILED ***
+[info] Tests: succeeded 4, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+[error] Failed tests:
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
