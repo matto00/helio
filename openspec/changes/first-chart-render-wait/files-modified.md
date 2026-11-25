@@ -1,5 +1,0 @@
-- `e2e/hel1573-motion-grid-chart.spec.ts` — env-gated throttle; Table-cell state wait before the canvas assertion; :273 fix (frames before the repaint are not the replay's)
-- `e2e/hel1584-motion-surfaces.spec.ts` — env-gated throttle only
-- `e2e/support/cpuThrottle.ts` — shared `HEL1651_CPU_THROTTLE` helper
-- `openspec/changes/first-chart-render-wait/**` — design.md (implemented outcome), tasks, evidence, probe-findings
-- (no `frontend/src` change: the early preload and its tests were reverted; `frontend/src` equals origin/main)
