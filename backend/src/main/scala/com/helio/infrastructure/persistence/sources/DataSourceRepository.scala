@@ -551,7 +551,10 @@ class DataSourceRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pipe
       owner:    AuthenticatedUser,
       writes:   Vector[PendingWrite],
       stepRepo: PipelineStepRepository,
-      maxRows:  Int
+      maxRows:  Int,
+      // HEL-1541 (design.md D4): the run's open-guard, run FIRST inside the owner transaction (before any lock or write); it
+      // fails the transaction with `RunNoLongerOpen`, which is deliberately NOT recovered below. `None`: no run to guard.
+      guard:    Option[DBIO[Unit]] = None
   ): Future[Either[String, Unit]] =
     if (writes.isEmpty) Future.successful(Right(()))
     else {
@@ -578,7 +581,7 @@ class DataSourceRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pipe
         case Left(err) => DBIO.failed(new IllegalStateException(err))
         case Right(()) => DBIO.successful(())
       }
-      ctx.withUserContext(owner.id.value)(failFast.transactionally)
+      ctx.withUserContext(owner.id.value)((guard.getOrElse(DBIO.successful(())) andThen failFast).transactionally)
         .map(_ => Right(()): Either[String, Unit])
         .recover { case e: IllegalStateException => Left(e.getMessage) }
     }

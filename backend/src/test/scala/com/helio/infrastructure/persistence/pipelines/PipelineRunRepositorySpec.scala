@@ -68,6 +68,17 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
     PipelineId(pid)
   }
 
+  /** HEL-1541 (design D8): the retention prune never deletes a run with `completed_at IS NULL`. The retention tests below
+   *  therefore seed FINISHED runs (a real pruned run is one that ended), on purpose: their subject is the ranking
+   *  (newest N / 24 h window / cap), which an in-flight row is exempt from. */
+  private def insertTerminalRun(pid: PipelineId, startedAt: Instant): PipelineRunId = {
+    val runId = PipelineRunId(UUID.randomUUID().toString)
+    await(pipelineRunRepo.insertRun(runId, pid, startedAt, systemUser))
+    await(pipelineRunRepo.updateRunTerminal(runId, "succeeded", startedAt.plusMillis(1), rowCount = Some(1), errorLog = None, systemUser,
+      truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))) shouldBe true
+    runId
+  }
+
   "PipelineRunRepository" should {
 
     "insertRun creates a run with queued status" in {
@@ -159,11 +170,9 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       val pid = seedPipeline()
       // HEL-1578: runs started inside the last 24h are kept regardless of N, so this
       // keep-N scenario seeds runs older than the window.
+      // HEL-1541 D8: seeded as finished runs (an in-flight run is never pruned), the ranking is what this test is about.
       val base = Instant.now().minusSeconds(48L * 3600L)
-      for (i <- 1 to 12) {
-        val runId = PipelineRunId(UUID.randomUUID().toString)
-        await(pipelineRunRepo.insertRun(runId, pid, base.plusSeconds(i.toLong), systemUser))
-      }
+      for (i <- 1 to 12) insertTerminalRun(pid, base.plusSeconds(i.toLong))
 
       val before = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       before should have size 12
@@ -193,9 +202,8 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
     "HEL-1578: 15 runs all older than 24h are pruned to the newest 10" in {
       val pid  = seedPipeline()
       val base = Instant.now().minusSeconds(30L * 3600L)
-      (1 to 15).foreach { i =>
-        await(pipelineRunRepo.insertRun(PipelineRunId(UUID.randomUUID().toString), pid, base.plusSeconds(i.toLong), systemUser))
-      }
+      // HEL-1541 D8: finished runs, since an in-flight run is exempt from the prune.
+      (1 to 15).foreach(i => insertTerminalRun(pid, base.plusSeconds(i.toLong)))
       await(pipelineRunRepo.deleteOldRuns(pid, systemUser, keepN = 10))
       val after = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       after should have size 10
@@ -205,14 +213,42 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
     "HEL-1578: the cap bounds a very busy pipeline (350 runs inside 24h keep the newest 300)" in {
       val pid = seedPipeline()
       val now = Instant.now()
-      (0 until 350).foreach { i =>
-        await(pipelineRunRepo.insertRun(PipelineRunId(UUID.randomUUID().toString), pid, now.minusSeconds(i.toLong * 60L), systemUser))
-      }
+      // HEL-1541 D8: finished runs, since an in-flight run is exempt from the prune (ranking is still what is tested).
+      (0 until 350).foreach(i => insertTerminalRun(pid, now.minusSeconds(i.toLong * 60L)))
       await(pipelineRunRepo.deleteOldRuns(pid, systemUser, keepN = 10))
       val after = await(pipelineRunRepo.listByPipeline(pid, systemUser))
       after should have size 300
       after.head.startedAt.getEpochSecond shouldBe now.getEpochSecond
       after.last.startedAt.getEpochSecond shouldBe now.minusSeconds(299L * 60L).getEpochSecond
+    }
+
+    "HEL-1541: deleteOldRuns never deletes an in-flight (completed_at NULL) run, outside the newest 10 and the 24 h window, while finished ones are" in {
+      val pid  = seedPipeline()
+      val base = Instant.now().minusSeconds(48L * 3600L)
+      val open = PipelineRunId(UUID.randomUUID().toString)
+      await(pipelineRunRepo.insertRun(open, pid, base, systemUser)) // the OLDEST run, still queued
+      val finished = (1 to 14).map(i => insertTerminalRun(pid, base.plusSeconds(i.toLong)))
+      await(pipelineRunRepo.deleteOldRuns(pid, systemUser, keepN = 10))
+      val ids = await(pipelineRunRepo.listByPipeline(pid, systemUser)).map(_.id).toSet
+      ids should contain(open.value)
+      ids.intersect(finished.map(_.value).toSet) shouldBe finished.drop(4).map(_.value).toSet // the 4 oldest finished runs are gone
+    }
+
+    "HEL-1541: deleteOldRuns keeps an in-flight run ranked beyond the 300 cap" in {
+      import PostgresProfile.api._
+      val pid  = seedPipeline()
+      val open = UUID.randomUUID().toString
+      await(db.run(DBIO.seq(
+        sqlu"""INSERT INTO pipeline_runs (id, pipeline_id, status, started_at, completed_at, trigger_source)
+               VALUES ($open, ${pid.value}, 'queued', now() - interval '23 hours', NULL, 'manual')""",
+        sqlu"""INSERT INTO pipeline_runs (id, pipeline_id, status, started_at, completed_at, trigger_source)
+               SELECT gen_random_uuid()::text, ${pid.value}, 'succeeded', now() - g * interval '1 second', now() - g * interval '1 second', 'manual'
+               FROM generate_series(1, 310) g"""
+      )))
+      await(pipelineRunRepo.deleteOldRuns(pid, systemUser, keepN = 10))
+      val after = await(pipelineRunRepo.listByPipeline(pid, systemUser))
+      after.map(_.id) should contain(open)
+      after should have size 301 // the 300 newest finished runs plus the in-flight one, which ranks 311th (beyond the cap) but is exempt
     }
 
     "listByPipeline returns runs ordered by startedAt DESC" in {
@@ -337,23 +373,22 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
 
     "deleteOldRuns is a silent no-op for a non-owner (CS2)" in {
       val pid = seedPipeline()
-      for (i <- 1 to 12) {
-        val runId = PipelineRunId(UUID.randomUUID().toString)
-        await(pipelineRunRepo.insertRun(runId, pid, Instant.now().plusMillis(i.toLong), systemUser))
-      }
+      // HEL-1541 D8: finished runs OLDER than the 24 h window. With in-flight rows (or rows inside the window) nothing was
+      // deletable whoever called, so the assertion below would be vacuous; the owner-call control proves they ARE deletable.
+      val base = Instant.now().minusSeconds(48L * 3600L)
+      for (i <- 1 to 12) insertTerminalRun(pid, base.plusSeconds(i.toLong))
       await(pipelineRunRepo.deleteOldRuns(pid, otherUser, keepN = 5))
       // All 12 still present — the cross-user deletion was rejected.
       await(pipelineRunRepo.listByPipeline(pid, systemUser)) should have size 12
+      await(pipelineRunRepo.deleteOldRuns(pid, systemUser, keepN = 5))
+      await(pipelineRunRepo.listByPipeline(pid, systemUser)) should have size 5
     }
 
     "deleteOldRuns does not affect dry-run records" in {
       val pid  = seedPipeline()
       val base = Instant.now().minusSeconds(48L * 3600L)
-      // Insert 12 normal runs and 5 dry-run rows
-      for (i <- 1 to 12) {
-        val runId = PipelineRunId(UUID.randomUUID().toString)
-        await(pipelineRunRepo.insertRun(runId, pid, base.plusSeconds(i.toLong), systemUser))
-      }
+      // Insert 12 normal runs (finished: HEL-1541 D8, an in-flight run is never pruned) and 5 dry-run rows
+      for (i <- 1 to 12) insertTerminalRun(pid, base.plusSeconds(i.toLong))
       for (i <- 1 to 5) {
         val runId = PipelineRunId(UUID.randomUUID().toString)
         await(pipelineRunRepo.insertDryRun(runId, pid, base.plusSeconds((100 + i).toLong), rowCount = i, systemUser, truncatedReadsJson = PipelineRunService.EmptyTruncationJson))
