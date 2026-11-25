@@ -379,7 +379,7 @@ class PatchSetUndoLaterAlertRulesSpec extends AssistantStandingsFixture {
       val r = applied(set(s"""{"edits":[{"target":{"kind":"output","parentId":"${s.pipelineId}"},"op":"create","patch":{"name":"Tx output 1811","kind":"table","nodeStepId":"${s.computeStepId}"}}]}"""))
       val outId = r.edits.head.newId.get
       alertRule(outId, "Tx rule")
-      await(outputRepo.deleteIfUnboundInternal(OutputId(outId))) shouldBe Left((0, 1))
+      await(outputRepo.deleteIfUnboundInternal(OutputId(outId), owner)) shouldBe Left((0, 1))
       outputExists(outId) shouldBe true
       ruleCount(outId) shouldBe 1
       PatchSetUndoLaterChildren.outputBoundDuringUndo(0, 1) shouldBe "1 alert rule(s) were added during the undo; nothing further was undone"

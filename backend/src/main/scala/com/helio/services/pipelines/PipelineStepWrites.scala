@@ -35,8 +35,8 @@ private[pipelines] final class PipelineStepWrites(
         // HEL-1100 (design.md Decision 1): actingUserId is the PIPELINE OWNER, not the caller (the config-less update
         // has no write-back to guard, so it passes none).
         val updated = typedConfig match {
-          case None      => pipelineStepRepo.updateInternal(stepId, config = None, position = req.position, enabled = req.enabled)
-          case Some(cfg) => pipelineStepRepo.updateInternal(stepId, config = Some(cfg), position = req.position, enabled = req.enabled, actingUserId = pipeline.ownerId.value)
+          case None      => pipelineStepRepo.updateInternal(stepId, config = None, position = req.position, enabled = req.enabled, actor = user)
+          case Some(cfg) => pipelineStepRepo.updateInternal(stepId, config = Some(cfg), position = req.position, enabled = req.enabled, actingUserId = pipeline.ownerId.value, actor = user)
         }
         updated
           .flatMap {
@@ -45,7 +45,7 @@ private[pipelines] final class PipelineStepWrites(
               stepResponseWithRoot(existing.pipelineId, step).map(resp => Right(resp))
             case None => Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
           }
-          .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+          .recover(PipelineWriteRefusal.refused[PipelineStepResponse](ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")).orElse { case ex => Left(PipelineService.classifyDbError(ex)) })
     }
 
   /** Step delete — requires Editor or Owner. Viewer grantees get 403. */
@@ -70,12 +70,13 @@ private[pipelines] final class PipelineStepWrites(
                 // Option[Int] (Some(removedTailStepCount) on success, None if the step
                 // didn't exist) -- now surfaced to the caller as a splice-on-delete report,
                 // instead of being discarded.
-                pipelineStepRepo.deleteInternal(stepId).map {
+                pipelineStepRepo.deleteInternal(stepId, user).map {
                   case Some(removedTailStepCount) =>
                     audit("pipeline.step.delete", "pipeline_step", Some(stepId.value), user)
-                    Right(DeletePipelineStepResponse(removedTailStepCount))
+                    Right(DeletePipelineStepResponse(removedTailStepCount)): Either[ServiceError, DeletePipelineStepResponse]
                   case None => Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}"))
-                }
+                  // HEL-1707: ONLY the typed grant refusal is mapped; every other failure keeps propagating as before.
+                }.recover(PipelineWriteRefusal.refused[DeletePipelineStepResponse](ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
             }
         }
     }
@@ -109,7 +110,7 @@ private[pipelines] final class PipelineStepWrites(
             // Safe: editor/owner access confirmed above. Use internal reorder — the union-of-
             // every-root's-trunk permutation contract is enforced inside reorderTrunkInternal
             // against a fresh read, not trusted from a pre-check here.
-            pipelineStepRepo.reorderTrunkInternal(pipelineId, req.stepIds.map(PipelineStepId(_)))
+            pipelineStepRepo.reorderTrunkInternal(pipelineId, req.stepIds.map(PipelineStepId(_)), user)
               .flatMap {
                 case Left(err) => Future.successful(Left(ServiceError.UnprocessableEntity(err)))
                 case Right(steps) =>
@@ -128,11 +129,11 @@ private[pipelines] final class PipelineStepWrites(
                     Right(steps.map(s => PipelineStepResponse.fromDomain(s, rootIdOfStep.map { case (k, v) => k.value -> v.value })))
                   }
               }
-              .recover {
+              .recover(PipelineWriteRefusal.refused[Vector[PipelineStepResponse]](ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")).orElse {
                 // HEL-1523: the relink already rolled back; this is the lane-cycle family's 400, not a 500.
                 case ex: LaneCycleOnReorderException => Left(ServiceError.BadRequest(ex.getMessage))
                 case ex                              => Left(PipelineService.classifyDbError(ex))
-              }
+              })
         }
     }
 
@@ -203,7 +204,7 @@ private[pipelines] final class PipelineStepWrites(
                         case Left(err) => Future.successful(Left(err))
                         case Right(_)  =>
                           pipelineStepRepo
-                            .spliceInsertAtInternal(pipeline.id, existing.kind, typedConfig, Some(existing.id), existing.enabled, explicitRootId = None, actingUserId = pipeline.ownerId.value)
+                            .spliceInsertAtInternal(pipeline.id, existing.kind, typedConfig, Some(existing.id), existing.enabled, explicitRootId = None, actingUserId = pipeline.ownerId.value, actor = user)
                             .flatMap { step =>
                               // HEL-477 skeptic-final-1 round 1: mirrors PanelService.duplicate's
                               // one-row-per-call convention; metadata carries the source stepId.
@@ -216,7 +217,7 @@ private[pipelines] final class PipelineStepWrites(
                               )
                               stepResponseWithRoot(pipeline.id, step).map(resp => Right(resp))
                             }
-                            .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                            .recover(PipelineWriteRefusal.refused[PipelineStepResponse](ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")).orElse { case ex => Left(PipelineService.classifyDbError(ex)) })
                       }
                   }
                 }

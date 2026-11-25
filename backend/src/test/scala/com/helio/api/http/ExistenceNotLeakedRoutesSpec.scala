@@ -567,6 +567,11 @@ object ExistenceNotLeakedRoutesSpec {
     // HEL-1722: `PipelineStepWriteChecks.editorAccess`, the editor-grant rule `PipelineService.requireEditorAccess` has always applied (a viewer grantee
     // of a step create/update), now also built from the repositories alone for the patch-set resolvers. Reached only after
     // `findByIdShared(.., Some(user))` returned the pipeline, so the caller already knows it exists. Legitimate.
-    "PipelineStepWriteChecks.scala"  -> 1
+    "PipelineStepWriteChecks.scala"  -> 1,
+    // HEL-1707: `PipelineWriteRefusal.toError` -- the in-transaction owner-or-editor re-check of a privileged pipeline write maps a
+    // remaining VIEWER grant to the same 403 the route's own pre-check already gives. Reached only after that pre-check found the
+    // pipeline visible to the caller, so the caller already knows it exists; no grant or a gone pipeline maps to the route's 404, the
+    // same as an absent one. Reproduces an existing answer, never a new existence leak. Legitimate.
+    "PipelineWriteRefusal.scala"     -> 1
   )
 }

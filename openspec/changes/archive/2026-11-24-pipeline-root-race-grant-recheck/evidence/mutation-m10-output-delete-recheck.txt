@@ -1,0 +1,6 @@
+# mutation applied: OutputRepository.scala: pid => PipelineWriteAccess.requireAction(pid, actor))  ==>  pid => DBIO.successful(()))
+[info] - should refuse (404, nothing deleted) a creator who was downgraded to viewer *** FAILED ***
+[info] - should not delete the Output when the creator was downgraded to viewer after applying *** FAILED ***
+[info] Tests: succeeded 4, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful

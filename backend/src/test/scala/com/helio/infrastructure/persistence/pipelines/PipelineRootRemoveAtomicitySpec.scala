@@ -27,7 +27,7 @@ class PipelineRootRemoveAtomicitySpec extends DraftSaveApiFixture {
       val before   = storedState(seed)
 
       val hook = sqlu"DELETE FROM pipeline_roots WHERE id=${seed.r2}"
-      val result = Try(await(rootRepo.removeRoot(stepRepo, PipelineId(seed.pipeline), PipelineRootId(seed.r2), afterCascade = hook)))
+      val result = Try(await(rootRepo.removeRoot(stepRepo, PipelineId(seed.pipeline), PipelineRootId(seed.r2), AuthenticatedUser(UserId(userA)), afterCascade = hook)))
 
       result.failed.get shouldBe PipelineRootRepository.RootAlreadyRemoved(PipelineRootId(seed.r2))
       // The cascade deleted t4 and its snapshot before the hook ran; both are back, and nothing else moved.
@@ -46,8 +46,8 @@ class PipelineRootRemoveAtomicitySpec extends DraftSaveApiFixture {
       exec(s"INSERT INTO node_snapshots (pipeline_id,node_step_id,row_index,data) VALUES ('${seed.pipeline}','${seed.t4}',0,'{}')")
       // The racer: deletes the root row inside the removal transaction, after the cascade and before the root delete.
       val racing = new PipelineRootRepository(ctx) {
-        override def removeRoot(stepRepo: PipelineStepRepository, pipelineId: PipelineId, rootId: PipelineRootId, afterCascade: DBIO[Any]) =
-          super.removeRoot(stepRepo, pipelineId, rootId, sqlu"DELETE FROM pipeline_roots WHERE id=${rootId.value}")
+        override def removeRoot(stepRepo: PipelineStepRepository, pipelineId: PipelineId, rootId: PipelineRootId, actor: AuthenticatedUser, afterCascade: DBIO[Any]) =
+          super.removeRoot(stepRepo, pipelineId, rootId, actor, sqlu"DELETE FROM pipeline_roots WHERE id=${rootId.value}")
       }
       val dataSourceRepo = new DataSourceRepository(ctx)
       val stepRepo       = new PipelineStepRepository(ctx)

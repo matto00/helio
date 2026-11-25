@@ -1,0 +1,8 @@
+# mutation applied: DraftSaveTransaction.scala: access   <- PipelineWriteAccess.currentAction(pipelineId, actor.id.value)  ==>  access   <- DBIO.successful(com.helio.infrastructure.persistence.pipelines.WriteAccess.Owner: com.helio.infrastructure.persistence.pipelines.WriteAccess)
+[info] - should refuse POST /draft/save and write nothing when the editor grant is revoked mid-request *** FAILED ***
+[info] - should refuse POST /draft/save and write nothing when the editor grant is downgraded to viewer mid-request *** FAILED ***
+[info] - should refuse a draft-save undo restore and write nothing when the editor grant is revoked mid-request *** FAILED ***
+[info] - should refuse a draft-save undo restore and write nothing when the editor grant is downgraded to viewer mid-request *** FAILED ***
+[info] Tests: succeeded 18, failed 4, canceled 0, ignored 0, pending 0
+[info] *** 4 TESTS FAILED ***
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful

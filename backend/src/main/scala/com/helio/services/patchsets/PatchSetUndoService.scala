@@ -10,7 +10,7 @@ import com.helio.api.protocols.patchsets.{EditUndoOutcome, PatchSetUndoResponse}
 import com.helio.domain.model.{AuthenticatedUser, DashboardId, DataSourceId, OutputId, PanelId, PatchSetApplicationId, PipelineId, PipelineStepId}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository, PipelineWriteAccessRevoked}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
 import PatchSetApplicationRepository.JournaledEdit
@@ -148,10 +148,11 @@ final class PatchSetUndoService(
       // HEL-1720 D4: the Output row is locked and its bound panels re-counted inside the delete's own transaction; a panel
       // bound since Phase 1 aborts it (a Left with a fixed phrase and a count, never a title or id: it is logged at ERROR).
       case Some(_) =>
-        context.outputRepo.deleteIfUnboundInternal(id).map {
-          case Right(_) => Right(())
+        context.outputRepo.deleteIfUnboundInternal(id, user).map {
+          case Right(_) => Right(()): Either[ServiceError, Unit]
           case Left((panels, rules)) => Left(ServiceError.Conflict(PatchSetUndoLaterChildren.outputBoundDuringUndo(panels, rules)))
-        }
+          // HEL-1707 R2: the creator is no longer pipeline owner or editor.
+        }.recover { case PipelineWriteAccessRevoked(_) => Left(ServiceError.NotFound("Output not found")) }
     }
 
   /** HEL-1720 D4 (pipelineStep / pipeline / dashboard arms): re-runs the Phase-1 bound-panels check immediately before the

@@ -87,7 +87,7 @@ class PipelineRootRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
     // method's own single `ctx.withSystemContext` flatMap chain (HEL-1652), ahead of the `rootsTable += row`
     // insert -- never a separate pre-flight `Future` in `PipelineService.addRoot` (that would
     // leave a window for a concurrent writer to interleave between the check and this insert).
-    val pipelineNameQuery = pipelinesTable.filter(_.id === pipelineId.value).map(_.name).result.head
+    val pipelineNameQuery = pipelinesTable.filter(_.id === pipelineId.value).map(_.name).result.headOption
     // HEL-1652: privileged connection; the caller (`PipelineRootWrites.addRoot`) has already authorized owner-or-editor
     // and that `dataSourceId` is the actor's own. `user` scopes only the cycle guard's explicit visibility filter.
     ctx.withSystemContext {
@@ -96,9 +96,14 @@ class PipelineRootRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
         // source delete takes the same row FOR UPDATE before it reads which pipelines are rooted on it, so a root add can
         // never grow that set between the read and the delete.
         _            <- locks.choose(LockSite.RootAddSourceShare, sql"SELECT 1 FROM data_sources WHERE id = ${dataSourceId.value} FOR KEY SHARE".as[Int].map(_ => ()), DBIO.successful(()))
-        pipelineName <- pipelineNameQuery
+        // HEL-1707 D4: a pipeline deleted before this read is the unknown-pipeline 404 (typed), never a NoSuchElementException 500.
+        pipelineName <- pipelineNameQuery.flatMap(_.fold[DBIO[String]](DBIO.failed(PipelineGone(pipelineId)))(DBIO.successful))
         _            <- PipelineCycleGuard.checkAddReadAction(this, stepRepoForCycleCheck, user.id.value, pipelineId, pipelineName, dataSourceId)
-        _            <- locks.lockPipelines(LockSite.RootAdd, Seq(pipelineId.value))
+        locked       <- locks.lockPipelines(LockSite.RootAdd, Seq(pipelineId.value))
+        // HEL-1707 D4: `false` = a racer deleted the pipeline (the insert would fail its FK). Then D2: the acting user must still
+        // be the owner or an editor, re-read right after the lock (`PipelineGone` there maps to the same 404).
+        _            <- if (locked) DBIO.successful(()) else DBIO.failed(PipelineGone(pipelineId))
+        _            <- PipelineWriteAccess.requireAction(pipelineId.value, user)
         maxPosOpt    <- nextPositionQuery
         row           = PipelineRootRow(id, pipelineId.value, dataSourceId.value, maxPosOpt.map(_ + 1).getOrElse(0), now)
         _            <- rootsTable += row
@@ -171,11 +176,13 @@ class PipelineRootRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
       stepRepo: PipelineStepRepository,
       pipelineId: PipelineId,
       rootId: PipelineRootId,
+      // HEL-1707: the ACTING user, re-checked as owner-or-editor inside the transaction (required: never defaulted).
+      actor: AuthenticatedUser,
       afterCascade: DBIO[Any] = DBIO.successful(())
   ): Future[Set[String]] =
     ctx.withSystemContext(
       for {
-        removedStepIds <- stepRepo.removeRootCascadeAction(pipelineId, rootId)
+        removedStepIds <- stepRepo.removeRootCascadeAction(pipelineId, rootId, actor)
         _              <- afterCascade
         deleted        <- removeAction(pipelineId, rootId)
         _              <- if (deleted == 0) DBIO.failed(RootAlreadyRemoved(rootId)) else DBIO.successful(())
@@ -202,6 +209,9 @@ class PipelineRootRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
 }
 
 object PipelineRootRepository {
+
+  /** HEL-1707: the pipeline was deleted mid-request (its name read found no row, or the pipeline-row lock found it gone). */
+  final case class PipelineGone(pipelineId: PipelineId) extends RuntimeException(s"Pipeline not found: ${pipelineId.value}")
 
   /** Signalled inside [[PipelineRootRepository.removeRoot]]'s transaction when the root row was already gone. */
   final case class RootAlreadyRemoved(rootId: PipelineRootId) extends RuntimeException(s"Root not found: ${rootId.value}")

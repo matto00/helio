@@ -115,25 +115,25 @@ class DraftSaveRaceSpec extends DraftRaceFixture {
   /** Writers of steps, Outputs, roots and the schedule: nothing the save locks conflicts with them, so each takes lock (3). */
   private val gainLockThree: Vector[RaceWriter] = Vector(
     RaceWriter("step PATCH (PipelineStepRepository.updateInternal)", Set(LockSite.StepUpdate),
-      (h, s) => h.stepRepo.updateInternal(step(s.t3), Some(LimitConfig(33)), None, None, userA)),
+      (h, s) => h.stepRepo.updateInternal(step(s.t3), Some(LimitConfig(33)), None, None, userA, actor = owner)),
     RaceWriter("step insert (PipelineStepRepository.insertInternal)", Set(LockSite.StepInsert),
       (h, s) => h.stepRepo.insertInternal(pid(s), "limit", LimitConfig(5), true, Some(step(s.t4)), None, userA)),
     RaceWriter("step insert at index (PipelineStepRepository.insertAtInternal)", Set(LockSite.StepInsertAt),
       (h, s) => h.stepRepo.insertAtInternal(pid(s), "limit", LimitConfig(5), 0, true, Some(step(s.t4)))),
     RaceWriter("step splice (PipelineStepRepository.spliceInsertAtInternal)", Set(LockSite.StepSplice),
-      (h, s) => h.stepRepo.spliceInsertAtInternal(pid(s), "limit", LimitConfig(5), Some(step(s.t4)), true, None, userA)),
+      (h, s) => h.stepRepo.spliceInsertAtInternal(pid(s), "limit", LimitConfig(5), Some(step(s.t4)), true, None, userA, actor = owner)),
     RaceWriter("step attach as tail (PipelineStepRepository.attachTailInternal)", Set(LockSite.StepAttach),
-      (h, s) => h.stepRepo.attachTailInternal(pid(s), "limit", LimitConfig(5), step(s.t4), true, userA)),
+      (h, s) => h.stepRepo.attachTailInternal(pid(s), "limit", LimitConfig(5), step(s.t4), true, userA, actor = owner)),
     RaceWriter("step reorder (PipelineStepRepository.reorderInternal)", Set(LockSite.StepReorder),
       (h, s) => h.stepRepo.reorderInternal(pid(s), Seq(step(s.t3), step(s.t2)))),
     RaceWriter("trunk reorder (PipelineStepRepository.reorderTrunkInternal)", Set(LockSite.StepReorderTrunk),
-      (h, s) => h.stepRepo.reorderTrunkInternal(pid(s), Seq(step(s.t4), step(s.t2), step(s.t1)))),
+      (h, s) => h.stepRepo.reorderTrunkInternal(pid(s), Seq(step(s.t4), step(s.t2), step(s.t1)), actor = owner)),
     RaceWriter("step delete (PipelineStepRepository.deleteInternal)", Set(LockSite.StepDelete),
-      (h, s) => h.stepRepo.deleteInternal(step(s.t4))),
+      (h, s) => h.stepRepo.deleteInternal(step(s.t4), actor = owner)),
     // Excluded by the writer's own (3) AND the save's lock (5) on the Output row it deletes; both sites are the protection, so the
     // control removes both. (The writer's (3) after (1) is there for G2, see DraftSaveDeadlockSpec "Output delete".)
     RaceWriter("Output delete (OutputRepository.deleteWithPanelsInternal)", Set(LockSite.OutputDelete, LockSite.SaveOutputs),
-      (h, s) => h.outputRepo.deleteWithPanelsInternal(OutputId(s.oc))),
+      (h, s) => h.outputRepo.deleteWithPanelsInternal(OutputId(s.oc), actor = owner)),
     RaceWriter("Output create (OutputRepository.insertInternal)", Set(LockSite.OutputCreate),
       (h, s) => h.outputRepo.insertInternal(pid(s), Some(step(s.t3)), UserId(userA), "raced", OutputKind.Table, JsObject.empty, Vector.empty, None, None)),
     RaceWriter("root add (PipelineRootRepository.add)", Set(LockSite.RootAdd),
@@ -148,7 +148,7 @@ class DraftSaveRaceSpec extends DraftRaceFixture {
         exec(s.grant(userB, "editor"))
       }),
     RaceWriter("root remove (PipelineRootRepository.removeRoot: cascade, removeAction, compactPositions; privileged, as owner and editor run it)", Set(LockSite.RootRemove),
-      (h, s) => h.rootRepo.removeRoot(h.stepRepo, pid(s), PipelineRootId(s.r2)),
+      (h, s) => h.rootRepo.removeRoot(h.stepRepo, pid(s), PipelineRootId(s.r2), actor = owner),
       s => exec(s"DELETE FROM outputs WHERE id='${s.od}'")),
     RaceWriter("schedule upsert (PipelineScheduleRepository.upsert)", Set(LockSite.ScheduleUpsert),
       (h, s) => h.scheduleRepo.upsert(PipelineSchedule(PipelineScheduleId(s.id("sch")), pid(s), ScheduleKind.Cron, "5 * * * *", true, "UTC", None, None, now, now), owner)),
@@ -185,7 +185,7 @@ class DraftSaveRaceSpec extends DraftRaceFixture {
   }
 
   private val stepDeleteOfMovedStep = RaceWriter("step delete of a step the save moved (PipelineStepRepository.deleteInternal)", Set(LockSite.StepDelete),
-    (h, s) => h.stepRepo.deleteInternal(step(s.t2)),
+    (h, s) => h.stepRepo.deleteInternal(step(s.t2), actor = owner),
     prepare = s => exec(s"INSERT INTO pipeline_steps (id,pipeline_id,position,op,config,created_at,updated_at,enabled,parent_step_id,root_id) VALUES ('${s.id("t5")}','${s.pipeline}',0,'limit','{\"count\":5}',now(),now(),true,'${s.t2}',NULL)"),
     hasViolationControl = false,
     draft = Some(moveT2UnderT4),
@@ -197,7 +197,7 @@ class DraftSaveRaceSpec extends DraftRaceFixture {
   // written) and retries in a fresh transaction. The outcome is the serial order save-then-delete: both t2 and the new tail
   // are gone and the head child t5 sits in t2's old place.
   private val stepDeleteOfGrownSubtree = RaceWriter("step delete whose removal set the save grew (PipelineStepRepository.deleteInternal retry)", Set(LockSite.StepDelete),
-    (h, s) => h.stepRepo.deleteInternal(step(s.t2)),
+    (h, s) => h.stepRepo.deleteInternal(step(s.t2), actor = owner),
     prepare = s => exec(s"INSERT INTO pipeline_steps (id,pipeline_id,position,op,config,created_at,updated_at,enabled,parent_step_id,root_id) VALUES ('${s.id("t5")}','${s.pipeline}',0,'limit','{\"count\":5}',now(),now(),true,'${s.t2}',NULL)"),
     hasViolationControl = false,
     draft = Some((s, fp, d0) => { val d = draftOf(fp, d0); withSteps(d, stepsOf(d) :+ newStep("nx", Left(s.t2), position = 1)) }),

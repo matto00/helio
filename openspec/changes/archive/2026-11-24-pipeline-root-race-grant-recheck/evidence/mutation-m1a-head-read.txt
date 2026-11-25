@@ -1,0 +1,5 @@
+# mutation applied: PipelineRootRepository.scala: pipelineNameQuery.flatMap(_.fold[DBIO[String]](DBIO.failed(PipelineGone(pipelineId)))(DBIO.successful))  ==>  pipelineNameQuery.map(_.head)
+[info] - should answer the unknown-pipeline 404 when the pipeline is gone before the name read (1a) *** FAILED ***
+[info] Tests: succeeded 21, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful

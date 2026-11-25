@@ -6,7 +6,7 @@ import com.helio.services.auth.AccessChecker
 import com.helio.api.protocols.pipelines.{AssertionStatusResponse, CreateOutputRequest, DeleteOutputResponse, OutputPanelPlacementResponse, OutputRowsResponse, UpdateOutputRequest}
 import com.helio.domain.outputs.InsightReadsCheck
 import com.helio.domain.model.{AuthenticatedUser, NodeRef, Output, OutputId, OutputKind, Page, PagedResult, PipelineId, PipelineStepId, ResourceAccess}
-import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRootRepository, PipelineRunRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRootRepository, PipelineRunRepository, PipelineWriteAccessRevoked}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import org.slf4j.LoggerFactory
 import spray.json.{JsObject, JsValue}
@@ -298,10 +298,11 @@ final class OutputService(
       case None                                        => Future.successful(Left(ServiceError.NotFound("Output not found")))
       case Some(output) if output.ownerId != user.id    => Future.successful(Left(ServiceError.NotFound("Output not found")))
       case Some(_) =>
-        outputRepo.deleteWithPanelsInternal(id).map { removedPanelIds =>
+        outputRepo.deleteWithPanelsInternal(id, user).map { removedPanelIds =>
           audit("output.delete", Some(id.value), user)
-          Right(DeleteOutputResponse(removedPanelIds.map(_.value)))
-        }
+          Right(DeleteOutputResponse(removedPanelIds.map(_.value))): Either[ServiceError, DeleteOutputResponse]
+          // HEL-1707 R2: a creator who is no longer pipeline owner or editor gets the 404 a viewer or stranger gets.
+        }.recover { case PipelineWriteAccessRevoked(_) => Left(ServiceError.NotFound("Output not found")) }
     }
 
   /** `GET /api/outputs/:id/panels` — the placements report used by the

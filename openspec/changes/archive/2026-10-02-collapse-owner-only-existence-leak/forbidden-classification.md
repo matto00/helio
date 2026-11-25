@@ -104,3 +104,14 @@ Section B's "Pipeline grantee non-editor" row (line 52) attributes step-preview 
 `PipelineRunService.scala`. The producer pins in `ExistenceNotLeakedRoutesSpec` (`expectedForbiddenProducers`,
 lines 529-530) are now `PipelineRunPreview.scala -> 1` and `PipelineRunService.scala -> 1`. The original row
 above is left as written (it is the record of the 2026-10-02 classification).
+
+## G. HEL-1707 note (2026-11-25)
+
+New producer `PipelineWriteRefusal.scala -> 1` (`ExistenceNotLeakedRoutesSpec.expectedForbiddenProducers`). It is the
+in-transaction owner-or-editor re-check of the editor-reachable privileged pipeline writes (root add/remove, draft save,
+step writes): a remaining `viewer` grant is mapped to `Forbidden("Forbidden")`, exactly what each route's own service-layer
+pre-check answers when the revoke lands first; no grant (or a pipeline deleted mid-request) maps to that route's existing
+404. Legitimate, not an oracle: the 403 is reached only for a caller who already holds a named viewer grant, i.e. who
+already sees the pipeline (the pre-check's `findByIdShared(.., Some(user))` returned it), and every other case is the same
+404 an absent resource gets. `DELETE /api/outputs/:id` and the patch-set undo of an Output create map every refusal to the
+`Output not found` 404, never a 403.

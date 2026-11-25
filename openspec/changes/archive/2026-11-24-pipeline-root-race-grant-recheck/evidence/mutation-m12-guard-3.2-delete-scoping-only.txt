@@ -1,0 +1,2 @@
+# mutation applied: PipelineRootRepository.scala: rootsTable.filter(r => r.id === rootId.value && r.pipelineId === pipelineId.value).delete  ==>  rootsTable.filter(r => r.id === rootId.value).delete
+[info] Tests: succeeded 2, failed 0, canceled 0, ignored 0, pending 0

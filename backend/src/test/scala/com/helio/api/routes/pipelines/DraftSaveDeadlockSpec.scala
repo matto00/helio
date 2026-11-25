@@ -52,7 +52,7 @@ class DraftSaveDeadlockSpec extends DraftRaceFixture {
 
   // ── 2. Output delete (amendment A5) ───────────────────────────────────────────────────────────────────────────────────
   private val outputDelete = RaceWriter("Output delete of an Output with an alert rule and no panel", Set.empty,
-    (h, s) => h.outputRepo.deleteWithPanelsInternal(OutputId(s.oc)), s => seedRule(s, "rx", s.oc))
+    (h, s) => h.outputRepo.deleteWithPanelsInternal(OutputId(s.oc), actor = owner), s => seedRule(s, "rx", s.oc))
 
   "an Output delete against the save" should {
     "not deadlock: the delete takes the pipeline row first, as the save does" in {
@@ -67,7 +67,7 @@ class DraftSaveDeadlockSpec extends DraftRaceFixture {
   // Both cascade into Outputs with bound panels, so they take (1). The save holds (1) on those panels and wants (3); a writer
   // that took (3) first and then waited on the panels forms the cycle. Each control switches only that order off.
   private val stepDeleteWithPanel = RaceWriter("step delete of t2 (its Output oa has a bound panel)", Set.empty,
-    (h, s) => h.stepRepo.deleteInternal(PipelineStepId(s.t2)))
+    (h, s) => h.stepRepo.deleteInternal(PipelineStepId(s.t2), actor = owner))
 
   "a step delete against the save" should {
     "not deadlock: the delete locks the panels before the pipeline row, as the save does" in {
@@ -79,7 +79,7 @@ class DraftSaveDeadlockSpec extends DraftRaceFixture {
   }
 
   private val rootRemoveWithPanel = RaceWriter("root remove of r2 (its Output od has a bound panel)", Set.empty,
-    (h, s) => h.rootRepo.removeRoot(h.stepRepo, pid(s), PipelineRootId(s.r2)),
+    (h, s) => h.rootRepo.removeRoot(h.stepRepo, pid(s), PipelineRootId(s.r2), actor = owner),
     s => {
       exec(s"INSERT INTO dashboards (id,name,created_by,created_at,last_updated,appearance,layout,owner_id) VALUES ('${s.id("dr")}','dr','u',now(),now(),'${DraftSaveSeed.DashboardAppearance}','{\"lg\":[],\"md\":[],\"sm\":[],\"xs\":[]}','$userA')")
       exec(s"INSERT INTO panels (id,dashboard_id,title,created_by,created_at,last_updated,appearance,owner_id,kind,output_id) VALUES ('${s.id("pr")}','${s.id("dr")}','pr','u',now(),now(),'${DraftSaveSeed.PanelAppearance}','$userA','output','${s.od}')")
@@ -234,7 +234,7 @@ class DraftSaveDeadlockSpec extends DraftRaceFixture {
           "Output delete" -> (() => outputDelete.run(h, seed)),
           "pipeline delete" -> (() => h.pipelineRepo.delete(PipelineId(q), owner)),
           "source delete" -> (() => h.dataSourceRepo.delete(DataSourceId(seed.ds2), owner)),
-          "step PATCH" -> (() => h.stepRepo.updateInternal(PipelineStepId(seed.t3), Some(LimitConfig(33)), None, None, userA)),
+          "step PATCH" -> (() => h.stepRepo.updateInternal(PipelineStepId(seed.t3), Some(LimitConfig(33)), None, None, userA, actor = owner)),
           "Output create" -> (() => h.outputRepo.insertInternal(pid(seed), Some(PipelineStepId(seed.t3)), UserId(userA), "mixed", OutputKind.Table, JsObject.empty, Vector.empty, None, None)),
           "root add" -> (() => h.rootRepo.add(pid(seed), DataSourceId(seed.id("ds3")), owner)),
           "node snapshot" -> (() => snapshotTxn.run(h, seed))

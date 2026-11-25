@@ -333,7 +333,7 @@ class OutputRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pipeline
    *  explicitly -- `RETURNING id`, so the ids actually removed are reported back (`DELETE /api/outputs/:id`) -- then
    *  the Output row (the `panels.output_id` cascade then finds nothing left). Safe to call only after the caller's
    *  ownership of the Output has been confirmed by the service layer. */
-  def deleteWithPanelsInternal(id: OutputId): Future[Vector[PanelId]] = {
+  def deleteWithPanelsInternal(id: OutputId, actor: AuthenticatedUser): Future[Vector[PanelId]] = {
     val action = for {
       pipelineId <- table.filter(_.id === id.value).map(_.pipelineId).result.headOption
       _          <- PanelRowLocks.lockForDeletion(outputs = Seq(id.value))
@@ -341,6 +341,8 @@ class OutputRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pipeline
       // itself, and this delete holds the Output first and then cascades into its rules; only taking the pipeline row
       // first, as the save does, serializes the two.
       _          <- locks.lockPipelines(LockSite.OutputDelete, pipelineId.toSeq)
+      // HEL-1707 D5 (R2): still pipeline owner or editor, right after lock (3). An Output already gone has no pipeline to check.
+      _          <- pipelineId.fold[DBIO[Unit]](DBIO.successful(()))(pid => PipelineWriteAccess.requireAction(pid, actor))
       removed    <- deleteOutputsCoreAction(Seq(id.value))
     } yield removed.map(PanelId(_))
     ctx.withSystemContext(action.transactionally)
@@ -352,11 +354,13 @@ class OutputRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pipeline
    *  `Right(())` when there were none and the Output is deleted; `Left((panels, rules))` (nothing written) when there
    *  were, so undo never deletes a panel or alert rule it did not create. The lock order (panels, dashboards, pipeline, Output) is the one [[deleteWithPanelsInternal]] already uses:
    *  the `FOR UPDATE` only takes earlier the row lock the final `DELETE` takes anyway. */
-  def deleteIfUnboundInternal(id: OutputId): Future[Either[(Int, Int), Unit]] = {
+  def deleteIfUnboundInternal(id: OutputId, actor: AuthenticatedUser): Future[Either[(Int, Int), Unit]] = {
     val action = for {
       pipelineId <- table.filter(_.id === id.value).map(_.pipelineId).result.headOption
       _          <- PanelRowLocks.lockForDeletion(outputs = Seq(id.value))
       _          <- locks.lockPipelines(LockSite.OutputDelete, pipelineId.toSeq)
+      // HEL-1707 D5 (R2): still pipeline owner or editor, right after lock (3). An Output already gone has no pipeline to check.
+      _          <- pipelineId.fold[DBIO[Unit]](DBIO.successful(()))(pid => PipelineWriteAccess.requireAction(pid, actor))
       _          <- sql"SELECT 1 FROM outputs WHERE id = ${id.value} FOR UPDATE".as[Int]
       bound      <- sql"SELECT count(*) FROM panels WHERE output_id = ${id.value}".as[Int].head
       rules      <- sql"SELECT count(*) FROM alert_rules WHERE target_output_id = ${id.value}".as[Int].head
