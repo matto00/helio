@@ -1,0 +1,6 @@
+{
+ "S1": {"loc": "page.locator(\".spine-header\")", "css": ".spine-header", "targets": [".spine-header__name"]},
+ "S2": {"loc": "page.locator(\".pipeline-detail-page--spine\")", "css": ".pipeline-detail-page--spine", "targets": [".spine-header", ".spine-body", ".spine-body__spine", ".spine-body__main", ".spine-row__title"]},
+ "S3": {"loc": "page.locator(\".app-shell\")", "css": ".app-shell", "targets": [".appearance", ".app-command-bar", ".bottom-nav", ".app-rail"]},
+ "S4": {"loc": "page.getByRole(\"dialog\", { name: \"Run history\" })", "css": "dialog[open]", "targets": [".run-history-modal__row-duration"]}
+}

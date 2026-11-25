@@ -1,0 +1,29 @@
+# HEL-1622 D1: which mechanism holds the font requests under HEL-1757 (host rules)? (probe on base 793802e50)
+
+Mechanism: Playwright `page.route`. HEL-1757 maps fonts.googleapis.com / fonts.gstatic.com to a local HTTPS server with
+Chromium --host-rules, but the request URL Playwright sees is still the original one, so a route on
+`/fonts\.googleapis\.com\/css2/` and `/fonts\.gstatic\.com/` fires, and `route.continue()` after a held promise still
+reaches the local server through the host rule. (route.fetch() from Node would NOT go through the host rules, so the
+gate never uses it: the URL->family map is built from the committed fixture CSS, e2e/fixtures/web-fonts/files/.)
+
+Evidence (counts are cumulative per page; see red-S*.txt for every iteration):
+ - stylesheet hold: handler fired, held css=1..7, link media stays "print", no web FontFace is created, fonts.status
+   "loaded", loading=0, and the ORIGINAL `document.fonts.ready` resolves after 4-40ms (vacuous).
+ - per-family gstatic hold (Schibsted Grotesk / JetBrains Mono / Fraunces held alone, or all): seen={"css":1,"Schibsted
+   Grotesk":1,...} held={"Schibsted Grotesk":1} media=all status=loading loading>=1; the original `document.fonts.ready`
+   BLOCKS (does not resolve in 2.5-3.0s) while a face is held loading.
+Non-zero held counts: yes (pre-S3-css.txt: held={"css":N}; pre-S3-sch.txt / pre-S3-jb.txt / pre-S3-fr.txt: held=
+{"Schibsted Grotesk"|"JetBrains Mono"|"Fraunces":N}). Verdict: a working delay mechanism exists; no BLOCKER.
+
+Consequence for what a "red" can be (named per C16): the original wait is vacuous only while NO web face has started
+loading (stylesheet held / fallback-only). Once a face is loading, the original wait itself blocks until it is
+released, so a faithful pre-conversion run measures after the load (cannot be red). Held-measurement states for
+face-level holds therefore use a non-faithful FONT_RACE_MS (the original fonts.ready raced against 2.5s) so the
+measurement runs while the face is held; those are reported as "race" states, never as a red of the real code.
+
+Harness deviations from the committed tests (identical across red, green and never-released runs):
+ 1. every `page.goto(url)` -> `gotoHeld`: re-arm a fresh hold, `goto(url,{waitUntil:"commit"})` (the design's only
+    deviation), then `waitForLoadState("domcontentloaded")`. The second step is a harness refinement found when the
+    first S3 run failed in assertTypeStyleActive (body computed font was unstyled "Times New Roman" right after
+    "commit"; that run was INVALID, discarded). DOMContentLoaded is not held by font requests, `load` is.
+ 2. logging only: [gate] state dumps and VALUES lines (no assertion added or removed).

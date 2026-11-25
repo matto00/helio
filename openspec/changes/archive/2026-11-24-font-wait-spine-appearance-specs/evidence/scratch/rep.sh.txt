@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# usage: rep.sh <name> <spec> <grep>   -> repeat-<name>.txt in scratch (pass/fail counts at the end)
+set -u
+WT=/home/matt/Development/helio/.claude/worktrees/task/fonts-ready-wait-conversion/HEL-1622
+export DATABASE_URL=jdbc:postgresql://localhost:5432/helio_hel1622 DB_USER=matt DEV_PORT=7054 BACKEND_PORT=9961 ANTHROPIC_API_KEY=
+out="/home/matt/Development/helio/.concertino/scratch/HEL-1622/repeat-$1.txt"; spec="$2"; grep="$3"
+cd "$WT"
+{
+  echo "# cmd: nice -n 19 npx playwright test $spec --grep '$grep' --repeat-each=20 --workers=2   (DEV_PORT=7054, lane DB)"
+  nice -n 19 npx playwright test "$spec" --grep "$grep" --repeat-each=20 --workers=2 --reporter=line 2>&1
+  echo "# exit=$?"
+} > "$out"
+sed 's/\x1b\[[0-9;]*[A-Za-z]//g' "$out" | grep -aE "^ +[0-9]+ (passed|failed|flaky|skipped)|# exit" 

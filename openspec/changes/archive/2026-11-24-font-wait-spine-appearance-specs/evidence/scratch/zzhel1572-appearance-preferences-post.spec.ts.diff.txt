@@ -1,0 +1,173 @@
+--- e2e/hel1572-appearance-preferences.spec.ts	2026-11-24 22:11:38.748400449 -0800
++++ e2e/zzhel1572-appearance-preferences-post.spec.ts	2026-11-24 23:23:39.312386577 -0800
+@@ -1,3 +1,4 @@
++import * as gate from "./zzfontgate";
+ import {
+   expect,
+   test,
+@@ -203,7 +204,7 @@
+     browser,
+   }) => {
+     const creds = await registerAndLogin(page, request, { ...AUTH, label: "type" });
+-    await page.goto("/settings");
++    await gate.gotoHeld(page, "/settings");
+     await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
+     await page.evaluate(() => ((window as unknown as { __noReload: boolean }).__noReload = true));
+ 
+@@ -251,7 +252,7 @@
+     }) => {
+       await maybeThrottleCpu(page);
+       await registerAndLogin(page, request, { ...AUTH, label: hold ? "rapid-held" : "rapid" });
+-      await page.goto("/settings");
++      await gate.gotoHeld(page, "/settings");
+       await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
+       const trace = await tracePreferencePatches(page, hold);
+ 
+@@ -287,7 +288,7 @@
+   }) => {
+     await registerAndLogin(page, request, { ...AUTH, label: "flash" });
+     await setPref(page.request, { typeStyle: "serif" });
+-    await page.goto("/dashboards"); // populates the cache via ThemeProvider
++    await gate.gotoHeld(page, "/dashboards"); // populates the cache via ThemeProvider
+     await expect(page.locator("html")).toHaveAttribute("data-type-style", "serif");
+ 
+     await page.addInitScript(PROBE);
+@@ -369,7 +370,7 @@
+       await route.fulfill({ response, json: body });
+     });
+     await page.addInitScript(PROBE);
+-    await page.goto("/dashboards");
++    await gate.gotoHeld(page, "/dashboards");
+     await expect(page.locator("h1, h2").first()).toBeVisible();
+     const result = await probe(page);
+     expect(result.firstHeadingFont).not.toMatch(/^Fraunces/);
+@@ -381,7 +382,7 @@
+   }) => {
+     await registerAndLogin(page, request, { ...AUTH, label: "neg-prepaint" });
+     await setPref(page.request, { typeStyle: "serif" });
+-    await page.goto("/dashboards");
++    await gate.gotoHeld(page, "/dashboards");
+     await expect(page.locator("html")).toHaveAttribute("data-type-style", "serif"); // cache primed
+     await page.route("**/*", async (route) => {
+       const request = route.request();
+@@ -397,7 +398,7 @@
+       await route.fulfill({ response, body: html });
+     });
+     await page.addInitScript(PROBE);
+-    await page.goto("/dashboards");
++    await gate.gotoHeld(page, "/dashboards");
+     await expect(page.locator("html")).toHaveAttribute("data-type-style", "serif");
+     const result = await probe(page);
+     expect(result.typeStyleSetWithRootEmpty).toBe(false);
+@@ -468,7 +469,7 @@
+     await registerAndLogin(page, request, { ...AUTH, label: "density", isolate: true });
+     await seedDashboard(page.request);
+     await page.setViewportSize({ width: 1600, height: 1000 });
+-    await page.goto("/dashboards");
++    await gate.gotoHeld(page, "/dashboards");
+     await waitForPanelGrid(page, 3);
+     await expect(page.locator("html")).toHaveAttribute("data-density", "comfortable");
+     // Resolve the token to px through a real box (the computed custom property may still read "0.5rem").
+@@ -488,12 +489,12 @@
+     const horizontalGapBefore = before[1].left - (before[0].left + before[0].width);
+     expect(horizontalGapBefore).toBeCloseTo(comfortableGap, 0);
+ 
+-    await page.goto("/settings");
++    await gate.gotoHeld(page, "/settings");
+     await page.getByRole("radio", { name: "Compact" }).click();
+     await expect(page.locator("html")).toHaveAttribute("data-density", "compact");
+     const compactGap = await gapToken();
+     expect(compactGap).toBeLessThan(comfortableGap);
+-    await page.goto("/dashboards");
++    await gate.gotoHeld(page, "/dashboards");
+     await waitForPanelGrid(page, 3);
+     await expect.poll(async () => (await gridBoxes(page))[0]?.height).toBeGreaterThan(100);
+     const after = await gridBoxes(page);
+@@ -530,7 +531,7 @@
+     await page.setViewportSize({ width: 1280, height: 900 });
+     const rowHeight = async () =>
+       (await measureBox(page.locator(".source-list-table tbody tr").first())).height;
+-    await page.goto("/sources");
++    await gate.gotoHeld(page, "/sources");
+     await expect(page.locator(".source-list-table tbody tr").first()).toBeVisible();
+     const padTop = () =>
+       page
+@@ -543,7 +544,7 @@
+     const comfortable = await rowHeight();
+ 
+     await setPref(page.request, { density: "compact" });
+-    await page.goto("/sources");
++    await gate.gotoHeld(page, "/sources");
+     await expect(page.locator("html")).toHaveAttribute("data-density", "compact");
+     await expect(page.locator(".source-list-table tbody tr").first()).toBeVisible();
+     expect(await padTop()).toBe(4);
+@@ -573,7 +574,7 @@
+     request,
+   }) => {
+     await registerAndLogin(page, request, { ...AUTH, label: "motion", isolate: true });
+-    await page.goto("/settings");
++    await gate.gotoHeld(page, "/settings");
+     await expect(page.locator("html")).not.toHaveAttribute("data-motion", /.*/);
+ 
+     // No saved choice, OS without reduce -> Full.
+@@ -601,7 +602,7 @@
+     expect((await duration(page)).element).toBe("1e-05s");
+ 
+     // Saved server-side, survives a reload; "Use system setting" removes it again.
+-    await page.goto("/settings");
++    await gate.gotoHeld(page, "/settings");
+     await expect(page.locator("html")).toHaveAttribute("data-motion", "off");
+     await page.getByRole("button", { name: "Use system setting" }).click();
+     await expect(page.locator("html")).not.toHaveAttribute("data-motion", /.*/);
+@@ -619,7 +620,7 @@
+     }) => {
+       await page.setViewportSize({ width, height: 900 });
+       await registerAndLogin(page, request, { ...AUTH, label: `tap-${width}`, isolate: true });
+-      await page.goto("/settings");
++      await gate.gotoHeld(page, "/settings");
+       await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
+       const touch = width <= 768;
+       const swatches = page.locator(".accent-picker__swatch");
+@@ -666,10 +667,10 @@
+     await seedTypeStyle(page.request, "mono");
+     for (const width of [375, 768, 820, 1280]) {
+       await page.setViewportSize({ width, height: 900 });
+-      await page.goto("/settings");
++      await gate.gotoHeld(page, "/settings");
+       await assertTypeStyleActive(page, "mono");
+       await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
+-      await waitForWebFonts(page.locator(".app-shell"));
++      await gate.dump(page, "S3 before-wait"); await gate.contain(page, "S3", ".app-shell", [".appearance", ".app-command-bar", ".bottom-nav", ".app-rail"]); console.log("[gate] S3 CONTAINER-LOCATOR count=" + (await page.locator(".app-shell").count())); await waitForWebFonts(page.locator(".app-shell")); await gate.dump(page, "S3 after-wait (measurement starts here)"); await gate.values(page, "S3");
+       const clipped = await findClipped(page, [
+         ".appearance button",
+         ".appearance .appearance__label",
+@@ -691,7 +692,7 @@
+     await registerAndLogin(page, request, { ...AUTH, label: "clip-mut", isolate: true });
+     await seedTypeStyle(page.request, "mono");
+     await page.setViewportSize({ width: 375, height: 900 });
+-    await page.goto("/settings");
++    await gate.gotoHeld(page, "/settings");
+     await assertTypeStyleActive(page, "mono");
+     await page.evaluate(() => {
+       const label = document.querySelector(".appearance__label") as HTMLElement;
+@@ -756,12 +757,12 @@
+     for (const style of ["sans", "mono", "serif"] as const) {
+       await setPref(page.request, { typeStyle: style });
+       await page.setViewportSize({ width: 1280, height: 900 });
+-      await page.goto(`/pipelines/${pipelineId}`);
++      await gate.gotoHeld(page, `/pipelines/${pipelineId}`);
+       await assertTypeStyleActive(page, style);
+       await page.getByRole("button", { name: "Pipeline actions" }).click();
+       await page.getByRole("menuitem", { name: "Run history" }).click();
+       await expect(page.locator(".run-history-modal__row-duration").first()).toBeVisible();
+-      await waitForWebFonts(page.getByRole("dialog", { name: "Run history" }));
++      await gate.dump(page, "S4 before-wait"); await gate.contain(page, "S4", "dialog[open]", [".run-history-modal__row-duration"]); console.log("[gate] S4 CONTAINER-LOCATOR count=" + (await page.getByRole("dialog", { name: "Run history" }).count())); await waitForWebFonts(page.getByRole("dialog", { name: "Run history" })); await gate.dump(page, "S4 after-wait (measurement starts here)"); await gate.values(page, "S4");
+ 
+       const { ones, eights } = await widths(".run-history-modal__row-duration");
+       expect(Math.abs(ones - eights), `${style}: 1111 vs 8888`).toBeLessThanOrEqual(0.5);
+@@ -778,3 +779,5 @@
+     }
+   });
+ });
++
++test.afterEach(async ({ page }) => { await gate.endDump(page); });

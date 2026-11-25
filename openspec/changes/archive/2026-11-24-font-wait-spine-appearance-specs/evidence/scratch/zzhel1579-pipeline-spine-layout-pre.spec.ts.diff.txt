@@ -1,0 +1,111 @@
+--- /dev/fd/63	2026-11-24 23:25:28.127975021 -0800
++++ e2e/zzhel1579-pipeline-spine-layout-pre.spec.ts	2026-11-24 23:23:39.292429462 -0800
+@@ -1,3 +1,4 @@
++import * as gate from "./zzfontgate";
+ import { expect, test, type Page } from "@playwright/test";
+ 
+ import { auditAccent } from "./support/accentAudit";
+@@ -156,7 +157,7 @@
+   }) => {
+     await registerAndLogin(page, request, { ...AUTH, label: "fit" });
+     const { pipelineId } = await seedPipeline(page);
+-    await page.goto(`/pipelines/${pipelineId}`);
++    await gate.gotoHeld(page, `/pipelines/${pipelineId}`);
+ 
+     const spine = page.getByLabel("Steps and outputs");
+     await expect(spine.getByRole("button", { name: /^Step 1:/ })).toBeVisible();
+@@ -192,7 +193,7 @@
+     await page.setViewportSize({ width: 1440, height: 900 });
+     await registerAndLogin(page, request, { ...AUTH, label: "fit1440" });
+     const { pipelineId } = await seedPipeline(page);
+-    await page.goto(`/pipelines/${pipelineId}`);
++    await gate.gotoHeld(page, `/pipelines/${pipelineId}`);
+     await expect(page.getByRole("region", { name: /^Rows after step/ })).toBeVisible();
+     const metrics = await page.evaluate(() => ({
+       scrollHeight: document.documentElement.scrollHeight,
+@@ -222,7 +223,7 @@
+           },
+           [theme, accent],
+         );
+-        await page.goto(`/pipelines/${pipelineId}`);
++        await gate.gotoHeld(page, `/pipelines/${pipelineId}`);
+         await expect(page.getByRole("region", { name: /^Rows after step/ })).toBeVisible();
+         const rows = page.locator(".spine-row__select");
+         const count = await rows.count();
+@@ -265,7 +266,7 @@
+       for (const width of [820, 900, 1100, 1280]) {
+         await page.setViewportSize({ width, height: 900 });
+         await page.evaluate((t) => window.localStorage.setItem("helio-theme", t), theme);
+-        await page.goto(`/pipelines/${pipelineId}`);
++        await gate.gotoHeld(page, `/pipelines/${pipelineId}`);
+         await expect(page.getByRole("region", { name: /^Rows after step/ })).toBeVisible();
+         // Narrow desktop stays usable: each filter control is wide enough to show its value, and the page name
+         // (which the command bar no longer shows) keeps at least about 8 characters.
+@@ -293,7 +294,7 @@
+           width,
+         );
+         // No header item may overlap the next (the pipeline name once ran under the status chip at 820px).
+-        await page.evaluate(() => document.fonts.ready);
++        await gate.wait(page, "S1");
+         const boxes = await page.evaluate(() =>
+           Array.from(
+             document.querySelectorAll<HTMLElement>(
+@@ -341,7 +342,7 @@
+     test.setTimeout(120_000);
+     await registerAndLogin(page, request, { ...AUTH, label: "select" });
+     const { pipelineId } = await seedPipeline(page);
+-    await page.goto(`/pipelines/${pipelineId}`);
++    await gate.gotoHeld(page, `/pipelines/${pipelineId}`);
+     await expect(page.getByRole("region", { name: "Step 1 Filter rows" })).toBeVisible();
+     await expect(page.getByRole("region", { name: "Rows after step 1" })).toBeVisible();
+ 
+@@ -365,7 +366,7 @@
+     test.setTimeout(120_000);
+     await registerAndLogin(page, request, { ...AUTH, label: "lanes" });
+     const { pipelineId } = await seedPipeline(page, true);
+-    await page.goto(`/pipelines/${pipelineId}`);
++    await gate.gotoHeld(page, `/pipelines/${pipelineId}`);
+     const lane = page.getByRole("group", { name: "Lane" });
+     await expect(lane).toBeVisible();
+     await expect(lane.getByText(/^Lane 1 · from 2 Sort rows/)).toBeVisible();
+@@ -386,7 +387,7 @@
+     test.setTimeout(120_000);
+     await registerAndLogin(page, request, { ...AUTH, label: "flush" });
+     const { pipelineId, stepIds } = await seedPipeline(page);
+-    await page.goto(`/pipelines/${pipelineId}`);
++    await gate.gotoHeld(page, `/pipelines/${pipelineId}`);
+     const patches: string[] = [];
+     page.on("request", (req) => {
+       if (req.url().includes(`/api/pipeline-steps/${stepIds[0]}`) && req.method() === "PATCH")
+@@ -419,7 +420,7 @@
+         [820, 900],
+       ] as const) {
+         await page.setViewportSize({ width, height });
+-        await page.goto(`/pipelines/${pipelineId}`);
++        await gate.gotoHeld(page, `/pipelines/${pipelineId}`);
+         await expect(page.getByRole("region", { name: /^Rows after step/ })).toBeVisible();
+         await expect(page.locator(".step-preview__body tbody tr").first()).toBeVisible();
+         const noScroll = await page.evaluate(
+@@ -455,14 +456,14 @@
+       for (const theme of ["dark", "light"] as const) {
+         await page.setViewportSize({ width: 1280, height: 900 });
+         await page.evaluate((t) => window.localStorage.setItem("helio-theme", t), theme);
+-        await page.goto(`/pipelines/${pipelineId}`);
++        await gate.gotoHeld(page, `/pipelines/${pipelineId}`);
+         await expect(page.getByRole("region", { name: /^Rows after step/ })).toBeVisible();
+         if (listWidth === "max") {
+           const handle = page.getByRole("separator").first();
+           await handle.focus();
+           await page.keyboard.press("End");
+         }
+-        await page.evaluate(() => document.fonts.ready);
++        await gate.wait(page, "S2");
+         if (listWidth === "default") {
+           // HEL-1608: the committed 1280 invariant -- the spine track stays 270-340px with the list at default.
+           const spine = await page.locator(".spine-body__spine").boundingBox();
+@@ -574,3 +575,5 @@
+     }
+   });
+ });
++
++test.afterEach(async ({ page }) => { await gate.endDump(page); });

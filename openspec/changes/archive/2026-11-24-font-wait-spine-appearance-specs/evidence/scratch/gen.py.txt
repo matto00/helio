@@ -1,0 +1,34 @@
+import re, sys
+WT = "/home/matt/Development/helio/.claude/worktrees/task/fonts-ready-wait-conversion/HEL-1622/e2e/"
+variant = sys.argv[1]  # pre | post
+sites = {
+ "hel1579-pipeline-spine-layout.spec.ts": {296: ("S1", 'page.locator(".spine-header")'), 465: ("S2", None)},
+ "hel1572-appearance-preferences.spec.ts": {672: ("S3", None), 764: ("S4", 'page.locator(".run-history-modal")')},
+}
+import json, os
+conv = json.load(open("/home/matt/Development/helio/.concertino/scratch/HEL-1622/containers.json")) if variant == "post" else {}
+for fn, m in sites.items():
+    import subprocess
+    lines = (subprocess.check_output(["git","-C",WT,"show","793802e50:e2e/"+fn]).decode() if variant=="pre" else open(WT + fn).read()).split("\n")
+    for ln, (sid, _) in m.items():
+        ind = ""
+        if variant == "pre":
+            i = ln - 1
+            assert "document.fonts.ready" in lines[i], (fn, ln, lines[i])
+            ind = re.match(r"\s*", lines[i]).group(0)
+            lines[i] = f'{ind}await gate.wait(page, "{sid}");'
+        else:
+            c = conv[sid]
+            hits = [j for j, l in enumerate(lines) if l.strip() == f"await waitForWebFonts({c['loc']});"]
+            assert len(hits) == 1, (sid, hits)
+            i = hits[0]
+            ind = re.match(r"\s*", lines[i]).group(0)
+            lines[i] = f'{ind}await gate.dump(page, "{sid} before-wait"); await gate.contain(page, "{sid}", {json.dumps(c["css"])}, {json.dumps(c["targets"])}); console.log("[gate] {sid} CONTAINER-LOCATOR count=" + (await {c["loc"]}.count())); await waitForWebFonts({c["loc"]}); await gate.dump(page, "{sid} after-wait (measurement starts here)"); await gate.values(page, "{sid}");'
+    txt = "\n".join(lines)
+    txt = re.sub(r"await page\.goto\((.*)\);", r"await gate.gotoHeld(page, \1);", txt)
+    head = 'import * as gate from "./zzfontgate";\n'
+    txt = head + txt
+    txt += '\ntest.afterEach(async ({ page }) => { await gate.endDump(page); });\n'
+    out = WT + "zz" + fn.replace(".spec.ts", "") + f"-{variant}.spec.ts"
+    open(out, "w").write(txt)
+    print(out)

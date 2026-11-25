@@ -1,0 +1,15 @@
+# HEL-1622 20x runs on the converted specs (nice -n 19, --repeat-each=20 --workers=2, lane servers DEV_PORT 7054 + lane DB helio_hel1622)
+# Every test of each file reaches exactly 20 runs; the --grep partition keeps each call under the 600s tool timeout.
+hel1579-pipeline-spine-layout.spec.ts (14 tests x 20 = 280 passed, 0 failed, 0 flaky)
+  p1 '1280x800|1440x900 \(HEL-1585'                                  2 tests  40 passed
+  p2 'accent audit'                                                    4 tests  80 passed
+  p3 '820/900/1100px'                      (S1, dark+light)          2 tests  40 passed
+  p4 'selecting a step|a branch renders|an edit made just before'    3 tests  60 passed
+  p5 'evidence: the running page'                                      2 tests  40 passed
+  p6 'sweep 769-1100px'                    (S2)                      1 test   20 passed
+hel1572-appearance-preferences.spec.ts (17 tests x 20 = 340 passed, 0 failed, 0 flaky)
+  q1 'HEL-1572 type style'                                             8 tests 160 passed (includes the "re-renders headings with no reload" test)
+  q2 'HEL-1572 density|HEL-1572 motion'                                3 tests  60 passed
+  q3 'HEL-1572 Appearance tap targets'     (S3 + 4 others)            5 tests 100 passed
+  q4 'HEL-1572 tabular numerals'           (S4)                        1 test   20 passed
+(per-partition raw lines in repeat-counts.txt; only the dev project runs these files)

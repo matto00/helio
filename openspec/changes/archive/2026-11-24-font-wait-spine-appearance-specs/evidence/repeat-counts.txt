@@ -1,0 +1,30 @@
+[1579-p1] # cmd: nice -n 19 npx playwright test e2e/hel1579-pipeline-spine-layout.spec.ts --grep '1280x800|1440x900 \(HEL-1585' --repeat-each=20 --workers=2   (DEV_PORT=7054, lane DB)
+[1579-p1]   40 passed (1.6m)
+[1579-p1] # exit=0
+[1579-p2] # cmd: nice -n 19 npx playwright test e2e/hel1579-pipeline-spine-layout.spec.ts --grep 'accent audit' --repeat-each=20 --workers=2   (DEV_PORT=7054, lane DB)
+[1579-p2]   80 passed (6.8m)
+[1579-p2] # exit=0
+[1579-p3] # cmd: nice -n 19 npx playwright test e2e/hel1579-pipeline-spine-layout.spec.ts --grep '820/900/1100px' --repeat-each=20 --workers=2   (DEV_PORT=7054, lane DB)
+[1579-p3]   40 passed (3.3m)
+[1579-p3] # exit=0
+[1579-p4] # cmd: nice -n 19 npx playwright test e2e/hel1579-pipeline-spine-layout.spec.ts --grep 'selecting a step|a branch renders|an edit made just before' --repeat-each=20 --workers=2   (DEV_PORT=7054, lane DB)
+[1579-p4]   60 passed (2.9m)
+[1579-p4] # exit=0
+[1579-p5] # cmd: nice -n 19 npx playwright test e2e/hel1579-pipeline-spine-layout.spec.ts --grep 'evidence: the running page' --repeat-each=20 --workers=2   (DEV_PORT=7054, lane DB)
+[1579-p5]   40 passed (2.9m)
+[1579-p5] # exit=0
+[1579-p6] # cmd: nice -n 19 npx playwright test e2e/hel1579-pipeline-spine-layout.spec.ts --grep 'sweep 769-1100px' --repeat-each=20 --workers=2   (DEV_PORT=7054, lane DB)
+[1579-p6]   20 passed (3.4m)
+[1579-p6] # exit=0
+[1572-q1] # cmd: nice -n 19 npx playwright test e2e/hel1572-appearance-preferences.spec.ts --grep 'HEL-1572 type style' --repeat-each=20 --workers=2   (DEV_PORT=7054, lane DB)
+[1572-q1]   160 passed (6.7m)
+[1572-q1] # exit=0
+[1572-q2] # cmd: nice -n 19 npx playwright test e2e/hel1572-appearance-preferences.spec.ts --grep 'HEL-1572 density|HEL-1572 motion' --repeat-each=20 --workers=2   (DEV_PORT=7054, lane DB)
+[1572-q2]   60 passed (4.0m)
+[1572-q2] # exit=0
+[1572-q3] # cmd: nice -n 19 npx playwright test e2e/hel1572-appearance-preferences.spec.ts --grep 'HEL-1572 Appearance tap targets' --repeat-each=20 --workers=2   (DEV_PORT=7054, lane DB)
+[1572-q3]   100 passed (4.6m)
+[1572-q3] # exit=0
+[1572-q4] # cmd: nice -n 19 npx playwright test e2e/hel1572-appearance-preferences.spec.ts --grep 'HEL-1572 tabular numerals' --repeat-each=20 --workers=2   (DEV_PORT=7054, lane DB)
+[1572-q4]   20 passed (1.6m)
+[1572-q4] # exit=0
