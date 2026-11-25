@@ -1,0 +1,7 @@
+D2 criterion: |offset(icon top -> first row link top) - offset(icon top -> single-message text top)| <= 1px
+AFTER (implementation):
+[HEL-1840] 390px light single=-1 multi=-1
+[HEL-1840] 390px dark single=-1 multi=-1
+[HEL-1840] 1280px light single=-1 multi=-1
+
+BEFORE: see d2-measurements-before.txt (multi=15/15/3 vs single=-1: 16px / 16px / 4px off)

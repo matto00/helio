@@ -119,6 +119,14 @@
   font-size: var(--text-sm);
 }
 
+/* HEL-1840 D2 — a multi-row toast's first row sits below the list's block-start padding, so the icon takes that
+   padding plus its own 1px nudge and lines up with the first row's link the way it lines up with a single-message
+   toast's text. The list keeps its clipping-safe padding (the touch expanders' hit extent is never traded away).
+   The phone/coarse value is set in the media block below. */
+.toast--rows .toast__icon {
+  margin-top: calc(var(--space-1) + 1px);
+}
+
 .toast__body {
   flex: 1;
   min-width: 0;
@@ -145,6 +153,30 @@
   gap: var(--space-2);
   max-height: min(40vh, 16rem);
   overflow-y: auto;
+  /* HEL-1840 — focus scrolling keeps the focused control above the overflow fade (the fade is --space-6 tall; --space-1 of margin keeps the control clear of its edge). */
+  scroll-padding-block-end: calc(var(--space-6) + var(--space-1));
+}
+
+/* HEL-1840 D3 — the frame (the body's flex item) positions the overflow fade over the scrolling list. */
+.toast__list-frame {
+  position: relative;
+}
+
+/* The fade is painted with the toast's own opaque surface in both themes, so content dissolves into the card. Shown
+   only while the list scrolls and rows remain below; decorative and never in the way of a pointer. */
+.toast__list-frame[data-overflow-below="true"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--space-6);
+  background-image: linear-gradient(to bottom, transparent, var(--app-surface-strong));
+  /* The bottom-edge shadow is the HEL-1449 sibling cue (PanelDetailModal.css): it is painted at the list's bottom
+     edge wherever the clip lands (an inter-row gap, a short viewport, rows that shrank after a run), so the cue
+     never depends on part of the next row showing. --app-text darkens in light and lightens in dark. */
+  box-shadow: inset 0 -12px 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
+  pointer-events: none;
 }
 
 .toast__list-item {
@@ -207,6 +239,10 @@
   .toast__list {
     gap: calc(var(--space-6) + var(--space-1));
     padding-block: var(--space-4);
+  }
+
+  .toast--rows .toast__icon {
+    margin-top: calc(var(--space-4) + 1px);
   }
 
   .toast__list-item {

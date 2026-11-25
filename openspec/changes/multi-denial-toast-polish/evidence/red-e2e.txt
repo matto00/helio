@@ -1,0 +1,196 @@
+Running 11 tests using 1 worker
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795543407278-43539@example.com
+  ✘   1 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:40:7 › HEL-1172 multi-denial toast (real backend) › one toast lists every pipeline in name order, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (18.4s)
+[HEL-1300 e2e] throwaway user: hel1172-link-1795543426186-42831@example.com
+  ✓   2 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:123:7 › HEL-1172 multi-denial toast (real backend) › a row's pipeline link opens that pipeline's page (6.4s)
+[HEL-1300 e2e] throwaway user: hel1172-storm-1795543432262-91156@example.com
+  ✓   3 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:135:7 › HEL-1172 multi-denial toast (real backend) › rapid identical writes leave one toast (5.9s)
+[HEL-1300 e2e] throwaway user: hel1172-touch-1795543438170-91216@example.com
+  ✓   4 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:151:7 › HEL-1172 multi-denial toast (real backend) › 390px: every in-toast link and run action has a 44px hit region on the y axis (6.5s)
+[HEL-1300 e2e] throwaway user: hel1172-touch-single-1795543444656-61134@example.com
+  ✓   5 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:175:7 › HEL-1172 multi-denial toast (real backend) › 390px: the single-pipeline toast's 'Run to update' has a 44px hit region (5.3s)
+[HEL-1300 e2e] throwaway user: hel1172-align-ref-1795543449952-34844@example.com
+[HEL-1300 e2e] throwaway user: hel1172-align-1795543454330-51621@example.com
+[HEL-1840] 390px light single=-1 multi=15
+  ✘   6 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:197:9 › HEL-1172 multi-denial toast (real backend) › 390px light: the first row lines up with the icon as a single-message toast's text does (11.3s)
+[HEL-1300 e2e] throwaway user: hel1172-align-ref-1795543462213-75596@example.com
+[HEL-1300 e2e] throwaway user: hel1172-align-1795543466405-42655@example.com
+[HEL-1840] 390px dark single=-1 multi=15
+  ✘   7 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:197:9 › HEL-1172 multi-denial toast (real backend) › 390px dark: the first row lines up with the icon as a single-message toast's text does (11.6s)
+[HEL-1300 e2e] throwaway user: hel1172-align-ref-1795543474407-31336@example.com
+[HEL-1300 e2e] throwaway user: hel1172-align-1795543479056-67181@example.com
+[HEL-1840] 1280px light single=-1 multi=3
+  ✘   8 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:197:9 › HEL-1172 multi-denial toast (real backend) › 1280px light: the first row lines up with the icon as a single-message toast's text does (12.3s)
+[HEL-1300 e2e] throwaway user: hel1172-overflow-light-1795543487299-14098@example.com
+  ✘   9 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:252:9 › HEL-1172 multi-denial toast (real backend) › 390px light: an overflowing list shows the fade until scrolled to its end, and never paints over the toast border (1.2m)
+[HEL-1300 e2e] throwaway user: hel1172-overflow-dark-1795543559786-40280@example.com
+  ✘  10 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:252:9 › HEL-1172 multi-denial toast (real backend) › 390px dark: an overflowing list shows the fade until scrolled to its end, and never paints over the toast border (1.2m)
+[HEL-1300 e2e] throwaway user: hel1172-fits-1795543632692-91846@example.com
+  ✘  11 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:305:7 › HEL-1172 multi-denial toast (real backend) › 1280px: a list that fits shows no fade (11.5s)
+userCleanup: removed 0 of 14 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 14 recorded throwaway user(s)
+  1) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:40:7 › HEL-1172 multi-denial toast (real backend) › one toast lists every pipeline in name order, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body 
+    Error: expect(locator).toHaveText(expected) failed
+    Locator:  locator('.toast--warning').filter({ has: locator('.toast__list') }).locator('.toast__link')
+    - Expected  - 2
+    + Received  + 2
+      Array [
+    -   "HEL-1172 Alpha",
+    -   "HEL-1172 Beta",
+        "HEL-1172 Gamma",
+    +   "HEL-1172 Beta",
+    +   "HEL-1172 Alpha",
+      ]
+    Timeout:  5000ms
+    Call log:
+      - Expect "toHaveText" with timeout 5000ms
+      - waiting for locator('.toast--warning').filter({ has: locator('.toast__list') }).locator('.toast__link')
+        9 × locator resolved to 3 elements
+      84 |     // each row's link -> its run -> the next row's link -> ...
+      85 |     const rows = [alpha, beta, gamma];
+    > 86 |     await expect(toast.locator(".toast__link")).toHaveText(rows.map((r) => r.name));
+         |                                                 ^
+      87 |     await toast.getByRole("link", { name: rows[0].name }).focus();
+      88 |     for (const [i, row] of rows.entries()) {
+      89 |       if (i > 0) {
+        at /home/matt/Development/helio/.claude/worktrees/feature/multi-denial-toast-polish/HEL-1840/e2e/hel1172-multi-denial-toast.spec.ts:86:49
+    Error Context: test-results/hel1172-multi-denial-toast-297c8-e-focus-never-drops-to-body-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-297c8-e-focus-never-drops-to-body-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-297c8-e-focus-never-drops-to-body-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  2) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:197:9 › HEL-1172 multi-denial toast (real backend) › 390px light: the first row lines up with the icon as a single-message toast's text does 
+    Error: expect(received).toBeLessThanOrEqual(expected)
+    Expected: <= 1
+    Received:    16
+      233 |         `[HEL-1840] ${viewport.width}px ${theme} single=${singleOffset} multi=${multiOffset}`,
+      234 |       );
+    > 235 |       expect(Math.abs(multiOffset - singleOffset)).toBeLessThanOrEqual(1);
+          |                                                    ^
+      236 |
+      237 |       // Precedence 1: the expanders keep their 44px y extent (the first row's link, the last row's action).
+      238 |       await bisectHitExtent(page, toast.getByRole("link", { name: "HEL-1172 Alpha" }), "y");
+        at /home/matt/Development/helio/.claude/worktrees/feature/multi-denial-toast-polish/HEL-1840/e2e/hel1172-multi-denial-toast.spec.ts:235:52
+    Error Context: test-results/hel1172-multi-denial-toast-0928a-e-message-toast-s-text-does-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-0928a-e-message-toast-s-text-does-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-0928a-e-message-toast-s-text-does-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  3) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:197:9 › HEL-1172 multi-denial toast (real backend) › 390px dark: the first row lines up with the icon as a single-message toast's text does 
+    Error: expect(received).toBeLessThanOrEqual(expected)
+    Expected: <= 1
+    Received:    16
+      233 |         `[HEL-1840] ${viewport.width}px ${theme} single=${singleOffset} multi=${multiOffset}`,
+      234 |       );
+    > 235 |       expect(Math.abs(multiOffset - singleOffset)).toBeLessThanOrEqual(1);
+          |                                                    ^
+      236 |
+      237 |       // Precedence 1: the expanders keep their 44px y extent (the first row's link, the last row's action).
+      238 |       await bisectHitExtent(page, toast.getByRole("link", { name: "HEL-1172 Alpha" }), "y");
+        at /home/matt/Development/helio/.claude/worktrees/feature/multi-denial-toast-polish/HEL-1840/e2e/hel1172-multi-denial-toast.spec.ts:235:52
+    Error Context: test-results/hel1172-multi-denial-toast-85f4d-e-message-toast-s-text-does-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-85f4d-e-message-toast-s-text-does-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-85f4d-e-message-toast-s-text-does-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  4) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:197:9 › HEL-1172 multi-denial toast (real backend) › 1280px light: the first row lines up with the icon as a single-message toast's text does 
+    Error: expect(received).toBeLessThanOrEqual(expected)
+    Expected: <= 1
+    Received:    4
+      233 |         `[HEL-1840] ${viewport.width}px ${theme} single=${singleOffset} multi=${multiOffset}`,
+      234 |       );
+    > 235 |       expect(Math.abs(multiOffset - singleOffset)).toBeLessThanOrEqual(1);
+          |                                                    ^
+      236 |
+      237 |       // Precedence 1: the expanders keep their 44px y extent (the first row's link, the last row's action).
+      238 |       await bisectHitExtent(page, toast.getByRole("link", { name: "HEL-1172 Alpha" }), "y");
+        at /home/matt/Development/helio/.claude/worktrees/feature/multi-denial-toast-polish/HEL-1840/e2e/hel1172-multi-denial-toast.spec.ts:235:52
+    Error Context: test-results/hel1172-multi-denial-toast-8fafd-e-message-toast-s-text-does-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-8fafd-e-message-toast-s-text-does-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-8fafd-e-message-toast-s-text-does-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  5) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:252:9 › HEL-1172 multi-denial toast (real backend) › 390px light: an overflowing list shows the fade until scrolled to its end, and never paints over the toast border 
+    Error: expect(locator).toHaveAttribute(expected) failed
+    Locator: locator('.toast--warning').filter({ has: locator('.toast__list') }).locator('.toast__list-frame')
+    Expected string: "true"
+    Received: <element(s) not found>
+    Timeout: 5000ms
+    Call log:
+      - Expect "toHaveAttribute" with timeout 5000ms
+      - waiting for locator('.toast--warning').filter({ has: locator('.toast__list') }).locator('.toast__list-frame')
+      269 |       const list = toast.locator(".toast__list");
+      270 |       await expect(toast).toHaveCount(1);
+    > 271 |       await expect(frame).toHaveAttribute("data-overflow-below", "true");
+          |                           ^
+      272 |       expect(await fadeImage(frame)).not.toBe("none");
+      273 |       expect(await fadeImage(frame)).toContain("linear-gradient");
+      274 |
+        at /home/matt/Development/helio/.claude/worktrees/feature/multi-denial-toast-polish/HEL-1840/e2e/hel1172-multi-denial-toast.spec.ts:271:27
+    Error Context: test-results/hel1172-multi-denial-toast-72293-aints-over-the-toast-border-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-72293-aints-over-the-toast-border-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-72293-aints-over-the-toast-border-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  6) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:252:9 › HEL-1172 multi-denial toast (real backend) › 390px dark: an overflowing list shows the fade until scrolled to its end, and never paints over the toast border 
+    Error: expect(locator).toHaveAttribute(expected) failed
+    Locator: locator('.toast--warning').filter({ has: locator('.toast__list') }).locator('.toast__list-frame')
+    Expected string: "true"
+    Received: <element(s) not found>
+    Timeout: 5000ms
+    Call log:
+      - Expect "toHaveAttribute" with timeout 5000ms
+      - waiting for locator('.toast--warning').filter({ has: locator('.toast__list') }).locator('.toast__list-frame')
+      269 |       const list = toast.locator(".toast__list");
+      270 |       await expect(toast).toHaveCount(1);
+    > 271 |       await expect(frame).toHaveAttribute("data-overflow-below", "true");
+          |                           ^
+      272 |       expect(await fadeImage(frame)).not.toBe("none");
+      273 |       expect(await fadeImage(frame)).toContain("linear-gradient");
+      274 |
+        at /home/matt/Development/helio/.claude/worktrees/feature/multi-denial-toast-polish/HEL-1840/e2e/hel1172-multi-denial-toast.spec.ts:271:27
+    Error Context: test-results/hel1172-multi-denial-toast-4f6e9-aints-over-the-toast-border-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-4f6e9-aints-over-the-toast-border-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-4f6e9-aints-over-the-toast-border-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  7) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:305:7 › HEL-1172 multi-denial toast (real backend) › 1280px: a list that fits shows no fade 
+    Error: expect(locator).toHaveCount(expected) failed
+    Locator:  locator('.toast--warning').filter({ has: locator('.toast__list') }).locator('.toast__list-frame')
+    Expected: 1
+    Received: 0
+    Timeout:  5000ms
+    Call log:
+      - Expect "toHaveCount" with timeout 5000ms
+      - waiting for locator('.toast--warning').filter({ has: locator('.toast__list') }).locator('.toast__list-frame')
+        9 × locator resolved to 0 elements
+          - unexpected value "0"
+      312 |     const toast = page.locator(".toast--warning").filter({ has: page.locator(".toast__list") });
+      313 |     const frame = toast.locator(".toast__list-frame");
+    > 314 |     await expect(frame).toHaveCount(1);
+          |                         ^
+      315 |     const metrics = await toast
+      316 |       .locator(".toast__list")
+      317 |       .evaluate((el) => ({ scroll: el.scrollHeight, client: el.clientHeight }));
+        at /home/matt/Development/helio/.claude/worktrees/feature/multi-denial-toast-polish/HEL-1840/e2e/hel1172-multi-denial-toast.spec.ts:314:25
+    Error Context: test-results/hel1172-multi-denial-toast-afe80-ist-that-fits-shows-no-fade-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-afe80-ist-that-fits-shows-no-fade-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-afe80-ist-that-fits-shows-no-fade-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  7 failed
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:40:7 › HEL-1172 multi-denial toast (real backend) › one toast lists every pipeline in name order, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body 
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:197:9 › HEL-1172 multi-denial toast (real backend) › 390px light: the first row lines up with the icon as a single-message toast's text does 
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:197:9 › HEL-1172 multi-denial toast (real backend) › 390px dark: the first row lines up with the icon as a single-message toast's text does 
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:197:9 › HEL-1172 multi-denial toast (real backend) › 1280px light: the first row lines up with the icon as a single-message toast's text does 
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:252:9 › HEL-1172 multi-denial toast (real backend) › 390px light: an overflowing list shows the fade until scrolled to its end, and never paints over the toast border 
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:252:9 › HEL-1172 multi-denial toast (real backend) › 390px dark: an overflowing list shows the fade until scrolled to its end, and never paints over the toast border 
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:305:7 › HEL-1172 multi-denial toast (real backend) › 1280px: a list that fits shows no fade 
+  4 passed (4.0m)

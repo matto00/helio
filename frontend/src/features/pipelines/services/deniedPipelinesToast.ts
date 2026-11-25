@@ -6,16 +6,25 @@ import type { DeniedPipelineResponse } from "../../sources/types/dataSource";
 import type { ToastInput } from "../../toasts/state/toastsSlice";
 import { denyReasonCopy } from "./denyReasonCopy";
 
+/** HEL-1840 D1 — a fixed English, numeric-aware collation, so jsdom and every browser order names the same way
+ *  and "Pipeline 2" precedes "Pipeline 10". */
+const NAME_COLLATOR = new Intl.Collator("en", { numeric: true });
+
+/** Pipeline name, then id as the tie-break: ids are unique, so this is a total order. */
+function byNameThenId(a: DeniedPipelineResponse, b: DeniedPipelineResponse): number {
+  return NAME_COLLATOR.compare(a.name, b.name) || a.pipelineId.localeCompare(b.pipelineId);
+}
+
 /** design.md D3: ONE toast per write, never one per denied pipeline — the message aggregates
  *  every denied pipeline's specific-rule sentence(s), one line each, and stays the coalescing key
  *  and live-region text.
  *
  *  Exactly one denied pipeline: unchanged — a toast-level "Run to update" `action` only when its
  *  `canRun` is true. Two or more (HEL-1172 D3): a persistent toast with one row per pipeline
- *  (sorted by id, like the message): the name links to `/pipelines/<id>` and the row carries its own
+ *  (sorted by name then id, like the message): the name links to `/pipelines/<id>` and the row carries its own
  *  "Run to update" only where `canRun`. `onRunToUpdate` receives the id of the pipeline to run.
  *
- *  design.md D4: the message is built deterministically from `(sorted pipelineIds, reasons)` —
+ *  design.md D4: the message is built deterministically from `(pipelines sorted by name then id, reasons)` —
  *  no timestamps, no per-request ids — so a burst of writes against an unchanged verdict
  *  produces byte-identical messages, and `toastsSlice`'s own variant+message dedup coalesces them.
  *
@@ -25,7 +34,7 @@ export function buildDeniedPipelinesToast(
   deniedPipelines: DeniedPipelineResponse[],
   onRunToUpdate: (pipelineId: string) => void,
 ): ToastInput {
-  const sorted = [...deniedPipelines].sort((a, b) => a.pipelineId.localeCompare(b.pipelineId));
+  const sorted = [...deniedPipelines].sort(byNameThenId);
   const reasonText = (p: DeniedPipelineResponse) => p.reasons.map(denyReasonCopy).join(" ");
   const message = sorted.map((p) => `${p.name}: ${reasonText(p)}`).join("\n");
 

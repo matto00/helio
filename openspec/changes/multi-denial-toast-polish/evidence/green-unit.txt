@@ -1,0 +1,6 @@
+
+Test Suites: 296 passed, 296 total
+Tests:       3899 passed, 3899 total
+Snapshots:   20 passed, 20 total
+Time:        51.133 s, estimated 79 s
+Ran all test suites matching src/features/pipelines|src/shared/ui|src/features/toasts.

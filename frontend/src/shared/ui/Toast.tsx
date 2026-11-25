@@ -120,9 +120,11 @@ function ToastItem({ toast, preEntry, dialog }: ToastItemProps) {
 
   useToastFocusHandOff(elementRef, toast.id, dialog, preEntry);
 
+  const hasItems = toast.items !== undefined && toast.items.length > 0;
   const classes = [
     "toast",
     `toast--${toast.variant}`,
+    hasItems ? "toast--rows" : null,
     alreadyEntered ? "toast--entered" : null,
     exiting ? "toast--exiting" : null,
   ]
@@ -130,7 +132,6 @@ function ToastItem({ toast, preEntry, dialog }: ToastItemProps) {
     .join(" ");
 
   const messageId = `toast-message-${toast.id}`;
-  const hasItems = toast.items !== undefined && toast.items.length > 0;
 
   return (
     // HEL-535 D2 — no live-region role/aria-live/aria-atomic here: this card

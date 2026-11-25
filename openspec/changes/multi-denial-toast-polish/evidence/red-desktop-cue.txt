@@ -1,0 +1,48 @@
+Running 2 tests using 1 worker
+[HEL-1300 e2e] throwaway user: hel1172-desktop-cue-light-1795548592439-4644@example.com
+[HEL-1840] 1440 light cue probe {"fade":24,"visibleOfCutRow":2.4375,"cutRowReachesBand":true}
+  ✘  1 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:374:9 › HEL-1172 multi-denial toast (real backend) › 1440px light: a 5-row overflowing list shows part of the next row, under the fade (1.1m)
+[HEL-1300 e2e] throwaway user: hel1172-desktop-cue-dark-1795548660047-91760@example.com
+[HEL-1840] 1440 dark cue probe {"fade":24,"visibleOfCutRow":2.4375,"cutRowReachesBand":true}
+  ✘  2 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:374:9 › HEL-1172 multi-denial toast (real backend) › 1440px dark: a 5-row overflowing list shows part of the next row, under the fade (1.1m)
+userCleanup: removed 0 of 2 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 2 recorded throwaway user(s)
+  1) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:374:9 › HEL-1172 multi-denial toast (real backend) › 1440px light: a 5-row overflowing list shows part of the next row, under the fade 
+    Error: expect(received).toBeGreaterThanOrEqual(expected)
+    Expected: >= 12
+    Received:    2.4375
+      409 |       console.log(`[HEL-1840] 1440 ${theme} cue probe ${JSON.stringify(probe)}`);
+      410 |       // At least 12px of the next row's content shows, and that row continues through the fade band.
+    > 411 |       expect(probe.visibleOfCutRow).toBeGreaterThanOrEqual(12);
+          |                                     ^
+      412 |       expect(probe.cutRowReachesBand).toBe(true);
+      413 |     });
+      414 |   }
+        at /home/matt/Development/helio/.claude/worktrees/feature/multi-denial-toast-polish/HEL-1840/e2e/hel1172-multi-denial-toast.spec.ts:411:37
+    Error Context: test-results/hel1172-multi-denial-toast-cc29e-the-next-row-under-the-fade-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-cc29e-the-next-row-under-the-fade-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-cc29e-the-next-row-under-the-fade-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  2) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:374:9 › HEL-1172 multi-denial toast (real backend) › 1440px dark: a 5-row overflowing list shows part of the next row, under the fade 
+    Error: expect(received).toBeGreaterThanOrEqual(expected)
+    Expected: >= 12
+    Received:    2.4375
+      409 |       console.log(`[HEL-1840] 1440 ${theme} cue probe ${JSON.stringify(probe)}`);
+      410 |       // At least 12px of the next row's content shows, and that row continues through the fade band.
+    > 411 |       expect(probe.visibleOfCutRow).toBeGreaterThanOrEqual(12);
+          |                                     ^
+      412 |       expect(probe.cutRowReachesBand).toBe(true);
+      413 |     });
+      414 |   }
+        at /home/matt/Development/helio/.claude/worktrees/feature/multi-denial-toast-polish/HEL-1840/e2e/hel1172-multi-denial-toast.spec.ts:411:37
+    Error Context: test-results/hel1172-multi-denial-toast-a7721-the-next-row-under-the-fade-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-a7721-the-next-row-under-the-fade-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-a7721-the-next-row-under-the-fade-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  2 failed
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:374:9 › HEL-1172 multi-denial toast (real backend) › 1440px light: a 5-row overflowing list shows part of the next row, under the fade 
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:374:9 › HEL-1172 multi-denial toast (real backend) › 1440px dark: a 5-row overflowing list shows part of the next row, under the fade 

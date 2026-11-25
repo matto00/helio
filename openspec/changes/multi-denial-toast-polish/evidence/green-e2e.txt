@@ -1,0 +1,46 @@
+Running 16 tests using 1 worker
+[HEL-1300 e2e] throwaway user: hel1172-rows-1795564735367-91646@example.com
+  ✓   1 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:40:7 › HEL-1172 multi-denial toast (real backend) › one toast lists every pipeline in name order, persists, exposes computed ARIA, and each row runs only its pipeline; focus never drops to body (10.9s)
+[HEL-1300 e2e] throwaway user: hel1172-link-1795564745899-6552@example.com
+  ✓   2 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:123:7 › HEL-1172 multi-denial toast (real backend) › a row's pipeline link opens that pipeline's page (4.9s)
+[HEL-1300 e2e] throwaway user: hel1172-storm-1795564750775-21355@example.com
+  ✓   3 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:135:7 › HEL-1172 multi-denial toast (real backend) › rapid identical writes leave one toast (5.2s)
+[HEL-1300 e2e] throwaway user: hel1172-touch-1795564756028-16612@example.com
+  ✓   4 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:151:7 › HEL-1172 multi-denial toast (real backend) › 390px: every in-toast link and run action has a 44px hit region on the y axis (4.6s)
+[HEL-1300 e2e] throwaway user: hel1172-touch-single-1795564760668-59696@example.com
+  ✓   5 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:175:7 › HEL-1172 multi-denial toast (real backend) › 390px: the single-pipeline toast's 'Run to update' has a 44px hit region (5.2s)
+[HEL-1300 e2e] throwaway user: hel1172-align-ref-1795564765917-93622@example.com
+[HEL-1300 e2e] throwaway user: hel1172-align-1795564770206-77141@example.com
+[HEL-1840] 390px light single=-1 multi=-1
+  ✓   6 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:197:9 › HEL-1172 multi-denial toast (real backend) › 390px light: the first row lines up with the icon as a single-message toast's text does (10.4s)
+[HEL-1300 e2e] throwaway user: hel1172-align-ref-1795564776276-65250@example.com
+[HEL-1300 e2e] throwaway user: hel1172-align-1795564779798-64135@example.com
+[HEL-1840] 390px dark single=-1 multi=-1
+  ✓   7 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:197:9 › HEL-1172 multi-denial toast (real backend) › 390px dark: the first row lines up with the icon as a single-message toast's text does (9.6s)
+[HEL-1300 e2e] throwaway user: hel1172-align-ref-1795564785845-22421@example.com
+[HEL-1300 e2e] throwaway user: hel1172-align-1795564789468-91629@example.com
+[HEL-1840] 1280px light single=-1 multi=-1
+  ✓   8 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:197:9 › HEL-1172 multi-denial toast (real backend) › 1280px light: the first row lines up with the icon as a single-message toast's text does (9.8s)
+[HEL-1300 e2e] throwaway user: hel1172-overflow-light-1795564795644-60683@example.com
+  ✓   9 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:254:9 › HEL-1172 multi-denial toast (real backend) › 390px light: an overflowing list shows the fade until scrolled to its end, and never paints over the toast border (7.5s)
+[HEL-1300 e2e] throwaway user: hel1172-overflow-dark-1795564803149-41806@example.com
+  ✓  10 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:254:9 › HEL-1172 multi-denial toast (real backend) › 390px dark: an overflowing list shows the fade until scrolled to its end, and never paints over the toast border (6.7s)
+[HEL-1300 e2e] throwaway user: hel1172-focus-fade-1795564809817-17509@example.com
+  ✓  11 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:308:7 › HEL-1172 multi-denial toast (real backend) › 390px: every Tab stop in an overflowing list is clear of the fade while the fade shows (5.5s)
+[HEL-1300 e2e] throwaway user: hel1172-edge-0-light-1795564815349-46124@example.com
+[HEL-1840] 1366x640 with 6 rows light cue {"boxShadow":"color(srgb 0.129412 0.113725 0.0980392 / 0.35) 0px -12px 12px -12px inset","gradient":"linear-gradient(rgba(0, 0, 0, 0), rgb(255, 255, 255))","surface":"rgb(255, 255, 255)","frameBottom":603,"listBottom":603}
+  ✓  12 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:384:11 › HEL-1172 multi-denial toast (real backend) › 1366x640 with 6 rows, light: the overflow cue has an edge treatment distinct from the card (7.5s)
+[HEL-1300 e2e] throwaway user: hel1172-edge-0-dark-1795564822860-5038@example.com
+[HEL-1840] 1366x640 with 6 rows dark cue {"boxShadow":"color(srgb 0.94902 0.937255 0.913725 / 0.35) 0px -12px 12px -12px inset","gradient":"linear-gradient(rgba(0, 0, 0, 0), rgb(38, 35, 32))","surface":"rgb(38, 35, 32)","frameBottom":603,"listBottom":603}
+  ✓  13 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:384:11 › HEL-1172 multi-denial toast (real backend) › 1366x640 with 6 rows, dark: the overflow cue has an edge treatment distinct from the card (7.7s)
+[HEL-1300 e2e] throwaway user: hel1172-edge-2-light-1795564830583-7459@example.com
+[HEL-1840] 1440x900 after running the first two rows light cue {"boxShadow":"color(srgb 0.129412 0.113725 0.0980392 / 0.35) 0px -12px 12px -12px inset","gradient":"linear-gradient(rgba(0, 0, 0, 0), rgb(255, 255, 255))","surface":"rgb(255, 255, 255)","frameBottom":806.40625,"listBottom":806.40625}
+  ✓  14 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:384:11 › HEL-1172 multi-denial toast (real backend) › 1440x900 after running the first two rows, light: the overflow cue has an edge treatment distinct from the card (7.8s)
+[HEL-1300 e2e] throwaway user: hel1172-edge-2-dark-1795564838455-54702@example.com
+[HEL-1840] 1440x900 after running the first two rows dark cue {"boxShadow":"color(srgb 0.94902 0.937255 0.913725 / 0.35) 0px -12px 12px -12px inset","gradient":"linear-gradient(rgba(0, 0, 0, 0), rgb(38, 35, 32))","surface":"rgb(38, 35, 32)","frameBottom":806.40625,"listBottom":806.40625}
+  ✓  15 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:384:11 › HEL-1172 multi-denial toast (real backend) › 1440x900 after running the first two rows, dark: the overflow cue has an edge treatment distinct from the card (7.4s)
+[HEL-1300 e2e] throwaway user: hel1172-fits-1795564845909-65574@example.com
+  ✓  16 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:446:7 › HEL-1172 multi-denial toast (real backend) › 1280px: a list that fits shows no fade (5.4s)
+userCleanup: removed 0 of 19 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 19 recorded throwaway user(s)
+  16 passed (1.9m)

@@ -1,0 +1,88 @@
+Running 4 tests using 1 worker
+[HEL-1300 e2e] throwaway user: hel1172-edge-0-light-1795550366838-78396@example.com
+[HEL-1840] 1366x640 with 6 rows light cue {"boxShadow":"none","gradient":"linear-gradient(rgba(0, 0, 0, 0), rgb(255, 255, 255))","surface":"rgb(255, 255, 255)","frameBottom":603,"listBottom":603}
+  ✘  1 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:384:11 › HEL-1172 multi-denial toast (real backend) › 1366x640 with 6 rows, light: the overflow cue has an edge treatment distinct from the card (1.1m)
+[HEL-1300 e2e] throwaway user: hel1172-edge-0-dark-1795550435418-26595@example.com
+[HEL-1840] 1366x640 with 6 rows dark cue {"boxShadow":"none","gradient":"linear-gradient(rgba(0, 0, 0, 0), rgb(38, 35, 32))","surface":"rgb(38, 35, 32)","frameBottom":603,"listBottom":603}
+  ✘  2 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:384:11 › HEL-1172 multi-denial toast (real backend) › 1366x640 with 6 rows, dark: the overflow cue has an edge treatment distinct from the card (1.1m)
+[HEL-1300 e2e] throwaway user: hel1172-edge-2-light-1795550503047-22670@example.com
+[HEL-1840] 1440x900 after running the first two rows light cue {"boxShadow":"none","gradient":"linear-gradient(rgba(0, 0, 0, 0), rgb(255, 255, 255))","surface":"rgb(255, 255, 255)","frameBottom":863,"listBottom":863}
+  ✘  3 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:384:11 › HEL-1172 multi-denial toast (real backend) › 1440x900 after running the first two rows, light: the overflow cue has an edge treatment distinct from the card (1.1m)
+[HEL-1300 e2e] throwaway user: hel1172-edge-2-dark-1795550570746-97948@example.com
+[HEL-1840] 1440x900 after running the first two rows dark cue {"boxShadow":"none","gradient":"linear-gradient(rgba(0, 0, 0, 0), rgb(38, 35, 32))","surface":"rgb(38, 35, 32)","frameBottom":863,"listBottom":863}
+  ✘  4 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:384:11 › HEL-1172 multi-denial toast (real backend) › 1440x900 after running the first two rows, dark: the overflow cue has an edge treatment distinct from the card (1.1m)
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 4 recorded throwaway user(s)
+  1) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:384:11 › HEL-1172 multi-denial toast (real backend) › 1366x640 with 6 rows, light: the overflow cue has an edge treatment distinct from the card 
+    Error: expect(received).not.toBe(expected) // Object.is equality
+    Expected: not "none"
+      425 |         console.log(`[HEL-1840] ${state.name} ${theme} cue ${JSON.stringify(cue)}`);
+      426 |         expect(cue.gradient).toContain("linear-gradient");
+    > 427 |         expect(cue.boxShadow).not.toBe("none");
+          |                                   ^
+      428 |         expect(cue.boxShadow).toContain("inset");
+      429 |         // The edge colour is not the card surface (it is the theme text colour at partial alpha).
+      430 |         expect(cue.boxShadow).not.toContain(cue.surface);
+        at /home/matt/Development/helio/.claude/worktrees/feature/multi-denial-toast-polish/HEL-1840/e2e/hel1172-multi-denial-toast.spec.ts:427:35
+    Error Context: test-results/hel1172-multi-denial-toast-7f344-ment-distinct-from-the-card-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-7f344-ment-distinct-from-the-card-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-7f344-ment-distinct-from-the-card-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  2) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:384:11 › HEL-1172 multi-denial toast (real backend) › 1366x640 with 6 rows, dark: the overflow cue has an edge treatment distinct from the card 
+    Error: expect(received).not.toBe(expected) // Object.is equality
+    Expected: not "none"
+      425 |         console.log(`[HEL-1840] ${state.name} ${theme} cue ${JSON.stringify(cue)}`);
+      426 |         expect(cue.gradient).toContain("linear-gradient");
+    > 427 |         expect(cue.boxShadow).not.toBe("none");
+          |                                   ^
+      428 |         expect(cue.boxShadow).toContain("inset");
+      429 |         // The edge colour is not the card surface (it is the theme text colour at partial alpha).
+      430 |         expect(cue.boxShadow).not.toContain(cue.surface);
+        at /home/matt/Development/helio/.claude/worktrees/feature/multi-denial-toast-polish/HEL-1840/e2e/hel1172-multi-denial-toast.spec.ts:427:35
+    Error Context: test-results/hel1172-multi-denial-toast-0d336-ment-distinct-from-the-card-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-0d336-ment-distinct-from-the-card-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-0d336-ment-distinct-from-the-card-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  3) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:384:11 › HEL-1172 multi-denial toast (real backend) › 1440x900 after running the first two rows, light: the overflow cue has an edge treatment distinct from the card 
+    Error: expect(received).not.toBe(expected) // Object.is equality
+    Expected: not "none"
+      425 |         console.log(`[HEL-1840] ${state.name} ${theme} cue ${JSON.stringify(cue)}`);
+      426 |         expect(cue.gradient).toContain("linear-gradient");
+    > 427 |         expect(cue.boxShadow).not.toBe("none");
+          |                                   ^
+      428 |         expect(cue.boxShadow).toContain("inset");
+      429 |         // The edge colour is not the card surface (it is the theme text colour at partial alpha).
+      430 |         expect(cue.boxShadow).not.toContain(cue.surface);
+        at /home/matt/Development/helio/.claude/worktrees/feature/multi-denial-toast-polish/HEL-1840/e2e/hel1172-multi-denial-toast.spec.ts:427:35
+    Error Context: test-results/hel1172-multi-denial-toast-0cd87-ment-distinct-from-the-card-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-0cd87-ment-distinct-from-the-card-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-0cd87-ment-distinct-from-the-card-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  4) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:384:11 › HEL-1172 multi-denial toast (real backend) › 1440x900 after running the first two rows, dark: the overflow cue has an edge treatment distinct from the card 
+    Error: expect(received).not.toBe(expected) // Object.is equality
+    Expected: not "none"
+      425 |         console.log(`[HEL-1840] ${state.name} ${theme} cue ${JSON.stringify(cue)}`);
+      426 |         expect(cue.gradient).toContain("linear-gradient");
+    > 427 |         expect(cue.boxShadow).not.toBe("none");
+          |                                   ^
+      428 |         expect(cue.boxShadow).toContain("inset");
+      429 |         // The edge colour is not the card surface (it is the theme text colour at partial alpha).
+      430 |         expect(cue.boxShadow).not.toContain(cue.surface);
+        at /home/matt/Development/helio/.claude/worktrees/feature/multi-denial-toast-polish/HEL-1840/e2e/hel1172-multi-denial-toast.spec.ts:427:35
+    Error Context: test-results/hel1172-multi-denial-toast-cb398-ment-distinct-from-the-card-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-cb398-ment-distinct-from-the-card-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-cb398-ment-distinct-from-the-card-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  4 failed
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:384:11 › HEL-1172 multi-denial toast (real backend) › 1366x640 with 6 rows, light: the overflow cue has an edge treatment distinct from the card 
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:384:11 › HEL-1172 multi-denial toast (real backend) › 1366x640 with 6 rows, dark: the overflow cue has an edge treatment distinct from the card 
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:384:11 › HEL-1172 multi-denial toast (real backend) › 1440x900 after running the first two rows, light: the overflow cue has an edge treatment distinct from the card 
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:384:11 › HEL-1172 multi-denial toast (real backend) › 1440x900 after running the first two rows, dark: the overflow cue has an edge treatment distinct from the card 

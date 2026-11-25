@@ -1,0 +1,47 @@
+== M1 comparator reverted to id order
+  ● buildDeniedPipelinesToast N>=2 rows (HEL-1172 D3) › a row has a run action only when canRun, and it runs only that pipeline
+  ● buildDeniedPipelinesToast N>=2 rows (HEL-1172 D3) › is persistent and emits one row per pipeline in name order, even when given out of order
+  ● buildDeniedPipelinesToast name order (HEL-1840 D1) › orders rows by name (case-insensitive-ish, numeric-aware), equal names by id
+Tests:       3 failed, 13 passed, 16 total
+== M2 no id tie-break (equal names keep input order)
+  ● buildDeniedPipelinesToast name order (HEL-1840 D1) › orders rows by name (case-insensitive-ish, numeric-aware), equal names by id
+Tests:       1 failed, 15 passed, 16 total
+== M3 non-numeric collator
+  ● buildDeniedPipelinesToast name order (HEL-1840 D1) › orders rows by name (case-insensitive-ish, numeric-aware), equal names by id
+Tests:       1 failed, 15 passed, 16 total
+== M4 message built from unsorted input
+  ● buildDeniedPipelinesToast (HEL-1096 design.md D3) › the message is deterministic — identical input (fresh object references) builds a byte-identical message, independent of pipeline array order (sorted by name, then id)
+  ● buildDeniedPipelinesToast N>=2 rows (HEL-1172 D3) › each row's text is exactly the reason text that follows 'Name: ' in the message
+  ● buildDeniedPipelinesToast name order (HEL-1840 D1) › builds the message lines in the same order as the rows
+  ● buildDeniedPipelinesToast name order (HEL-1840 D1) › the same set in two input orders is byte-identical and coalesces to one toast
+Tests:       4 failed, 12 passed, 16 total
+== M5 attribute wiring removed
+Tests:       2 failed, 1 passed, 3 total
+  ● ToastRowList overflow cue (HEL-1840 D3) › drops the mark once scrolled to the end, and returns it when scrolled back up
+  ● ToastRowList overflow cue (HEL-1840 D3) › marks the frame while the list overflows and is at the top
+== M6 cue ignores bottom edge (shown whenever overflowing)
+Tests:       1 failed, 2 passed, 3 total
+  ● ToastRowList overflow cue (HEL-1840 D3) › drops the mark once scrolled to the end, and returns it when scrolled back up
+== M7 cue always on
+Tests:       2 failed, 1 passed, 3 total
+  ● ToastRowList overflow cue (HEL-1840 D3) › carries no mark when the rows fit
+  ● ToastRowList overflow cue (HEL-1840 D3) › drops the mark once scrolled to the end, and returns it when scrolled back up
+== E1 (e2e) comparator reverted to id order
+  ✘  1 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:40:7 › HEL-1172 multi-denial toast (real backend) › one toast lists every pipeline in name order, persists, exposes 
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+    Error: expect(locator).toHaveText(expected) failed
+  1 failed
+== E2 (e2e) icon alignment rules removed
+[HEL-1840] 390px light single=-1 multi=15
+  ✘  1 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:197:9 › HEL-1172 multi-denial toast (real backend) › 390px light: the first row lines up with the icon as a single-m
+userCleanup: removed 0 of 2 conversation folders, 0 failed
+      233 |         `[HEL-1840] ${viewport.width}px ${theme} single=${singleOffset} multi=${multiOffset}`,
+  1 failed
+== E3 (e2e) fade background removed
+  ✘  1 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:254:9 › HEL-1172 multi-denial toast (real backend) › 390px light: an overflowing list shows the fade until scrolled 
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+  1 failed
+== E4 (cycle 2, CR2) scroll-padding-block-end absent (the code before the fix): "Tab stop 4 (HEL-1172 C) sits under the fade" -- see red-focus-under-fade.txt
+== E4b scroll-padding-block-end: var(--space-6) alone: still red at Tab stop 6 (control bottom 723.36 vs clear line 723, 0.36px over); fixed with + var(--space-1)
+== E5 (cycle 3, skeptic-final CR1) max-height min(40vh,16rem) on desktop (code before): peek 2.4px, red -- see red-desktop-cue.txt; after 18rem on desktop: 34.4px
+== E6 (cycle 4, skeptic-final-2 CR1) fade without the bottom-edge shadow (HEAD 52a03d141): box-shadow none at 1366x640 and after two runs, both themes -- red-edge-cue.txt; max-height reverted to min(40vh,16rem) since the edge shadow is clip-independent

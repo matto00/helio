@@ -1,0 +1,28 @@
+Running 1 test using 1 worker
+[HEL-1300 e2e] throwaway user: hel1172-focus-fade-1795546280557-52374@example.com
+  ✘  1 [dev] › e2e/hel1172-multi-denial-toast.spec.ts:308:7 › HEL-1172 multi-denial toast (real backend) › 390px: every Tab stop in an overflowing list is clear of the fade while the fade shows (1.2m)
+userCleanup: removed 0 of 1 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 1 recorded throwaway user(s)
+  1) [dev] › e2e/hel1172-multi-denial-toast.spec.ts:308:7 › HEL-1172 multi-denial toast (real backend) › 390px: every Tab stop in an overflowing list is clear of the fade while the fade shows › Tab stop 4 (HEL-1172 C) sits under the fade 
+    Error: Tab stop 4 (HEL-1172 C) sits under the fade
+    expect(received).toBe(expected) // Object.is equality
+    Expected: true
+    Received: false
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+      341 |       expect(probe).not.toBeNull();
+      342 |       // Scrolling settles asynchronously; a control may only be under the fade while the fade is gone.
+    > 343 |       await expect
+          |       ^
+      344 |         .poll(
+      345 |           async () =>
+      346 |             toast.evaluate((el) => {
+        at /home/matt/Development/helio/.claude/worktrees/feature/multi-denial-toast-polish/HEL-1840/e2e/hel1172-multi-denial-toast.spec.ts:343:7
+    Error Context: test-results/hel1172-multi-denial-toast-0c62c-e-fade-while-the-fade-shows-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1172-multi-denial-toast-0c62c-e-fade-while-the-fade-shows-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1172-multi-denial-toast-0c62c-e-fade-while-the-fade-shows-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+  1 failed
+    [dev] › e2e/hel1172-multi-denial-toast.spec.ts:308:7 › HEL-1172 multi-denial toast (real backend) › 390px: every Tab stop in an overflowing list is clear of the fade while the fade shows 
