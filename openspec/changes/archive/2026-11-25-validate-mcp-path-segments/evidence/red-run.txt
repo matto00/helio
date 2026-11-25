@@ -1,0 +1,450 @@
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+FAIL helio-mcp/src/httpClient.originGuard.test.ts
+  ● Test suite failed to run
+
+    helio-mcp/src/httpClient.originGuard.test.ts:2:27 - error TS2305: Module '"./httpClient.js"' has no exported member 'HelioRequestUrlError'.
+
+    2 import { HelioHttpClient, HelioRequestUrlError, type HelioRequestInit } from "./httpClient.js";
+                                ~~~~~~~~~~~~~~~~~~~~
+
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+FAIL helio-mcp/src/requestPathGuard.test.ts
+  ● GUARD: request paths interpolate only pathSegment(...) › has no raw interpolation in an /api/ template
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -   1
+    + Received  + 254
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "expr": "dashboardId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dashboardId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dashboardId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "sourceId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "sourceId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "sourceId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dataSourceId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dataSourceId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dataSourceId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dataSourceId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dataSourceId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dataSourceId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "rowId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dataSourceId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "rowId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "rootId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "shapeId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dashboardId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "panelId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "panelId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "applicationId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dataSourceId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "outputId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "outputId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "outputId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "outputId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "outputId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "outputId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "outputId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "outputId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "outputId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dashboardId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "outputId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "outputId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dashboardId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dashboardId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "stepId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dashboardId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dataSourceId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "panelId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "pipelineId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "stepId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dashboardId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "dashboardId",
+    +     "file": "helioApi.ts",
+    +   },
+    +   Object {
+    +     "expr": "encodeURIComponent(familyId)",
+    +     "file": "oauth/familyClient.ts",
+    +   },
+    + ]
+
+      56 |   it("has no raw interpolation in an /api/ template", () => {
+      57 |     const raw = found.filter((f) => !f.expr.startsWith("pathSegment("));
+    > 58 |     expect(raw).toEqual([]);
+         |                 ^
+      59 |   });
+      60 | });
+      61 |
+
+      at Object.<anonymous> (helio-mcp/src/requestPathGuard.test.ts:58:17)
+
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+FAIL helio-mcp/src/pathSegment.test.ts
+  ● Test suite failed to run
+
+    helio-mcp/src/pathSegment.test.ts:2:50 - error TS2307: Cannot find module './pathSegment.js' or its corresponding type declarations.
+
+    2 import { HelioInvalidIdError, pathSegment } from "./pathSegment.js";
+                                                       ~~~~~~~~~~~~~~~~~~
+
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+FAIL helio-mcp/src/oauth/familyClient.test.ts
+  ● FamilyClient.rotate path safety › familyId ".." is refused as unknown with no request
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 2
+
+      Object {
+    -   "kind": "refused",
+    -   "reason": "unknown",
+    +   "detail": "Error",
+    +   "kind": "unavailable",
+      }
+
+      18 |       familyId,
+      19 |     });
+    > 20 |     expect(outcome).toEqual({ kind: "refused", reason: "unknown" });
+         |                     ^
+      21 |     expect(spy).not.toHaveBeenCalled();
+      22 |   });
+      23 | });
+
+      at helio-mcp/src/oauth/familyClient.test.ts:20:21
+
+  ● FamilyClient.rotate path safety › familyId "a/b" is refused as unknown with no request
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 2
+
+      Object {
+    -   "kind": "refused",
+    -   "reason": "unknown",
+    +   "detail": "Error",
+    +   "kind": "unavailable",
+      }
+
+      18 |       familyId,
+      19 |     });
+    > 20 |     expect(outcome).toEqual({ kind: "refused", reason: "unknown" });
+         |                     ^
+      21 |     expect(spy).not.toHaveBeenCalled();
+      22 |   });
+      23 | });
+
+      at helio-mcp/src/oauth/familyClient.test.ts:20:21
+
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) message TS151002: Using hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+FAIL helio-mcp/src/pathSegment.toolSeam.test.ts (5.087 s)
+  ● tool-level path id rejection › get_pipeline with a traversal id returns isError and makes no request
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: undefined
+
+      23 |     try {
+      24 |       const result = await h.client.callTool({ name, arguments: args });
+    > 25 |       expect(result.isError).toBe(true);
+         |                              ^
+      26 |       const text = resultText(result);
+      27 |       expect(text).toContain("HelioInvalidIdError");
+      28 |       expect(text).toContain(BAD);
+
+      at helio-mcp/src/pathSegment.toolSeam.test.ts:25:30
+
+  ● tool-level path id rejection › list_source_objects with a traversal id returns isError and makes no request
+
+    expect(received).toContain(expected) // indexOf
+
+    Expected substring: "HelioInvalidIdError"
+    Received string:    "HelioApiError (status 404) for /api/data-sources/1/../../tokens: No data source with id 1/../../tokens is visible to this token."
+
+      25 |       expect(result.isError).toBe(true);
+      26 |       const text = resultText(result);
+    > 27 |       expect(text).toContain("HelioInvalidIdError");
+         |                    ^
+      28 |       expect(text).toContain(BAD);
+      29 |       expect(urls).toEqual([]);
+      30 |     } finally {
+
+      at helio-mcp/src/pathSegment.toolSeam.test.ts:27:20
+
+  ● tool-level path id rejection › get_dashboard with a traversal id returns isError and makes no request
+
+    expect(received).toContain(expected) // indexOf
+
+    Expected substring: "HelioInvalidIdError"
+    Received string:    "HelioApiError (status 404) for /api/dashboards/1/../../tokens: No dashboard with id 1/../../tokens is visible to this token."
+
+      25 |       expect(result.isError).toBe(true);
+      26 |       const text = resultText(result);
+    > 27 |       expect(text).toContain("HelioInvalidIdError");
+         |                    ^
+      28 |       expect(text).toContain(BAD);
+      29 |       expect(urls).toEqual([]);
+      30 |     } finally {
+
+      at helio-mcp/src/pathSegment.toolSeam.test.ts:27:20
+
+Test Suites: 5 failed, 5 total
+Tests:       6 failed, 2 passed, 8 total
+Snapshots:   0 total
+Time:        5.445 s
+Ran all test suites matching helio-mcp/src/pathSegment|helio-mcp/src/httpClient.originGuard|helio-mcp/src/oauth/familyClient.test|helio-mcp/src/requestPathGuard.

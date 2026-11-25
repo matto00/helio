@@ -1,0 +1,56 @@
+## Mutation: drop '..' rejection
+  ● pathSegment › rejects ".." with HelioInvalidIdError
+Tests:       1 failed, 15 passed, 16 total
+
+## Mutation: drop '.' rejection
+  ● pathSegment › rejects "." with HelioInvalidIdError
+Tests:       1 failed, 15 passed, 16 total
+
+## Mutation: drop empty rejection
+  ● pathSegment › rejects "" with HelioInvalidIdError
+Tests:       1 failed, 15 passed, 16 total
+
+## Mutation: drop non-string rejection
+  ● pathSegment › rejects a non-string
+Tests:       1 failed, 15 passed, 16 total
+
+## Mutation: drop delimiter rejection
+  ● pathSegment › names the label and the value in the message
+  ● pathSegment › rejects "1/../../tokens" with HelioInvalidIdError
+  ● pathSegment › rejects "a?b=1" with HelioInvalidIdError
+  ● pathSegment › rejects "a#b" with HelioInvalidIdError
+  ● pathSegment › rejects "a/b" with HelioInvalidIdError
+  ● pathSegment › rejects "a\\b" with HelioInvalidIdError
+  ● pathSegment › rejects "x?force=true" with HelioInvalidIdError
+Tests:       7 failed, 9 passed, 16 total
+
+## Mutation: drop encoding
+  ● pathSegment › encodes a space and a percent sign
+Tests:       1 failed, 15 passed, 16 total
+
+## Mutation: drop // prefix check
+  ● HelioHttpClient origin guard › get("//helio.test/x") throws HelioRequestUrlError synchronously and sends nothing
+Tests:       1 failed, 5 passed, 6 total
+
+## Mutation: drop origin check
+  ● HelioHttpClient origin guard › get("/\\evil.example/x") throws HelioRequestUrlError synchronously and sends nothing
+  ● HelioHttpClient origin guard › get("/\t/evil.example/x") throws HelioRequestUrlError synchronously and sends nothing
+Tests:       2 failed, 4 passed, 6 total
+
+## Mutation: raw pipelineId in getPipeline steps path
+  ● GUARD: request paths interpolate only pathSegment(...) › has no raw interpolation in an /api/ template
+Tests:       1 failed, 1 passed, 2 total
+
+## Mutation: drop validate-first in listSourceObjects
+Tests:       1 failed, 3 passed, 4 total
+  ● tool-level path id rejection › list_source_objects with a traversal id returns isError and makes no request
+
+## Mutation: drop validate-first in getDashboard
+Tests:       1 failed, 3 passed, 4 total
+  ● tool-level path id rejection › get_dashboard with a traversal id returns isError and makes no request
+
+## Mutation: rotate does not catch invalid id
+  ● FamilyClient.rotate path safety › familyId "a/b" is refused as unknown with no request
+  ● FamilyClient.rotate path safety › familyId ".." is refused as unknown with no request
+Tests:       2 failed, 2 total
+
