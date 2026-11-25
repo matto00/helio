@@ -44,6 +44,17 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import type { HelioConfig } from "./config.js";
 import type { DashboardResponse } from "./types.js";
 
+/** HEL-1160: a request path that would leave the configured API origin. No request is sent. */
+export class HelioRequestUrlError extends Error {
+  override readonly name = "HelioRequestUrlError";
+  constructor(
+    readonly path: string,
+    reason: string,
+  ) {
+    super(`Refusing request path ${JSON.stringify(path)}: ${reason}`);
+  }
+}
+
 /** Base error for any non-2xx Helio response. */
 export class HelioApiError extends Error {
   constructor(
@@ -402,7 +413,14 @@ export class HelioHttpClient {
   }
 
   private buildUrl(path: string, query?: Record<string, string | number | undefined>): string {
-    const url = new URL(path.startsWith("/") ? path : `/${path}`, `${this.baseUrl}/`);
+    if (path.startsWith("//")) {
+      throw new HelioRequestUrlError(path, "a protocol-relative path is not allowed");
+    }
+    const base = new URL(`${this.baseUrl}/`);
+    const url = new URL(path.startsWith("/") ? path : `/${path}`, base);
+    if (url.origin !== base.origin) {
+      throw new HelioRequestUrlError(path, `it resolves to ${url.origin}, not ${base.origin}`);
+    }
     if (query) {
       for (const [key, value] of Object.entries(query)) {
         if (value !== undefined) url.searchParams.set(key, String(value));

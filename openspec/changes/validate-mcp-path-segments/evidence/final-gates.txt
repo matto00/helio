@@ -1,0 +1,11 @@
+Test Suites: 76 passed, 76 total
+Tests:       689 passed, 689 total
+jest exit 0
+> helio-mcp@0.1.0 typecheck
+> tsc --noEmit -p tsconfig.typecheck.json
+
+types exit 0
+eslint exit 0
+Checking formatting...
+All matched files use Prettier code style!
+prettier exit 0

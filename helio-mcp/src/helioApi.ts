@@ -20,6 +20,7 @@
  */
 
 import { HelioApiError, HelioLayoutConflictError, type HelioHttpClient } from "./httpClient.js";
+import { pathSegment } from "./pathSegment.js";
 import { computeRunWarnings, type RunWarning } from "./runWarnings.js";
 import type {
   AskDashboardResponse,
@@ -261,7 +262,7 @@ export class HelioApi {
     const panels: PanelResponse[] = [];
     for (;;) {
       const page = await this.http.get<Paged<PanelResponse>>(
-        `/api/dashboards/${dashboardId}/panels`,
+        `/api/dashboards/${pathSegment(dashboardId, "dashboardId")}/panels`,
         {
           limit,
           offset: panels.length,
@@ -276,12 +277,13 @@ export class HelioApi {
    *  the export snapshot; a viewer's export is refused (403), so a viewer reads `/panels` and the items are mapped to
    *  the export's panel shape (`snapshotId` = `id`; `dataAsOf` and `orphanedControlIds` are not carried). */
   async getDashboard(dashboardId: string): Promise<DashboardWithPanels> {
+    pathSegment(dashboardId, "dashboardId"); // reject a bad id before the list call
     const page = await this.listDashboards();
     const record = page.items.find((d) => d.id === dashboardId);
     if (!record) {
       throw new HelioApiError(
         404,
-        `/api/dashboards/${dashboardId}`,
+        `/api/dashboards/${pathSegment(dashboardId, "dashboardId")}`,
         `No dashboard with id ${dashboardId} is visible to this token.`,
       );
     }
@@ -300,7 +302,7 @@ export class HelioApi {
       };
     }
     const snapshot = await this.http.get<DashboardSnapshot>(
-      `/api/dashboards/${dashboardId}/export`,
+      `/api/dashboards/${pathSegment(dashboardId, "dashboardId")}/export`,
     );
     return { ...record, panels: snapshot.panels };
   }
@@ -314,17 +316,20 @@ export class HelioApi {
   /** No `/data-sources/:id/sources` endpoint exists — surface the source's
    *  preview instead, choosing the CSV vs REST/SQL endpoint by source type. */
   async listSourceObjects(sourceId: string): Promise<SourceObjects> {
+    pathSegment(sourceId, "sourceId"); // reject a bad id before the list call
     const page = await this.listDataSources();
     const source = page.items.find((s) => s.id === sourceId);
     if (!source) {
       throw new HelioApiError(
         404,
-        `/api/data-sources/${sourceId}`,
+        `/api/data-sources/${pathSegment(sourceId, "sourceId")}`,
         `No data source with id ${sourceId} is visible to this token.`,
       );
     }
     if (CSV_LIKE_TYPES.has(source.type)) {
-      const preview = await this.http.get<CsvPreview>(`/api/data-sources/${sourceId}/preview`);
+      const preview = await this.http.get<CsvPreview>(
+        `/api/data-sources/${pathSegment(sourceId, "sourceId")}/preview`,
+      );
       return {
         sourceId,
         sourceName: source.name,
@@ -333,7 +338,9 @@ export class HelioApi {
         preview,
       };
     }
-    const preview = await this.http.get<RowsPreview>(`/api/sources/${sourceId}/preview`);
+    const preview = await this.http.get<RowsPreview>(
+      `/api/sources/${pathSegment(sourceId, "sourceId")}/preview`,
+    );
     return {
       sourceId,
       sourceName: source.name,
@@ -356,8 +363,12 @@ export class HelioApi {
   /** Compose: summary (`/:id`) + ordered steps (`/:id/steps`). */
   async getPipeline(pipelineId: string): Promise<PipelineWithSteps> {
     const [summary, steps] = await Promise.all([
-      this.http.get<PipelineSummaryResponse>(`/api/pipelines/${pipelineId}`),
-      this.http.get<PipelineStepResponse[]>(`/api/pipelines/${pipelineId}/steps`),
+      this.http.get<PipelineSummaryResponse>(
+        `/api/pipelines/${pathSegment(pipelineId, "pipelineId")}`,
+      ),
+      this.http.get<PipelineStepResponse[]>(
+        `/api/pipelines/${pathSegment(pipelineId, "pipelineId")}/steps`,
+      ),
     ]);
     return { ...summary, steps };
   }
@@ -375,7 +386,7 @@ export class HelioApi {
     concise?: boolean,
   ): Promise<PipelineAnalyzeResponse | PipelineAnalyzeConciseResponse> {
     return this.http.get<PipelineAnalyzeResponse | PipelineAnalyzeConciseResponse>(
-      `/api/pipelines/${pipelineId}/analyze`,
+      `/api/pipelines/${pathSegment(pipelineId, "pipelineId")}/analyze`,
       concise ? { concise: "true" } : undefined,
     );
   }
@@ -385,7 +396,9 @@ export class HelioApi {
    *  HEL-581, `GET /api/pipelines/:id/run-history`). Thin pass-through,
    *  mirrors `analyzePipeline`'s style — no reshaping. */
   getPipelineRunHistory(pipelineId: string): Promise<PipelineRunRecordResponse[]> {
-    return this.http.get<PipelineRunRecordResponse[]>(`/api/pipelines/${pipelineId}/run-history`);
+    return this.http.get<PipelineRunRecordResponse[]>(
+      `/api/pipelines/${pathSegment(pipelineId, "pipelineId")}/run-history`,
+    );
   }
 
   /** Dry-analyze a not-yet-created `PipelineProposal` (HEL-381,
@@ -551,14 +564,20 @@ export class HelioApi {
    *  validated against its declared schema. Returns only the newly appended
    *  rows (never the full set) plus the source's resulting `updatedAt`. */
   appendDatasetRows(dataSourceId: string, rows: unknown[][]): Promise<RowWriteResponse> {
-    return this.http.post<RowWriteResponse>(`/api/data-sources/${dataSourceId}/rows`, { rows });
+    return this.http.post<RowWriteResponse>(
+      `/api/data-sources/${pathSegment(dataSourceId, "dataSourceId")}/rows`,
+      { rows },
+    );
   }
 
   /** `PUT /api/data-sources/:id/rows` -- replace ALL rows in a `dataset`
    *  source. Returns the full new row set plus the source's resulting
    *  `updatedAt`. */
   replaceDatasetRows(dataSourceId: string, rows: unknown[][]): Promise<RowWriteResponse> {
-    return this.http.put<RowWriteResponse>(`/api/data-sources/${dataSourceId}/rows`, { rows });
+    return this.http.put<RowWriteResponse>(
+      `/api/data-sources/${pathSegment(dataSourceId, "dataSourceId")}/rows`,
+      { rows },
+    );
   }
 
   /** `GET /api/data-sources/:id/rows` -- paged row read, ordered by ascending
@@ -566,16 +585,21 @@ export class HelioApi {
    *  page's `nextCursor`; omit for the first page. `nextCursor` is genuinely
    *  ABSENT on the last page, never `null`. */
   getDatasetRows(dataSourceId: string, cursor?: number, limit?: number): Promise<RowListResponse> {
-    return this.http.get<RowListResponse>(`/api/data-sources/${dataSourceId}/rows`, {
-      cursor,
-      limit,
-    });
+    return this.http.get<RowListResponse>(
+      `/api/data-sources/${pathSegment(dataSourceId, "dataSourceId")}/rows`,
+      {
+        cursor,
+        limit,
+      },
+    );
   }
 
   /** `GET /api/data-sources/:id/schema` -- the source's declared dataset
    *  schema (field name/type/required/default). */
   getDatasetSchema(dataSourceId: string): Promise<DatasetSchemaResponse> {
-    return this.http.get<DatasetSchemaResponse>(`/api/data-sources/${dataSourceId}/schema`);
+    return this.http.get<DatasetSchemaResponse>(
+      `/api/data-sources/${pathSegment(dataSourceId, "dataSourceId")}/schema`,
+    );
   }
 
   /** `PATCH /api/data-sources/:id/schema` -- FULL-REPLACEMENT of the declared
@@ -595,7 +619,7 @@ export class HelioApi {
     confirmDrop = false,
   ): Promise<DatasetSchemaUpdateResponse> {
     return this.http.patch<DatasetSchemaUpdateResponse>(
-      `/api/data-sources/${dataSourceId}/schema`,
+      `/api/data-sources/${pathSegment(dataSourceId, "dataSourceId")}/schema`,
       { fields, confirmDrop },
     );
   }
@@ -611,10 +635,13 @@ export class HelioApi {
     updatedAt: string,
     data: unknown[],
   ): Promise<RowResponse> {
-    return this.http.patch<RowResponse>(`/api/data-sources/${dataSourceId}/rows/${rowId}`, {
-      updatedAt,
-      data,
-    });
+    return this.http.patch<RowResponse>(
+      `/api/data-sources/${pathSegment(dataSourceId, "dataSourceId")}/rows/${pathSegment(rowId, "rowId")}`,
+      {
+        updatedAt,
+        data,
+      },
+    );
   }
 
   /** `DELETE /api/data-sources/:id/rows/:rowId` -- the `updatedAt`
@@ -625,7 +652,10 @@ export class HelioApi {
     rowId: string,
     updatedAt: string,
   ): Promise<{ deleted: true; id: string }> {
-    await this.http.delete(`/api/data-sources/${dataSourceId}/rows/${rowId}`, { updatedAt });
+    await this.http.delete(
+      `/api/data-sources/${pathSegment(dataSourceId, "dataSourceId")}/rows/${pathSegment(rowId, "rowId")}`,
+      { updatedAt },
+    );
     return { deleted: true, id: rowId };
   }
 
@@ -774,7 +804,10 @@ export class HelioApi {
     pipelineId: string,
     req: CreatePipelineRootRequest,
   ): Promise<PipelineRootSummaryResponse> {
-    return this.http.post<PipelineRootSummaryResponse>(`/api/pipelines/${pipelineId}/roots`, req);
+    return this.http.post<PipelineRootSummaryResponse>(
+      `/api/pipelines/${pathSegment(pipelineId, "pipelineId")}/roots`,
+      req,
+    );
   }
 
   /** `DELETE /api/pipelines/:id/roots/:rootId` (`remove_root`, HEL-913 R7) -- refuses to remove
@@ -783,7 +816,7 @@ export class HelioApi {
    *  step descending from this root and reports the counts. */
   removePipelineRoot(pipelineId: string, rootId: string): Promise<RemovePipelineRootResponse> {
     return this.http.delete<RemovePipelineRootResponse>(
-      `/api/pipelines/${pipelineId}/roots/${rootId}`,
+      `/api/pipelines/${pathSegment(pipelineId, "pipelineId")}/roots/${pathSegment(rootId, "rootId")}`,
     );
   }
 
@@ -810,7 +843,10 @@ export class HelioApi {
       rejectIfReparents?: boolean;
     },
   ): Promise<PipelineStepResponse> {
-    return this.http.post<PipelineStepResponse>(`/api/pipelines/${pipelineId}/steps`, step);
+    return this.http.post<PipelineStepResponse>(
+      `/api/pipelines/${pathSegment(pipelineId, "pipelineId")}/steps`,
+      step,
+    );
   }
 
   /** Expand a shape's params into an ordered list of step create-payloads (HEL-402, the first
@@ -831,7 +867,7 @@ export class HelioApi {
     params: Record<string, unknown>,
   ): Promise<ShapeStepExpansionResponse[]> {
     const response = await this.http.post<ExpandPipelineShapeResponse>(
-      `/api/pipeline-shapes/${shapeId}/expand`,
+      `/api/pipeline-shapes/${pathSegment(shapeId, "shapeId")}/expand`,
       { params },
     );
     return response.steps;
@@ -849,11 +885,13 @@ export class HelioApi {
    *  result chains directly into place_outputs. */
   async runPipeline(pipelineId: string, dry = false): Promise<RunOutcome> {
     const result = await this.http.post<RunResultResponse>(
-      `/api/pipelines/${pipelineId}/run`,
+      `/api/pipelines/${pathSegment(pipelineId, "pipelineId")}/run`,
       undefined,
       dry ? { dry: "true" } : undefined,
     );
-    const summary = await this.http.get<PipelineSummaryResponse>(`/api/pipelines/${pipelineId}`);
+    const summary = await this.http.get<PipelineSummaryResponse>(
+      `/api/pipelines/${pathSegment(pipelineId, "pipelineId")}`,
+    );
     return {
       pipelineId,
       status: summary.lastRunStatus ?? "succeeded",
@@ -911,7 +949,9 @@ export class HelioApi {
 
   /** `GET /api/pipelines/:id/steps` -- the pipeline's steps (each with `parentStepId`/`rootId`). */
   listPipelineSteps(pipelineId: string): Promise<PipelineStepResponse[]> {
-    return this.http.get<PipelineStepResponse[]>(`/api/pipelines/${pipelineId}/steps`);
+    return this.http.get<PipelineStepResponse[]>(
+      `/api/pipelines/${pathSegment(pipelineId, "pipelineId")}/steps`,
+    );
   }
 
   /** Create a dashboard, or — when `ifExists: "return"` (HEL-363) — return an
@@ -945,7 +985,7 @@ export class HelioApi {
     panels: ProposalPanel[],
   ): Promise<{ dashboard: DashboardResponse; panels: PanelResponse[] }> {
     return this.http.put<{ dashboard: DashboardResponse; panels: PanelResponse[] }>(
-      `/api/dashboards/${dashboardId}/contents`,
+      `/api/dashboards/${pathSegment(dashboardId, "dashboardId")}/contents`,
       { panels },
     );
   }
@@ -988,7 +1028,9 @@ export class HelioApi {
     panelId: string,
     appearance: Record<string, unknown>,
   ): Promise<PanelResponse> {
-    return this.http.patch<PanelResponse>(`/api/panels/${panelId}`, { appearance });
+    return this.http.patch<PanelResponse>(`/api/panels/${pathSegment(panelId, "panelId")}`, {
+      appearance,
+    });
   }
 
   /** `PATCH /api/panels/:id` (HEL-627) — the general edit-in-place sibling of
@@ -998,7 +1040,7 @@ export class HelioApi {
    *  this method), so this method itself is a pure pass-through, same as
    *  every other method on this class. */
   updatePanel(panelId: string, patch: UpdatePanelRequest): Promise<PanelResponse> {
-    return this.http.patch<PanelResponse>(`/api/panels/${panelId}`, patch);
+    return this.http.patch<PanelResponse>(`/api/panels/${pathSegment(panelId, "panelId")}`, patch);
   }
 
   // ── Placements (HEL-907 task 3.6) ───────────────────────────────────────
@@ -1104,7 +1146,9 @@ export class HelioApi {
    *  `HelioApiError` like any other non-2xx response). Thin pass-through, mirrors
    *  `applyPatchSet`'s style — no client-side re-validation or retry. */
   undoPatchSet(applicationId: string): Promise<PatchSetUndoResponse> {
-    return this.http.post<PatchSetUndoResponse>(`/api/patch-sets/${applicationId}/undo`);
+    return this.http.post<PatchSetUndoResponse>(
+      `/api/patch-sets/${pathSegment(applicationId, "applicationId")}/undo`,
+    );
   }
 
   /** Apply a reviewed `PipelineProposal` atomically (HEL-383,
@@ -1159,13 +1203,19 @@ export class HelioApi {
   /** `PATCH /api/data-sources/:id`. Rename-only (design.md D1) — the
    *  backend's `UpdateDataSourceRequest` has no other mutable field. */
   updateDataSource(dataSourceId: string, name: string): Promise<DataSourceResponse> {
-    return this.http.patch<DataSourceResponse>(`/api/data-sources/${dataSourceId}`, { name });
+    return this.http.patch<DataSourceResponse>(
+      `/api/data-sources/${pathSegment(dataSourceId, "dataSourceId")}`,
+      { name },
+    );
   }
 
   /** `PATCH /api/pipelines/:id`. Rename-only (design.md D1) — the backend's
    *  `UpdatePipelineRequest` has exactly one, required field. */
   updatePipeline(pipelineId: string, name: string): Promise<PipelineSummaryResponse> {
-    return this.http.patch<PipelineSummaryResponse>(`/api/pipelines/${pipelineId}`, { name });
+    return this.http.patch<PipelineSummaryResponse>(
+      `/api/pipelines/${pathSegment(pipelineId, "pipelineId")}`,
+      { name },
+    );
   }
 
   // ── Outputs (HEL-906/HEL-907 task 3.5) ──────────────────────────────────
@@ -1174,13 +1224,19 @@ export class HelioApi {
    *  `req.rootId` (HEL-913, multi-root only) names WHICH root; omitted on a single-root
    *  pipeline (the backend auto-resolves the one root). */
   createOutput(pipelineId: string, req: CreateOutputRequest): Promise<OutputResponse> {
-    return this.http.post<OutputResponse>(`/api/pipelines/${pipelineId}/outputs`, req);
+    return this.http.post<OutputResponse>(
+      `/api/pipelines/${pathSegment(pipelineId, "pipelineId")}/outputs`,
+      req,
+    );
   }
 
   /** `GET /api/pipelines/:id/outputs?nodeStepId=`. `nodeStepId` omitted lists every Output on
    *  the pipeline; passed, scopes to that one node. */
   listOutputsByPipeline(pipelineId: string, nodeStepId?: string): Promise<OutputsResponse> {
-    return this.http.get<OutputsResponse>(`/api/pipelines/${pipelineId}/outputs`, { nodeStepId });
+    return this.http.get<OutputsResponse>(
+      `/api/pipelines/${pathSegment(pipelineId, "pipelineId")}/outputs`,
+      { nodeStepId },
+    );
   }
 
   /** `GET /api/outputs?offset&limit` — lean, top-level, paginated list of every Output the
@@ -1191,34 +1247,45 @@ export class HelioApi {
 
   /** `GET /api/outputs/:id`. Sharing-aware (owner/editor/viewer of the parent pipeline). */
   getOutput(outputId: string): Promise<OutputResponse> {
-    return this.http.get<OutputResponse>(`/api/outputs/${outputId}`);
+    return this.http.get<OutputResponse>(`/api/outputs/${pathSegment(outputId, "outputId")}`);
   }
 
   /** `PATCH /api/outputs/:id`. Owner-only; `config`, when present, is shallow-merged (each
    *  top-level key replaces) rather than replacing wholesale; unknown keys are a 400 (HEL-1313). */
   updateOutput(outputId: string, patch: UpdateOutputRequest): Promise<OutputResponse> {
-    return this.http.patch<OutputResponse>(`/api/outputs/${outputId}`, patch);
+    return this.http.patch<OutputResponse>(
+      `/api/outputs/${pathSegment(outputId, "outputId")}`,
+      patch,
+    );
   }
 
   /** `DELETE /api/outputs/:id`. Owner-only; also deletes every placement Panel bound to this
    *  Output (V94 `panels.output_id ON DELETE CASCADE`, reported back explicitly here). */
   deleteOutput(outputId: string): Promise<DeleteOutputResponse> {
-    return this.http.delete<DeleteOutputResponse>(`/api/outputs/${outputId}`);
+    return this.http.delete<DeleteOutputResponse>(
+      `/api/outputs/${pathSegment(outputId, "outputId")}`,
+    );
   }
 
   /** `GET /api/outputs/:id/panels` — the placements report used before a destructive delete. */
   listOutputPanels(outputId: string): Promise<OutputPanelPlacementResponse[]> {
-    return this.http.get<OutputPanelPlacementResponse[]>(`/api/outputs/${outputId}/panels`);
+    return this.http.get<OutputPanelPlacementResponse[]>(
+      `/api/outputs/${pathSegment(outputId, "outputId")}/panels`,
+    );
   }
 
   /** `GET /api/outputs/:id/assertion-status`. */
   getOutputAssertionStatus(outputId: string): Promise<AssertionStatusResponse> {
-    return this.http.get<AssertionStatusResponse>(`/api/outputs/${outputId}/assertion-status`);
+    return this.http.get<AssertionStatusResponse>(
+      `/api/outputs/${pathSegment(outputId, "outputId")}/assertion-status`,
+    );
   }
 
   /** `GET /api/outputs/:id/provenance` (`get_output_provenance`, HEL-1206). */
   getOutputProvenance(outputId: string): Promise<OutputProvenanceResponse> {
-    return this.http.get<OutputProvenanceResponse>(`/api/outputs/${outputId}/provenance`);
+    return this.http.get<OutputProvenanceResponse>(
+      `/api/outputs/${pathSegment(outputId, "outputId")}/provenance`,
+    );
   }
 
   /** `GET /api/outputs/:id/history` (`get_output_history`, HEL-1274). `limit`/`since` are sent
@@ -1230,24 +1297,34 @@ export class HelioApi {
     const params: Record<string, string | number> = {};
     if (opts.limit !== undefined) params.limit = opts.limit;
     if (opts.since !== undefined) params.since = opts.since;
-    return this.http.get<OutputHistoryResponse>(`/api/outputs/${outputId}/history`, params);
+    return this.http.get<OutputHistoryResponse>(
+      `/api/outputs/${pathSegment(outputId, "outputId")}/history`,
+      params,
+    );
   }
 
   /** `GET /api/outputs/:id/insight` (`get_output_insight`, HEL-1747): the backend role-shapes it. */
   getOutputInsight(outputId: string): Promise<OutputInsightResponse> {
-    return this.http.get<OutputInsightResponse>(`/api/outputs/${outputId}/insight`);
+    return this.http.get<OutputInsightResponse>(
+      `/api/outputs/${pathSegment(outputId, "outputId")}/insight`,
+    );
   }
 
   /** `POST /api/outputs/:id/insight/refresh` (`refresh_insight`, HEL-1747): 202, no request body. */
   refreshOutputInsight(outputId: string): Promise<OutputInsightRefreshResponse> {
-    return this.http.post<OutputInsightRefreshResponse>(`/api/outputs/${outputId}/insight/refresh`);
+    return this.http.post<OutputInsightRefreshResponse>(
+      `/api/outputs/${pathSegment(outputId, "outputId")}/insight/refresh`,
+    );
   }
 
   /** `POST /api/dashboards/:id/ask` (`ask_dashboard`, HEL-1747): body is exactly `{question}`. */
   askDashboard(dashboardId: string, question: string): Promise<AskDashboardResponse> {
-    return this.http.post<AskDashboardResponse>(`/api/dashboards/${dashboardId}/ask`, {
-      question,
-    });
+    return this.http.post<AskDashboardResponse>(
+      `/api/dashboards/${pathSegment(dashboardId, "dashboardId")}/ask`,
+      {
+        question,
+      },
+    );
   }
 
   /** `GET /api/outputs/:id/rows?offset&limit` — paginated latest-run row snapshot
@@ -1257,10 +1334,13 @@ export class HelioApi {
     limit = 200,
     offset = 0,
   ): Promise<Paged<Record<string, unknown>>> {
-    return this.http.get<Paged<Record<string, unknown>>>(`/api/outputs/${outputId}/rows`, {
-      limit,
-      offset,
-    });
+    return this.http.get<Paged<Record<string, unknown>>>(
+      `/api/outputs/${pathSegment(outputId, "outputId")}/rows`,
+      {
+        limit,
+        offset,
+      },
+    );
   }
 
   /** `POST /api/pipelines/:id/preview?outputId=`. `outputId` absent previews every Output on the
@@ -1268,7 +1348,7 @@ export class HelioApi {
    *  `{outputs: [{outputId, preview}]}` envelope — no branching logic needed here. */
   previewOutputs(pipelineId: string, outputId?: string): Promise<PipelinePreviewResponse> {
     return this.http.post<PipelinePreviewResponse>(
-      `/api/pipelines/${pipelineId}/preview`,
+      `/api/pipelines/${pathSegment(pipelineId, "pipelineId")}/preview`,
       {},
       { outputId },
     );
@@ -1278,9 +1358,12 @@ export class HelioApi {
    *  retired `get_panel_capabilities`, which called a route HEL-904 deleted). `stepId` absent
    *  means the pipeline's raw source. */
   getOutputCapabilities(pipelineId: string, stepId?: string): Promise<NodeCapabilitiesResponse> {
-    return this.http.get<NodeCapabilitiesResponse>(`/api/pipelines/${pipelineId}/capabilities`, {
-      stepId,
-    });
+    return this.http.get<NodeCapabilitiesResponse>(
+      `/api/pipelines/${pathSegment(pipelineId, "pipelineId")}/capabilities`,
+      {
+        stepId,
+      },
+    );
   }
 
   /** `GET /api/outputs/:id/filter-capabilities` (HEL-1188): per-column filter operators plus
@@ -1288,14 +1371,16 @@ export class HelioApi {
    *  `getOutputCapabilities`, the pipeline-step binding menu. */
   getOutputFilterCapabilities(outputId: string): Promise<OutputFilterCapabilitiesResponse> {
     return this.http.get<OutputFilterCapabilitiesResponse>(
-      `/api/outputs/${outputId}/filter-capabilities`,
+      `/api/outputs/${pathSegment(outputId, "outputId")}/filter-capabilities`,
     );
   }
 
   /** `GET /api/dashboards/:id/export` alone (no list call) — the panels' configs, used to read an
    *  output panel's current `config.controls`. */
   getDashboardSnapshot(dashboardId: string): Promise<DashboardSnapshot> {
-    return this.http.get<DashboardSnapshot>(`/api/dashboards/${dashboardId}/export`);
+    return this.http.get<DashboardSnapshot>(
+      `/api/dashboards/${pathSegment(dashboardId, "dashboardId")}/export`,
+    );
   }
 
   /** `PATCH /api/dashboards/:id`, name-only (design.md D7) — mirrors
@@ -1304,7 +1389,10 @@ export class HelioApi {
    *  `auto_layout_dashboard`); dashboard `appearance` is unexposed over MCP
    *  entirely today (a separate gap, not this method's concern). */
   updateDashboard(dashboardId: string, name: string): Promise<DashboardResponse> {
-    return this.http.patch<DashboardResponse>(`/api/dashboards/${dashboardId}`, { name });
+    return this.http.patch<DashboardResponse>(
+      `/api/dashboards/${pathSegment(dashboardId, "dashboardId")}`,
+      { name },
+    );
   }
 
   /** `GET /api/pipelines/:id/schedule` (HEL-415). A pipeline with no
@@ -1312,7 +1400,9 @@ export class HelioApi {
    *  verbatim by the tool's `guarded` handler, never converted into an
    *  absent/empty success value here. */
   getPipelineSchedule(pipelineId: string): Promise<PipelineScheduleResponse> {
-    return this.http.get<PipelineScheduleResponse>(`/api/pipelines/${pipelineId}/schedule`);
+    return this.http.get<PipelineScheduleResponse>(
+      `/api/pipelines/${pathSegment(pipelineId, "pipelineId")}/schedule`,
+    );
   }
 
   /** `PUT /api/pipelines/:id/schedule` (HEL-415) — a genuine upsert: the
@@ -1327,7 +1417,10 @@ export class HelioApi {
     pipelineId: string,
     body: PutPipelineScheduleRequest,
   ): Promise<PipelineScheduleResponse> {
-    return this.http.put<PipelineScheduleResponse>(`/api/pipelines/${pipelineId}/schedule`, body);
+    return this.http.put<PipelineScheduleResponse>(
+      `/api/pipelines/${pathSegment(pipelineId, "pipelineId")}/schedule`,
+      body,
+    );
   }
 
   /** `DELETE /api/pipelines/:id/schedule` (HEL-415). The route is
@@ -1340,7 +1433,7 @@ export class HelioApi {
    *  PIPELINE id and never sees the schedule's own id, so echoing it back
    *  under the `id` key would misrepresent whose id it is. */
   async deletePipelineSchedule(pipelineId: string): Promise<{ deleted: true; pipelineId: string }> {
-    await this.http.delete(`/api/pipelines/${pipelineId}/schedule`);
+    await this.http.delete(`/api/pipelines/${pathSegment(pipelineId, "pipelineId")}/schedule`);
     return { deleted: true, pipelineId };
   }
 
@@ -1354,7 +1447,10 @@ export class HelioApi {
     stepId: string,
     patch: UpdatePipelineStepRequest,
   ): Promise<PipelineStepResponse> {
-    return this.http.patch<PipelineStepResponse>(`/api/pipeline-steps/${stepId}`, patch);
+    return this.http.patch<PipelineStepResponse>(
+      `/api/pipeline-steps/${pathSegment(stepId, "stepId")}`,
+      patch,
+    );
   }
 
   // ── Delete ────────────────────────────────────────────────────────────────
@@ -1375,7 +1471,7 @@ export class HelioApi {
   /** `DELETE /api/dashboards/:id`. Owner-only. Cascades to the dashboard's
    *  panels (and per-user zoom prefs). Does not touch data sources/types. */
   async deleteDashboard(dashboardId: string): Promise<{ deleted: true; id: string }> {
-    await this.http.delete(`/api/dashboards/${dashboardId}`);
+    await this.http.delete(`/api/dashboards/${pathSegment(dashboardId, "dashboardId")}`);
     return { deleted: true, id: dashboardId };
   }
 
@@ -1383,13 +1479,13 @@ export class HelioApi {
    *  on the source; the body's `message` names the visible referencing pipelines, which the
    *  tool's `guarded` handler surfaces verbatim. Only an unreferenced source deletes. */
   async deleteDataSource(dataSourceId: string): Promise<{ deleted: true; id: string }> {
-    await this.http.delete(`/api/data-sources/${dataSourceId}`);
+    await this.http.delete(`/api/data-sources/${pathSegment(dataSourceId, "dataSourceId")}`);
     return { deleted: true, id: dataSourceId };
   }
 
   /** `DELETE /api/panels/:id`. Removes a single panel from its dashboard. */
   async deletePanel(panelId: string): Promise<{ deleted: true; id: string }> {
-    await this.http.delete(`/api/panels/${panelId}`);
+    await this.http.delete(`/api/panels/${pathSegment(panelId, "panelId")}`);
     return { deleted: true, id: panelId };
   }
 
@@ -1398,7 +1494,7 @@ export class HelioApi {
    *  retired DataType model, an Output has no independent lifecycle from its
    *  producing pipeline. */
   async deletePipeline(pipelineId: string): Promise<{ deleted: true; id: string }> {
-    await this.http.delete(`/api/pipelines/${pipelineId}`);
+    await this.http.delete(`/api/pipelines/${pathSegment(pipelineId, "pipelineId")}`);
     return { deleted: true, id: pipelineId };
   }
 
@@ -1418,7 +1514,7 @@ export class HelioApi {
     stepId: string,
   ): Promise<{ deleted: true; id: string; removedTailStepCount: number }> {
     const response = await this.http.delete<{ removedTailStepCount: number }>(
-      `/api/pipeline-steps/${stepId}`,
+      `/api/pipeline-steps/${pathSegment(stepId, "stepId")}`,
     );
     return { deleted: true, id: stepId, removedTailStepCount: response.removedTailStepCount };
   }
@@ -1438,10 +1534,13 @@ export class HelioApi {
     expectedLayoutVersion: number,
   ): Promise<DashboardResponse> {
     return this.withLayoutConflict(expectedLayoutVersion, () =>
-      this.http.patch<DashboardResponse>(`/api/dashboards/${dashboardId}`, {
-        layout,
-        expectedLayoutVersion,
-      }),
+      this.http.patch<DashboardResponse>(
+        `/api/dashboards/${pathSegment(dashboardId, "dashboardId")}`,
+        {
+          layout,
+          expectedLayoutVersion,
+        },
+      ),
     );
   }
 
@@ -1464,12 +1563,15 @@ export class HelioApi {
     expectedLayoutVersion?: number,
   ): Promise<DashboardResponse> {
     return this.withLayoutConflict(expectedLayoutVersion ?? null, () =>
-      this.http.post<DashboardResponse>(`/api/dashboards/${dashboardId}/auto-layout`, {
-        items,
-        cols,
-        breakpoint,
-        ...(expectedLayoutVersion !== undefined ? { expectedLayoutVersion } : {}),
-      }),
+      this.http.post<DashboardResponse>(
+        `/api/dashboards/${pathSegment(dashboardId, "dashboardId")}/auto-layout`,
+        {
+          items,
+          cols,
+          breakpoint,
+          ...(expectedLayoutVersion !== undefined ? { expectedLayoutVersion } : {}),
+        },
+      ),
     );
   }
 

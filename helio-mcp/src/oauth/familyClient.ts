@@ -1,3 +1,5 @@
+import { HelioInvalidIdError, pathSegment } from "../pathSegment.js";
+
 /**
  * Client for the two backend refresh-family routes (HEL-1713, design D3/D5). The PAT is the bearer, so
  * the backend confines every call to that PAT's own families. Only hashes of token ids and the client id
@@ -62,9 +64,15 @@ export class FamilyClient {
 
   async rotate(pat: string, request: RotateRequest): Promise<RotateOutcome> {
     const { familyId, ...body } = request;
+    try {
+      pathSegment(familyId, "familyId");
+    } catch (err) {
+      if (err instanceof HelioInvalidIdError) return { kind: "refused", reason: "unknown" };
+      throw err;
+    }
     const res = await this.post(
       pat,
-      `/api/mcp-refresh-families/${encodeURIComponent(familyId)}/rotate`,
+      `/api/mcp-refresh-families/${pathSegment(familyId, "familyId")}/rotate`,
       body,
     );
     if ("error" in res) return { kind: "unavailable", detail: res.error };
