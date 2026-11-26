@@ -1,0 +1,10 @@
+- `backend/src/main/scala/com/helio/services/pipelines/draft/DraftDiff.scala` — DraftPlan.draftKeys/draftKeyOf (resolved id -> clientId); requireLaneTargetsExist names the subject by draft key
+- `backend/src/main/scala/com/helio/services/pipelines/draft/DraftSaveTransaction.scala` — laneGate names both steps by draft key
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveLaneRefusalSpec.scala` — new: created-step cycle, created-subject dangling target, existing-step cycle (guard)
+- `frontend/src/features/pipelines/hooks/draftSaveRequest.ts` — label substitution for known ids (draft, saved, created Output), earliest-occurrence subject
+- `frontend/src/features/pipelines/hooks/draftSaveRequest.test.ts` — red-first cases (a)-(e) plus prefix-id and whole-id cases
+- `frontend/src/features/pipelines/ui/PipelineDraftNotices.test.tsx` — new: rendered notice reads with labels only
+- `frontend/src/features/pipelines/hooks/useStepCardState.characterization.fixtures.ts` — three HEL-1515 comments: dependent -> descendant
+- `e2e/hel908-tail-attach.spec.ts` — rewritten (4 tests) on the spine/draft helpers, tree asserted in the draft and after Save & run + reload
+- `playwright.config.ts` — hel908-tail-attach quarantine entry and comment removed
+- `openspec/changes/draft-lane-notice-step-labels/**` — plan, tasks, evidence (red/green/mutation transcripts, 3 e2e runs, light/dark notice crops)

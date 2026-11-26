@@ -1,0 +1,7 @@
+# Task 1.2 green: DraftSaveLaneRefusalSpec + DraftDiffSpec (31 passed), then shard 85 passed
+/home/matt/Development/helio/.concertino/scratch/HEL-1542/be-green.log:[info] Total number of tests run: 31
+/home/matt/Development/helio/.concertino/scratch/HEL-1542/be-green.log:[info] Suites: completed 2, aborted 0
+/home/matt/Development/helio/.concertino/scratch/HEL-1542/be-green.log:[info] Tests: succeeded 31, failed 0, canceled 0, ignored 0, pending 0
+/home/matt/Development/helio/.concertino/scratch/HEL-1542/be-shard.log:[info] Total number of tests run: 85
+/home/matt/Development/helio/.concertino/scratch/HEL-1542/be-shard.log:[info] Suites: completed 6, aborted 0
+/home/matt/Development/helio/.concertino/scratch/HEL-1542/be-shard.log:[info] Tests: succeeded 85, failed 0, canceled 0, ignored 0, pending 0

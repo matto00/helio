@@ -1,0 +1,13 @@
+# Task 1.2 mutations (green: 3/3 passed, 31 with DraftDiffSpec)
+## M1: laneGate names v.stepId/v.targetId raw
+[info] - should 400 naming the created step by its clientId and the target by its stored id, and write nothing *** FAILED ***
+[info]   "Step 'b21134ec-3670-4612-94b6-aec49def394a' has a lane reference to 'baa453c0-t2', which would be its descendant." did not include substring "Step 'draft-new' has a lane reference to 'baa453c0-t2'" (DraftSaveLaneRefusalSpec.scala:36)
+[info] - should 400 naming the created step by its clientId and the target by the id the client sent, and write nothing
+[info] - should 400 naming both by their stored ids, and write nothing (guard: green before the change)
+[info] Tests: succeeded 2, failed 1, canceled 0, ignored 0, pending 0
+## M2: requireLaneTargetsExist names w.id
+[info] - should 400 naming the created step by its clientId and the target by its stored id, and write nothing
+[info] - should 400 naming the created step by its clientId and the target by the id the client sent, and write nothing *** FAILED ***
+[info]   "Step 'eeb157b0-f987-4c0c-b238-b8b26684d46c' has a lane reference to '7e5a6297-t4', which is not a step of the draft" did not include substring "Step 'draft-new' has a lane reference to '7e5a6297-t4', which is not a step of the draft" (DraftSaveLaneRefusalSpec.scala:54)
+[info] - should 400 naming both by their stored ids, and write nothing (guard: green before the change)
+[info] Tests: succeeded 2, failed 1, canceled 0, ignored 0, pending 0

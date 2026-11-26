@@ -103,11 +103,6 @@ export default defineConfig({
     // the file's actual footer-visibility assertions run. Follow-up:
     // HEL-961.
     "**/hel716-panel-detail-tall-viewport-footer.spec.ts",
-    // Quarantine (HEL-951) — hel908-tail-attach.spec.ts: the "Add tail
-    // step" button locator resolves to 0 elements (expected 2) in the
-    // first test; all four tests in the file depend on this affordance and
-    // fail the same way. Follow-up: HEL-962.
-    "**/hel908-tail-attach.spec.ts",
     // Quarantine (HEL-951) — hel909-output-picker-panel-sheet.spec.ts: a
     // panel placed via the OutputPicker never becomes visible in the grid
     // / mobile stack; all four tests in the file fail the same way.

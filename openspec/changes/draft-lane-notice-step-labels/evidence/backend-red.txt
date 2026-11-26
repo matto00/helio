@@ -1,0 +1,17 @@
+# Task 1.1 red run: DraftSaveLaneRefusalSpec on main's backend code (exit 1). Cmd: sbt -J-Xmx3g "testOnly com.helio.api.routes.pipelines.DraftSaveLaneRefusalSpec"
+[info] a lane cycle introduced by a created step
+[info] - should 400 naming the created step by its clientId and the target by its stored id, and write nothing *** FAILED ***
+[info]   "Step '59c26012-02b0-4307-bacb-04275fc59315' has a lane reference to '9a8f01a3-t2', which would be its descendant." did not include substring "Step 'draft-new' has a lane reference to '9a8f01a3-t2'" (DraftSaveLaneRefusalSpec.scala:36)
+[info] a dangling lane target with a created subject
+[info] - should 400 naming the created step by its clientId and the target by the id the client sent, and write nothing *** FAILED ***
+[info]   "Step 'a410620a-d208-4150-915d-d866b3334f55' has a lane reference to '3f9bc139-t4', which is not a step of the draft" did not include substring "Step 'draft-new' has a lane reference to '3f9bc139-t4', which is not a step of the draft" (DraftSaveLaneRefusalSpec.scala:54)
+[info] a lane cycle between existing steps
+[info] - should 400 naming both by their stored ids, and write nothing (guard: green before the change)
+[info] Total number of tests run: 3
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 1, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.pipelines.DraftSaveLaneRefusalSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 6 s, cache 93%, 27 disk cache hits, 2 onsite tasks

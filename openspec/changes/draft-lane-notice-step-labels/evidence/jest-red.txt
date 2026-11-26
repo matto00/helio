@@ -1,0 +1,129 @@
+# Task 2.1 red run: draftSaveRequest.test.ts + PipelineDraftNotices.test.tsx on main's frontend code (exit 1)
+FAIL src/features/pipelines/hooks/draftSaveRequest.test.ts
+  ● noticeForSaveError shows step labels (HEL-1542) › (a)(b) shows labels for both steps and names the subject, not the earlier lane target
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "Step \"Sort rows\" has a lane reference to \"Limit\", which would be its descendant."
+    Received: "Step '2b7d41e0-sort-0002' has a lane reference to '1f0c9a77-limit-0001', which would be its descendant."
+
+      205 |       `Step '${sortStep.id}' has a lane reference to '${limitStep.id}', which would be its descendant.`,
+      206 |     );
+    > 207 |     expect(notice.message).toBe(
+          |                            ^
+      208 |       'Step "Sort rows" has a lane reference to "Limit", which would be its descendant.',
+      209 |     );
+      210 |     expect(notice.stepName).toBe("Sort rows");
+
+      at Object.<anonymous> (src/features/pipelines/hooks/draftSaveRequest.test.ts:207:28)
+
+  ● noticeForSaveError shows step labels (HEL-1542) › (c) shows a created step's label for its client id
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "Step \"Fresh join\" has a lane reference to \"Limit\", which would be its descendant."
+    Received: "Step 'draft-abc123' has a lane reference to '1f0c9a77-limit-0001', which would be its descendant."
+
+      217 |       `Step '${createdStep.id}' has a lane reference to '${limitStep.id}', which would be its descendant.`,
+      218 |     );
+    > 219 |     expect(notice.message).toBe(
+          |                            ^
+      220 |       'Step "Fresh join" has a lane reference to "Limit", which would be its descendant.',
+      221 |     );
+      222 |     expect(notice.stepName).toBe("Fresh join");
+
+      at Object.<anonymous> (src/features/pipelines/hooks/draftSaveRequest.test.ts:219:28)
+
+  ● noticeForSaveError shows step labels (HEL-1542) › (d) shows the SAVED label of a lane target the draft removed
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "Step \"Sort rows\" has a lane reference to \"Old lookup\", which is not a step of the draft"
+    Received: "Step '2b7d41e0-sort-0002' has a lane reference to '3e5a88c2-gone-0003', which is not a step of the draft"
+
+      227 |       `Step '${sortStep.id}' has a lane reference to '${removedStep.id}', which is not a step of the draft`,
+      228 |     );
+    > 229 |     expect(notice.message).toBe(
+          |                            ^
+      230 |       'Step "Sort rows" has a lane reference to "Old lookup", which is not a step of the draft',
+      231 |     );
+      232 |     expect(notice.stepName).toBe("Sort rows");
+
+      at Object.<anonymous> (src/features/pipelines/hooks/draftSaveRequest.test.ts:229:28)
+
+  ● noticeForSaveError shows step labels (HEL-1542) › (e) leaves an id the page holds nowhere as it is (a step the draft created and deleted)
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "Step \"Sort rows\" has a lane reference to 'draft-zzz999', which is not a step of the draft"
+    Received: "Step '2b7d41e0-sort-0002' has a lane reference to 'draft-zzz999', which is not a step of the draft"
+
+      237 |       `Step '${sortStep.id}' has a lane reference to 'draft-zzz999', which is not a step of the draft`,
+      238 |     );
+    > 239 |     expect(notice.message).toBe(
+          |                            ^
+      240 |       'Step "Sort rows" has a lane reference to \'draft-zzz999\', which is not a step of the draft',
+      241 |     );
+      242 |   });
+
+      at Object.<anonymous> (src/features/pipelines/hooks/draftSaveRequest.test.ts:239:28)
+
+  ● noticeForSaveError shows step labels (HEL-1542) › replaces every occurrence, quoted or not, and an id that is a prefix of another cannot corrupt it
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "a \"Long\" b \"Short\" c \"Short\"."
+    Received: "a draft-abc-long b 'draft-abc' c draft-abc."
+
+      250 |       draftSteps: [short, long],
+      251 |     });
+    > 252 |     expect("notice" in mapped && mapped.notice.kind === "error" && mapped.notice.message).toBe(
+          |                                                                                           ^
+      253 |       'a "Long" b "Short" c "Short".',
+      254 |     );
+      255 |   });
+
+      at Object.<anonymous> (src/features/pipelines/hooks/draftSaveRequest.test.ts:252:91)
+
+  ● noticeForSaveError shows step labels (HEL-1542) › only matches a whole id, so a short id does not match inside other text
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "steps[1]: rows1 and s1x are not \"Tiny\""
+    Received: "steps[1]: rows1 and s1x are not s1"
+
+      262 |       draftSteps: [tiny],
+      263 |     });
+    > 264 |     expect("notice" in mapped && mapped.notice.kind === "error" && mapped.notice.message).toBe(
+          |                                                                                           ^
+      265 |       'steps[1]: rows1 and s1x are not "Tiny"',
+      266 |     );
+      267 |   });
+
+      at Object.<anonymous> (src/features/pipelines/hooks/draftSaveRequest.test.ts:264:91)
+
+FAIL src/features/pipelines/ui/PipelineDraftNotices.test.tsx
+  ● PipelineDraftNotices on a refused lane reference (HEL-1542) › reads with step labels only, names the saved step in the prefix, and keeps the draft
+
+    expect(element).toHaveTextContent()
+
+    Expected element to have text content:
+      Couldn't save step "Sort rows": Step "Sort rows" has a lane reference to "Limit", which would be its descendant. Your draft is still here.
+    Received:
+      Couldn't save step "Limit": Step '8a2f7b64-91cd-4d0e-b6a3-3c1d7e5f0a22' has a lane reference to '5c1e0d3a-4b27-4f10-9a52-0f6f5d2c9e11', which would be its descendant. Your draft is still here.Dismiss
+
+      42 |
+      43 |     const alert = screen.getByRole("alert");
+    > 44 |     expect(alert).toHaveTextContent(
+         |                   ^
+      45 |       'Couldn\'t save step "Sort rows": Step "Sort rows" has a lane reference to "Limit", which would be its descendant. Your draft is still here.',
+      46 |     );
+      47 |     expect(alert.textContent).not.toContain(subject.id);
+
+      at Object.<anonymous> (src/features/pipelines/ui/PipelineDraftNotices.test.tsx:44:19)
+
+Test Suites: 2 failed, 2 total
+Tests:       7 failed, 12 passed, 19 total
+Snapshots:   0 total
+Time:        4.963 s
+Ran all test suites matching src/features/pipelines/hooks/draftSaveRequest.test.ts|src/features/pipelines/ui/PipelineDraftNotices.test.tsx.
