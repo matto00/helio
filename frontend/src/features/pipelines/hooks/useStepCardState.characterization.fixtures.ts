@@ -514,7 +514,7 @@ export const HANDLER_CASES: HandlerCase[] = [
     handler: "onUnionChange",
     args: [{ secondary: SECONDARY, mode: "byName" }],
     payload: { secondaryInput: SECONDARY, mode: "byName" },
-    captures: true, // HEL-1515: a lane to a dependent is a 400 that must show, not be swallowed
+    captures: true, // HEL-1515: a lane to a descendant is a 400 that must show, not be swallowed
     valueKey: "unionConfig",
     local: { secondary: SECONDARY, mode: "byName" },
   },
@@ -523,7 +523,7 @@ export const HANDLER_CASES: HandlerCase[] = [
     handler: "onLookupChange",
     args: [{ secondary: SECONDARY, sourceKey: "sk", lookupKey: "lk", columns: ["c"] }],
     payload: { secondaryInput: SECONDARY, sourceKey: "sk", lookupKey: "lk", columns: ["c"] },
-    captures: true, // HEL-1515: a lane to a dependent is a 400 that must show, not be swallowed
+    captures: true, // HEL-1515: a lane to a descendant is a 400 that must show, not be swallowed
     valueKey: "lookupConfig",
     local: { secondary: SECONDARY, sourceKey: "sk", lookupKey: "lk", columns: ["c"] },
   },
@@ -532,7 +532,7 @@ export const HANDLER_CASES: HandlerCase[] = [
     handler: "onJoinChange",
     args: [{ secondary: SECONDARY, joinKey: "jk", joinType: "left" }],
     payload: { secondaryInput: SECONDARY, joinKey: "jk", joinType: "left" },
-    captures: true, // HEL-1515: a lane to a dependent is a 400 that must show, not be swallowed
+    captures: true, // HEL-1515: a lane to a descendant is a 400 that must show, not be swallowed
     valueKey: "joinConfig",
     local: { secondary: SECONDARY, joinKey: "jk", joinType: "left" },
   },

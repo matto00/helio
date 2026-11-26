@@ -1,0 +1,18 @@
+# Task 2.2 mutations (green baseline: 19 passed)
+## M1: subject = first known id in array order (not earliest in message)
+  ● noticeForSaveError shows step labels (HEL-1542) › (a)(b) shows labels for both steps and names the subject, not the earlier lane target
+  ● noticeForSaveError shows step labels (HEL-1542) › (c) shows a created step's label for its client id
+  ● PipelineDraftNotices on a refused lane reference (HEL-1542) › reads with step labels only, names the saved step in the prefix, and keeps the draft
+Tests:       3 failed, 16 passed, 19 total
+## M2: no substitution (labelIdsIn returns the message)
+  ● noticeForSaveError shows step labels (HEL-1542) › (a)(b) shows labels for both steps and names the subject, not the earlier lane target
+  ● noticeForSaveError shows step labels (HEL-1542) › (c) shows a created step's label for its client id
+  ● noticeForSaveError shows step labels (HEL-1542) › (d) shows the SAVED label of a lane target the draft removed
+  ● noticeForSaveError shows step labels (HEL-1542) › (e) leaves an id the page holds nowhere as it is (a step the draft created and deleted)
+  ● noticeForSaveError shows step labels (HEL-1542) › only matches a whole id, so a short id does not match inside other text
+  ● noticeForSaveError shows step labels (HEL-1542) › replaces every occurrence, quoted or not, and an id that is a prefix of another cannot corrupt it
+  ● PipelineDraftNotices on a refused lane reference (HEL-1542) › reads with step labels only, names the saved step in the prefix, and keeps the draft
+Tests:       7 failed, 12 passed, 19 total
+## M3: saved-steps lookup dropped
+  ● noticeForSaveError shows step labels (HEL-1542) › (d) shows the SAVED label of a lane target the draft removed
+Tests:       1 failed, 18 passed, 19 total

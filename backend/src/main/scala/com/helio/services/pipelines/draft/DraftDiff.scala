@@ -49,8 +49,14 @@ final case class DraftPlan(
     removedOutputIds: Vector[String],
     checkedConfigs: Vector[CheckedConfig],
     needsAdvisory: Boolean,
-    rootPlan: RootPlan = RootPlan.Unchanged
+    rootPlan: RootPlan = RootPlan.Unchanged,
+    /** HEL-1542: the id the save gave each step it creates, mapped back to the clientId the request named it by, so a refusal
+     *  judged on the written rows can name the step by a key the client sent. Empty for a step that kept its stored id. */
+    draftKeys: Map[String, String] = Map.empty
 ) {
+  /** The key the client knows `id` by: its clientId for a step this save creates, otherwise `id` itself. */
+  def draftKeyOf(id: String): String = draftKeys.getOrElse(id, id)
+
   def removesAnything: Boolean = removedStepIds.nonEmpty || removedOutputIds.nonEmpty || rootPlan.removedRootIds.nonEmpty
 
   /** The sources the save adds as roots, sorted and distinct: lock site (0) covers exactly these. */
@@ -92,7 +98,7 @@ object DraftDiff {
       survivors   = resolved.filter(!_.created)
       removed     = curSteps.keySet -- survivors.map(_.id)
       finalSteps  = resolved.map(r => toWrite(r, parents(r.id), normalized(r.id)))
-      _          <- requireLaneTargetsExist(finalSteps, byId.keySet)
+      _          <- requireLaneTargetsExist(finalSteps, byId)
       outputPlan <- planOutputs(req.outputs, current, curOutputs, byId, removed, finalRoots.toSet, rootPlan.clientRoots, allowExplicitIds, newId)
     } yield {
       val finalById = finalSteps.map(w => w.id -> w).toMap
@@ -117,7 +123,8 @@ object DraftDiff {
         removedOutputIds = outputPlan.removed,
         checkedConfigs = checked,
         needsAdvisory = checked.exists(c => upsertsToExistingSource(c.typedConfig)) || rootPlan.creates.nonEmpty,
-        rootPlan = rootPlan
+        rootPlan = rootPlan,
+        draftKeys = resolved.collect { case r if r.created && r.req.clientId.isDefined => r.id -> r.key }.toMap
       )
     }
   }
@@ -302,11 +309,12 @@ object DraftDiff {
     }
 
   /** A lane reference must name a step of the final tree (a removed target would leave it dangling). */
-  private def requireLaneTargetsExist(finalSteps: Vector[StepWrite], ids: Set[String]): Either[ServiceError, Unit] =
+  private def requireLaneTargetsExist(finalSteps: Vector[StepWrite], byId: Map[String, Resolved]): Either[ServiceError, Unit] =
     finalSteps.view.flatMap { w =>
-      PipelineStepConfigCodec.decode(w.op, w.config).toOption.flatMap(PipelineStepConfigCodec.secondaryLaneStepId).filterNot(ids.contains).map(w -> _)
+      PipelineStepConfigCodec.decode(w.op, w.config).toOption.flatMap(PipelineStepConfigCodec.secondaryLaneStepId).filterNot(byId.contains).map(w -> _)
     }.headOption.fold[Either[ServiceError, Unit]](Right(())) { case (w, target) =>
-      bad(s"Step '${w.id}' has a lane reference to '$target', which is not a step of the draft")
+      // The subject is named by its draft key (HEL-1542): a step this save creates has a server-minted id the client never sent.
+      bad(s"Step '${byId.get(w.id).fold(w.id)(_.key)}' has a lane reference to '$target', which is not a step of the draft")
     }
 
   private def toWrite(r: Resolved, parent: (Option[String], Option[String]), config: String): StepWrite =

@@ -45,17 +45,67 @@ export function runRefusedMessage(run: Extract<DraftRunOutcome, { started: false
   return `Saved. Run not started: ${why}${retry}`;
 }
 
-/** The step the server named in a 400, if its message mentions one of the page's step ids. */
+const ID_CHAR = "A-Za-z0-9_-";
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * The names the page can give the ids a 400 mentions (HEL-1542): the draft's steps first, then the saved steps (so a step the
+ * draft removed, such as a lane target, keeps its saved label), then the created Outputs a 400 names by client id
+ * (HEL-1733 D9). The first hit for an id wins, so a draft label beats a stale saved one.
+ */
+function knownNames(
+  draftSteps: readonly Step[],
+  outputs: readonly Output[],
+  savedSteps: readonly Step[],
+): Map<string, string> {
+  const names = new Map<string, string>();
+  for (const s of draftSteps) if (!names.has(s.id)) names.set(s.id, s.label);
+  for (const s of savedSteps) if (!names.has(s.id)) names.set(s.id, s.label);
+  for (const o of outputs) if (isDraftClientId(o.id) && !names.has(o.id)) names.set(o.id, o.name);
+  return names;
+}
+
+/**
+ * A matcher for every known id in a message: quoted by single quotes (the quotes belong to the id and are consumed) or bare
+ * and delimited, so a short id never matches inside other text. Longest id first, so an id that is a prefix of another
+ * cannot corrupt it.
+ */
+function idMatcher(names: Map<string, string>): RegExp | null {
+  if (names.size === 0) return null;
+  const alternation = [...names.keys()]
+    .sort((a, b) => b.length - a.length)
+    .map(escapeRegExp)
+    .join("|");
+  return new RegExp(`'(${alternation})'|(?<![${ID_CHAR}])(${alternation})(?![${ID_CHAR}])`, "g");
+}
+
+/** Replaces every known step or created-Output id in a server message with its label in double quotes. Unknown ids stay. */
+export function labelIdsIn(message: string, names: Map<string, string>): string {
+  const matcher = idMatcher(names);
+  if (!matcher) return message;
+  return message.replace(matcher, (_all, quoted?: string, bare?: string) => {
+    const label = names.get(quoted ?? bare ?? "");
+    return label === undefined ? _all : `"${label}"`;
+  });
+}
+
+/**
+ * The step (or created Output) a 400 is about: the one whose id occurs EARLIEST in the message. Every step-subject message the
+ * server writes puts its subject first, so this names the step being saved, never a lane target it mentions later.
+ */
 export function stepNamedBy(
   message: string,
   steps: readonly Step[],
   outputs: readonly Output[] = [],
+  savedSteps: readonly Step[] = [],
 ): string | null {
-  const hit = steps.find((s) => message.includes(s.id));
-  if (hit) return hit.label;
-  // A created Output is named by its client id in a 400 (HEL-1733 D9).
-  const out = outputs.find((o) => isDraftClientId(o.id) && message.includes(o.id));
-  return out ? out.name : null;
+  const names = knownNames(steps, outputs, savedSteps);
+  const matcher = idMatcher(names);
+  const hit = matcher?.exec(message);
+  return hit ? (names.get(hit[1] ?? hit[2]) ?? null) : null;
 }
 
 /** Whether two root lists are the same roots on the same sources in the same order. */
@@ -167,11 +217,12 @@ export function noticeForSaveError(
     err,
     isAxiosError(err) ? "The save was refused." : "The save could not be completed.",
   );
+  const names = knownNames(ctx.draftSteps, ctx.draftOutputs ?? [], ctx.steps);
   return {
     notice: {
       kind: "error",
-      message,
-      stepName: stepNamedBy(message, ctx.draftSteps, ctx.draftOutputs),
+      message: labelIdsIn(message, names),
+      stepName: stepNamedBy(message, ctx.draftSteps, ctx.draftOutputs, ctx.steps),
     },
   };
 }

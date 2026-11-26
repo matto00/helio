@@ -179,3 +179,91 @@ describe("stepNamedBy names a created Output from a 400 (HEL-1733 D9)", () => {
     expect(stepNamedBy("nothing here", steps, [created])).toBeNull();
   });
 });
+
+// HEL-1542: a refused save shows step labels, never a step id the page knows, and its prefix names the step the message is
+// about. Red first against the pre-change `noticeForSaveError`, which put the server message through verbatim and named the
+// first step in ARRAY order whose id the message contained.
+describe("noticeForSaveError shows step labels (HEL-1542)", () => {
+  const stepOf = (id: string, label: string) => ({ ...steps[0], id, label });
+  const limitStep = stepOf("1f0c9a77-limit-0001", "Limit");
+  const sortStep = stepOf("2b7d41e0-sort-0002", "Sort rows");
+  // The page names a created step by its client id (the key the draft sent), so the server's message can be resolved.
+  const createdStep = stepOf("draft-abc123", "Fresh join");
+  const removedStep = stepOf("3e5a88c2-gone-0003", "Old lookup");
+  // The target (`Limit`) comes BEFORE the subject in array order, which is what made the pre-change prefix name the target.
+  const draftSteps = [limitStep, sortStep, createdStep];
+  const ctx = { steps: [...draftSteps.slice(0, 2), removedStep], outputs: [], draftSteps };
+  const refusal = (message: string) => axiosError({ message });
+  const noticeOf = (message: string) => {
+    const mapped = noticeForSaveError(refusal(message), ctx);
+    if (!("notice" in mapped) || mapped.notice.kind !== "error")
+      throw new Error("expected an error notice");
+    return mapped.notice;
+  };
+
+  it("(a)(b) shows labels for both steps and names the subject, not the earlier lane target", () => {
+    const notice = noticeOf(
+      `Step '${sortStep.id}' has a lane reference to '${limitStep.id}', which would be its descendant.`,
+    );
+    expect(notice.message).toBe(
+      'Step "Sort rows" has a lane reference to "Limit", which would be its descendant.',
+    );
+    expect(notice.stepName).toBe("Sort rows");
+    expect(notice.message).not.toContain(sortStep.id);
+    expect(notice.message).not.toContain(limitStep.id);
+  });
+
+  it("(c) shows a created step's label for its client id", () => {
+    const notice = noticeOf(
+      `Step '${createdStep.id}' has a lane reference to '${limitStep.id}', which would be its descendant.`,
+    );
+    expect(notice.message).toBe(
+      'Step "Fresh join" has a lane reference to "Limit", which would be its descendant.',
+    );
+    expect(notice.stepName).toBe("Fresh join");
+  });
+
+  it("(d) shows the SAVED label of a lane target the draft removed", () => {
+    const notice = noticeOf(
+      `Step '${sortStep.id}' has a lane reference to '${removedStep.id}', which is not a step of the draft`,
+    );
+    expect(notice.message).toBe(
+      'Step "Sort rows" has a lane reference to "Old lookup", which is not a step of the draft',
+    );
+    expect(notice.stepName).toBe("Sort rows");
+  });
+
+  it("(e) leaves an id the page holds nowhere as it is (a step the draft created and deleted)", () => {
+    const notice = noticeOf(
+      `Step '${sortStep.id}' has a lane reference to 'draft-zzz999', which is not a step of the draft`,
+    );
+    expect(notice.message).toBe(
+      "Step \"Sort rows\" has a lane reference to 'draft-zzz999', which is not a step of the draft",
+    );
+  });
+
+  it("replaces every occurrence, quoted or not, and an id that is a prefix of another cannot corrupt it", () => {
+    const short = stepOf("draft-abc", "Short");
+    const long = stepOf("draft-abc-long", "Long");
+    const mapped = noticeForSaveError(refusal("a draft-abc-long b 'draft-abc' c draft-abc."), {
+      steps: [],
+      outputs: [],
+      draftSteps: [short, long],
+    });
+    expect("notice" in mapped && mapped.notice.kind === "error" && mapped.notice.message).toBe(
+      'a "Long" b "Short" c "Short".',
+    );
+  });
+
+  it("only matches a whole id, so a short id does not match inside other text", () => {
+    const tiny = stepOf("s1", "Tiny");
+    const mapped = noticeForSaveError(refusal("steps[1]: rows1 and s1x are not s1"), {
+      steps: [],
+      outputs: [],
+      draftSteps: [tiny],
+    });
+    expect("notice" in mapped && mapped.notice.kind === "error" && mapped.notice.message).toBe(
+      'steps[1]: rows1 and s1x are not "Tiny"',
+    );
+  });
+});

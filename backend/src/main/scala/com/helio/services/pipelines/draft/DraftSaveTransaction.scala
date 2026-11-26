@@ -214,7 +214,7 @@ private[draft] final class DraftSaveTransaction(
       _          <- writes.updateOutputs(plan.outputUpdates)
       _          <- hooks.at(AfterOutputs)
       after      <- writes.readRows(pipelineId).flatMap(_.fold[DBIO[DefinitionRows]](abort(ServiceError.NotFound(s"Pipeline not found: $pipelineId")))(DBIO.successful))
-      _          <- laneGate(before, after)
+      _          <- laneGate(before, after, plan)
       state      <- definition(pipelineId)
       newFp       = PatchSetTargetFingerprint.of("pipeline", state)
       appId       = UUID.randomUUID().toString
@@ -233,9 +233,10 @@ private[draft] final class DraftSaveTransaction(
 
   /** A write may not leave a stored `lane` reference naming its own step's ancestor, descendant or dependent where it did
    *  not before (HEL-1523); judged on the rows just written, and a violation rolls the whole save back. */
-  private def laneGate(before: DefinitionRows, after: DefinitionRows): DBIO[Unit] =
+  private def laneGate(before: DefinitionRows, after: DefinitionRows, plan: DraftPlan): DBIO[Unit] =
     LaneCycleViolations.introduced(stepRepo.domainOf(before.steps), stepRepo.domainOf(after.steps)).headOption match {
-      case Some(v) => abort(ServiceError.BadRequest(s"Step '${v.stepId}' has a lane reference to '${v.targetId}', which would be ${v.relation.describe}."))
+      // Both ids are named by the key the client sent (HEL-1542): a step this save created is judged under its server-minted id.
+      case Some(v) => abort(ServiceError.BadRequest(s"Step '${plan.draftKeyOf(v.stepId)}' has a lane reference to '${plan.draftKeyOf(v.targetId)}', which would be ${v.relation.describe}."))
       case None    => DBIO.successful(())
     }
 

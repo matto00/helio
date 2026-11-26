@@ -1,0 +1,19 @@
+
+> helio@0.7.4 e2e
+> playwright test e2e/hel908-tail-attach.spec.ts --workers=2 --project=dev
+
+
+Running 4 tests using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel908-several-tails-1795650411711-97852@example.test
+  ✓  1 [dev] › e2e/hel908-tail-attach.spec.ts:88:7 › HEL-908 tail-attach live verification (rewritten for the draft editor, HEL-1542) › a trunk step can carry several tails, and adding one keeps the add affordance (7.5s)
+[HEL-1300 e2e] throwaway user: hel908-append-after-tail-1795650418720-15919@example.test
+  ✓  2 [dev] › e2e/hel908-tail-attach.spec.ts:112:7 › HEL-908 tail-attach live verification (rewritten for the draft editor, HEL-1542) › a leaf tail follows its true owner after a later trunk append (7.4s)
+[HEL-1300 e2e] throwaway user: hel908-duplicate-tailed-1795650426166-91921@example.test
+  ✓  3 [dev] › e2e/hel908-tail-attach.spec.ts:131:7 › HEL-908 tail-attach live verification (rewritten for the draft editor, HEL-1542) › duplicating a tailed trunk step keeps the tail on the clone (7.5s)
+[HEL-1300 e2e] throwaway user: hel908-remove-owner-1795650433670-90360@example.test
+  ✓  4 [dev] › e2e/hel908-tail-attach.spec.ts:146:7 › HEL-908 tail-attach live verification (rewritten for the draft editor, HEL-1542) › removing a step that owns both a head child and a tail drops the cascade-deleted tail (7.6s)
+userCleanup: removed 0 of 4 conversation folders, 0 failed
+[HEL-1301 e2e] deleted 4 recorded throwaway user(s)
+
+  4 passed (30.6s)
