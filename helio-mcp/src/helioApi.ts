@@ -61,6 +61,7 @@ import type {
   PipelineSummaryResponse,
   ProposalPanel,
   QueryParamsInput,
+  RestPaginationInput,
   PutPipelineScheduleRequest,
   RefinementResult,
   RowsPreview,
@@ -133,6 +134,8 @@ export interface TruncatedRead {
   dataSourceName: string;
   rowsRead: number;
   availableRowCount?: number;
+  /** HEL-1013: present only for a paged read that stopped at the row cap -- the pages fetched. */
+  pagesFetched?: number;
 }
 
 export interface RunOutcome {
@@ -716,6 +719,7 @@ export class HelioApi {
     body?: string;
     bodyContentType?: string;
     rootSelector?: string;
+    pagination?: RestPaginationInput;
   }): Promise<CreateSourceResult> {
     const raw = await this.http.post<RawCreateSourceResponse>("/api/sources", {
       name: input.name,
@@ -729,12 +733,14 @@ export class HelioApi {
         body: input.body,
         bodyContentType: input.bodyContentType,
         rootSelector: input.rootSelector,
+        pagination: input.pagination,
       },
     });
     return {
       source: raw.source,
       inferredSchema: raw.inferredSchema ?? null,
       rowCapNotice: raw.rowCapNotice ?? null,
+      pagingNotice: raw.inferredSchema?.pagingNotice ?? null,
       fetchError: raw.fetchError ?? null,
     };
   }
@@ -769,6 +775,7 @@ export class HelioApi {
       source: raw.source,
       inferredSchema: raw.inferredSchema ?? null,
       rowCapNotice: raw.rowCapNotice ?? null,
+      pagingNotice: null,
       fetchError: raw.fetchError ?? null,
     };
   }

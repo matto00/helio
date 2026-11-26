@@ -229,7 +229,9 @@ final case class AssertionStatusResponse(
 final case class TruncatedReadResponse(
     dataSourceName: String,
     rowsRead: Long,
-    availableRowCount: Option[Long]
+    availableRowCount: Option[Long],
+    // HEL-1013: `Some(n)` only for a paged read that stopped at the cap; omitted on the wire when absent.
+    pagesFetched: Option[Int] = None
 )
 
 /** The persisted three-state truncation signal on a `PipelineRunRecord` (HEL-873, design.md
@@ -416,7 +418,7 @@ trait PipelineProtocol
   // protocol trait initialize in declaration order, so declaring this after runResultResponseFormat
   // compiles but yields a null implicit at runtime.
   implicit val truncatedReadResponseFormat: RootJsonFormat[TruncatedReadResponse] =
-    jsonFormat3(TruncatedReadResponse.apply)
+    jsonFormat4(TruncatedReadResponse.apply)
   implicit val runResultResponseFormat: RootJsonFormat[RunResultResponse] = jsonFormat12(RunResultResponse.apply)
 
   // HEL-873: MUST be declared here -- AFTER truncatedReadResponseFormat (RunTruncationRecord's

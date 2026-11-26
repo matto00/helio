@@ -60,6 +60,10 @@
         },
         "availableRowCount": {
           "type": "integer"
+        },
+        "pagesFetched": {
+          "type": "integer",
+          "description": "HEL-1013: present only for a paged read that stopped at the row cap; the number of pages fetched. Absent for a single-request truncation."
         }
       },
       "required": ["dataSourceName", "rowsRead"],

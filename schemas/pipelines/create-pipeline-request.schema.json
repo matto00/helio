@@ -3,6 +3,127 @@
   "$id": "https://helio.local/schemas/pipelines/create-pipeline-request.schema.json",
   "title": "CreatePipelineRequest",
   "description": "POST /api/pipelines. HEL-913: `roots` REPLACES the scalar `sourceDataSourceId` outright -- there is no accepted alias and no default; an absent, empty, or legacy-scalar-shaped body is rejected with a 400 naming the problem (design decision 11, \"no deprecation\"). `steps`/`outputs` (HEL-906 task 3.1) remain additive -- absent or empty preserves the simple create (name + roots only). Non-empty `steps`/`outputs` builds the pipeline, its roots, its steps, and its Outputs in one call; any failure rolls back the whole call (see CreatePipelineTransactionalStepRequest's description). Task 7.1a: each `roots[]` element is EITHER an existing `sourceId` OR an inline source spec (`type` + `name` + exactly one of `sqlConfig`/`restConfig`/`staticConfig`), the SAME shape `POST /api/pipelines/:id/roots` (`add_root`) accepts (design.md R6, \"one shape, not two\"). Exactly one of `sourceId`/`type` must be given; neither or both is a named 400. `csv` is deliberately NOT a supported inline `type` -- no bytes channel exists in a JSON body for the upload path; create the CSV source separately and reference it via `sourceId`.",
+  "$defs": {
+    "RestPagination": {
+      "description": "HEL-1013: how the source pages. One variant per style; an unknown key inside this object is rejected. maxRequests defaults to 20.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["style"],
+          "properties": {
+            "style": {
+              "const": "link"
+            },
+            "maxRequests": {
+              "$ref": "#/$defs/PaginationMaxRequests"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["style", "nextUrlPath"],
+          "properties": {
+            "style": {
+              "const": "next_url"
+            },
+            "nextUrlPath": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxRequests": {
+              "$ref": "#/$defs/PaginationMaxRequests"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["style", "cursorPath", "cursorParam"],
+          "properties": {
+            "style": {
+              "const": "cursor"
+            },
+            "cursorPath": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cursorParam": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxRequests": {
+              "$ref": "#/$defs/PaginationMaxRequests"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["style"],
+          "properties": {
+            "style": {
+              "const": "page"
+            },
+            "pageParam": {
+              "type": "string",
+              "minLength": 1
+            },
+            "startPage": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "pageSizeParam": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pageSize": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            },
+            "maxRequests": {
+              "$ref": "#/$defs/PaginationMaxRequests"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["style", "limit"],
+          "properties": {
+            "style": {
+              "const": "offset"
+            },
+            "offsetParam": {
+              "type": "string",
+              "minLength": 1
+            },
+            "limitParam": {
+              "type": "string",
+              "minLength": 1
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            },
+            "maxRequests": {
+              "$ref": "#/$defs/PaginationMaxRequests"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "PaginationMaxRequests": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "description": "Request bound; default 20."
+    }
+  },
   "type": "object",
   "required": ["name", "roots"],
   "properties": {
@@ -47,6 +168,7 @@
               "body": { "type": ["string", "null"] },
               "bodyContentType": { "type": ["string", "null"] },
               "rootSelector": { "type": ["string", "null"] },
+              "pagination": { "oneOf": [{ "$ref": "#/$defs/RestPagination" }, { "type": "null" }] },
               "auth": {},
               "parameters": { "type": ["object", "null"] }
             },

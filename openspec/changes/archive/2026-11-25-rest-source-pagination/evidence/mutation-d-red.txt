@@ -1,0 +1,103 @@
+MUTATION (reconstructed after the fact from the edit definitions used to run it; the mutant source itself was restored and not kept):
+RestPagedFetch.scala (followed pages, n > 1, add a header)
+- else loop(first.withUri(reapplyAuth(next.uri)), n + 1, all, seen + next.key)
++ else loop(first.withUri(reapplyAuth(next.uri)).addHeader(RawHeader("X-Followed", "1")), n + 1, all, seen + next.key)
+RestApiConnectorDriver.scala (issuePage)
+- guardedPoolSettings(request).flatMap(settings => afterGuard(request).map(_ => settings)) match {
++ (if (request.headers.exists(_.name == "X-Followed")) Right(ConnectionPoolSettings(system.classicSystem)) else guardedPoolSettings(request)).flatMap(settings => afterGuard(request).map(_ => settings)) match {
+
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.13.0.3)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/feature/rest-source-pagination/HEL-1013/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/feature/rest-source-pagination/HEL-1013/backend/)
+[info] compiling 2 Scala sources to /home/matt/Development/helio/.claude/worktrees/feature/rest-source-pagination/HEL-1013/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+14:23:41,180 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+14:23:41,181 |-INFO in ch.qos.logback.classic.util.ContextInitializer@7335c799 - No custom configurators were discovered as a service.
+14:23:41,181 |-INFO in ch.qos.logback.classic.util.ContextInitializer@7335c799 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+14:23:41,182 |-INFO in ch.qos.logback.classic.util.ContextInitializer@7335c799 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+14:23:41,183 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+14:23:41,185 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/feature/rest-source-pagination/HEL-1013/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+14:23:41,224 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+14:23:41,226 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@44a2a346 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+14:23:41,226 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+14:23:41,230 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+14:23:41,231 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@44a2a346 - value "plain" substituted for "${LOG_APPENDER}"
+14:23:41,231 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+14:23:41,231 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+14:23:41,231 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+14:23:41,234 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+14:23:41,255 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+14:23:41,255 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+14:23:41,255 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+14:23:41,255 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@44a2a346 - value "INFO" substituted for "${LOG_LEVEL}"
+14:23:41,256 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+14:23:41,256 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@44a2a346 - value "plain" substituted for "${LOG_APPENDER}"
+14:23:41,256 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+14:23:41,256 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@3ec7ece6 - End of configuration.
+14:23:41,256 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@3a698d6f - Registering current configuration as safe fallback point
+14:23:41,259 |-INFO in ch.qos.logback.classic.util.ContextInitializer@7335c799 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 75 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+14:23:41.263 INFO  [com-helio-domain-connectors-RestApiConnectorDriverPaginationSpec-pekko.actor.default-dispatcher-5] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] RestApiConnectorDriverPaginationSpec:
+[info] A paged REST fetch
+[info] - should follow Link rel=next across three pages
+[info] - should follow a next_url read from the body across three pages
+[info] - should send a body cursor back in cursorParam across three pages
+[info] - should page by page number, starting at startPage with the page size sent on request one
+[info] - should page by offset, starting at 0 and advancing by the limit
+[info] - should stop at the cap, report paged truncation and request nothing after the cap is exceeded
+[info] - should not report exactly cap rows as truncated
+[info] - should fail loudly, naming the bound and returning no rows, when maxRequests is reached with more pages promised
+[info] - should refuse a followed URL on a blocked host with the guard's own refusal, sending no request to it *** FAILED ***
+[info]   Left("Page 2: The next page is on a different origin than the source, so it was refused to keep credentials from being sent there") was not equal to Left("Page 2: URL host 'blocked.test' resolves to a disallowed address") (RestApiConnectorDriverPaginationSpec.scala:196)
+[info] - should refuse a followed URL on another allowed origin without sending a request
+[info] - should fail the whole fetch naming page 2 on a 500, returning no rows
+[info] - should fail the whole fetch naming page 3 on a 429 and never retry
+14:23:42.119 ERROR [com-helio-domain-connectors-RestApiConnectorDriverPaginationSpec-pekko.actor.default-dispatcher-5] c.h.d.c.RestApiConnectorDriver - REST source request failed
+org.apache.pekko.http.scaladsl.model.EntityStreamException: Request too large: Request of size 8388609 was longer than the maximum of 8388608
+	at org.apache.pekko.http.scaladsl.model.HttpEntity.toStrict(HttpEntity.scala:101)
+	at org.apache.pekko.http.scaladsl.model.HttpEntity.toStrict$(HttpEntity.scala:97)
+	at org.apache.pekko.http.scaladsl.model.HttpEntity$Default.toStrict(HttpEntity.scala:401)
+	at com.helio.domain.connectors.RestApiConnectorDriver.$anonfun$issuePage$4(RestApiConnectorDriver.scala:380)
+	at scala.concurrent.impl.Promise$Transformation.run(Promise.scala:470)
+	at org.apache.pekko.dispatch.BatchingExecutor$AbstractBatch.processBatch(BatchingExecutor.scala:73)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.$anonfun$run$1(BatchingExecutor.scala:110)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at scala.concurrent.BlockContext$.withBlockContext(BlockContext.scala:94)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.run(BatchingExecutor.scala:110)
+	at org.apache.pekko.dispatch.TaskInvocation.run(AbstractDispatcher.scala:59)
+	at org.apache.pekko.dispatch.ForkJoinExecutorConfigurator$PekkoForkJoinTask.exec(ForkJoinExecutorConfigurator.scala:61)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)
+[info] - should fail naming page 2 when its body exceeds the per-response limit
+[info] - should refuse a repeated cursor instead of spending the request budget
+14:23:43.139 WARN  [com-helio-domain-connectors-RestApiConnectorDriverPaginationSpec-pekko.actor.default-dispatcher-19] o.a.p.http.impl.engine.client.PoolId - [0 (WaitingForResponseEntitySubscription)]Response entity was not subscribed after 1 second. Make sure to read the response `entity` body or call `entity.discardBytes()` on it -- in case you deal with `HttpResponse`, use the shortcut `response.discardEntityBytes()`. GET /oversize Empty -> 200 OK Default(8388609 bytes)
+[info] - should fail with the time budget error, no rows and no page 3 request, when a page outlasts the deadline
+[info] - should fail with the time budget error, not success, when the last page completes after the deadline
+[info] Schema inference, preview and test over a paged source
+[info] - should read exactly one page and withhold observedRowCount for a configured source
+[info] - should flag an unconfigured response that carries a Link next header, after one request
+[info] - should flag a bare-url response that carries a Link next header
+[info] - should return the raw first page only from fetch(config, ctx)
+[info] A REST fetch with no pagination config (GUARD)
+[info] - should issue exactly one request and return page one with the unchanged truncation fields
+14:23:45.198 INFO  [com-helio-domain-connectors-RestApiConnectorDriverPaginationSpec-pekko.actor.default-dispatcher-26] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[WARN] [11/25/2026 14:23:45.203] [com-helio-domain-connectors-RestApiConnectorDriverPaginationSpec-pekko.actor.default-dispatcher-6] [com-helio-domain-connectors-RestApiConnectorDriverPaginationSpec/Pool(shared->http://localhost:46615)] [0 (WaitingForResponse)]Ongoing request [GET /slowlast Empty] was dropped because pool is shutting down
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 4 seconds, 759 milliseconds.
+[info] Total number of tests run: 21
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 20, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.domain.connectors.RestApiConnectorDriverPaginationSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 6 s, cache 93%, 27 disk cache hits, 2 onsite tasks

@@ -2,6 +2,7 @@ package com.helio.api.protocols.sources
 
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.api.protocols.pipelines.{CostReasonResponse, PipelineAnalyzeProtocol}
+import com.helio.domain.connectors.RestPagination
 import com.helio.domain.model._
 import com.helio.domain.engine.SchemaField
 import com.helio.services.auth.{HasSecrets, SecretField, SecretRedaction}
@@ -211,7 +212,9 @@ final case class RestApiConfigPayload(
     // field (design.md Decision 2a). Every pre-existing stored config blob lacks this key.
     // NOT secret storage — round-trips unredacted on every read (`hasSecrets` below declares no
     // secret fields); never put a credential here, it belongs on the Connector.
-    parameters: Option[Map[String, String]] = None
+    parameters: Option[Map[String, String]] = None,
+    // HEL-1013: the raw paging config, validated by `RestApiConfigPayload.toDomain` / `validatePagination`.
+    pagination: Option[JsValue] = None
 )
 
 final case class TextSourceConfigPayload(path: String, sourceUrl: Option[String])
@@ -257,7 +260,8 @@ object InferredFieldResponse {
   def fromDomain(fields: Vector[SchemaField], legacyNullable: Boolean): Vector[InferredFieldResponse] =
     fields.map(f => InferredFieldResponse(f.name, f.name, f.`type`, nullable = f.nullable.getOrElse(legacyNullable)))
 }
-final case class InferredSchemaResponse(fields: Vector[InferredFieldResponse])
+/** `pagingNotice` (HEL-1013): set when an unconfigured REST response looks paged; omitted when `None`. */
+final case class InferredSchemaResponse(fields: Vector[InferredFieldResponse], pagingNotice: Option[String] = None)
 
 final case class SqlCreateSourceRequest(name: String, `type`: String, config: SqlSourceConfigPayload)
 final case class SqlInferRequest(`type`: String, config: SqlSourceConfigPayload)
@@ -564,6 +568,13 @@ object RestApiConfigPayload {
    *  describes; callers needing that dual-support (`SourceService.createRest`,
    *  `PipelineProposalAnalyze.resolveInlineSourceSchema`) branch on `p.url` themselves before ever
    *  reaching this method's `connectorId`-only success path. */
+  /** HEL-1013: a present `pagination` must parse; also called for infer/test requests, which never follow it. */
+  def validatePagination(p: RestApiConfigPayload): Either[String, Option[RestPagination]] =
+    p.pagination match {
+      case None | Some(JsNull) => Right(None)
+      case Some(json)          => RestPagination.parse(json).map(Some(_))
+    }
+
   def toDomain(p: RestApiConfigPayload): Either[String, RestApiConfig] =
     if (p.auth.isDefined)
       Left("auth is not accepted on a REST source — auth lives on the referenced Connector")
@@ -577,7 +588,7 @@ object RestApiConfigPayload {
           if (cid.isEmpty || ReservedConnectorIds.contains(cid))
             Left("Connector not found")
           else
-            Right(
+            validatePagination(p).map(pagination =>
               RestApiConfig(
                 connectorId = cid,
                 endpoint    = p.endpoint.getOrElse(""),
@@ -587,7 +598,8 @@ object RestApiConfigPayload {
                 body            = p.body,
                 bodyContentType = p.bodyContentType,
                 rootSelector    = p.rootSelector,
-                parameters      = p.parameters.getOrElse(Map.empty)
+                parameters      = p.parameters.getOrElse(Map.empty),
+                pagination      = pagination
               )
             )
       }
@@ -604,7 +616,8 @@ object RestApiConfigPayload {
       bodyContentType = c.bodyContentType,
       rootSelector    = c.rootSelector,
       auth            = None,
-      parameters      = if (c.parameters.isEmpty) None else Some(c.parameters)
+      parameters      = if (c.parameters.isEmpty) None else Some(c.parameters),
+      pagination      = c.pagination.map(RestPagination.toJson)
     )
 
   /** No secret fields remain on this payload (HEL-822 task 1.5) — auth/credential material
@@ -643,14 +656,14 @@ trait DataSourceProtocol extends SprayJsonSupport with DefaultJsonProtocol with 
     jsonFormat1(DataSourceReferencesResponse.apply)
 
   implicit val inferredFieldResponseFormat: RootJsonFormat[InferredFieldResponse]   = jsonFormat4(InferredFieldResponse.apply)
-  implicit val inferredSchemaResponseFormat: RootJsonFormat[InferredSchemaResponse] = jsonFormat1(InferredSchemaResponse.apply)
+  implicit val inferredSchemaResponseFormat: RootJsonFormat[InferredSchemaResponse] = jsonFormat2(InferredSchemaResponse.apply)
 
   implicit val csvSourceConfigPayloadFormat: RootJsonFormat[CsvSourceConfigPayload]   = jsonFormat2(CsvSourceConfigPayload.apply)
   implicit val csvSourceUrlConfigPayloadFormat: RootJsonFormat[CsvSourceUrlConfigPayload] = jsonFormat1(CsvSourceUrlConfigPayload.apply)
   implicit val csvSourceUrlRequestFormat: RootJsonFormat[CsvSourceUrlRequest]             = jsonFormat4(CsvSourceUrlRequest.apply)
   implicit val sqlSourceConfigPayloadFormat: RootJsonFormat[SqlSourceConfigPayload]   = jsonFormat7(SqlSourceConfigPayload.apply)
   implicit val restApiAuthPayloadFormat: RootJsonFormat[RestApiAuthPayload]           = jsonFormat5(RestApiAuthPayload.apply)
-  implicit val restApiConfigPayloadFormat: RootJsonFormat[RestApiConfigPayload]       = jsonFormat11(RestApiConfigPayload.apply)
+  implicit val restApiConfigPayloadFormat: RootJsonFormat[RestApiConfigPayload]       = jsonFormat12(RestApiConfigPayload.apply)
   implicit val fieldOverridePayloadFormat: RootJsonFormat[FieldOverridePayload]       = jsonFormat3(FieldOverridePayload.apply)
   implicit val textSourceConfigPayloadFormat: RootJsonFormat[TextSourceConfigPayload]       = jsonFormat2(TextSourceConfigPayload.apply)
   implicit val textSourceUrlConfigPayloadFormat: RootJsonFormat[TextSourceUrlConfigPayload] = jsonFormat1(TextSourceUrlConfigPayload.apply)

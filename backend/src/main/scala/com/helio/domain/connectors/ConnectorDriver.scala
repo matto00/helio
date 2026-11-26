@@ -49,8 +49,9 @@ final case class ConnectorFieldDescriptor(name: String, label: String, secret: B
  *  @param availableRowCount the true total row count, when the driver could measure it for free;
  *                           `None` when truncation is known but the total is not (or cannot be
  *                           determined without an extra round trip)
+ *  @param pagesFetched      HEL-1013: `Some(n)` only when a paged fetch stopped at the row cap after `n` pages
  */
-final case class FetchOutcome(rows: Vector[JsValue], truncated: Boolean, availableRowCount: Option[Long])
+final case class FetchOutcome(rows: Vector[JsValue], truncated: Boolean, availableRowCount: Option[Long], pagesFetched: Option[Int] = None)
 
 /** Static capability metadata for a `ConnectorDriver[Config]` implementation.
  *  Describes properties of the connector kind itself (not a specific config

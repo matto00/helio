@@ -1,0 +1,94 @@
+MUTATION (reconstructed after the fact from the edit definitions used to run it; the mutant source itself was restored and not kept):
+RestPagedFetch.scala
+- RestPagination.next(pagination, firstUri, req.uri, n, page.json, page.headers, rows.size, seen) match {
++ (Right(None): Either[String, Option[RestPagination.Next]]) match {
+
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.13.0.3)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/feature/rest-source-pagination/HEL-1013/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/feature/rest-source-pagination/HEL-1013/backend/)
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/feature/rest-source-pagination/HEL-1013/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+14:22:11,110 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+14:22:11,110 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4d10ffb4 - No custom configurators were discovered as a service.
+14:22:11,110 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4d10ffb4 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+14:22:11,110 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4d10ffb4 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+14:22:11,112 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+14:22:11,113 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/feature/rest-source-pagination/HEL-1013/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+14:22:11,146 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+14:22:11,147 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@585d0112 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+14:22:11,148 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+14:22:11,150 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+14:22:11,150 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@585d0112 - value "plain" substituted for "${LOG_APPENDER}"
+14:22:11,151 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+14:22:11,151 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+14:22:11,151 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+14:22:11,153 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+14:22:11,168 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+14:22:11,168 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+14:22:11,168 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+14:22:11,169 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@585d0112 - value "INFO" substituted for "${LOG_LEVEL}"
+14:22:11,169 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+14:22:11,169 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@585d0112 - value "plain" substituted for "${LOG_APPENDER}"
+14:22:11,169 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+14:22:11,169 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@63f88550 - End of configuration.
+14:22:11,169 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@3c39c6e7 - Registering current configuration as safe fallback point
+14:22:11,171 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4d10ffb4 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 59 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+14:22:11.173 INFO  [com-helio-domain-connectors-RestApiConnectorDriverPaginationSpec-pekko.actor.default-dispatcher-6] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] RestApiConnectorDriverPaginationSpec:
+[info] A paged REST fetch
+[info] - should follow Link rel=next across three pages *** FAILED ***
+[info]   Vector(1, 2) was not equal to Vector(1, 2, 3, 4, 5, 6) (RestApiConnectorDriverPaginationSpec.scala:137)
+[info] - should follow a next_url read from the body across three pages *** FAILED ***
+[info]   Vector(1, 2) was not equal to Vector(1, 2, 3, 4, 5, 6) (RestApiConnectorDriverPaginationSpec.scala:144)
+[info] - should send a body cursor back in cursorParam across three pages *** FAILED ***
+[info]   Vector(1, 2) was not equal to Vector(1, 2, 3, 4, 5, 6) (RestApiConnectorDriverPaginationSpec.scala:151)
+[info] - should page by page number, starting at startPage with the page size sent on request one *** FAILED ***
+[info]   Vector(1, 2, 3) was not equal to Vector(1, 2, 3, 4, 5, 6) (RestApiConnectorDriverPaginationSpec.scala:158)
+[info] - should page by offset, starting at 0 and advancing by the limit *** FAILED ***
+[info]   Vector(1, 2, 3) was not equal to Vector(1, 2, 3, 4, 5, 6) (RestApiConnectorDriverPaginationSpec.scala:164)
+[info] - should stop at the cap, report paged truncation and request nothing after the cap is exceeded *** FAILED ***
+[info]   false was not equal to true (RestApiConnectorDriverPaginationSpec.scala:171)
+[info] - should not report exactly cap rows as truncated *** FAILED ***
+[info]   Vector({"id":1}, {"id":2}) had size 2 instead of expected size 6 (RestApiConnectorDriverPaginationSpec.scala:182)
+[info] - should fail loudly, naming the bound and returning no rows, when maxRequests is reached with more pages promised *** FAILED ***
+[info]   false was not equal to true (RestApiConnectorDriverPaginationSpec.scala:188)
+[info] - should refuse a followed URL on a blocked host with the guard's own refusal, sending no request to it *** FAILED ***
+[info]   Right(FetchOutcome(Vector({"id":1}), false, Some(1), None)) was not equal to Left("Page 2: URL host 'blocked.test' resolves to a disallowed address") (RestApiConnectorDriverPaginationSpec.scala:196)
+[info] - should refuse a followed URL on another allowed origin without sending a request *** FAILED ***
+[info]   false was not equal to true (RestApiConnectorDriverPaginationSpec.scala:202)
+[info] - should fail the whole fetch naming page 2 on a 500, returning no rows *** FAILED ***
+[info]   Right(FetchOutcome(Vector({"id":1}), false, Some(1), None)) was not equal to Left("Page 2: HTTP 500: boom") (RestApiConnectorDriverPaginationSpec.scala:211)
+[info] - should fail the whole fetch naming page 3 on a 429 and never retry *** FAILED ***
+[info]   Right(FetchOutcome(Vector({"id":1}), false, Some(1), None)) was not equal to Left("Page 3: HTTP 429: slow down") (RestApiConnectorDriverPaginationSpec.scala:216)
+[info] - should fail naming page 2 when its body exceeds the per-response limit *** FAILED ***
+[info]   Right(FetchOutcome(Vector({"id":1}), false, Some(1), None)) was not equal to Left("Page 2: Request failed") (RestApiConnectorDriverPaginationSpec.scala:222)
+[info] - should refuse a repeated cursor instead of spending the request budget *** FAILED ***
+[info]   false was not equal to true (RestApiConnectorDriverPaginationSpec.scala:227)
+[info] - should fail with the time budget error, no rows and no page 3 request, when a page outlasts the deadline *** FAILED ***
+[info]   false was not equal to true (RestApiConnectorDriverPaginationSpec.scala:235)
+[info] - should fail with the time budget error, not success, when the last page completes after the deadline *** FAILED ***
+[info]   false was not equal to true (RestApiConnectorDriverPaginationSpec.scala:243)
+[info] Schema inference, preview and test over a paged source
+[info] - should read exactly one page and withhold observedRowCount for a configured source
+[info] - should flag an unconfigured response that carries a Link next header, after one request
+[info] - should flag a bare-url response that carries a Link next header
+[info] - should return the raw first page only from fetch(config, ctx)
+[info] A REST fetch with no pagination config (GUARD)
+[info] - should issue exactly one request and return page one with the unchanged truncation fields
+14:22:11.743 INFO  [com-helio-domain-connectors-RestApiConnectorDriverPaginationSpec-pekko.actor.default-dispatcher-7] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] [hel1468-guard] ScalaTest summary: failed=16 aborted=0 unreadable=0
+[info] Run completed in 1 second, 230 milliseconds.
+[info] Total number of tests run: 21
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 5, failed 16, canceled 0, ignored 0, pending 0
+[info] *** 16 TESTS FAILED ***
+[info] No tests to run for Test / testSelected
+[error] [hel1468-guard] ScalaTest reported 16 failed test(s), but sbt considered the run passed (sbt 2 can lose forked-test result events, HEL-1468). See the failing suite's header line and its `*** FAILED ***` lines earlier in this log.
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 2 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens

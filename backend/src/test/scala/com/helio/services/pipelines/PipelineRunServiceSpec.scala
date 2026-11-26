@@ -1930,6 +1930,33 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     }
   }
 
+  "A paged truncated read in persisted run history (HEL-1013)" should {
+    "round-trip pagesFetched through the persisted JSONB, and decode an old row that has no pagesFetched key" in {
+      import PostgresProfile.api._
+      val dsId = seedRestDs(RestSuccessUrl)
+      val pid  = seedPipeline(dsId)
+      def insert(payload: String): String = {
+        val runId = UUID.randomUUID().toString
+        await(db.run(sqlu"""
+          INSERT INTO pipeline_runs
+            (id, pipeline_id, status, started_at, completed_at, row_count, trigger_source, truncated_reads)
+          VALUES ($runId, ${pid.value}, 'succeeded', now(), now(), 1000, 'manual', $payload::jsonb)
+        """))
+        runId
+      }
+      val pagedId = insert("""{"primaryAvailableRowCount":null,"reads":[{"dataSourceName":"Paged","rowsRead":1000,"availableRowCount":null,"pagesFetched":3}]}""")
+      val oldId   = insert("""{"primaryAvailableRowCount":2500,"reads":[{"dataSourceName":"Old","rowsRead":1000,"availableRowCount":2500}]}""")
+
+      val records = await(service.history(pid, dummyUser)).toOption.get
+      val paged   = records.find(_.id == pagedId).get.truncation.get
+      paged.reads.map(_.pagesFetched) shouldBe Vector(Some(3))
+      paged.notice.get should include("across 3 pages")
+      val old = records.find(_.id == oldId).get.truncation.get
+      old.reads.map(_.pagesFetched) shouldBe Vector(None)
+      old.notice.get should include("out of 2500 available")
+    }
+  }
+
   // HEL-861 (evaluation-1 item 2): direct unit coverage of `composeTruncationNotice`'s
   // unknown-total (SQL) branch — the driver-level SQL truncation test (task 7.3) only asserted
   // `SourceReadStats`; the wording for this branch, the one most at risk of implying a number

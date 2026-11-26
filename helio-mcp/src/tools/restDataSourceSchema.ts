@@ -48,6 +48,48 @@ const queryParamsInputSchema = z.union([
   z.record(z.string(), z.string()),
 ]);
 
+// HEL-1013: a discriminated union on `style`, each variant `.strict()` so an unknown key inside `pagination` fails
+// loudly (the backend rejects it too). Bounds mirror the backend validation and `schemas/sources`.
+const maxRequestsSchema = z.number().int().min(1).max(100);
+const nameSchema = z.string().min(1);
+export const restPaginationSchema = z.discriminatedUnion("style", [
+  z.object({ style: z.literal("link"), maxRequests: maxRequestsSchema.optional() }).strict(),
+  z
+    .object({
+      style: z.literal("next_url"),
+      nextUrlPath: nameSchema,
+      maxRequests: maxRequestsSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      style: z.literal("cursor"),
+      cursorPath: nameSchema,
+      cursorParam: nameSchema,
+      maxRequests: maxRequestsSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      style: z.literal("page"),
+      pageParam: nameSchema.optional(),
+      startPage: z.number().int().min(0).max(1000000).optional(),
+      pageSizeParam: nameSchema.optional(),
+      pageSize: z.number().int().min(1).max(10000).optional(),
+      maxRequests: maxRequestsSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      style: z.literal("offset"),
+      limit: z.number().int().min(1).max(10000),
+      offsetParam: nameSchema.optional(),
+      limitParam: nameSchema.optional(),
+      maxRequests: maxRequestsSchema.optional(),
+    })
+    .strict(),
+]);
+
 export const createRestDataSourceInputSchema = {
   name: z.string().min(1),
   connectorId: z
@@ -71,6 +113,7 @@ export const createRestDataSourceInputSchema = {
   body: z.string().optional(),
   bodyContentType: z.string().optional(),
   rootSelector: z.string().optional(),
+  pagination: restPaginationSchema.optional(),
   // Explicit, always-rejecting fields (evaluation-1.md cycle 2) — loud, not silent, with a
   // connectorId-naming message better than .strict()'s generic unrecognized-key error.
   auth: rejectCredentialField("auth", CREDENTIAL_REJECT_OPTS),

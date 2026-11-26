@@ -52,7 +52,7 @@ private[pipelines] final class PipelineRunSupport(
       sink: TruncationSink
   ): (Boolean, Option[Long], Option[String], Vector[TruncatedReadResponse]) = {
     val primaryRead =
-      if (primaryStats.truncated) Vector(TruncatedRead(primaryName, primaryRowsRead, primaryStats.availableRowCount))
+      if (primaryStats.truncated) Vector(TruncatedRead(primaryName, primaryRowsRead, primaryStats.availableRowCount, primaryStats.pagesFetched))
       else Vector.empty
     // Task 3.1a dedupe MUST be order-preserving, primary first — `groupBy(...).values` returns
     // hash-ordered results, which would let a multi-source notice name its sources in a different
@@ -65,7 +65,7 @@ private[pipelines] final class PipelineRunSupport(
       allReads.nonEmpty,
       primaryStats.availableRowCount,
       notice,
-      allReads.map(r => TruncatedReadResponse(r.dataSourceName, r.rowsRead, r.availableRowCount))
+      allReads.map(r => TruncatedReadResponse(r.dataSourceName, r.rowsRead, r.availableRowCount, r.pagesFetched))
     )
   }
 
@@ -87,9 +87,11 @@ private[pipelines] final class PipelineRunSupport(
       "primaryAvailableRowCount" -> primaryAvailableRowCount.map(JsNumber(_)).getOrElse(JsNull),
       "reads" -> JsArray(reads.map { r =>
         JsObject(
-          "dataSourceName"    -> JsString(r.dataSourceName),
-          "rowsRead"          -> JsNumber(r.rowsRead),
-          "availableRowCount" -> r.availableRowCount.map(JsNumber(_)).getOrElse(JsNull)
+          Map[String, JsValue](
+            "dataSourceName"    -> JsString(r.dataSourceName),
+            "rowsRead"          -> JsNumber(r.rowsRead),
+            "availableRowCount" -> r.availableRowCount.map(JsNumber(_)).getOrElse(JsNull)
+          ) ++ r.pagesFetched.map(n => "pagesFetched" -> (JsNumber(n): JsValue))
         )
       })
     ).compactPrint

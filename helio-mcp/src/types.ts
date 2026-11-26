@@ -99,6 +99,10 @@ export interface InferredFieldResponse {
 /** `DataSource.inferredSchema` (HEL-904, moved from the retired `DataTypeProtocol`). */
 export interface InferredSchemaResponse {
   fields: InferredFieldResponse[];
+  /** HEL-1013: set on create/infer when an UNCONFIGURED REST response looks paged (a `Link: rel="next"`
+   *  header or a paging body field), so the source may be limited to its first page. Non-blocking;
+   *  omitted when absent. Never set for a source that configures `pagination`. */
+  pagingNotice?: string;
 }
 
 export interface DataSourceResponse {
@@ -407,6 +411,29 @@ export interface QueryParamPair {
 }
 export type QueryParamsInput = QueryParamPair[] | Record<string, string>;
 
+/** HEL-1013: how a REST source pages, mirroring the backend's `RestPagination` and `schemas/sources`'s
+ *  `RestPagination` (one variant per style). `maxRequests` is 1..100, default 20. Forward exactly what was
+ *  authored: the backend validates and rejects an unknown key inside this object. */
+export type RestPaginationInput =
+  | { style: "link"; maxRequests?: number }
+  | { style: "next_url"; nextUrlPath: string; maxRequests?: number }
+  | { style: "cursor"; cursorPath: string; cursorParam: string; maxRequests?: number }
+  | {
+      style: "page";
+      pageParam?: string;
+      startPage?: number;
+      pageSizeParam?: string;
+      pageSize?: number;
+      maxRequests?: number;
+    }
+  | {
+      style: "offset";
+      limit: number;
+      offsetParam?: string;
+      limitParam?: string;
+      maxRequests?: number;
+    };
+
 /** `POST /api/pipelines`'s `roots[]` element AND `POST /api/pipelines/:id/roots`
  *  (`add_root`)'s request body -- the SAME shape for both (HEL-913 design.md R6, "one shape,
  *  not two"). Mirrors the backend's `CreatePipelineRootRequest` exactly. Exactly one of
@@ -441,6 +468,7 @@ export interface CreatePipelineRootRequest {
     bodyContentType?: string;
     rootSelector?: string;
     parameters?: Record<string, string>;
+    pagination?: RestPaginationInput;
   };
   staticConfig?: {
     columns: { name: string; type: string }[];
@@ -770,7 +798,13 @@ export interface RunResultResponse {
   /** HEL-890: per-source truncation detail -- one entry per truncated read, PRIMARY source
    *  included when the primary itself was truncated, empty when nothing was truncated. This is
    *  the machine-readable form of `truncationNotice`'s prose. */
-  truncatedReads?: { dataSourceName: string; rowsRead: number; availableRowCount?: number }[];
+  truncatedReads?: {
+    dataSourceName: string;
+    rowsRead: number;
+    availableRowCount?: number;
+    /** HEL-1013: present only for a paged read that stopped at the row cap; the pages fetched. */
+    pagesFetched?: number;
+  }[];
 }
 
 /** Per-panel grid placement in a proposal (optional). */
@@ -913,6 +947,9 @@ export interface CreateSourceResult {
    *  source will be truncated. Not a report that creation itself applied a cap. `null` when the
    *  total is unknown (SQL) or under the cap. */
   rowCapNotice: string | null;
+  /** HEL-1013: relayed from `inferredSchema.pagingNotice` -- `null` when the response did not look paged,
+   *  the source configures `pagination`, or it is not a REST source. */
+  pagingNotice: string | null;
 }
 
 /** `GET /api/connector-types` (HEL-484) — one required config field descriptor.

@@ -46,7 +46,7 @@ final class AssertionSink {
 
 /** One truncated read recorded during a run (HEL-861, design D8) — the source's own name, how
  *  many rows were actually read, and its true total when the driver could measure it. */
-final case class TruncatedRead(dataSourceName: String, rowsRead: Long, availableRowCount: Option[Long])
+final case class TruncatedRead(dataSourceName: String, rowsRead: Long, availableRowCount: Option[Long], pagesFetched: Option[Int] = None)
 
 /** Caller-supplied, mutable output parameter mirroring [[AssertionSink]] exactly (design D8):
  *  `InProcessPipelineEngine.makeContext`'s `loadSource` re-enters `loadRowsWithStats` for every

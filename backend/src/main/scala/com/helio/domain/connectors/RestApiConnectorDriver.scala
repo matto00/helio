@@ -11,7 +11,6 @@ import org.apache.pekko.http.scaladsl.model._
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken, RawHeader}
 import org.apache.pekko.http.scaladsl.settings.ConnectionPoolSettings
 import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Sink
 import org.slf4j.LoggerFactory
 import spray.json._
 
@@ -54,7 +53,9 @@ class RestApiConnectorDriver(
     // construction site, `Main.scala`; a test builds its own driver with an
     // `isBlocked` keyed on a known-safe hostname (never widening a class).
     resolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
-    isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
+    isBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr),
+    // HEL-1013: injectable so a test can lower the 120 s paging deadline.
+    pagingTotalTimeout: FiniteDuration = RestPagination.TotalTimeout
 )(implicit system: ActorSystem[_])
     extends ConnectorDriver[RestApiConfig] {
 
@@ -275,8 +276,17 @@ class RestApiConnectorDriver(
     }
 
 
+  /** The raw body of ONE request, whether or not `config.pagination` is set (only the run path pages, see
+   *  the run-path `fetch` overload taking `maxRows`). */
   def fetch(config: RestApiConfig, resolveContext: ConnectorResolveContext): Future[Either[String, JsValue]] =
-    fetchOverride.fold(doFetch(config, resolveContext))(fn => fn(config))
+    fetchOverride.fold(fetchFirstPage(config, resolveContext).map(_.map(_.json)))(fn => fn(config))
+
+  /** HEL-1013 D8: the first (only) request of a source, body and headers, for every non-paging caller. */
+  private def fetchFirstPage(config: RestApiConfig, resolveContext: ConnectorResolveContext): Future[Either[String, PageResponse]] =
+    buildResolvedRequest(config, resolveContext).flatMap {
+      case Left(err)      => Future.successful(Left(err))
+      case Right(request) => issuePage(request)
+    }
 
   /** HEL-826 design.md Decision 1 — `rootSelector = None` is byte-identical to pre-change
    *  behavior (the existing 3-way match, untouched). `Some(path)` walks `JsObject` fields
@@ -321,12 +331,6 @@ class RestApiConnectorDriver(
     }
   }
 
-  private def doFetch(config: RestApiConfig, resolveContext: ConnectorResolveContext): Future[Either[String, JsValue]] =
-    buildResolvedRequest(config, resolveContext).flatMap {
-      case Left(err) => Future.successful(Left(err))
-      case Right(request) => issueAndParse(request)
-    }
-
   /** HEL-879 design.md Decision 2: the SSRF guard sits HERE — the request-
    *  ISSUING choke point both `doFetch` (resolved-Connector path) and
    *  `fetchEphemeral` (bare-URL path) funnel through — keyed on
@@ -343,7 +347,17 @@ class RestApiConnectorDriver(
     }
 
   private def issueAndParse(request: HttpRequest): Future[Either[String, JsValue]] =
-    guardedPoolSettings(request) match {
+    issuePage(request).map(_.map(_.json))
+
+  /** The one guarded request issuer for a REST fetch (HEL-1013 C3): the HEL-879 guard runs first, then `afterGuard`
+   *  (the paging same-origin check), then the request is sent pinned to the validated address. `bodyTimeout` bounds the
+   *  2xx body read (`None`: the paging deadline has passed, so the body is discarded unread). */
+  private def issuePage(
+      request: HttpRequest,
+      afterGuard: HttpRequest => Either[String, Unit] = _ => Right(()),
+      bodyTimeout: () => Option[FiniteDuration] = () => Some(30.seconds)
+  ): Future[Either[String, PageResponse]] =
+    guardedPoolSettings(request).flatMap(settings => afterGuard(request).map(_ => settings)) match {
       case Left(err) => Future.successful(Left(err))
       case Right(settings) =>
         Http(system.classicSystem)
@@ -358,16 +372,25 @@ class RestApiConnectorDriver(
             // a redirect stub's body as though it were the real response.
             val code = response.status.intValue()
             if (code >= 200 && code < 300) {
-              response.entity.toStrict(30.seconds, maxStrictBytes).map { entity =>
-                Try(entity.data.utf8String.parseJson).toEither.left.map { e =>
-                  // HEL-311: keep the curated category prefix, drop the raw
-                  // parser-exception tail; log the cause.
-                  log.error("Failed to parse JSON response from REST source", e)
-                  "Failed to parse JSON response"
-                }
+              bodyTimeout() match {
+                case None =>
+                  response.discardEntityBytes()
+                  Future.successful(Left("Pagination total time budget exceeded"))
+                case Some(timeout) =>
+                  response.entity.toStrict(timeout, RestResponseReads.maxStrictBytes(system)).map { entity =>
+                    Try(entity.data.utf8String.parseJson).toEither
+                      .map(PageResponse(_, response.headers))
+                      .left
+                      .map { e =>
+                        // HEL-311: keep the curated category prefix, drop the raw
+                        // parser-exception tail; log the cause.
+                        log.error("Failed to parse JSON response from REST source", e)
+                        "Failed to parse JSON response"
+                      }
+                  }
               }
             } else {
-              errorText(response, code).map(Left(_))
+              RestResponseReads.errorText(response, code).map(Left(_))
             }
           }
           .recover { case e =>
@@ -378,41 +401,6 @@ class RestApiConnectorDriver(
           }
     }
 
-  /** HEL-1877: the limit `HttpEntity.toStrict(timeout)` applies when given no byte argument -- the same key, config and
-   *  logic as Pekko HTTP 1.1.0's own (`private[http]`) `getPossiblyInfiniteBytes`, reproduced here so the 2xx limit is
-   *  passed explicitly yet stays identical to today's, including under a config change (8 MiB by default). */
-  private def maxStrictBytes: Long = {
-    val config = system.classicSystem.settings.config
-    val key    = "pekko.http.parsing.max-to-strict-bytes"
-    if (config.getString(key) == "infinite") Long.MaxValue else config.getBytes(key).longValue
-  }
-
-  /** HEL-1877: the capped `HTTP <code>: <body>` text of a non-2xx response, reading at most
-   *  `RemoteErrorText.MaxBodyBytes` of the body, within the same 30 s ceiling as before. */
-  private def errorText(response: HttpResponse, code: Int): Future[String] =
-    RemoteErrorText
-      .readBodyPrefix(response.entity.dataBytes, RemoteErrorText.MaxBodyBytes, 30.seconds)
-      .map(prefix => RemoteErrorText.cap(s"HTTP $code: ${prefix.utf8String}"))
-
-  /** HEL-1877: a connection test needs only the status of a 2xx, but a body over the 2xx limit (or slower than 30 s)
-   *  still reports `Request failed`, as `toStrict` did. The body is counted, never held; a declared Content-Length over
-   *  the limit fails at once and the entity is cancelled (releasing the connection) without being read. */
-  private def countWithinLimit(entity: ResponseEntity): Future[Unit] = {
-    val limit = maxStrictBytes
-    entity.contentLengthOption match {
-      case Some(length) if length > limit =>
-        entity.dataBytes.runWith(Sink.cancelled)
-        Future.failed(new IllegalStateException(s"response body of $length bytes exceeds $limit"))
-      case _ =>
-        entity.dataBytes
-          .scan(0L)(_ + _.length)
-          .map { total => if (total > limit) throw new IllegalStateException(s"response body exceeds $limit bytes") else total }
-          .completionTimeout(30.seconds)
-          .runWith(Sink.ignore)
-          .map(_ => ())
-    }
-  }
-
   private def issueTest(request: HttpRequest): Future[Either[String, Unit]] =
     guardedPoolSettings(request) match {
       case Left(err) => Future.successful(Left(err))
@@ -421,8 +409,8 @@ class RestApiConnectorDriver(
           .singleRequest(request, settings = settings)
           .flatMap { response =>
             val code = response.status.intValue()
-            if (code >= 200 && code < 300) countWithinLimit(response.entity).map(_ => Right(()))
-            else errorText(response, code).map(Left(_))
+            if (code >= 200 && code < 300) RestResponseReads.countWithinLimit(response.entity).map(_ => Right(()))
+            else RestResponseReads.errorText(response, code).map(Left(_))
           }
           .recover { case e =>
             log.error("REST source request failed", e)
@@ -462,8 +450,20 @@ class RestApiConnectorDriver(
       @annotation.unused overrideResolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
       @annotation.unused overrideIsBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
   )(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
-    fetch(config, resolveContext).map(_.flatMap(json => toRowsEither(json, config.rootSelector))
-      .map(rows => SchemaInferenceEngine.inferSchemaFromRows(rows).copy(observedRowCount = Some(rows.size.toLong))))
+    firstPageForInference(config, resolveContext).map(_.flatMap(inferFromPage(config, _)))
+
+  private def firstPageForInference(config: RestApiConfig, resolveContext: ConnectorResolveContext): Future[Either[String, PageResponse]] =
+    fetchOverride.fold(fetchFirstPage(config, resolveContext))(fn => fn(config).map(_.map(PageResponse(_, Nil))))
+
+  /** Page one's rows to a schema. A configured source's page one is not its size, so `observedRowCount` is withheld (HEL-1013 D8) and the paging
+   *  notice is only ever raised for an unconfigured response. */
+  private def inferFromPage(config: RestApiConfig, page: PageResponse): Either[String, InferredSchema] =
+    toRowsEither(page.json, config.rootSelector).map { rows =>
+      SchemaInferenceEngine.inferSchemaFromRows(rows).copy(
+        observedRowCount = if (config.pagination.isDefined) None else Some(rows.size.toLong),
+        looksPaged       = config.pagination.isEmpty && RestPagination.looksPaged(page.headers, page.json)
+      )
+    }
 
   /** HEL-1638: schema inference for a config whose Connector is NOT persisted (the propose-time dry run of an inline `url`
    *  REST root: the unpersisted Auto connector, credential `""`) or already resolved by the caller. Composes the request
@@ -473,16 +473,15 @@ class RestApiConnectorDriver(
   def inferSchemaForConnector(config: RestApiConfig, connector: Connector, credentialValue: String)(implicit
       ec: ExecutionContext
   ): Future[Either[String, InferredSchema]] = {
-    val json: Future[Either[String, JsValue]] = fetchOverride match {
-      case Some(fn) => fn(config)
+    val page: Future[Either[String, PageResponse]] = fetchOverride match {
+      case Some(fn) => fn(config).map(_.map(PageResponse(_, Nil)))
       case None =>
         composeRequest(config, connector, credentialValue) match {
           case Left(err)      => Future.successful(Left(err))
-          case Right(request) => issueAndParse(request)
+          case Right(request) => issuePage(request)
         }
     }
-    json.map(_.flatMap(j => toRowsEither(j, config.rootSelector))
-      .map(rows => SchemaInferenceEngine.inferSchemaFromRows(rows).copy(observedRowCount = Some(rows.size.toLong))))
+    page.map(_.flatMap(inferFromPage(config, _)))
   }
 
   /** HEL-1638: [[inferSchemaForConnector]] for an already-resolved, persisted Connector (decrypts its credential first). */
@@ -509,9 +508,46 @@ class RestApiConnectorDriver(
       @annotation.unused overrideResolveHost: String => Try[Array[InetAddress]] = ContentSourceSupport.defaultResolveHost,
       @annotation.unused overrideIsBlocked: (String, InetAddress) => Boolean = (_, addr) => ContentSourceSupport.isBlockedAddress(addr)
   )(implicit ec: ExecutionContext): Future[Either[String, FetchOutcome]] =
-    fetch(config, resolveContext).map(_.flatMap(json => toRowsEither(json, config.rootSelector)).map { all =>
-      FetchOutcome(all.take(maxRows), truncated = all.size > maxRows, availableRowCount = Some(all.size.toLong))
-    })
+    config.pagination match {
+      // HEL-1013 D8: `fetchOverride` has no notion of a page, so a wired override keeps today's single call.
+      case Some(pagination) if fetchOverride.isEmpty => fetchPaged(config, pagination, maxRows, resolveContext)
+      case _ =>
+        fetch(config, resolveContext).map(_.flatMap(json => toRowsEither(json, config.rootSelector)).map { all =>
+          FetchOutcome(all.take(maxRows), truncated = all.size > maxRows, availableRowCount = Some(all.size.toLong))
+        })
+    }
+
+  /** HEL-1013: follows the configured paging up to `maxRows`. A truncated outcome carries `pagesFetched` and no
+   *  `availableRowCount` (the total is unknown); any failure on any page fails the whole fetch. */
+  private def fetchPaged(
+      config: RestApiConfig,
+      pagination: RestPagination,
+      maxRows: Int,
+      resolveContext: ConnectorResolveContext
+  )(implicit ec: ExecutionContext): Future[Either[String, FetchOutcome]] =
+    resolveConnector(config.connectorId, resolveContext).flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right(connector) =>
+        credentialFor(connector).flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(credentialValue) =>
+            composeRequest(config, connector, credentialValue) match {
+              case Left(err) => Future.successful(Left(err))
+              case Right(request) =>
+                val authShape = ConnectorAuthShape.parse(connector.config)
+                new RestPagedFetch(
+                  system,
+                  (req, afterGuard, bodyTimeout) => issuePage(req, afterGuard, bodyTimeout),
+                  json => toRowsEither(json, config.rootSelector),
+                  uri => injectAuthQueryParam(uri, authShape, credentialValue),
+                  pagingTotalTimeout
+                ).fetch(request, pagination, maxRows).map(_.map { paged =>
+                  if (paged.truncated) FetchOutcome(paged.rows, truncated = true, availableRowCount = None, pagesFetched = Some(paged.pages))
+                  else FetchOutcome(paged.rows, truncated = false, availableRowCount = Some(paged.rows.size.toLong))
+                })
+            }
+        }
+    }
 
   // Never resolves/persists a Connector — no auth, no normalizing join (no `baseUrl` to join
   // against). Used only by `POST /api/sources/infer|test` and inline pipeline-proposal sources
@@ -573,6 +609,18 @@ class RestApiConnectorDriver(
     }
 
   def inferSchemaEphemeral(config: EphemeralRestConfig): Future[Either[String, InferredSchema]] =
-    fetchEphemeral(config).map(_.flatMap(json => toRowsEither(json, config.rootSelector))
-      .map(rows => SchemaInferenceEngine.inferSchemaFromRows(rows)))
+    fetchEphemeralPage(config).map(_.flatMap(page =>
+      toRowsEither(page.json, config.rootSelector)
+        .map(rows => SchemaInferenceEngine.inferSchemaFromRows(rows).copy(looksPaged = RestPagination.looksPaged(page.headers, page.json)))))
+
+  /** [[fetchEphemeral]] with the response headers (the paging notice reads a `Link` header). */
+  private def fetchEphemeralPage(config: EphemeralRestConfig): Future[Either[String, PageResponse]] =
+    fetchOverride match {
+      case Some(_) => fetchEphemeral(config).map(_.map(PageResponse(_, Nil)))
+      case None =>
+        buildEphemeralRequest(config) match {
+          case Left(err)      => Future.successful(Left(err))
+          case Right(request) => issuePage(request)
+        }
+    }
 }

@@ -13,6 +13,125 @@
     { "$ref": "#/$defs/ImageSourceResponse" }
   ],
   "$defs": {
+    "RestPagination": {
+      "description": "HEL-1013: how the source pages. One variant per style; an unknown key inside this object is rejected. maxRequests defaults to 20.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["style"],
+          "properties": {
+            "style": {
+              "const": "link"
+            },
+            "maxRequests": {
+              "$ref": "#/$defs/PaginationMaxRequests"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["style", "nextUrlPath"],
+          "properties": {
+            "style": {
+              "const": "next_url"
+            },
+            "nextUrlPath": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxRequests": {
+              "$ref": "#/$defs/PaginationMaxRequests"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["style", "cursorPath", "cursorParam"],
+          "properties": {
+            "style": {
+              "const": "cursor"
+            },
+            "cursorPath": {
+              "type": "string",
+              "minLength": 1
+            },
+            "cursorParam": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxRequests": {
+              "$ref": "#/$defs/PaginationMaxRequests"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["style"],
+          "properties": {
+            "style": {
+              "const": "page"
+            },
+            "pageParam": {
+              "type": "string",
+              "minLength": 1
+            },
+            "startPage": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "pageSizeParam": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pageSize": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            },
+            "maxRequests": {
+              "$ref": "#/$defs/PaginationMaxRequests"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["style", "limit"],
+          "properties": {
+            "style": {
+              "const": "offset"
+            },
+            "offsetParam": {
+              "type": "string",
+              "minLength": 1
+            },
+            "limitParam": {
+              "type": "string",
+              "minLength": 1
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            },
+            "maxRequests": {
+              "$ref": "#/$defs/PaginationMaxRequests"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "PaginationMaxRequests": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "description": "Request bound; default 20."
+    },
     "InferredFieldResponse": {
       "type": "object",
       "required": ["name", "displayName", "dataType", "nullable"],
@@ -72,6 +191,7 @@
             "body": { "type": "string" },
             "bodyContentType": { "type": "string" },
             "rootSelector": { "type": "string" },
+            "pagination": { "$ref": "#/$defs/RestPagination" },
             "parameters": { "type": "object", "additionalProperties": { "type": "string" } }
           },
           "additionalProperties": false

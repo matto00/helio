@@ -2,6 +2,7 @@ package com.helio.services.sources
 
 import com.helio.testsupport.UserSeeding
 import com.helio.services.sources.CreateSourceEnvelope
+import com.helio.api.protocols.sources.DataSourceProtocol
 import com.helio.domain.connectors.{ConnectorDriver, ConnectorMetadata, ConnectorResolveContext, FetchOutcome}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -155,6 +156,21 @@ class CreateSourceEnvelopeSpec extends AnyWordSpec with Matchers with BeforeAndA
 
       val persisted = await(dataSourceRepo.findByIdOwned(inserted.id, user))
       persisted.map(_.inferredSchema.map(_.name)) shouldBe Some(Vector("sku", "qty"))
+    }
+
+    // HEL-1013 D9: one wire field covers create and infer; None is omitted so every existing body is byte-identical.
+    "carry pagingNotice on the create response's inferredSchema when inference saw a paged response, and omit it otherwise" in {
+      import spray.json._
+      val protocol = new DataSourceProtocol {}
+      cleanDb()
+      val fields = Seq(InferredField(name = "sku", displayName = "sku", dataType = DataFieldType.StringType, nullable = false))
+      def wire(looksPaged: Boolean): JsObject = {
+        val inserted = insertedSource(s"Paged $looksPaged")
+        val result = await(CreateSourceEnvelope.build(EnvelopeFixtureConnector, EnvelopeFixtureConfig(Right(InferredSchema(fields, looksPaged = looksPaged))), inserted, Instant.now(), dataSourceRepo, user))
+        protocol.createSourceResponseFormat.write(result).asJsObject.fields("inferredSchema").asJsObject
+      }
+      wire(looksPaged = true).fields.get("pagingNotice").collect { case JsString(v) => v }.exists(_.contains("first page")) shouldBe true
+      wire(looksPaged = false).fields.keySet shouldBe Set("fields")
     }
 
     // HEL-861 (design D6, task 7.6a): the create-time advisory, composed generically from

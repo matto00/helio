@@ -17,7 +17,7 @@ object DataSourceConfigCodec extends DefaultJsonProtocol {
 
   private implicit val csvCfgFmt: RootJsonFormat[CsvSourceConfigPayload] = jsonFormat2(CsvSourceConfigPayload.apply)
   private implicit val sqlCfgFmt: RootJsonFormat[SqlSourceConfigPayload] = jsonFormat7(SqlSourceConfigPayload.apply)
-  private implicit val restCfgFmt: RootJsonFormat[RestApiConfigPayload]  = jsonFormat11(RestApiConfigPayload.apply)
+  private implicit val restCfgFmt: RootJsonFormat[RestApiConfigPayload]  = jsonFormat12(RestApiConfigPayload.apply)
 
   /** Decode CSV-source config. `sourceUrl` (HEL-862) is absent-tolerant —
    *  every pre-existing stored CSV config has no `sourceUrl` key at all
