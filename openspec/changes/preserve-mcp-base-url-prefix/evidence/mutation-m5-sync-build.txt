@@ -1,0 +1,1018 @@
+# Mutation m5-sync-build (applied to the implementation; restored afterwards)
+ helio-mcp/src/httpClient.ts | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+PASS helio-mcp/src/requestUrl.test.ts (5.142 s)
+  buildRequestUrl
+
+FAIL helio-mcp/src/httpClient.originGuard.test.ts (5.356 s)
+  HelioHttpClient path prefix
+  HelioHttpClient refusals are rejected promises
+    get
+      ✕ RED-FIRST "//evil.example/x" returns a rejected promise and sends nothing (17 ms)
+      ✕ RED-FIRST "/\\evil.example/x" returns a rejected promise and sends nothing (1 ms)
+      ✕ RED-FIRST "/https://evil.example/x" returns a rejected promise and sends nothing (1 ms)
+      ✕ RED-FIRST a base that is not an absolute URL (localhost:8080) rejects, not throws (1 ms)
+    post
+      ✕ RED-FIRST "//evil.example/x" returns a rejected promise and sends nothing (1 ms)
+      ✕ RED-FIRST "/\\evil.example/x" returns a rejected promise and sends nothing (1 ms)
+      ✕ RED-FIRST "/https://evil.example/x" returns a rejected promise and sends nothing (1 ms)
+      ✕ RED-FIRST a base that is not an absolute URL (localhost:8080) rejects, not throws (1 ms)
+    patch
+      ✕ RED-FIRST "//evil.example/x" returns a rejected promise and sends nothing (2 ms)
+      ✕ RED-FIRST "/\\evil.example/x" returns a rejected promise and sends nothing (1 ms)
+      ✕ RED-FIRST "/https://evil.example/x" returns a rejected promise and sends nothing (1 ms)
+      ✕ RED-FIRST a base that is not an absolute URL (localhost:8080) rejects, not throws (1 ms)
+    put
+      ✕ RED-FIRST "//evil.example/x" returns a rejected promise and sends nothing (1 ms)
+      ✕ RED-FIRST "/\\evil.example/x" returns a rejected promise and sends nothing (2 ms)
+      ✕ RED-FIRST "/https://evil.example/x" returns a rejected promise and sends nothing (1 ms)
+      ✕ RED-FIRST a base that is not an absolute URL (localhost:8080) rejects, not throws (1 ms)
+    delete
+      ✕ RED-FIRST "//evil.example/x" returns a rejected promise and sends nothing (1 ms)
+      ✕ RED-FIRST "/\\evil.example/x" returns a rejected promise and sends nothing (1 ms)
+      ✕ RED-FIRST "/https://evil.example/x" returns a rejected promise and sends nothing (1 ms)
+      ✕ RED-FIRST a base that is not an absolute URL (localhost:8080) rejects, not throws (1 ms)
+    postMultipart
+      ✕ RED-FIRST "//evil.example/x" returns a rejected promise and sends nothing (1 ms)
+      ✕ RED-FIRST "/\\evil.example/x" returns a rejected promise and sends nothing (1 ms)
+      ✕ RED-FIRST "/https://evil.example/x" returns a rejected promise and sends nothing (1 ms)
+      ✕ RED-FIRST a base that is not an absolute URL (localhost:8080) rejects, not throws (1 ms)
+  HelioHttpClient pre-resolution character check
+    ✕ RED-FIRST "/api/x y" is refused under a root base
+    ✕ RED-FIRST "/api/x\u0000" is refused under a root base
+    ✕ RED-FIRST "/api/x\n" is refused under a root base (1 ms)
+  HelioHttpClient prefix containment under base https://h/helio
+    ✕ RED-FIRST "/api/../../tokens" is refused and sends nothing (1 ms)
+    ✕ RED-FIRST "/../x" is refused and sends nothing (6 ms)
+    ✕ RED-FIRST "/%2e%2e/x" is refused and sends nothing (1 ms)
+    ✕ RED-FIRST "/.%2e/x" is refused and sends nothing (1 ms)
+    ✕ RED-FIRST "/../helio2/x" is refused and sends nothing (1 ms)
+    ✕ RED-FIRST "/api/%2e%2e/%2e%2e/x" is refused and sends nothing (1 ms)
+    ✕ RED-FIRST origin escapes are still refused under a prefixed base (2 ms)
+  HelioHttpClient normal use
+
+  ● HelioHttpClient refusals are rejected promises › get › RED-FIRST "//evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"//evil.example/x\": a protocol-relative path is not allowed"
+
+          34 | ): string {
+          35 |   if (path.startsWith("//")) {
+        > 36 |     throw new HelioRequestUrlError(path, "a protocol-relative path is not allowed");
+             |           ^
+          37 |   }
+          38 |   if (hasForbiddenCharacter(path)) {
+          39 |     throw new HelioRequestUrlError(
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:36:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.get (helio-mcp/src/httpClient.ts:202:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:29:23
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › get › RED-FIRST "/\\evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/\\\\evil.example/x\": a path may not contain a backslash, a control character or a space"
+
+          37 |   }
+          38 |   if (hasForbiddenCharacter(path)) {
+        > 39 |     throw new HelioRequestUrlError(
+             |           ^
+          40 |       path,
+          41 |       "a path may not contain a backslash, a control character or a space",
+          42 |     );
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:39:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.get (helio-mcp/src/httpClient.ts:202:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:29:23
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › get › RED-FIRST "/https://evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/https://evil.example/x\": it resolves to https://evil.example, not https://helio.test"
+
+          58 |   const url = new URL(path.startsWith("/") ? path.slice(1) : path, base);
+          59 |   if (url.origin !== base.origin) {
+        > 60 |     throw new HelioRequestUrlError(path, `it resolves to ${url.origin}, not ${base.origin}`);
+             |           ^
+          61 |   }
+          62 |   if (!url.pathname.startsWith(base.pathname)) {
+          63 |     throw new HelioRequestUrlError(path, `it resolves outside the base path ${base.pathname}`);
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:60:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.get (helio-mcp/src/httpClient.ts:202:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:29:23
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › get › RED-FIRST a base that is not an absolute URL (localhost:8080) rejects, not throws
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/api/x\": the API base URL is not an absolute http(s) URL"
+
+          51 |   }
+          52 |   if (base.protocol !== "http:" && base.protocol !== "https:") {
+        > 53 |     throw new HelioRequestUrlError(path, "the API base URL is not an absolute http(s) URL");
+             |           ^
+          54 |   }
+          55 |   // Resolve the BARE path (one leading `/` removed), never `"./" + path`: under `./` a path such as
+          56 |   // `/https://evil.example/x` would resolve same-origin inside the prefix and be sent, making the
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:53:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.get (helio-mcp/src/httpClient.ts:202:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:29:23
+      at helio-mcp/src/httpClient.originGuard.test.ts:90:49
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at Object.<anonymous> (helio-mcp/src/httpClient.originGuard.test.ts:90:23)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at Object.<anonymous> (helio-mcp/src/httpClient.originGuard.test.ts:90:23)
+
+  ● HelioHttpClient refusals are rejected promises › post › RED-FIRST "//evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"//evil.example/x\": a protocol-relative path is not allowed"
+
+          34 | ): string {
+          35 |   if (path.startsWith("//")) {
+        > 36 |     throw new HelioRequestUrlError(path, "a protocol-relative path is not allowed");
+             |           ^
+          37 |   }
+          38 |   if (hasForbiddenCharacter(path)) {
+          39 |     throw new HelioRequestUrlError(
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:36:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.post (helio-mcp/src/httpClient.ts:211:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:30:24
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › post › RED-FIRST "/\\evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/\\\\evil.example/x\": a path may not contain a backslash, a control character or a space"
+
+          37 |   }
+          38 |   if (hasForbiddenCharacter(path)) {
+        > 39 |     throw new HelioRequestUrlError(
+             |           ^
+          40 |       path,
+          41 |       "a path may not contain a backslash, a control character or a space",
+          42 |     );
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:39:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.post (helio-mcp/src/httpClient.ts:211:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:30:24
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › post › RED-FIRST "/https://evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/https://evil.example/x\": it resolves to https://evil.example, not https://helio.test"
+
+          58 |   const url = new URL(path.startsWith("/") ? path.slice(1) : path, base);
+          59 |   if (url.origin !== base.origin) {
+        > 60 |     throw new HelioRequestUrlError(path, `it resolves to ${url.origin}, not ${base.origin}`);
+             |           ^
+          61 |   }
+          62 |   if (!url.pathname.startsWith(base.pathname)) {
+          63 |     throw new HelioRequestUrlError(path, `it resolves outside the base path ${base.pathname}`);
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:60:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.post (helio-mcp/src/httpClient.ts:211:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:30:24
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › post › RED-FIRST a base that is not an absolute URL (localhost:8080) rejects, not throws
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/api/x\": the API base URL is not an absolute http(s) URL"
+
+          51 |   }
+          52 |   if (base.protocol !== "http:" && base.protocol !== "https:") {
+        > 53 |     throw new HelioRequestUrlError(path, "the API base URL is not an absolute http(s) URL");
+             |           ^
+          54 |   }
+          55 |   // Resolve the BARE path (one leading `/` removed), never `"./" + path`: under `./` a path such as
+          56 |   // `/https://evil.example/x` would resolve same-origin inside the prefix and be sent, making the
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:53:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.post (helio-mcp/src/httpClient.ts:211:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:30:24
+      at helio-mcp/src/httpClient.originGuard.test.ts:90:49
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at Object.<anonymous> (helio-mcp/src/httpClient.originGuard.test.ts:90:23)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at Object.<anonymous> (helio-mcp/src/httpClient.originGuard.test.ts:90:23)
+
+  ● HelioHttpClient refusals are rejected promises › patch › RED-FIRST "//evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"//evil.example/x\": a protocol-relative path is not allowed"
+
+          34 | ): string {
+          35 |   if (path.startsWith("//")) {
+        > 36 |     throw new HelioRequestUrlError(path, "a protocol-relative path is not allowed");
+             |           ^
+          37 |   }
+          38 |   if (hasForbiddenCharacter(path)) {
+          39 |     throw new HelioRequestUrlError(
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:36:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.patch (helio-mcp/src/httpClient.ts:216:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:31:25
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › patch › RED-FIRST "/\\evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/\\\\evil.example/x\": a path may not contain a backslash, a control character or a space"
+
+          37 |   }
+          38 |   if (hasForbiddenCharacter(path)) {
+        > 39 |     throw new HelioRequestUrlError(
+             |           ^
+          40 |       path,
+          41 |       "a path may not contain a backslash, a control character or a space",
+          42 |     );
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:39:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.patch (helio-mcp/src/httpClient.ts:216:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:31:25
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › patch › RED-FIRST "/https://evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/https://evil.example/x\": it resolves to https://evil.example, not https://helio.test"
+
+          58 |   const url = new URL(path.startsWith("/") ? path.slice(1) : path, base);
+          59 |   if (url.origin !== base.origin) {
+        > 60 |     throw new HelioRequestUrlError(path, `it resolves to ${url.origin}, not ${base.origin}`);
+             |           ^
+          61 |   }
+          62 |   if (!url.pathname.startsWith(base.pathname)) {
+          63 |     throw new HelioRequestUrlError(path, `it resolves outside the base path ${base.pathname}`);
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:60:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.patch (helio-mcp/src/httpClient.ts:216:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:31:25
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › patch › RED-FIRST a base that is not an absolute URL (localhost:8080) rejects, not throws
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/api/x\": the API base URL is not an absolute http(s) URL"
+
+          51 |   }
+          52 |   if (base.protocol !== "http:" && base.protocol !== "https:") {
+        > 53 |     throw new HelioRequestUrlError(path, "the API base URL is not an absolute http(s) URL");
+             |           ^
+          54 |   }
+          55 |   // Resolve the BARE path (one leading `/` removed), never `"./" + path`: under `./` a path such as
+          56 |   // `/https://evil.example/x` would resolve same-origin inside the prefix and be sent, making the
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:53:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.patch (helio-mcp/src/httpClient.ts:216:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:31:25
+      at helio-mcp/src/httpClient.originGuard.test.ts:90:49
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at Object.<anonymous> (helio-mcp/src/httpClient.originGuard.test.ts:90:23)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at Object.<anonymous> (helio-mcp/src/httpClient.originGuard.test.ts:90:23)
+
+  ● HelioHttpClient refusals are rejected promises › put › RED-FIRST "//evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"//evil.example/x\": a protocol-relative path is not allowed"
+
+          34 | ): string {
+          35 |   if (path.startsWith("//")) {
+        > 36 |     throw new HelioRequestUrlError(path, "a protocol-relative path is not allowed");
+             |           ^
+          37 |   }
+          38 |   if (hasForbiddenCharacter(path)) {
+          39 |     throw new HelioRequestUrlError(
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:36:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.put (helio-mcp/src/httpClient.ts:222:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:32:23
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › put › RED-FIRST "/\\evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/\\\\evil.example/x\": a path may not contain a backslash, a control character or a space"
+
+          37 |   }
+          38 |   if (hasForbiddenCharacter(path)) {
+        > 39 |     throw new HelioRequestUrlError(
+             |           ^
+          40 |       path,
+          41 |       "a path may not contain a backslash, a control character or a space",
+          42 |     );
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:39:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.put (helio-mcp/src/httpClient.ts:222:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:32:23
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › put › RED-FIRST "/https://evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/https://evil.example/x\": it resolves to https://evil.example, not https://helio.test"
+
+          58 |   const url = new URL(path.startsWith("/") ? path.slice(1) : path, base);
+          59 |   if (url.origin !== base.origin) {
+        > 60 |     throw new HelioRequestUrlError(path, `it resolves to ${url.origin}, not ${base.origin}`);
+             |           ^
+          61 |   }
+          62 |   if (!url.pathname.startsWith(base.pathname)) {
+          63 |     throw new HelioRequestUrlError(path, `it resolves outside the base path ${base.pathname}`);
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:60:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.put (helio-mcp/src/httpClient.ts:222:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:32:23
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › put › RED-FIRST a base that is not an absolute URL (localhost:8080) rejects, not throws
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/api/x\": the API base URL is not an absolute http(s) URL"
+
+          51 |   }
+          52 |   if (base.protocol !== "http:" && base.protocol !== "https:") {
+        > 53 |     throw new HelioRequestUrlError(path, "the API base URL is not an absolute http(s) URL");
+             |           ^
+          54 |   }
+          55 |   // Resolve the BARE path (one leading `/` removed), never `"./" + path`: under `./` a path such as
+          56 |   // `/https://evil.example/x` would resolve same-origin inside the prefix and be sent, making the
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:53:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.put (helio-mcp/src/httpClient.ts:222:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:32:23
+      at helio-mcp/src/httpClient.originGuard.test.ts:90:49
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at Object.<anonymous> (helio-mcp/src/httpClient.originGuard.test.ts:90:23)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at Object.<anonymous> (helio-mcp/src/httpClient.originGuard.test.ts:90:23)
+
+  ● HelioHttpClient refusals are rejected promises › delete › RED-FIRST "//evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"//evil.example/x\": a protocol-relative path is not allowed"
+
+          34 | ): string {
+          35 |   if (path.startsWith("//")) {
+        > 36 |     throw new HelioRequestUrlError(path, "a protocol-relative path is not allowed");
+             |           ^
+          37 |   }
+          38 |   if (hasForbiddenCharacter(path)) {
+          39 |     throw new HelioRequestUrlError(
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:36:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.delete (helio-mcp/src/httpClient.ts:231:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:33:32
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › delete › RED-FIRST "/\\evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/\\\\evil.example/x\": a path may not contain a backslash, a control character or a space"
+
+          37 |   }
+          38 |   if (hasForbiddenCharacter(path)) {
+        > 39 |     throw new HelioRequestUrlError(
+             |           ^
+          40 |       path,
+          41 |       "a path may not contain a backslash, a control character or a space",
+          42 |     );
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:39:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.delete (helio-mcp/src/httpClient.ts:231:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:33:32
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › delete › RED-FIRST "/https://evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/https://evil.example/x\": it resolves to https://evil.example, not https://helio.test"
+
+          58 |   const url = new URL(path.startsWith("/") ? path.slice(1) : path, base);
+          59 |   if (url.origin !== base.origin) {
+        > 60 |     throw new HelioRequestUrlError(path, `it resolves to ${url.origin}, not ${base.origin}`);
+             |           ^
+          61 |   }
+          62 |   if (!url.pathname.startsWith(base.pathname)) {
+          63 |     throw new HelioRequestUrlError(path, `it resolves outside the base path ${base.pathname}`);
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:60:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.delete (helio-mcp/src/httpClient.ts:231:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:33:32
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › delete › RED-FIRST a base that is not an absolute URL (localhost:8080) rejects, not throws
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/api/x\": the API base URL is not an absolute http(s) URL"
+
+          51 |   }
+          52 |   if (base.protocol !== "http:" && base.protocol !== "https:") {
+        > 53 |     throw new HelioRequestUrlError(path, "the API base URL is not an absolute http(s) URL");
+             |           ^
+          54 |   }
+          55 |   // Resolve the BARE path (one leading `/` removed), never `"./" + path`: under `./` a path such as
+          56 |   // `/https://evil.example/x` would resolve same-origin inside the prefix and be sent, making the
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:53:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.delete (helio-mcp/src/httpClient.ts:231:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:33:32
+      at helio-mcp/src/httpClient.originGuard.test.ts:90:49
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at Object.<anonymous> (helio-mcp/src/httpClient.originGuard.test.ts:90:23)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at Object.<anonymous> (helio-mcp/src/httpClient.originGuard.test.ts:90:23)
+
+  ● HelioHttpClient refusals are rejected promises › postMultipart › RED-FIRST "//evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"//evil.example/x\": a protocol-relative path is not allowed"
+
+          34 | ): string {
+          35 |   if (path.startsWith("//")) {
+        > 36 |     throw new HelioRequestUrlError(path, "a protocol-relative path is not allowed");
+             |           ^
+          37 |   }
+          38 |   if (hasForbiddenCharacter(path)) {
+          39 |     throw new HelioRequestUrlError(
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:36:11)
+      at HelioHttpClient.postMultipart (helio-mcp/src/httpClient.ts:240:32)
+      at METHODS (helio-mcp/src/httpClient.originGuard.test.ts:34:33)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › postMultipart › RED-FIRST "/\\evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/\\\\evil.example/x\": a path may not contain a backslash, a control character or a space"
+
+          37 |   }
+          38 |   if (hasForbiddenCharacter(path)) {
+        > 39 |     throw new HelioRequestUrlError(
+             |           ^
+          40 |       path,
+          41 |       "a path may not contain a backslash, a control character or a space",
+          42 |     );
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:39:11)
+      at HelioHttpClient.postMultipart (helio-mcp/src/httpClient.ts:240:32)
+      at METHODS (helio-mcp/src/httpClient.originGuard.test.ts:34:33)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › postMultipart › RED-FIRST "/https://evil.example/x" returns a rejected promise and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/https://evil.example/x\": it resolves to https://evil.example, not https://helio.test"
+
+          58 |   const url = new URL(path.startsWith("/") ? path.slice(1) : path, base);
+          59 |   if (url.origin !== base.origin) {
+        > 60 |     throw new HelioRequestUrlError(path, `it resolves to ${url.origin}, not ${base.origin}`);
+             |           ^
+          61 |   }
+          62 |   if (!url.pathname.startsWith(base.pathname)) {
+          63 |     throw new HelioRequestUrlError(path, `it resolves outside the base path ${base.pathname}`);
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:60:11)
+      at HelioHttpClient.postMultipart (helio-mcp/src/httpClient.ts:240:32)
+      at METHODS (helio-mcp/src/httpClient.originGuard.test.ts:34:33)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:82:25
+
+  ● HelioHttpClient refusals are rejected promises › postMultipart › RED-FIRST a base that is not an absolute URL (localhost:8080) rejects, not throws
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/api/x\": the API base URL is not an absolute http(s) URL"
+
+          51 |   }
+          52 |   if (base.protocol !== "http:" && base.protocol !== "https:") {
+        > 53 |     throw new HelioRequestUrlError(path, "the API base URL is not an absolute http(s) URL");
+             |           ^
+          54 |   }
+          55 |   // Resolve the BARE path (one leading `/` removed), never `"./" + path`: under `./` a path such as
+          56 |   // `/https://evil.example/x` would resolve same-origin inside the prefix and be sent, making the
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:53:11)
+      at HelioHttpClient.postMultipart (helio-mcp/src/httpClient.ts:240:32)
+      at METHODS (helio-mcp/src/httpClient.originGuard.test.ts:34:33)
+      at helio-mcp/src/httpClient.originGuard.test.ts:90:49
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at Object.<anonymous> (helio-mcp/src/httpClient.originGuard.test.ts:90:23)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at Object.<anonymous> (helio-mcp/src/httpClient.originGuard.test.ts:90:23)
+
+  ● HelioHttpClient pre-resolution character check › RED-FIRST "/api/x y" is refused under a root base
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/api/x y\": a path may not contain a backslash, a control character or a space"
+
+          37 |   }
+          38 |   if (hasForbiddenCharacter(path)) {
+        > 39 |     throw new HelioRequestUrlError(
+             |           ^
+          40 |       path,
+          41 |       "a path may not contain a backslash, a control character or a space",
+          42 |     );
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:39:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.get (helio-mcp/src/httpClient.ts:202:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:118:53
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:118:20
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:118:20
+
+  ● HelioHttpClient pre-resolution character check › RED-FIRST "/api/x\u0000" is refused under a root base
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/api/x\\u0000\": a path may not contain a backslash, a control character or a space"
+
+          37 |   }
+          38 |   if (hasForbiddenCharacter(path)) {
+        > 39 |     throw new HelioRequestUrlError(
+             |           ^
+          40 |       path,
+          41 |       "a path may not contain a backslash, a control character or a space",
+          42 |     );
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:39:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.get (helio-mcp/src/httpClient.ts:202:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:118:53
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:118:20
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:118:20
+
+  ● HelioHttpClient pre-resolution character check › RED-FIRST "/api/x\n" is refused under a root base
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/api/x\\n\": a path may not contain a backslash, a control character or a space"
+
+          37 |   }
+          38 |   if (hasForbiddenCharacter(path)) {
+        > 39 |     throw new HelioRequestUrlError(
+             |           ^
+          40 |       path,
+          41 |       "a path may not contain a backslash, a control character or a space",
+          42 |     );
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:39:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.get (helio-mcp/src/httpClient.ts:202:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:118:53
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:118:20
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:118:20
+
+  ● HelioHttpClient prefix containment under base https://h/helio › RED-FIRST "/api/../../tokens" is refused and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/api/../../tokens\": it resolves outside the base path /helio/"
+
+          61 |   }
+          62 |   if (!url.pathname.startsWith(base.pathname)) {
+        > 63 |     throw new HelioRequestUrlError(path, `it resolves outside the base path ${base.pathname}`);
+             |           ^
+          64 |   }
+          65 |   if (query) {
+          66 |     for (const [key, value] of Object.entries(query)) {
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:63:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.get (helio-mcp/src/httpClient.ts:202:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:18
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:18
+
+  ● HelioHttpClient prefix containment under base https://h/helio › RED-FIRST "/../x" is refused and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/../x\": it resolves outside the base path /helio/"
+
+          61 |   }
+          62 |   if (!url.pathname.startsWith(base.pathname)) {
+        > 63 |     throw new HelioRequestUrlError(path, `it resolves outside the base path ${base.pathname}`);
+             |           ^
+          64 |   }
+          65 |   if (query) {
+          66 |     for (const [key, value] of Object.entries(query)) {
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:63:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.get (helio-mcp/src/httpClient.ts:202:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:18
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:18
+
+  ● HelioHttpClient prefix containment under base https://h/helio › RED-FIRST "/%2e%2e/x" is refused and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/%2e%2e/x\": it resolves outside the base path /helio/"
+
+          61 |   }
+          62 |   if (!url.pathname.startsWith(base.pathname)) {
+        > 63 |     throw new HelioRequestUrlError(path, `it resolves outside the base path ${base.pathname}`);
+             |           ^
+          64 |   }
+          65 |   if (query) {
+          66 |     for (const [key, value] of Object.entries(query)) {
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:63:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.get (helio-mcp/src/httpClient.ts:202:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:18
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:18
+
+  ● HelioHttpClient prefix containment under base https://h/helio › RED-FIRST "/.%2e/x" is refused and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/.%2e/x\": it resolves outside the base path /helio/"
+
+          61 |   }
+          62 |   if (!url.pathname.startsWith(base.pathname)) {
+        > 63 |     throw new HelioRequestUrlError(path, `it resolves outside the base path ${base.pathname}`);
+             |           ^
+          64 |   }
+          65 |   if (query) {
+          66 |     for (const [key, value] of Object.entries(query)) {
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:63:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.get (helio-mcp/src/httpClient.ts:202:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:18
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:18
+
+  ● HelioHttpClient prefix containment under base https://h/helio › RED-FIRST "/../helio2/x" is refused and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/../helio2/x\": it resolves outside the base path /helio/"
+
+          61 |   }
+          62 |   if (!url.pathname.startsWith(base.pathname)) {
+        > 63 |     throw new HelioRequestUrlError(path, `it resolves outside the base path ${base.pathname}`);
+             |           ^
+          64 |   }
+          65 |   if (query) {
+          66 |     for (const [key, value] of Object.entries(query)) {
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:63:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.get (helio-mcp/src/httpClient.ts:202:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:18
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:18
+
+  ● HelioHttpClient prefix containment under base https://h/helio › RED-FIRST "/api/%2e%2e/%2e%2e/x" is refused and sends nothing
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"/api/%2e%2e/%2e%2e/x\": it resolves outside the base path /helio/"
+
+          61 |   }
+          62 |   if (!url.pathname.startsWith(base.pathname)) {
+        > 63 |     throw new HelioRequestUrlError(path, `it resolves outside the base path ${base.pathname}`);
+             |           ^
+          64 |   }
+          65 |   if (query) {
+          66 |     for (const [key, value] of Object.entries(query)) {
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:63:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.get (helio-mcp/src/httpClient.ts:202:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:51
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:18
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at helio-mcp/src/httpClient.originGuard.test.ts:137:18
+
+  ● HelioHttpClient prefix containment under base https://h/helio › RED-FIRST origin escapes are still refused under a prefixed base
+
+    expect(received).not.toThrow()
+
+    Error name:    "HelioRequestUrlError"
+    Error message: "Refusing request path \"//evil.example/x\": a protocol-relative path is not allowed"
+
+          34 | ): string {
+          35 |   if (path.startsWith("//")) {
+        > 36 |     throw new HelioRequestUrlError(path, "a protocol-relative path is not allowed");
+             |           ^
+          37 |   }
+          38 |   if (hasForbiddenCharacter(path)) {
+          39 |     throw new HelioRequestUrlError(
+
+      at buildRequestUrl (helio-mcp/src/requestUrl.ts:36:11)
+      at HelioHttpClient.send (helio-mcp/src/httpClient.ts:255:32)
+      at HelioHttpClient.get (helio-mcp/src/httpClient.ts:202:17)
+      at helio-mcp/src/httpClient.originGuard.test.ts:153:53
+      at helio-mcp/src/httpClient.originGuard.test.ts:41:15
+      at Object.<anonymous> (node_modules/expect/build/index.js:1824:9)
+      at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:2235:93)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at Object.<anonymous> (helio-mcp/src/httpClient.originGuard.test.ts:153:20)
+      at callWithoutThrowing (helio-mcp/src/httpClient.originGuard.test.ts:42:10)
+      at Object.<anonymous> (helio-mcp/src/httpClient.originGuard.test.ts:153:20)
+
+PASS helio-mcp/src/oauth/familyClient.test.ts (5.395 s)
+  FamilyClient.rotate path safety
+  FamilyClient.create request URL (HEL-1161)
+
+PASS helio-mcp/src/requestPathGuard.test.ts
+  GUARD: request paths interpolate only pathSegment(...)
+  GUARD (a): no request URL joins a base with a path
+  "FULL-REPLACEMENT update (PATCH " +
+  "/api/data-sources/:id/schema) — any field " +
+  `DROPPED. MUST be one of the ${CANONICAL_COLUMN_TYPES_LIST} ` +
+  "canonical types. " (1 ms)
+  GUARD (b): fetch( is allow-listed and fed by buildRequestUrl
+
+PASS helio-mcp/src/config.test.ts
+  loadConfig HELIO_API_BASE_URL
+
+PASS helio-mcp/src/httpConfig.test.ts
+  loadHttpConfig
+
+PASS helio-mcp/src/oauth/patCheck.test.ts
+  checkPat request URL
+
+Test Suites: 1 failed, 6 passed, 7 total
+Tests:       34 failed, 86 passed, 120 total
+Snapshots:   0 total
+Time:        5.919 s, estimated 6 s
+Ran all test suites matching helio-mcp/src/requestPathGuard.test.ts|helio-mcp/src/requestUrl.test.ts|helio-mcp/src/config.test.ts|helio-mcp/src/httpClient.originGuard.test.ts|helio-mcp/src/oauth/familyClient.test.ts|helio-mcp/src/oauth/patCheck.test.ts|helio-mcp/src/httpConfig.test.ts.

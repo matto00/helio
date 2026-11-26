@@ -1,0 +1,147 @@
+# Mutation m7-family-concat (applied to the implementation; restored afterwards)
+ helio-mcp/src/oauth/familyClient.ts | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+PASS helio-mcp/src/config.test.ts
+  loadConfig HELIO_API_BASE_URL
+
+FAIL helio-mcp/src/requestPathGuard.test.ts
+  GUARD: request paths interpolate only pathSegment(...)
+  GUARD (a): no request URL joins a base with a path
+  "FULL-REPLACEMENT update (PATCH " +
+  "/api/data-sources/:id/schema) — any field " +
+  `DROPPED. MUST be one of the ${CANONICAL_COLUMN_TYPES_LIST} ` +
+  "canonical types. " (1 ms)
+    ✕ finds none across the real source set (6 ms)
+  GUARD (b): fetch( is allow-listed and fed by buildRequestUrl
+    ✕ familyClient.ts passes buildRequestUrl(...) to fetch( (1 ms)
+
+  ● GUARD (a): no request URL joins a base with a path › finds none across the real source set
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "oauth/familyClient.ts: fetch(`${this.apiBaseUrl}${path}`",
+    + ]
+
+      144 |       ),
+      145 |     );
+    > 146 |     expect(offenders).toEqual([]);
+          |                       ^
+      147 |   });
+      148 | });
+      149 |
+
+      at Object.<anonymous> (helio-mcp/src/requestPathGuard.test.ts:146:23)
+
+  ● GUARD (b): fetch( is allow-listed and fed by buildRequestUrl › familyClient.ts passes buildRequestUrl(...) to fetch(
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      180 |           first !== undefined &&
+      181 |           new RegExp(`const ${first} = buildRequestUrl\\(`).test(f?.src ?? "");
+    > 182 |         expect(direct || viaConst).toBe(true);
+          |                                    ^
+      183 |       }
+      184 |     },
+      185 |   );
+
+      at helio-mcp/src/requestPathGuard.test.ts:182:36
+
+PASS helio-mcp/src/requestUrl.test.ts
+  buildRequestUrl
+
+PASS helio-mcp/src/httpConfig.test.ts
+  loadHttpConfig
+
+PASS helio-mcp/src/oauth/patCheck.test.ts
+  checkPat request URL
+
+PASS helio-mcp/src/httpClient.originGuard.test.ts (5.029 s)
+  HelioHttpClient path prefix
+  HelioHttpClient refusals are rejected promises
+    get
+    post
+    patch
+    put
+    delete
+    postMultipart
+  HelioHttpClient pre-resolution character check
+  HelioHttpClient prefix containment under base https://h/helio
+  HelioHttpClient normal use
+
+FAIL helio-mcp/src/oauth/familyClient.test.ts
+  FamilyClient.rotate path safety
+  FamilyClient.create request URL (HEL-1161)
+    ✕ RED-FIRST a trailing-slash prefixed base requests https://h/helio/api/mcp-refresh-families (2 ms)
+    ✕ RED-FIRST rotate keeps the prefix and a trailing-slash base
+    ✕ RED-FIRST a base that is not an absolute URL is unavailable/HelioRequestUrlError, nothing sent (1 ms)
+
+  ● FamilyClient.create request URL (HEL-1161) › RED-FIRST a trailing-slash prefixed base requests https://h/helio/api/mcp-refresh-families
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "https://h/helio/api/mcp-refresh-families"
+    Received: "https://h/helio//api/mcp-refresh-families"
+
+      33 |     const spy = jest.spyOn(globalThis, "fetch").mockImplementation(reply);
+      34 |     await new FamilyClient("https://h/helio/").create("pat", request);
+    > 35 |     expect(String(spy.mock.calls[0]?.[0])).toBe("https://h/helio/api/mcp-refresh-families");
+         |                                            ^
+      36 |   });
+      37 |
+      38 |   it("GUARD a prefixed base without a trailing slash keeps its prefix", async () => {
+
+      at Object.<anonymous> (helio-mcp/src/oauth/familyClient.test.ts:35:44)
+
+  ● FamilyClient.create request URL (HEL-1161) › RED-FIRST rotate keeps the prefix and a trailing-slash base
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "https://h/helio/api/mcp-refresh-families/fam1/rotate"
+    Received: "https://h/helio//api/mcp-refresh-families/fam1/rotate"
+
+      51 |       nextJtiHash: "n",
+      52 |     });
+    > 53 |     expect(String(spy.mock.calls[0]?.[0])).toBe(
+         |                                            ^
+      54 |       "https://h/helio/api/mcp-refresh-families/fam1/rotate",
+      55 |     );
+      56 |   });
+
+      at Object.<anonymous> (helio-mcp/src/oauth/familyClient.test.ts:53:44)
+
+  ● FamilyClient.create request URL (HEL-1161) › RED-FIRST a base that is not an absolute URL is unavailable/HelioRequestUrlError, nothing sent
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+      Object {
+    -   "detail": "HelioRequestUrlError",
+    +   "detail": "500",
+        "kind": "unavailable",
+      }
+
+      60 |     const spy = jest.spyOn(globalThis, "fetch").mockImplementation(reply);
+      61 |     const outcome = await new FamilyClient("localhost:8080").create("pat", request);
+    > 62 |     expect(outcome).toEqual({ kind: "unavailable", detail: "HelioRequestUrlError" });
+         |                     ^
+      63 |     expect(spy).not.toHaveBeenCalled();
+      64 |   });
+      65 | });
+
+      at Object.<anonymous> (helio-mcp/src/oauth/familyClient.test.ts:62:21)
+
+Test Suites: 2 failed, 5 passed, 7 total
+Tests:       5 failed, 115 passed, 120 total
+Snapshots:   0 total
+Time:        5.59 s, estimated 6 s
+Ran all test suites matching helio-mcp/src/requestPathGuard.test.ts|helio-mcp/src/requestUrl.test.ts|helio-mcp/src/config.test.ts|helio-mcp/src/httpClient.originGuard.test.ts|helio-mcp/src/oauth/familyClient.test.ts|helio-mcp/src/oauth/patCheck.test.ts|helio-mcp/src/httpConfig.test.ts.

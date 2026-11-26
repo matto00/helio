@@ -4,6 +4,8 @@
  * and by the `/mcp` liveness gate (design D4, D5).
  */
 
+import { buildRequestUrl } from "../requestUrl.js";
+
 export type PatStatus =
   /** 200: accepted. */
   | "live"
@@ -20,7 +22,8 @@ export async function checkPat(
   timeoutMs = 3000,
 ): Promise<PatStatus> {
   try {
-    const res = await fetch(`${apiBaseUrl}/api/tokens`, {
+    const url = buildRequestUrl(apiBaseUrl, "/api/tokens");
+    const res = await fetch(url, {
       method: "GET",
       headers: { Authorization: `Bearer ${pat}`, Accept: "application/json" },
       signal: AbortSignal.timeout(timeoutMs),

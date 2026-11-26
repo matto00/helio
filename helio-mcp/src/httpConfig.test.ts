@@ -10,6 +10,27 @@ const base = (): Record<string, string> => ({
 });
 
 describe("loadHttpConfig", () => {
+  it.each(["localhost:8080", "ftp://h", "https://h/?q=1", "https://h/#f", "https://h/?"])(
+    "RED-FIRST rejects HELIO_API_BASE_URL %j, naming the variable",
+    (value) => {
+      expect(() => loadHttpConfig({ ...base(), HELIO_API_BASE_URL: value })).toThrow(
+        "HELIO_API_BASE_URL",
+      );
+    },
+  );
+
+  it("GUARD rejects a base with no scheme (helio.test/api)", () => {
+    expect(() => loadHttpConfig({ ...base(), HELIO_API_BASE_URL: "helio.test/api" })).toThrow(
+      "HELIO_API_BASE_URL",
+    );
+  });
+
+  it("GUARD keeps a path prefix and strips trailing slashes", () => {
+    expect(loadHttpConfig({ ...base(), HELIO_API_BASE_URL: "https://h/helio/" }).apiBaseUrl).toBe(
+      "https://h/helio",
+    );
+  });
+
   it("loads defaults", () => {
     const c = loadHttpConfig(base());
     expect(c.resourceUrl.href).toBe("https://mcp.example.dev/mcp");

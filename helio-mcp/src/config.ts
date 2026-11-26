@@ -19,9 +19,33 @@ export interface HelioConfig {
 const DEFAULT_BASE_URL = "http://localhost:8080";
 const PAT_PREFIX = "helio_pat_";
 
+/** The server-side `HELIO_API_BASE_URL` rule, shared by `loadConfig` and `loadHttpConfig`: an absolute
+ *  `http:`/`https:` URL with no query or fragment; returned with trailing slashes stripped. The message
+ *  names the variable and the offending part only, never the value (it may carry credentials). */
+export function validateApiBaseUrl(raw: string): string {
+  const expected = "e.g. https://helio.example or https://host/helio";
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error(`HELIO_API_BASE_URL must be an absolute http(s) URL, ${expected}.`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(
+      `HELIO_API_BASE_URL must be an absolute http(s) URL, ${expected} (its scheme is "${url.protocol}").`,
+    );
+  }
+  // `?`/`#` on the raw value: `new URL("https://h/?")` reports an empty `search`.
+  if (/[?#]/.test(raw)) {
+    const part = raw.includes("?") ? "a query string" : "a fragment";
+    throw new Error(`HELIO_API_BASE_URL must not contain ${part}, ${expected}.`);
+  }
+  return raw.replace(/\/+$/, "");
+}
+
 /** Read + validate config, or throw a message suitable for printing to stderr. */
 export function loadConfig(env: Record<string, string | undefined> = process.env): HelioConfig {
-  const baseUrl = (env.HELIO_API_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
+  const baseUrl = validateApiBaseUrl(env.HELIO_API_BASE_URL?.trim() || DEFAULT_BASE_URL);
 
   const pat = env.HELIO_PAT?.trim();
   if (!pat) {

@@ -1,0 +1,71 @@
+# Mutation m9-planted-fetch (applied to the implementation; restored afterwards)
+ helio-mcp/src/runWarnings.ts | 2 ++
+ 1 file changed, 2 insertions(+)
+PASS helio-mcp/src/oauth/familyClient.test.ts
+  FamilyClient.rotate path safety
+  FamilyClient.create request URL (HEL-1161)
+
+FAIL helio-mcp/src/requestPathGuard.test.ts
+  GUARD: request paths interpolate only pathSegment(...)
+  GUARD (a): no request URL joins a base with a path
+  "FULL-REPLACEMENT update (PATCH " +
+  "/api/data-sources/:id/schema) — any field " +
+  `DROPPED. MUST be one of the ${CANONICAL_COLUMN_TYPES_LIST} ` +
+  "canonical types. "
+  GUARD (b): fetch( is allow-listed and fed by buildRequestUrl
+    ✕ only the three known files call fetch( (2 ms)
+
+  ● GUARD (b): fetch( is allow-listed and fed by buildRequestUrl › only the three known files call fetch(
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 0
+    + Received  + 1
+
+      Array [
+        "httpClient.ts",
+        "oauth/familyClient.ts",
+        "oauth/patCheck.ts",
+    +   "runWarnings.ts",
+      ]
+
+      159 |
+      160 |   it("only the three known files call fetch(", () => {
+    > 161 |     expect(withFetch.map((f) => f.rel).sort()).toEqual([...FETCH_SITES].sort());
+          |                                                ^
+      162 |   });
+      163 |
+      164 |   it("httpClient.ts's only fetch( is the default fetchImpl forwarding its url", () => {
+
+      at Object.<anonymous> (helio-mcp/src/requestPathGuard.test.ts:161:48)
+
+PASS helio-mcp/src/httpConfig.test.ts
+  loadHttpConfig
+
+PASS helio-mcp/src/config.test.ts
+  loadConfig HELIO_API_BASE_URL
+
+PASS helio-mcp/src/httpClient.originGuard.test.ts
+  HelioHttpClient path prefix
+  HelioHttpClient refusals are rejected promises
+    get
+    post
+    patch
+    put
+    delete
+    postMultipart
+  HelioHttpClient pre-resolution character check
+  HelioHttpClient prefix containment under base https://h/helio
+  HelioHttpClient normal use
+
+PASS helio-mcp/src/requestUrl.test.ts
+  buildRequestUrl
+
+PASS helio-mcp/src/oauth/patCheck.test.ts
+  checkPat request URL
+
+Test Suites: 1 failed, 6 passed, 7 total
+Tests:       1 failed, 119 passed, 120 total
+Snapshots:   0 total
+Time:        3.394 s, estimated 5 s
+Ran all test suites matching helio-mcp/src/requestPathGuard.test.ts|helio-mcp/src/requestUrl.test.ts|helio-mcp/src/config.test.ts|helio-mcp/src/httpClient.originGuard.test.ts|helio-mcp/src/oauth/familyClient.test.ts|helio-mcp/src/oauth/patCheck.test.ts|helio-mcp/src/httpConfig.test.ts.

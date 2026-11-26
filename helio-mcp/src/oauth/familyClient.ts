@@ -1,4 +1,5 @@
 import { HelioInvalidIdError, pathSegment } from "../pathSegment.js";
+import { buildRequestUrl } from "../requestUrl.js";
 
 /**
  * Client for the two backend refresh-family routes (HEL-1713, design D3/D5). The PAT is the bearer, so
@@ -95,7 +96,8 @@ export class FamilyClient {
     body: object,
   ): Promise<{ status: number; body: unknown } | { error: string }> {
     try {
-      const res = await fetch(`${this.apiBaseUrl}${path}`, {
+      const url = buildRequestUrl(this.apiBaseUrl, path);
+      const res = await fetch(url, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${pat}`,
