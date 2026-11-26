@@ -5,6 +5,7 @@
  * or secret-adjacent), so a message is safe to print to the host's logs.
  */
 
+import { validateApiBaseUrl } from "./config.js";
 import type { SealKeys } from "./oauth/seal.js";
 
 export interface HttpConfig {
@@ -74,12 +75,7 @@ function intInRange(env: Env, name: string, min: number, max: number, dflt: numb
 export function loadHttpConfig(env: Env = process.env): HttpConfig {
   const publicUrl = origin("HELIO_MCP_PUBLIC_URL", required(env, "HELIO_MCP_PUBLIC_URL"));
   const appUrl = origin("HELIO_APP_URL", required(env, "HELIO_APP_URL"));
-  const apiBaseUrl = required(env, "HELIO_API_BASE_URL").replace(/\/+$/, "");
-  try {
-    new URL(apiBaseUrl);
-  } catch {
-    throw new Error("HELIO_API_BASE_URL is not a valid URL.");
-  }
+  const apiBaseUrl = validateApiBaseUrl(required(env, "HELIO_API_BASE_URL"));
   const current = key("HELIO_MCP_TOKEN_KEY", required(env, "HELIO_MCP_TOKEN_KEY"));
   const prevRaw = env.HELIO_MCP_TOKEN_KEY_PREVIOUS?.trim();
   const previous = prevRaw ? key("HELIO_MCP_TOKEN_KEY_PREVIOUS", prevRaw) : undefined;

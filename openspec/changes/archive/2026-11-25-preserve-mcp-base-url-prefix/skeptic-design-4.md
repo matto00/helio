@@ -1,0 +1,29 @@
+## Skeptic Report — design gate (round 4, skeptic-design-4.md)
+
+Reviewed at HEAD `014317f538d3ec10f0394407f2c36d7e8e4fb7d4` (branch `bug/mcp-base-url-prefix/HEL-1161`, HEL-1160 `c939f3781` an ancestor; planning artifacts untracked in the change dir). Probe script: `/home/matt/Development/helio/.concertino/scratch/HEL-1161/skeptic-design-4/b.cjs` (the design's builder algorithm and main's `buildUrl`, side by side, over every task/spec vector plus extra edge vectors).
+
+### What I verified (with evidence)
+
+- Spawn-cwd guard: `READY ambient=/home/matt/Development/helio branch=bug/mcp-base-url-prefix/HEL-1161`. Lane constraints read and followed (scratch only, no servers, no .env).
+- Live code read: `httpClient.ts` (`buildUrl` 415-430, synchronous calls at 248/262, `HelioRequestUrlError.name` = `"HelioRequestUrlError"` at 49, default `fetchImpl` at 179), `oauth/familyClient.ts` (`fetch(\`${this.apiBaseUrl}${path}\`)` at 98 inside `try`, error maps to `err.name`), `oauth/patCheck.ts` (`fetch(\`${apiBaseUrl}/api/tokens\`)` at 23 inside `try`/`catch -> "unknown"`), `config.ts` (no validation, no trim), `httpConfig.ts` (`required` trims and rejects blank; only `new URL()` check), `httpClient.originGuard.test.ts` (sync `toThrow` at 27/34/35), `requestPathGuard.test.ts` (`MIN_SITES = 63`), `tools/write.ts:209-211`, `context.ts` comments. The design's Context section matches the code.
+- Round-3 CR1 is resolved: Decision 5's builder note now states the builder resolves the BARE stripped path and never `"./" + stripped`, consistent with Decision 1 ("resolve path with its single leading `/` removed"). No option remains that contradicts tasks 1.1 or the spec's "Origin change is refused" scenario.
+- Builder outcomes (probe, design algorithm), every one matching tasks.md and the spec:
+  - `https://h/helio`, `https://h/helio/`, `https://h/helio//` + `/api/x` -> `https://h/helio/api/x` (main: `https://h/api/x`, RED-FIRST correct).
+  - `/https://evil.example/x` refused as origin change under root and prefixed base (main: sent same-origin, RED-FIRST correct).
+  - `/\evil.example/x`, `/\t/evil.example/x` refused (char check) under root and prefixed base; main refuses them too (origin), so GUARD label is correct.
+  - `/api/x y` and `/api/x\u0000` refused; main sends them (`%20`, and the trailing NUL is stripped by WHATWG, sending `/api/x`), so RED-FIRST is correct.
+  - `/api/../../tokens`, `/../x`, `/%2e%2e/x`, `/.%2e/x`, `/../helio2/x` (and extras `/./../x`, `/api/%2e%2e/%2e%2e/x`) refused by the prefix check; main sends all, RED-FIRST correct.
+  - base `localhost:8080` refused (scheme `localhost:`); main throws `Invalid URL` synchronously, RED-FIRST correct. `FamilyClient` then reports `detail === "HelioRequestUrlError"` because the builder runs inside its `try` and the class sets `name`; main reports `TypeError`.
+  - Benign paths still work: `/`, `api/x` (no leading slash), `/api/x?q=1`, `/helio/../x` (stays inside prefix), upper-case scheme/host, default port.
+- Config vectors (`new URL` probe): `localhost:8080` parses with protocol `localhost:` (so main's `loadHttpConfig` accepts it), `helio.test/api` throws (main's `loadHttpConfig` already rejects, GUARD correct), `ftp://h`/`file:///x` non-http, `https://h/?q=1` search, `https://h/#f` hash: all rejected by Decision 4, all accepted by main `loadConfig`. Blank `"  "` on main yields base `"  "`; Decision 4 trims and defaults. No existing `loadConfig` test file exists (only `config.ts`/`index.ts` reference it); the executor creates one, which tasks 1.1/2.4 imply.
+- Guard (Decision 5) against the real source set, by grep: a1 shape only at `oauth/patCheck.ts:23`; adjacent-interpolation templates at `familyClient.ts:98` (a fetch argument, flagged by a2) and `httpClient.ts:449` (not a fetch argument, not flagged); `+ "/api..."` only at `tools/write.ts:209-211`, whose operands are string literal + template literal (explicitly not flagged by a3, and fixture-listed as a negative). Non-test `fetch(` literal occurrences: exactly the 3 allow-listed sites (`testing/` excluded). `context.ts` has `fetch (` in comments and `fetchAllOutputs(`/`fetchPlacements(` identifiers, none containing the literal `fetch(`, so the design's "literal token, no whitespace" rule is correct. Red on main on exactly the two intended sites; green once both call `buildRequestUrl(`.
+- Coverage: AC1 (prefix, trailing slash) -> 1.1/2.1; AC2 (config) -> 1.1/2.4; AC3 (no sync throw) -> 1.1/2.2; scope 1 (widened guard, planted-site mutation) -> 1.2/2.5/3.1; scope 2 (FamilyClient through builder) -> 1.2/2.3; scope 3 (origin and `..` under prefix) -> 1.1/2.1/3.1. Non-goals keep HEL-1162/1163 out. No placeholders, no TBDs; every task has a Verify line.
+- Design, spec and tasks agree: the spec requirement's refusal list (`//`, `\`, control, space, origin change, outside prefix) equals Decision 1's checks; every spec scenario's example is an outcome my probe of the design algorithm produces.
+
+### Verdict: CONFIRM
+
+### Non-blocking notes
+
+- Empty query/fragment markers slip past Decision 4 but not the builder: `HELIO_API_BASE_URL=https://h/?` (or `https://h/#`) parses with `search === ""`/`hash === ""`, so `validateApiBaseUrl` accepts it, yet the builder's `baseUrl + "/"` becomes `https://h/?/` (search `"?/"`) and refuses every request (as a typed rejected promise, so no AC is violated). Cheapest fix during implementation: have the validator also reject a raw value containing `?` or `#`, so config load and the builder agree. Not required by ticket or spec.
+- Rule a3 read strictly misses left-associative chains like `"https://h" + "/api/x/" + id` (noted in round 3); check (b)'s allow-list bounds the surface.
+- A first path segment containing `:` is refused as an origin change (documented in the design as acceptable); worth a one-line comment in `requestUrl.ts` so a future reader does not "fix" it with `"./"`.

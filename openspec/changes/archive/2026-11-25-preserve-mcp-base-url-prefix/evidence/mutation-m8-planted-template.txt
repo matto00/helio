@@ -1,0 +1,69 @@
+# Mutation m8-planted-template (applied to the implementation; restored afterwards)
+ helio-mcp/src/runWarnings.ts | 2 ++
+ 1 file changed, 2 insertions(+)
+PASS helio-mcp/src/httpClient.originGuard.test.ts
+  HelioHttpClient path prefix
+  HelioHttpClient refusals are rejected promises
+    get
+    post
+    patch
+    put
+    delete
+    postMultipart
+  HelioHttpClient pre-resolution character check
+  HelioHttpClient prefix containment under base https://h/helio
+  HelioHttpClient normal use
+
+FAIL helio-mcp/src/requestPathGuard.test.ts
+  GUARD: request paths interpolate only pathSegment(...)
+  GUARD (a): no request URL joins a base with a path
+  "FULL-REPLACEMENT update (PATCH " +
+  "/api/data-sources/:id/schema) — any field " +
+  `DROPPED. MUST be one of the ${CANONICAL_COLUMN_TYPES_LIST} ` +
+  "canonical types. "
+    ✕ finds none across the real source set (8 ms)
+  GUARD (b): fetch( is allow-listed and fed by buildRequestUrl
+
+  ● GUARD (a): no request URL joins a base with a path › finds none across the real source set
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "runWarnings.ts: `${prefix}/api/x/${id}`",
+    + ]
+
+      144 |       ),
+      145 |     );
+    > 146 |     expect(offenders).toEqual([]);
+          |                       ^
+      147 |   });
+      148 | });
+      149 |
+
+      at Object.<anonymous> (helio-mcp/src/requestPathGuard.test.ts:146:23)
+
+PASS helio-mcp/src/httpConfig.test.ts
+  loadHttpConfig
+
+PASS helio-mcp/src/config.test.ts
+  loadConfig HELIO_API_BASE_URL
+
+PASS helio-mcp/src/oauth/patCheck.test.ts
+  checkPat request URL
+
+PASS helio-mcp/src/requestUrl.test.ts
+  buildRequestUrl
+
+PASS helio-mcp/src/oauth/familyClient.test.ts
+  FamilyClient.rotate path safety
+  FamilyClient.create request URL (HEL-1161)
+
+Test Suites: 1 failed, 6 passed, 7 total
+Tests:       1 failed, 119 passed, 120 total
+Snapshots:   0 total
+Time:        5.313 s, estimated 6 s
+Ran all test suites matching helio-mcp/src/requestPathGuard.test.ts|helio-mcp/src/requestUrl.test.ts|helio-mcp/src/config.test.ts|helio-mcp/src/httpClient.originGuard.test.ts|helio-mcp/src/oauth/familyClient.test.ts|helio-mcp/src/oauth/patCheck.test.ts|helio-mcp/src/httpConfig.test.ts.

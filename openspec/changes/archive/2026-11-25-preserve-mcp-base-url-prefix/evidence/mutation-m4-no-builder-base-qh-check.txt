@@ -1,0 +1,103 @@
+# Mutation m4-no-builder-base-qh-check (applied to the implementation; restored afterwards)
+ helio-mcp/src/requestUrl.ts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+FAIL helio-mcp/src/requestUrl.test.ts (5.113 s)
+  buildRequestUrl
+    ✕ RED-FIRST refuses base "https://h/?q=1" with a typed error (1 ms)
+    ✕ RED-FIRST refuses base "https://h/#f" with a typed error
+    ✕ RED-FIRST refuses base "https://h/?" with a typed error
+
+  ● buildRequestUrl › RED-FIRST refuses base "https://h/?q=1" with a typed error
+
+    expect(received).toThrow(expected)
+
+    Expected constructor: HelioRequestUrlError
+
+    Received function did not throw
+
+      42 |     "",
+      43 |   ])("RED-FIRST refuses base %j with a typed error", (base) => {
+    > 44 |     expect(() => buildRequestUrl(base, "/api/x")).toThrow(HelioRequestUrlError);
+         |                                                   ^
+      45 |   });
+      46 | });
+      47 |
+
+      at helio-mcp/src/requestUrl.test.ts:44:51
+
+  ● buildRequestUrl › RED-FIRST refuses base "https://h/#f" with a typed error
+
+    expect(received).toThrow(expected)
+
+    Expected constructor: HelioRequestUrlError
+
+    Received function did not throw
+
+      42 |     "",
+      43 |   ])("RED-FIRST refuses base %j with a typed error", (base) => {
+    > 44 |     expect(() => buildRequestUrl(base, "/api/x")).toThrow(HelioRequestUrlError);
+         |                                                   ^
+      45 |   });
+      46 | });
+      47 |
+
+      at helio-mcp/src/requestUrl.test.ts:44:51
+
+  ● buildRequestUrl › RED-FIRST refuses base "https://h/?" with a typed error
+
+    expect(received).toThrow(expected)
+
+    Expected constructor: HelioRequestUrlError
+
+    Received function did not throw
+
+      42 |     "",
+      43 |   ])("RED-FIRST refuses base %j with a typed error", (base) => {
+    > 44 |     expect(() => buildRequestUrl(base, "/api/x")).toThrow(HelioRequestUrlError);
+         |                                                   ^
+      45 |   });
+      46 | });
+      47 |
+
+      at helio-mcp/src/requestUrl.test.ts:44:51
+
+PASS helio-mcp/src/httpClient.originGuard.test.ts (5.135 s)
+  HelioHttpClient path prefix
+  HelioHttpClient refusals are rejected promises
+    get
+    post
+    patch
+    put
+    delete
+    postMultipart
+  HelioHttpClient pre-resolution character check
+  HelioHttpClient prefix containment under base https://h/helio
+  HelioHttpClient normal use
+
+PASS helio-mcp/src/requestPathGuard.test.ts
+  GUARD: request paths interpolate only pathSegment(...)
+  GUARD (a): no request URL joins a base with a path
+  "FULL-REPLACEMENT update (PATCH " +
+  "/api/data-sources/:id/schema) — any field " +
+  `DROPPED. MUST be one of the ${CANONICAL_COLUMN_TYPES_LIST} ` +
+  "canonical types. "
+  GUARD (b): fetch( is allow-listed and fed by buildRequestUrl
+
+PASS helio-mcp/src/oauth/familyClient.test.ts (5.205 s)
+  FamilyClient.rotate path safety
+  FamilyClient.create request URL (HEL-1161)
+
+PASS helio-mcp/src/httpConfig.test.ts
+  loadHttpConfig
+
+PASS helio-mcp/src/config.test.ts
+  loadConfig HELIO_API_BASE_URL
+
+PASS helio-mcp/src/oauth/patCheck.test.ts
+  checkPat request URL
+
+Test Suites: 1 failed, 6 passed, 7 total
+Tests:       3 failed, 117 passed, 120 total
+Snapshots:   0 total
+Time:        5.775 s, estimated 6 s
+Ran all test suites matching helio-mcp/src/requestPathGuard.test.ts|helio-mcp/src/requestUrl.test.ts|helio-mcp/src/config.test.ts|helio-mcp/src/httpClient.originGuard.test.ts|helio-mcp/src/oauth/familyClient.test.ts|helio-mcp/src/oauth/patCheck.test.ts|helio-mcp/src/httpConfig.test.ts.

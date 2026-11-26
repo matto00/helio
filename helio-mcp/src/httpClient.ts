@@ -42,18 +42,10 @@
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { HelioConfig } from "./config.js";
+import { buildRequestUrl, HelioRequestUrlError } from "./requestUrl.js";
 import type { DashboardResponse } from "./types.js";
 
-/** HEL-1160: a request path that would leave the configured API origin. No request is sent. */
-export class HelioRequestUrlError extends Error {
-  override readonly name = "HelioRequestUrlError";
-  constructor(
-    readonly path: string,
-    reason: string,
-  ) {
-    super(`Refusing request path ${JSON.stringify(path)}: ${reason}`);
-  }
-}
+export { HelioRequestUrlError };
 
 /** Base error for any non-2xx Helio response. */
 export class HelioApiError extends Error {
@@ -244,8 +236,8 @@ export class HelioHttpClient {
    *  `fetch` itself when the body is a `FormData` instance — never set it
    *  manually, or the boundary will be missing and the backend's multipart
    *  unmarshaller will fail to parse the parts. */
-  postMultipart<T>(path: string, form: FormData): Promise<T> {
-    const url = this.buildUrl(path);
+  async postMultipart<T>(path: string, form: FormData): Promise<T> {
+    const url = buildRequestUrl(this.baseUrl, path);
     const headers: Record<string, string> = {
       Authorization: this.authHeader,
       Accept: "application/json",
@@ -253,13 +245,14 @@ export class HelioHttpClient {
     return this.dispatch<T>(url, { method: "POST", headers, body: form });
   }
 
-  private send<T>(
+  // `async`: a URL-building refusal is a rejected promise, never a synchronous throw (HEL-1161).
+  private async send<T>(
     method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
     path: string,
     body?: unknown,
     query?: Record<string, string | number | undefined>,
   ): Promise<T> {
-    const url = this.buildUrl(path, query);
+    const url = buildRequestUrl(this.baseUrl, path, query);
     const headers: Record<string, string> = {
       Authorization: this.authHeader,
       Accept: "application/json",
@@ -410,23 +403,6 @@ export class HelioHttpClient {
         `(${this.describeError(response, body)})`,
       retryAfterSeconds,
     );
-  }
-
-  private buildUrl(path: string, query?: Record<string, string | number | undefined>): string {
-    if (path.startsWith("//")) {
-      throw new HelioRequestUrlError(path, "a protocol-relative path is not allowed");
-    }
-    const base = new URL(`${this.baseUrl}/`);
-    const url = new URL(path.startsWith("/") ? path : `/${path}`, base);
-    if (url.origin !== base.origin) {
-      throw new HelioRequestUrlError(path, `it resolves to ${url.origin}, not ${base.origin}`);
-    }
-    if (query) {
-      for (const [key, value] of Object.entries(query)) {
-        if (value !== undefined) url.searchParams.set(key, String(value));
-      }
-    }
-    return url.toString();
   }
 
   /** Parse a non-2xx body as JSON; `undefined` when it isn't JSON. */

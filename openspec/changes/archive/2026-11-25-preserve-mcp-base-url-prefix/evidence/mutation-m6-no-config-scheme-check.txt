@@ -1,0 +1,159 @@
+# Mutation m6-no-config-scheme-check (applied to the implementation; restored afterwards)
+ helio-mcp/src/config.ts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+PASS helio-mcp/src/oauth/familyClient.test.ts
+  FamilyClient.rotate path safety
+  FamilyClient.create request URL (HEL-1161)
+
+PASS helio-mcp/src/oauth/patCheck.test.ts
+  checkPat request URL
+
+PASS helio-mcp/src/requestUrl.test.ts
+  buildRequestUrl
+
+PASS helio-mcp/src/requestPathGuard.test.ts
+  GUARD: request paths interpolate only pathSegment(...)
+  GUARD (a): no request URL joins a base with a path
+  "FULL-REPLACEMENT update (PATCH " +
+  "/api/data-sources/:id/schema) — any field " +
+  `DROPPED. MUST be one of the ${CANONICAL_COLUMN_TYPES_LIST} ` +
+  "canonical types. " (1 ms)
+  GUARD (b): fetch( is allow-listed and fed by buildRequestUrl
+
+FAIL helio-mcp/src/config.test.ts
+  loadConfig HELIO_API_BASE_URL
+    ✕ RED-FIRST rejects "localhost:8080", naming the variable (1 ms)
+    ✕ RED-FIRST rejects "ftp://h", naming the variable
+    ✕ RED-FIRST rejects "file:///x", naming the variable (1 ms)
+    ✕ RED-FIRST never echoes a credential-bearing value in the message
+
+  ● loadConfig HELIO_API_BASE_URL › RED-FIRST rejects "localhost:8080", naming the variable
+
+    expect(received).toThrow(expected)
+
+    Expected substring: "HELIO_API_BASE_URL"
+
+    Received function did not throw
+
+      19 |     "https://h/#",
+      20 |   ])("RED-FIRST rejects %j, naming the variable", (base) => {
+    > 21 |     expect(() => loadConfig(env(base))).toThrow("HELIO_API_BASE_URL");
+         |                                         ^
+      22 |   });
+      23 |
+      24 |   it("RED-FIRST never echoes a credential-bearing value in the message", () => {
+
+      at helio-mcp/src/config.test.ts:21:41
+
+  ● loadConfig HELIO_API_BASE_URL › RED-FIRST rejects "ftp://h", naming the variable
+
+    expect(received).toThrow(expected)
+
+    Expected substring: "HELIO_API_BASE_URL"
+
+    Received function did not throw
+
+      19 |     "https://h/#",
+      20 |   ])("RED-FIRST rejects %j, naming the variable", (base) => {
+    > 21 |     expect(() => loadConfig(env(base))).toThrow("HELIO_API_BASE_URL");
+         |                                         ^
+      22 |   });
+      23 |
+      24 |   it("RED-FIRST never echoes a credential-bearing value in the message", () => {
+
+      at helio-mcp/src/config.test.ts:21:41
+
+  ● loadConfig HELIO_API_BASE_URL › RED-FIRST rejects "file:///x", naming the variable
+
+    expect(received).toThrow(expected)
+
+    Expected substring: "HELIO_API_BASE_URL"
+
+    Received function did not throw
+
+      19 |     "https://h/#",
+      20 |   ])("RED-FIRST rejects %j, naming the variable", (base) => {
+    > 21 |     expect(() => loadConfig(env(base))).toThrow("HELIO_API_BASE_URL");
+         |                                         ^
+      22 |   });
+      23 |
+      24 |   it("RED-FIRST never echoes a credential-bearing value in the message", () => {
+
+      at helio-mcp/src/config.test.ts:21:41
+
+  ● loadConfig HELIO_API_BASE_URL › RED-FIRST never echoes a credential-bearing value in the message
+
+    expect(received).toContain(expected) // indexOf
+
+    Expected substring: "HELIO_API_BASE_URL"
+    Received string:    ""
+
+      29 |       message = (err as Error).message;
+      30 |     }
+    > 31 |     expect(message).toContain("HELIO_API_BASE_URL");
+         |                     ^
+      32 |     expect(message).not.toContain("s3cret");
+      33 |   });
+      34 |
+
+      at Object.<anonymous> (helio-mcp/src/config.test.ts:31:21)
+
+FAIL helio-mcp/src/httpConfig.test.ts
+  loadHttpConfig
+    ✕ RED-FIRST rejects HELIO_API_BASE_URL "localhost:8080", naming the variable (2 ms)
+    ✕ RED-FIRST rejects HELIO_API_BASE_URL "ftp://h", naming the variable
+
+  ● loadHttpConfig › RED-FIRST rejects HELIO_API_BASE_URL "localhost:8080", naming the variable
+
+    expect(received).toThrow(expected)
+
+    Expected substring: "HELIO_API_BASE_URL"
+
+    Received function did not throw
+
+      14 |     "RED-FIRST rejects HELIO_API_BASE_URL %j, naming the variable",
+      15 |     (value) => {
+    > 16 |       expect(() => loadHttpConfig({ ...base(), HELIO_API_BASE_URL: value })).toThrow(
+         |                                                                              ^
+      17 |         "HELIO_API_BASE_URL",
+      18 |       );
+      19 |     },
+
+      at helio-mcp/src/httpConfig.test.ts:16:78
+
+  ● loadHttpConfig › RED-FIRST rejects HELIO_API_BASE_URL "ftp://h", naming the variable
+
+    expect(received).toThrow(expected)
+
+    Expected substring: "HELIO_API_BASE_URL"
+
+    Received function did not throw
+
+      14 |     "RED-FIRST rejects HELIO_API_BASE_URL %j, naming the variable",
+      15 |     (value) => {
+    > 16 |       expect(() => loadHttpConfig({ ...base(), HELIO_API_BASE_URL: value })).toThrow(
+         |                                                                              ^
+      17 |         "HELIO_API_BASE_URL",
+      18 |       );
+      19 |     },
+
+      at helio-mcp/src/httpConfig.test.ts:16:78
+
+PASS helio-mcp/src/httpClient.originGuard.test.ts (5.031 s)
+  HelioHttpClient path prefix
+  HelioHttpClient refusals are rejected promises
+    get
+    post
+    patch
+    put
+    delete
+    postMultipart
+  HelioHttpClient pre-resolution character check
+  HelioHttpClient prefix containment under base https://h/helio
+  HelioHttpClient normal use
+
+Test Suites: 2 failed, 5 passed, 7 total
+Tests:       6 failed, 114 passed, 120 total
+Snapshots:   0 total
+Time:        5.443 s, estimated 6 s
+Ran all test suites matching helio-mcp/src/requestPathGuard.test.ts|helio-mcp/src/requestUrl.test.ts|helio-mcp/src/config.test.ts|helio-mcp/src/httpClient.originGuard.test.ts|helio-mcp/src/oauth/familyClient.test.ts|helio-mcp/src/oauth/patCheck.test.ts|helio-mcp/src/httpConfig.test.ts.
