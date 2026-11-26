@@ -149,7 +149,7 @@ trait PatchSetUndoServiceFixture extends AnyWordSpec with Matchers with HelioRou
    *  placement test needs a genuine row, not a synthetic id (the DB-level FK is checked
    *  regardless of the app-level existence CHECK). */
   protected def seedOutput(pipeline: PipelineSummaryResponse, owner: AuthenticatedUser, name: String = "Output"): Output =
-    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, owner.id, name, OutputKind.Table, explicitRootId = None))
+    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, owner.id, name, OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
   // HEL-904: no companion DataType to look up anymore — returns just the DataSourceId
   // (every call site already discarded the old tuple's second element).

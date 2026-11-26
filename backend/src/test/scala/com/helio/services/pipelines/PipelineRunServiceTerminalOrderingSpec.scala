@@ -309,7 +309,7 @@ class PipelineRunServiceTerminalOrderingSpec extends AnyWordSpec with Matchers w
     extraSteps(fx)
     // Bound to the root so `materializedWrites` is a real `node_snapshots` replace, not a no-op.
     if (withRootOutput)
-      await(outputRepo.insertInternal(fx.pid, None, owner.id, "root-out", OutputKind.Table, explicitRootId = Some(PipelineRootId(pid))))
+      await(outputRepo.insertInternal(fx.pid, None, owner.id, "root-out", OutputKind.Table, explicitRootId = Some(PipelineRootId(pid)), actor = AuthenticatedUser(owner.id)))
     fx
   }
 

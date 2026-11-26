@@ -54,8 +54,8 @@ class OutputFilteredMetricMeasurementSpec
         FROM generate_series(0, ${NodeRows - 1}) AS g"""))
       val schema = Vector(SchemaField("region", "string"), SchemaField("amount", "integer"))
       val cfg    = """{"fieldMapping":{"value":"amount"},"aggregation":{"value":"amount","agg":"sum"}}""".parseJson.asJsObject
-      val table  = awaitDb(outputRepo.insertInternal(PipelineId(pid), None, UserId(ownerId), "t", OutputKind.Table, JsObject.empty, schema, explicitRootId = Some(PipelineRootId(pid))))
-      val metric = awaitDb(outputRepo.insertInternal(PipelineId(pid), None, UserId(ownerId), "m", OutputKind.Metric, cfg, schema, explicitRootId = Some(PipelineRootId(pid))))
+      val table  = awaitDb(outputRepo.insertInternal(PipelineId(pid), None, UserId(ownerId), "t", OutputKind.Table, JsObject.empty, schema, explicitRootId = Some(PipelineRootId(pid)), actor = AuthenticatedUser(UserId(ownerId))))
+      val metric = awaitDb(outputRepo.insertInternal(PipelineId(pid), None, UserId(ownerId), "m", OutputKind.Metric, cfg, schema, explicitRootId = Some(PipelineRootId(pid)), actor = AuthenticatedUser(UserId(ownerId))))
       val svc    = new OutputService(outputRepo, panelRepo, accessChecker, nodeSnapshotRepo = snapshotRepo)(harnessEc)
       val user   = AuthenticatedUser(UserId(ownerId))
       val filter = Some(OutputRowsQuery.FilterParam(None, Map.empty, Vector(OutputRowsQuery.OpsTerm.Eq("region", "east"))))

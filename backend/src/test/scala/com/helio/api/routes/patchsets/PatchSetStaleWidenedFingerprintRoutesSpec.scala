@@ -184,7 +184,7 @@ class PatchSetStaleWidenedFingerprintRoutesSpec
     }
 
   private def newOutput(pipelineId: PipelineId): Output =
-    await(outputRepo.insertInternal(pipelineId, None, userA.id, "Out " + UUID.randomUUID(), OutputKind.Table, explicitRootId = None))
+    await(outputRepo.insertInternal(pipelineId, None, userA.id, "Out " + UUID.randomUUID(), OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(userA.id)))
 
   private def edit(kind: String, id: String, op: String): String = {
     val patch = if (op == "update") ""","patch":{"name":"Renamed by patch set"}""" else ""

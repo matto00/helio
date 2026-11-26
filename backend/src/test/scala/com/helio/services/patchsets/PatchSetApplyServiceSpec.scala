@@ -197,7 +197,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRoute
   // outputRepo.insertInternal is ACL-bypassing (mirrors this file's other seed helpers' direct
   // service/repo use), so no separate pipeline-access setup is needed here.
   private def seedOutput(pipelineId: PipelineId, owner: AuthenticatedUser, name: String = "Output"): Output =
-    await(outputRepo.insertInternal(pipelineId, None, owner.id, name, OutputKind.Table, explicitRootId = None))
+    await(outputRepo.insertInternal(pipelineId, None, owner.id, name, OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
   // Postgres TIMESTAMPTZ rounds to microsecond precision on write; a JVM
   // `Instant.now()` can carry nanosecond precision, and Java's own
@@ -1135,7 +1135,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRoute
     "reject an output update edit carrying an invalid conditionalFormats list, leaving the stored config unchanged (HEL-1307)" in {
       val sourceId = seedDatasetSource(userA, "Output-1307 source")
       val pipeline = seedPipeline(userA, sourceId, "Output-1307 pipeline")
-      val output   = await(outputRepo.insertInternal(PipelineId(pipeline.id), None, userA.id, "CF output", OutputKind.Metric, explicitRootId = None))
+      val output   = await(outputRepo.insertInternal(PipelineId(pipeline.id), None, userA.id, "CF output", OutputKind.Metric, explicitRootId = None, actor = AuthenticatedUser(userA.id)))
       val badRules  = """[{"op":"lt","value":50,"tone":"error"},{"op":"lt","value":"x","tone":"warning"}]""".parseJson
       val goodRules = """[{"op":"lt","value":50,"tone":"error","label":"Low"}]""".parseJson
       def edit(rules: JsValue) = Edit(EditTarget("output", Some(output.id.value)), "update",
@@ -1210,7 +1210,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRoute
       val dashboard = seedDashboard(userA, "Output-1313 dashboard")
       val agg       = JsObject("groupBy" -> JsString("region"), "agg" -> JsString("sum"), "yField" -> JsString("amount"))
       val stored    = JsObject("chartType" -> JsString("scatter"), "aggregation" -> agg, "metricLabel" -> JsString("legacy"))
-      val output    = await(outputRepo.insertInternal(PipelineId(pipeline.id), None, userA.id, "Scatter", OutputKind.Chart, stored, explicitRootId = None))
+      val output    = await(outputRepo.insertInternal(PipelineId(pipeline.id), None, userA.id, "Scatter", OutputKind.Chart, stored, explicitRootId = None, actor = AuthenticatedUser(userA.id)))
 
       val edits = Vector(
         Edit(EditTarget("output", Some(output.id.value)), "update",
@@ -1317,7 +1317,7 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRoute
       val pipeline  = seedPipeline(userA, seedDatasetSource(userA, "Controls source"), "Controls pipeline")
       val output = await(outputRepo.insertInternal(
         PipelineId(pipeline.id), None, userA.id, "Controls output", OutputKind.Table,
-        schema = Vector(SchemaField("region", "string")), explicitRootId = None
+        schema = Vector(SchemaField("region", "string")), explicitRootId = None, actor = AuthenticatedUser(userA.id)
       ))
       val outputPanel = await(validatingPanelService.create(
         CreatePanelRequest(Some(dashboard.id.value), Some("Out"), Some("output"), Some(JsObject("outputId" -> JsString(output.id.value)))), userA

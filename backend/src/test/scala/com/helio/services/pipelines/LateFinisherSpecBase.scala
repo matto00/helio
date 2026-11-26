@@ -218,7 +218,7 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
   protected def seed(): Fx = {
     val owner = seedUser("beta")
     val p     = seedPayloadPipeline(owner)
-    awaitDb(outputRepo.insertInternal(p.pid, None, UserId(owner), "root-out", OutputKind.Table, explicitRootId = Some(PipelineRootId(p.pid.value))))
+    awaitDb(outputRepo.insertInternal(p.pid, None, UserId(owner), "root-out", OutputKind.Table, explicitRootId = Some(PipelineRootId(p.pid.value)), actor = AuthenticatedUser(UserId(owner))))
     Fx(owner, p)
   }
 
@@ -238,7 +238,7 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
       sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pid, 'pipe', $owner::uuid, now(), now())""",
       sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($pid, $pid, $dsId, 0)"""
     )))
-    awaitDb(outputRepo.insertInternal(PipelineId(pid), None, UserId(owner), "root-out", OutputKind.Table, explicitRootId = Some(PipelineRootId(pid))))
+    awaitDb(outputRepo.insertInternal(PipelineId(pid), None, UserId(owner), "root-out", OutputKind.Table, explicitRootId = Some(PipelineRootId(pid)), actor = AuthenticatedUser(UserId(owner))))
     val step = awaitDb(stepRepo.insertInternal(PipelineId(pid), "upsertsource", UpsertSourceConfig(UpsertTarget.ExistingSource(target), UpsertMode.Append),
       enabled = true, None, explicitRootId = None, actingUserId = owner))
     (Fx(owner, PayloadFx(PipelineId(pid), step.id, "", "")), target)

@@ -218,7 +218,7 @@ trait AskApiHarness extends OutputInsightApiHarness {
 
   /** A root-bound Output with a typed schema on an existing pipeline. */
   protected def addOutput(pipelineId: String, ownerId: String, name: String, kind: OutputKind = OutputKind.Table, schema: Vector[SchemaField] = Vector.empty, config: JsObject = JsObject.empty): Output =
-    awaitDb(outputRepo.insertInternal(PipelineId(pipelineId), None, UserId(ownerId), name, kind, config, schema, explicitRootId = Some(PipelineRootId(pipelineId))))
+    awaitDb(outputRepo.insertInternal(PipelineId(pipelineId), None, UserId(ownerId), name, kind, config, schema, explicitRootId = Some(PipelineRootId(pipelineId)), actor = AuthenticatedUser(UserId(ownerId))))
 
   /** Replaces the root-bound node snapshot of the pipeline with `rows` (seed through raw SQL). */
   protected def seedRows(pipelineId: String, rows: Seq[JsObject]): Unit = {

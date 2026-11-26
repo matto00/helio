@@ -96,8 +96,8 @@ class PipelineRunServiceOutputHistorySpec extends AnyWordSpec with Matchers with
     if (!withOutputs) Fx(pipelineId, "", "", step.id.value)
     else {
       val cfg = """{"fieldMapping":{"value":"amount"},"aggregation":{"value":"amount","agg":"sum"}}""".parseJson.asJsObject
-      val rootOut = awaitDb(outputRepo.insertInternal(pipelineId, None, user.id, "root-metric", OutputKind.Metric, cfg, explicitRootId = Some(PipelineRootId(pid))))
-      val stepOut = awaitDb(outputRepo.insertInternal(pipelineId, Some(step.id), user.id, "step-table", OutputKind.Table, explicitRootId = None))
+      val rootOut = awaitDb(outputRepo.insertInternal(pipelineId, None, user.id, "root-metric", OutputKind.Metric, cfg, explicitRootId = Some(PipelineRootId(pid)), actor = AuthenticatedUser(user.id)))
+      val stepOut = awaitDb(outputRepo.insertInternal(pipelineId, Some(step.id), user.id, "step-table", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(user.id)))
       Fx(pipelineId, rootOut.id.value, stepOut.id.value, step.id.value)
     }
   }
@@ -183,7 +183,7 @@ class PipelineRunServiceOutputHistorySpec extends AnyWordSpec with Matchers with
     "write none for the Output backfill that materializes a newly bound node" in {
       val fx = seedPipeline(withOutputs = false)
       awaitDb(service.submit(fx.pid, isDry = false, user)) shouldBe a[Right[_, _]] // a prior success, which backfill requires
-      val out = awaitDb(outputRepo.insertInternal(fx.pid, Some(PipelineStepId(fx.assertStepId)), user.id, "late", OutputKind.Table, explicitRootId = None))
+      val out = awaitDb(outputRepo.insertInternal(fx.pid, Some(PipelineStepId(fx.assertStepId)), user.id, "late", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(user.id)))
       snapshotCount(fx) shouldBe 0
       awaitDb(service.backfillOutputNode(fx.pid, Some(PipelineStepId(fx.assertStepId)), user, None))
       snapshotCount(fx) shouldBe 2

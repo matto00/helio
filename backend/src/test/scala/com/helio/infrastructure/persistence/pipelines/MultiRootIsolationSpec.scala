@@ -137,8 +137,8 @@ class MultiRootIsolationSpec extends AnyWordSpec with Matchers with BeforeAndAft
     // REPOSITORY's own fallback contract, not the end-to-end multi-root create behavior.
     "the repository's own explicitRootId=None fallback still auto-resolves to the first root -- gated one layer up, at OutputService, not here" in {
       val (pipelineId, root0Id, _) = seedTwoRootPipeline()
-      val out0 = await(outputRepo.insertInternal(pipelineId, None, ownerId, "out-a", OutputKind.Table, explicitRootId = None))
-      val out1 = await(outputRepo.insertInternal(pipelineId, None, ownerId, "out-b", OutputKind.Table, explicitRootId = None))
+      val out0 = await(outputRepo.insertInternal(pipelineId, None, ownerId, "out-a", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(ownerId)))
+      val out1 = await(outputRepo.insertInternal(pipelineId, None, ownerId, "out-b", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(ownerId)))
 
       val actualRootIds = await(db.run(
         sql"SELECT root_id FROM outputs WHERE id IN (${out0.id.value}, ${out1.id.value})".as[Option[String]]

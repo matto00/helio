@@ -178,7 +178,7 @@ trait OutputHistoryApiHarness extends OutputHistoryFixtures {
     val pipelineId = PipelineId(pid)
     val step = awaitDb(stepRepo.insertInternal(pipelineId, "assert", AssertConfig(Vector.empty), enabled = true, None, explicitRootId = None))
     val cfg = s"""{"fieldMapping":{"value":"amount"},"aggregation":{"value":"amount","agg":"sum"},"compare":"$compare"}""".parseJson.asJsObject
-    val out = awaitDb(outputRepo.insertInternal(pipelineId, Some(step.id), UserId(ownerId), "metric", OutputKind.Metric, cfg, explicitRootId = None))
+    val out = awaitDb(outputRepo.insertInternal(pipelineId, Some(step.id), UserId(ownerId), "metric", OutputKind.Metric, cfg, explicitRootId = None, actor = AuthenticatedUser(UserId(ownerId))))
     (pipelineId, out.id)
   }
 

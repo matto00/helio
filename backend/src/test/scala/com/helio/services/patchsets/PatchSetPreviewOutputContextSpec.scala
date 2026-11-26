@@ -165,8 +165,8 @@ class PatchSetPreviewOutputContextSpec
       case Right(s) => s
       case Left(e)  => fail(s"step seed failed: $e")
     }
-    val output = await(outputRepo.insertInternal(PipelineId(pipeline.id), None, userA.id, "Out", OutputKind.Table, explicitRootId = None))
-    val bound  = await(outputRepo.insertInternal(PipelineId(pipeline.id), Some(PipelineStepId(step.id)), userA.id, "Bound", OutputKind.Table, explicitRootId = None))
+    val output = await(outputRepo.insertInternal(PipelineId(pipeline.id), None, userA.id, "Out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(userA.id)))
+    val bound  = await(outputRepo.insertInternal(PipelineId(pipeline.id), Some(PipelineStepId(step.id)), userA.id, "Bound", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(userA.id)))
     val other = await(pipelineService.create(
       CreatePipelineRequest("Other " + UUID.randomUUID(), Vector(CreatePipelineRootRequest(Some(sourceId.value)))), userA
     )) match {

@@ -195,7 +195,7 @@ class ClaudeRoutesChatGateSpec
       case Left(e)  => fail(s"pipeline seed failed: $e")
     }
     await(outputRepo.insertInternal(PipelineId(pipe.id), nodeStepId = None, user.id, "Sales", OutputKind.Table,
-      schema = Vector(SchemaField("revenue", "float")), explicitRootId = None))
+      schema = Vector(SchemaField("revenue", "float")), explicitRootId = None, actor = AuthenticatedUser(user.id)))
     Fixture(user, dash.id.value, panel.id.value)
   }
 

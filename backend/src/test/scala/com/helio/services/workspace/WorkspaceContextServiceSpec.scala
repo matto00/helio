@@ -258,7 +258,7 @@ class WorkspaceContextServiceSpec
     // had zero effect on anything `WorkspaceContextService.assemble` reads.
     // Only the real Output created below (`SeededPipeline.outputId`)
     // is ever exercised by this file's call sites.
-    val createdOutput = await(outputRepo.insertInternal(PipelineId(summary.id), nodeStepId = None, user.id, outputName, OutputKind.Table, explicitRootId = None))
+    val createdOutput = await(outputRepo.insertInternal(PipelineId(summary.id), nodeStepId = None, user.id, outputName, OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(user.id)))
     SeededPipeline(id = summary.id, outputId = createdOutput.id.value)
   }
 
@@ -398,7 +398,7 @@ class WorkspaceContextServiceSpec
 
       val selectStep = await(pipelineStepRepo.insertInternal(PipelineId(pipeline.id), "select", SelectConfig(Vector("value")), enabled = true, explicitRootId = None))
       val renameStep = await(pipelineStepRepo.insertInternal(PipelineId(pipeline.id), "rename", RenameConfig(Map("value" -> "renamed")), enabled = true, parentStepId = Some(selectStep.id), explicitRootId = None))
-      val boundOutput = await(outputRepo.insertInternal(PipelineId(pipeline.id), Some(renameStep.id), userA.id, "Lane output", OutputKind.Table, explicitRootId = None))
+      val boundOutput = await(outputRepo.insertInternal(PipelineId(pipeline.id), Some(renameStep.id), userA.id, "Lane output", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(userA.id)))
 
       val resp  = await(service.assemble(userA))
       val entry = resp.pipelines.find(_.id == pipeline.id).getOrElse(fail("pipeline missing"))

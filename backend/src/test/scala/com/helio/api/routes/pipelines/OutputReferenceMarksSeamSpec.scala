@@ -86,7 +86,7 @@ class OutputReferenceMarksSeamSpec
 
     "be accepted by PATCH /outputs/:id, and clearing both keys with null succeeds" in {
       val (pid, _) = seedMetricOutput(ownerId, None)
-      val oid = awaitDb(outputRepo.insertInternal(PipelineId(pid), None, owner.id, "seeded", OutputKind.Chart, JsObject("chartType" -> JsString("bar")), explicitRootId = None)).id.value
+      val oid = awaitDb(outputRepo.insertInternal(PipelineId(pid), None, owner.id, "seeded", OutputKind.Chart, JsObject("chartType" -> JsString("bar")), explicitRootId = None, actor = AuthenticatedUser(owner.id))).id.value
       Patch(s"/outputs/$oid", UpdateOutputRequest(None, Some(validConfig))) ~> routes() ~> check { status shouldBe StatusCodes.OK }
       storedConfig(oid).fields("referenceLines") shouldBe validConfig.fields("referenceLines")
       Patch(s"/outputs/$oid", UpdateOutputRequest(None, Some(JsObject("referenceLines" -> JsNull, "referenceBands" -> JsArray.empty)))) ~> routes() ~> check {
@@ -132,7 +132,7 @@ class OutputReferenceMarksSeamSpec
     invalid.filter(_._2 == "chart").foreach { case (name, _, cfg, message) =>
       s"reject '$name' on PATCH and on single-call create with a 400 containing '$message'" in {
         val (pid, _) = seedMetricOutput(ownerId, None)
-        val oid = awaitDb(outputRepo.insertInternal(PipelineId(pid), None, owner.id, "seeded", OutputKind.Chart, JsObject("chartType" -> JsString("bar")), explicitRootId = None)).id.value
+        val oid = awaitDb(outputRepo.insertInternal(PipelineId(pid), None, owner.id, "seeded", OutputKind.Chart, JsObject("chartType" -> JsString("bar")), explicitRootId = None, actor = AuthenticatedUser(owner.id))).id.value
         Patch(s"/outputs/$oid", UpdateOutputRequest(None, Some(cfg))) ~> routes() ~> check {
           status shouldBe StatusCodes.BadRequest
           responseAs[String] should include(message)

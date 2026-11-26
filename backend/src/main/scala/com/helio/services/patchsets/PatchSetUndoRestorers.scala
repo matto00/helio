@@ -175,7 +175,7 @@ private[patchsets] final class PatchSetUndoRestorers(
       // config is normalised (V117 then V118 mapping) rather than written raw -- the journal is untouched.
       context.outputRepo.insertInternal(
         PipelineId(outputResponse.pipelineId), Some(PipelineStepId(newStepId)), user.id, outputResponse.name, kind,
-        config = LegacyOutputFormat.normaliseRestored(kind, outputResponse.config.asJsObject), schema = schema, tag = None, explicitRootId = None
+        config = LegacyOutputFormat.normaliseRestored(kind, outputResponse.config.asJsObject), schema = schema, tag = None, explicitRootId = None, actor = user
       ).flatMap { newOutput =>
         Future.traverse(placements) { panelResponse =>
           val baseRequest = PatchSetUndoInverse.panelCreateRequestFromResponse(panelResponse)

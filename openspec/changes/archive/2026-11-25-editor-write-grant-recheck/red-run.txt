@@ -1,0 +1,64 @@
+HEL-1882 red run: main c939f3781 + commits f4ecb3a5d (RaceLocks extraction) + 27aaabc5d (render observer seam, no-op default); production code unchanged.
+Command: sbt testOnly OutputCreateGrantRecheckSpec OutputBackfillGrantRecheckSpec OutputPatchGrantRecheckSpec InsightRefreshGrantRecheckSpec (lane DB helio_hel1882, NOBYPASSRLS fixtures)
+
+[info] OutputCreateGrantRecheckSpec:
+[info] - should refuse with the unknown-pipeline 404 and write nothing when the editor grant is revoked mid-request *** FAILED ***
+[info]   the Output was created: Right((Output(OutputId(d0a02c06-5940-4350-ba6a-1848656c2b27),d1-revoked,UserId(00000000-0000-0000-0000-0000000000b2),NodeRef(PipelineId(c3d4d439-p),Some(PipelineStepId(c3d4d439-t2)),None),Table,2026-11-25T21:54:06.468351294Z,2026-11-25T21:54:06.468351294Z,Vector()),{})) Right((Output(OutputId("d0
+[info] - should refuse with 403 Forbidden and write nothing when the editor grant is downgraded to viewer mid-request *** FAILED ***
+[info]   the Output was created: Right((Output(OutputId(57a2b334-8bbb-4f9e-9aec-02e44398f412),d1-downgraded,UserId(00000000-0000-0000-0000-0000000000b2),NodeRef(PipelineId(f0bcb739-p),Some(PipelineStepId(f0bcb739-t2)),None),Table,2026-11-25T21:54:06.519559836Z,2026-11-25T21:54:06.519559836Z,Vector()),{})) Right((Output(OutputId(
+[info] - should GUARD: the route answers 404 {message: Pipeline not found} to a revoked editor before the write
+[info] - should GUARD: the route answers 403 {message: Forbidden} to a viewer before the write
+[info] - should GUARD: a current editor still creates an Output (race armed with a no-op)
+[info] - should GUARD: the pipeline owner still creates an Output
+[info] InsightRefreshGrantRecheckSpec:
+[info] a manual or pin refresh whose editor grant changes after admission
+[info] - should refuse the render at its start: no send, no row, no charge (manual, revoked) *** FAILED ***
+[info]   render outcome: Wrote(Ok,true); sends=1 "[Wrote(Ok,true)]" was not equal to "[Refused]" (InsightRefreshGrantRecheckSpec.scala:79)
+[info] - should refuse the render at its start: no send, no row, no charge (pin, revoked) *** FAILED ***
+[info]   render outcome: Wrote(Ok,true); sends=1 "[Wrote(Ok,true)]" was not equal to "[Refused]" (InsightRefreshGrantRecheckSpec.scala:79)
+[info] - should refuse the render at its start: no send, no row, no charge (manual, downgraded to viewer) *** FAILED ***
+[info]   render outcome: Wrote(Ok,true); sends=1 "[Wrote(Ok,true)]" was not equal to "[Refused]" (InsightRefreshGrantRecheckSpec.scala:79)
+[info] - should refuse the render at its start: no send, no row, no charge (pin, downgraded to viewer) *** FAILED ***
+[info]   render outcome: Wrote(Ok,true); sends=1 "[Wrote(Ok,true)]" was not equal to "[Refused]" (InsightRefreshGrantRecheckSpec.scala:79)
+[info] - should GUARD: a current editor's refresh still renders (one send, one ok row, the owner charged once)
+[info] - should GUARD: the pipeline owner's refresh still renders
+[info] - should GUARD: an automatic (run-triggered) render acts for no user and still renders
+[info] - should GUARD: a viewer's refresh is still refused 403 at admission (no render started)
+[info] OutputBackfillGrantRecheckSpec:
+[info] an Output backfill whose editor grant changes during it
+[info] - should (a) writes nothing and never reaches the snapshot write when the grant changes after findByIdShared returns, before the start check (revoked) *** FAILED ***
+[info]   snapshot rows written: Vector(19426ffc-t2|0) Vector("19426ffc-t2|0") was not equal to Vector() (OutputBackfillGrantRecheckSpec.scala:106)
+[info] - should (a) writes nothing and never reaches the snapshot write when the grant changes after findByIdShared returns, before the start check (downgraded to viewer) *** FAILED ***
+[info]   snapshot rows written: Vector(2a53cffa-t2|0) Vector("2a53cffa-t2|0") was not equal to Vector() (OutputBackfillGrantRecheckSpec.scala:106)
+[info] - should (b) writes nothing when the grant changes while the snapshot write begins (revoked) *** FAILED ***
+[info]   snapshot rows written: Vector(6c547e04-t2|0) Vector("6c547e04-t2|0") was not equal to Vector() (OutputBackfillGrantRecheckSpec.scala:113)
+[info] - should (b) writes nothing when the grant changes while the snapshot write begins (downgraded to viewer) *** FAILED ***
+[info]   snapshot rows written: Vector(94d24efb-t2|0) Vector("94d24efb-t2|0") was not equal to Vector() (OutputBackfillGrantRecheckSpec.scala:113)
+[info] - should GUARD: writes nothing when the editor grant is revoked BEFORE findByIdShared (the read already refuses it)
+[info] - should GUARD: a current editor's backfill still writes the snapshot and the Output schema
+[info] - should GUARD: the pipeline owner's backfill still writes
+[info] OutputPatchGrantRecheckSpec:
+[info] PATCH /api/outputs/:id outside any race
+[info] - should refuse (404 Output not found, nothing written) a creator downgraded to viewer: name *** FAILED ***
+[info]   {"config":{},"createdAt":"2026-11-25T21:54:16.525342Z","historyPayloadLimits":{"maxBytes":1048576,"maxRows":1000,"tiers":{"beta":{"maxAgeDays":7,"maxRuns":10},"free":{"maxAgeDays":0,"maxRuns":0},"owner":{"maxAgeDays":30,"maxRuns":30}}},"historyPayloadsAvailable":false,"id":"1fc49911-ox","kind":"table","name":"renamed","
+[info] - should refuse (404, nothing written) a creator downgraded to viewer: config *** FAILED ***
+[info]   {"config":{"columnOrder":["b","a"]},"createdAt":"2026-11-25T21:54:17.198469Z","historyPayloadLimits":{"maxBytes":1048576,"maxRows":1000,"tiers":{"beta":{"maxAgeDays":7,"maxRuns":10},"free":{"maxAgeDays":0,"maxRuns":0},"owner":{"maxAgeDays":30,"maxRuns":30}}},"historyPayloadsAvailable":false,"id":"bf9011cc-ox","kind":"ta
+[info] - should refuse (404) a creator downgraded to viewer: empty body *** FAILED ***
+[info]   {"config":{},"createdAt":"2026-11-25T21:54:17.290411Z","historyPayloadLimits":{"maxBytes":1048576,"maxRows":1000,"tiers":{"beta":{"maxAgeDays":7,"maxRuns":10},"free":{"maxAgeDays":0,"maxRuns":0},"owner":{"maxAgeDays":30,"maxRuns":30}}},"historyPayloadsAvailable":false,"id":"d608489d-ox","kind":"table","name":"ox","nodeS
+[info] - should GUARD: refuse (404, nothing written) a creator whose grant was revoked
+[info] - should GUARD: let a current editor edit the Output they created
+[info] - should GUARD: let the pipeline owner edit their own Output
+[info] - should GUARD: still refuse a non-creator editor (404, nothing written)
+[info] - should GUARD: an empty body from a current-editor creator is still 200
+[info] OutputService.update with the grant changing between its reads and the write
+[info] - should refuse (404 Output not found) and write nothing when the creator is downgraded to viewer mid-request *** FAILED ***
+[info]   Right((Output(OutputId("4282bbd3-ox"), "renamed", UserId("00000000-0000-0000-0000-0000000000b2"), NodeRef(PipelineId("4282bbd3-p"), Some(PipelineStepId("4282bbd3-t2")), None), Table, 2026-11-25T21:54:17.669110Z, 2026-11-25T21:54:17.676340Z, Vector()), {})) was not equal to Left(NotFound("Output not found")) (OutputPatch
+[info] - should refuse (404 Output not found) and write nothing when the creator is downgraded mid-request: empty body *** FAILED ***
+[info]   Right((Output(OutputId("851e834b-ox"), "ox", UserId("00000000-0000-0000-0000-0000000000b2"), NodeRef(PipelineId("851e834b-p"), Some(PipelineStepId("851e834b-t2")), None), Table, 2026-11-25T21:54:17.688595Z, 2026-11-25T21:54:17.688595Z, Vector()), {})) was not equal to Left(NotFound("Output not found")) (OutputPatchGrant
+[info] - should GUARD: refuse (404) and write nothing when the creator's grant is revoked mid-request (RLS refuses inside the update)
+[info] - should GUARD: a current-editor creator with no race still updates
+[info] Tests: succeeded 18, failed 15, canceled 0, ignored 0, pending 0
+[error] 	com.helio.services.insights.InsightRefreshGrantRecheckSpec
+[error] 	com.helio.services.pipelines.OutputCreateGrantRecheckSpec
+[error] 	com.helio.services.pipelines.OutputBackfillGrantRecheckSpec
+[error] 	com.helio.services.pipelines.OutputPatchGrantRecheckSpec

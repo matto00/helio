@@ -114,7 +114,7 @@ class PanelServiceOutputBindingSpec
     )).fold(e => fail(s"seed source failed: $e"), identity)
     val pipeline = await(pipelineService.create(CreatePipelineRequest("P", Vector(CreatePipelineRootRequest(Some(ds.id.value)))), owner))
       .fold(e => fail(s"seed pipeline failed: $e"), identity)
-    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, owner.id, "Out", OutputKind.Table, explicitRootId = None))
+    await(outputRepo.insertInternal(PipelineId(pipeline.id), None, owner.id, "Out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
   }
 
   private def outputPanelRequest(dashboardId: DashboardId, outputId: String): CreatePanelRequest =

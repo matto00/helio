@@ -47,7 +47,7 @@ class PatchSetUndoLaneSpec extends PatchSetUndoServiceFixture {
       val pipeline = seedPipeline(userA, sourceId, "Step-delete-with-output pipeline")
       val step = seedPipelineStep(PipelineId(pipeline.id), userA, "rename", JsObject("renames" -> JsObject("old" -> JsString("new"))))
       val output = await(outputRepo.insertInternal(
-        PipelineId(pipeline.id), Some(PipelineStepId(step.id)), userA.id, "Lane output", OutputKind.Table, explicitRootId = None
+        PipelineId(pipeline.id), Some(PipelineStepId(step.id)), userA.id, "Lane output", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(userA.id)
       ))
       val dashboard = seedDashboard(userA)
       val panel = await(panelService.create(
@@ -98,7 +98,7 @@ class PatchSetUndoLaneSpec extends PatchSetUndoServiceFixture {
       // cascade chain a real pipelineStep delete already relies on (V94's
       // outputs.node_step_id/panels.output_id ON DELETE CASCADE).
       val output = await(outputRepo.insertInternal(
-        PipelineId(pipeline.id), Some(PipelineStepId(createdStepId)), userA.id, "Lane output", OutputKind.Table, explicitRootId = None
+        PipelineId(pipeline.id), Some(PipelineStepId(createdStepId)), userA.id, "Lane output", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(userA.id)
       ))
       val dashboard = seedDashboard(userA)
       val panel = await(panelService.create(

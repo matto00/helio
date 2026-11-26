@@ -173,7 +173,7 @@ class AuthoringTelemetrySpec
     val createdOutput = await(outputRepo.insertInternal(
       PipelineId(summary.id), nodeStepId = None, owner.id, "Sales", OutputKind.Table,
       schema = Vector(SchemaField("revenue", "float"))
-    , explicitRootId = None))
+    , explicitRootId = None, actor = AuthenticatedUser(owner.id)))
     // `userWithWorkspace` returns the real Output's own id string (HEL-904 cycle 29: the
     // vestigial `DataType`/`DataTypeId` wrapper this used to be built through is deleted --
     // neither type exists anywhere in `model.scala` anymore) -- used to bind an "output"-kind

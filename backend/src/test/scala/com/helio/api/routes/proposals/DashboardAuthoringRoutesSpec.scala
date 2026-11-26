@@ -155,7 +155,7 @@ class DashboardAuthoringRoutesSpec
     val createdOutput = await(outputRepo.insertInternal(
       PipelineId(summary.id), nodeStepId = None, user.id, "Sales", OutputKind.Table,
       schema = Vector(SchemaField("revenue", "float"))
-    , explicitRootId = None))
+    , explicitRootId = None, actor = AuthenticatedUser(user.id)))
     pipelineOutputType = createdOutput.id.value
   }
 

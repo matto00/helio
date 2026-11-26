@@ -252,7 +252,7 @@ class WorkspaceTeardownServiceSpec
     val output = await(
       outputRepo.insertInternal(
         PipelineId(pipelineId), None, user.id, s"out-${UUID.randomUUID()}", OutputKind.Table
-      , explicitRootId = None)
+      , explicitRootId = None, actor = AuthenticatedUser(user.id))
     )
     val dashboard = await(dashboardRepo.insert(
       Dashboard(

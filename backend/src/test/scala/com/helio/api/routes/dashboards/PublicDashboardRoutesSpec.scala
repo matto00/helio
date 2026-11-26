@@ -131,7 +131,7 @@ class PublicDashboardRoutesSpec
   }
 
   private def seedOutputPanel(dashId: String, pipelineId: PipelineId): String = {
-    val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "Public Output", OutputKind.Table, explicitRootId = None))
+    val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "Public Output", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
     import PostgresProfile.api._
     val panelId = UUID.randomUUID().toString
     await(db.run(
@@ -151,7 +151,7 @@ class PublicDashboardRoutesSpec
     val output = await(outputRepo.insertInternal(
       pipelineId, None, owner.id, "Controls Output", OutputKind.Table,
       schema = Vector(SchemaField(column, "timestamp")),
-      explicitRootId = None
+      explicitRootId = None, actor = AuthenticatedUser(owner.id)
     ))
     import PostgresProfile.api._
     val panelId = UUID.randomUUID().toString
@@ -179,7 +179,7 @@ class PublicDashboardRoutesSpec
     val output = await(outputRepo.insertInternal(
       pipelineId, None, owner.id, "Dropdown Output", OutputKind.Table,
       schema = Vector(SchemaField("region", "string"), SchemaField("amount", "integer")),
-      explicitRootId = None
+      explicitRootId = None, actor = AuthenticatedUser(owner.id)
     ))
     import PostgresProfile.api._
     val panelId = UUID.randomUUID().toString
@@ -356,7 +356,7 @@ class PublicDashboardRoutesSpec
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "Dropdown Output", OutputKind.Table,
         schema = Vector(SchemaField("region", "string")),
-        explicitRootId = None
+        explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       import PostgresProfile.api._
       val panelId = UUID.randomUUID().toString
@@ -405,7 +405,7 @@ class PublicDashboardRoutesSpec
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "Ordered Output", OutputKind.Table,
         schema = Vector(SchemaField("zeta", "string"), SchemaField("10", "integer"), SchemaField("alpha", "string")),
-        explicitRootId = None
+        explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       import PostgresProfile.api._
       val panelId = UUID.randomUUID().toString

@@ -21,7 +21,7 @@ class PatchSetUndoDeadOutputKeysSpec extends PatchSetUndoServiceFixture {
       val pipeline = seedPipeline(userA, sourceId, "HEL-1409 pipeline")
       val step     = seedPipelineStep(PipelineId(pipeline.id), userA, "rename", JsObject("renames" -> JsObject("old" -> JsString("new"))))
       def seed(name: String, kind: OutputKind, config: String): Output = await(outputRepo.insertInternal(
-        PipelineId(pipeline.id), Some(PipelineStepId(step.id)), userA.id, name, kind, config = json(config), explicitRootId = None
+        PipelineId(pipeline.id), Some(PipelineStepId(step.id)), userA.id, name, kind, config = json(config), explicitRootId = None, actor = AuthenticatedUser(userA.id)
       ))
 
       seed("metric", OutputKind.Metric, """{"metricLabel":"Revenue","metricUnit":"USD","keep":1}""")
@@ -58,7 +58,7 @@ class PatchSetUndoDeadOutputKeysSpec extends PatchSetUndoServiceFixture {
       val pipeline = seedPipeline(userA, sourceId, "HEL-1441 pipeline")
       val step     = seedPipelineStep(PipelineId(pipeline.id), userA, "rename", JsObject("renames" -> JsObject("old" -> JsString("new"))))
       def seed(name: String, kind: OutputKind, config: String): Output = await(outputRepo.insertInternal(
-        PipelineId(pipeline.id), Some(PipelineStepId(step.id)), userA.id, name, kind, config = json(config), explicitRootId = None
+        PipelineId(pipeline.id), Some(PipelineStepId(step.id)), userA.id, name, kind, config = json(config), explicitRootId = None, actor = AuthenticatedUser(userA.id)
       ))
 
       seed("currency", OutputKind.Metric, """{"format":{"prefix":"$","decimals":2}}""")
@@ -103,7 +103,7 @@ class PatchSetUndoDeadOutputKeysSpec extends PatchSetUndoServiceFixture {
       val pipeline = seedPipeline(userA, sourceId, "HEL-1409 update pipeline")
       val output = await(outputRepo.insertInternal(
         PipelineId(pipeline.id), None, userA.id, "m", OutputKind.Metric,
-        config = json("""{"metricLabel":"Old","keep":1}"""), explicitRootId = None
+        config = json("""{"metricLabel":"Old","keep":1}"""), explicitRootId = None, actor = AuthenticatedUser(userA.id)
       ))
       (new OutputService(outputRepo, panelRepo, accessChecker)(system.dispatcher), output)
     }
@@ -113,7 +113,7 @@ class PatchSetUndoDeadOutputKeysSpec extends PatchSetUndoServiceFixture {
       val pipeline = seedPipeline(userA, sourceId, "HEL-1441 update pipeline")
       val output = await(outputRepo.insertInternal(
         PipelineId(pipeline.id), None, userA.id, "m", OutputKind.Metric,
-        config = json("""{"format":{"suffix":"/mo"}}"""), explicitRootId = None
+        config = json("""{"format":{"suffix":"/mo"}}"""), explicitRootId = None, actor = AuthenticatedUser(userA.id)
       ))
       (new OutputService(outputRepo, panelRepo, accessChecker)(system.dispatcher), output)
     }

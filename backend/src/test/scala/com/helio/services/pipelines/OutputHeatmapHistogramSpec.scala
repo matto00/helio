@@ -40,7 +40,7 @@ class OutputHeatmapHistogramSpec
   private def storedConfig(oid: String): JsObject = awaitDb(outputRepo.findConfigsByIdsInternal(Vector(oid)))(oid)
   private def s(v: String): JsString = JsString(v)
   private def seed(pid: String, config: JsObject): String =
-    awaitDb(outputRepo.insertInternal(PipelineId(pid), None, owner.id, "seeded", OutputKind.Chart, config, explicitRootId = None)).id.value
+    awaitDb(outputRepo.insertInternal(PipelineId(pid), None, owner.id, "seeded", OutputKind.Chart, config, explicitRootId = None, actor = AuthenticatedUser(owner.id))).id.value
 
   private val chartAgg = JsObject("groupBy" -> s("region"), "agg" -> s("sum"), "yField" -> s("amount"))
   private def hist(binCount: JsValue): JsObject =

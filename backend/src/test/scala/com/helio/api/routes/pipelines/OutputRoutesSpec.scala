@@ -259,9 +259,9 @@ class OutputRoutesSpec
 
     "400 an insight reading another pipeline's Output, an unknown id, another insight, or itself; 200 for a same-pipeline sibling (HEL-1740)" in {
       val pipelineId = newSharedPipeline()
-      val foreign    = await(outputRepo.insertInternal(newSharedPipeline(), None, owner.id, "foreign", OutputKind.Table, explicitRootId = None))
-      val sibling    = await(outputRepo.insertInternal(pipelineId, None, owner.id, "sibling", OutputKind.Table, explicitRootId = None))
-      val otherIns   = await(outputRepo.insertInternal(pipelineId, None, owner.id, "other-insight", OutputKind.Insight, explicitRootId = None))
+      val foreign    = await(outputRepo.insertInternal(newSharedPipeline(), None, owner.id, "foreign", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
+      val sibling    = await(outputRepo.insertInternal(pipelineId, None, owner.id, "sibling", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
+      val otherIns   = await(outputRepo.insertInternal(pipelineId, None, owner.id, "other-insight", OutputKind.Insight, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       def reads(ids: String*) = JsObject("reads" -> JsObject("outputs" -> JsArray(ids.map(JsString(_)).toVector)))
       for (bad <- Seq(foreign.id.value, "no-such-output", otherIns.id.value))
         Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(None, "insight", "I", Some(reads(bad)))) ~> routesFor(owner) ~> check {
@@ -281,9 +281,9 @@ class OutputRoutesSpec
 
     "200 a PATCH of another key on an insight whose reads dangle after the sibling was deleted; a rollback is never refused (HEL-1740)" in {
       val pipelineId = newSharedPipeline()
-      val sibling    = await(outputRepo.insertInternal(pipelineId, None, owner.id, "sibling", OutputKind.Table, explicitRootId = None))
+      val sibling    = await(outputRepo.insertInternal(pipelineId, None, owner.id, "sibling", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       val readsCfg   = JsObject("reads" -> JsObject("outputs" -> JsArray(JsString(sibling.id.value))))
-      val insight    = await(outputRepo.insertInternal(pipelineId, None, owner.id, "ins", OutputKind.Insight, readsCfg, explicitRootId = None))
+      val insight    = await(outputRepo.insertInternal(pipelineId, None, owner.id, "ins", OutputKind.Insight, readsCfg, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       await(outputRepo.deleteWithPanelsInternal(sibling.id, owner))
       Patch(s"/outputs/${insight.id.value}", UpdateOutputRequest(None, Some(JsObject("prompt" -> JsString("new"))))) ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -347,7 +347,7 @@ class OutputRoutesSpec
 
     "400 a markdown PATCH carrying fieldMapping.content, saying markdown has no fieldMapping slots, and writes nothing (HEL-1139)" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "md-out", OutputKind.Markdown, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "md-out", OutputKind.Markdown, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       val patch = JsObject("fieldMapping" -> JsObject("content" -> JsString("notes")))
       Patch(s"/outputs/${output.id.value}", UpdateOutputRequest(None, Some(patch))) ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.BadRequest
@@ -414,7 +414,7 @@ class OutputRoutesSpec
   "GET /pipelines/:id/outputs" should {
     "list for the owner and the editor grantee, but 404 for an unrelated authenticated caller" in {
       val pipelineId = newSharedPipeline()
-      await(outputRepo.insertInternal(pipelineId, None, owner.id, "out-1", OutputKind.Table, explicitRootId = None))
+      await(outputRepo.insertInternal(pipelineId, None, owner.id, "out-1", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       Get(s"/pipelines/${pipelineId.value}/outputs") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -438,8 +438,8 @@ class OutputRoutesSpec
       val pipelineId = newSharedPipeline()
       val config1 = JsObject("legend" -> JsObject("show" -> JsBoolean(true)))
       val config2 = JsObject("format" -> JsString("percent"))
-      val out1 = await(outputRepo.insertInternal(pipelineId, None, owner.id, "out-1", OutputKind.Chart, config1, explicitRootId = None))
-      val out2 = await(outputRepo.insertInternal(pipelineId, None, owner.id, "out-2", OutputKind.Metric, config2, explicitRootId = None))
+      val out1 = await(outputRepo.insertInternal(pipelineId, None, owner.id, "out-1", OutputKind.Chart, config1, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
+      val out2 = await(outputRepo.insertInternal(pipelineId, None, owner.id, "out-2", OutputKind.Metric, config2, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       Get(s"/pipelines/${pipelineId.value}/outputs") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -456,8 +456,8 @@ class OutputRoutesSpec
   "GET /pipelines/:id/outputs panelCount (HEL-1579)" should {
     "carry each Output's panelCount for the owner and the editor grantee, 0 when unbound" in {
       val pipelineId    = newSharedPipeline()
-      val boundOutput   = await(outputRepo.insertInternal(pipelineId, None, owner.id, "bound-out", OutputKind.Table, explicitRootId = None))
-      val unboundOutput = await(outputRepo.insertInternal(pipelineId, None, owner.id, "unbound-out", OutputKind.Table, explicitRootId = None))
+      val boundOutput   = await(outputRepo.insertInternal(pipelineId, None, owner.id, "bound-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
+      val unboundOutput = await(outputRepo.insertInternal(pipelineId, None, owner.id, "unbound-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       val (dashboard, _) = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("count-dash-1579")), owner))
       val config = JsObject("outputId" -> JsString(boundOutput.id.value))
       await(panelService.create(CreatePanelRequest(Some(dashboard.id.value), None, Some("output"), Some(config)), owner))
@@ -479,7 +479,7 @@ class OutputRoutesSpec
   "GET /outputs/:id" should {
     "200 for the owner and the editor grantee (sharing-aware RLS select), 404 for an unrelated caller" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "shared-out", OutputKind.Metric, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "shared-out", OutputKind.Metric, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       Get(s"/outputs/${output.id.value}") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -496,7 +496,7 @@ class OutputRoutesSpec
   "PATCH /outputs/:id" should {
     "let the owner rename the Output, but 404 for a non-owner grantee (owner-only RLS)" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "old-name", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "old-name", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       Patch(s"/outputs/${output.id.value}", UpdateOutputRequest(Some("new-name"), None)) ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -513,7 +513,7 @@ class OutputRoutesSpec
     "shallow-merge a config patch: named keys replace, absent keys are kept (HEL-877/HEL-1313)" in {
       val pipelineId = newSharedPipeline()
       val initialConfig = JsObject("chartType" -> JsString("bar"), "chartOptions" -> JsObject("a" -> JsString("1")))
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "chart-out", OutputKind.Chart, config = initialConfig, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "chart-out", OutputKind.Chart, config = initialConfig, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       val patch = JsObject("chartOptions" -> JsObject("b" -> JsString("2")))
       Patch(s"/outputs/${output.id.value}", UpdateOutputRequest(None, Some(patch))) ~> routesFor(owner) ~> check {
@@ -536,7 +536,7 @@ class OutputRoutesSpec
         "annotation"   -> JsString("Plain note"),
         "compare"      -> JsString("7d")
       )
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "chart-out", OutputKind.Chart, config = initialConfig, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "chart-out", OutputKind.Chart, config = initialConfig, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       val patch = JsObject(
         "fieldMapping" -> JsObject("xAxis" -> JsString("a"), "yAxis" -> JsString("b")),
@@ -560,7 +560,7 @@ class OutputRoutesSpec
 
     "400 a PATCH introducing legend/tooltip/seriesColors/axisLabels naming the key, persisting nothing (HEL-1313)" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "chart-out", OutputKind.Chart, config = JsObject("chartType" -> JsString("bar")), explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "chart-out", OutputKind.Chart, config = JsObject("chartType" -> JsString("bar")), explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       Seq("legend", "tooltip", "seriesColors", "axisLabels").foreach { key =>
         val patch = JsObject(key -> JsObject("x" -> JsString("y")))
         Patch(s"/outputs/${output.id.value}", UpdateOutputRequest(None, Some(patch))) ~> routesFor(owner) ~> check {
@@ -575,7 +575,7 @@ class OutputRoutesSpec
 
     "400 a PATCH whose merged fieldMapping has an unknown slot name (HEL-892)" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "metric-out", OutputKind.Metric, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "metric-out", OutputKind.Metric, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       val patch = JsObject("fieldMapping" -> JsObject("bogusSlot" -> JsString("amount")))
       Patch(s"/outputs/${output.id.value}", UpdateOutputRequest(None, Some(patch))) ~> routesFor(owner) ~> check {
@@ -588,7 +588,7 @@ class OutputRoutesSpec
 
     "404 an empty-body (no fields to update) PATCH from a non-owner grantee, not a 200 no-op (evaluation-1.md suggestion)" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "untouched-name", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "untouched-name", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       Patch(s"/outputs/${output.id.value}", UpdateOutputRequest(None, None)) ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -602,7 +602,7 @@ class OutputRoutesSpec
   "GET /outputs/:id/panels" should {
     "list every panel placement for the owner and the editor grantee, 404 for an unrelated caller" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "placements-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "placements-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       val (dashboard, _) = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("placements-dash")), owner))
       val config = JsObject("outputId" -> JsString(output.id.value))
       val panel = await(panelService.create(CreatePanelRequest(Some(dashboard.id.value), None, Some("output"), Some(config)), owner))
@@ -626,7 +626,7 @@ class OutputRoutesSpec
 
     "an empty result for an Output with no placements" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "no-placements-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "no-placements-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       Get(s"/outputs/${output.id.value}/panels") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -638,7 +638,7 @@ class OutputRoutesSpec
   "DELETE /outputs/:id" should {
     "cascade-delete every panel placement and report the removed ids" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "del-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "del-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       val (dashboard, _) = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("dash")), owner))
       def newOutputPanel(): PanelId = {
         val config = JsObject("outputId" -> JsString(output.id.value))
@@ -660,7 +660,7 @@ class OutputRoutesSpec
 
     "404 for a non-owner grantee, leaving the Output intact (owner-only RLS)" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "guarded-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "guarded-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       Delete(s"/outputs/${output.id.value}") ~> routesFor(grantee) ~> check {
         status shouldBe StatusCodes.NotFound
@@ -672,7 +672,7 @@ class OutputRoutesSpec
   "GET /outputs/:id/assertion-status" should {
     "invalid = false, failedRuleCount = 0 for an Output on the pipeline's raw source (no step to assert against)" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "source-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "source-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       Get(s"/outputs/${output.id.value}/assertion-status") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -686,7 +686,7 @@ class OutputRoutesSpec
     "invalid = false when the node's latest run has no failed error-severity assertions" in {
       val pipelineId = newSharedPipeline()
       val step = await(pipelineStepRepoFor(pipelineId))
-      val output = await(outputRepo.insertInternal(pipelineId, Some(step), owner.id, "clean-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, Some(step), owner.id, "clean-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       seedRunWithAssertions(pipelineId, step, passing = true)
 
       Get(s"/outputs/${output.id.value}/assertion-status") ~> routesFor(owner) ~> check {
@@ -700,7 +700,7 @@ class OutputRoutesSpec
     "invalid = true, failedRuleCount > 0 when the node's latest run has a failed error-severity assertion" in {
       val pipelineId = newSharedPipeline()
       val step = await(pipelineStepRepoFor(pipelineId))
-      val output = await(outputRepo.insertInternal(pipelineId, Some(step), owner.id, "failing-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, Some(step), owner.id, "failing-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       seedRunWithAssertions(pipelineId, step, passing = false)
 
       Get(s"/outputs/${output.id.value}/assertion-status") ~> routesFor(owner) ~> check {
@@ -715,7 +715,7 @@ class OutputRoutesSpec
       val pipelineId = newSharedPipeline()
       val step1 = await(pipelineStepRepoFor(pipelineId))
       val step2 = await(pipelineStepRepoFor(pipelineId))
-      val output = await(outputRepo.insertInternal(pipelineId, Some(step1), owner.id, "unaffected-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, Some(step1), owner.id, "unaffected-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       seedRunWithAssertions(pipelineId, step2, passing = false)
 
       Get(s"/outputs/${output.id.value}/assertion-status") ~> routesFor(owner) ~> check {
@@ -728,7 +728,7 @@ class OutputRoutesSpec
 
     "200 for the owner and the editor grantee, 404 for an unrelated caller" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "acl-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "acl-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       Get(s"/outputs/${output.id.value}/assertion-status") ~> routesFor(owner) ~> check { status shouldBe StatusCodes.OK }
       Get(s"/outputs/${output.id.value}/assertion-status") ~> routesFor(grantee) ~> check { status shouldBe StatusCodes.OK }
@@ -745,7 +745,7 @@ class OutputRoutesSpec
     "a later dry run's failing assertion is never reported -- only the latest NON-DRY run counts" in {
       val pipelineId = newSharedPipeline()
       val step = await(pipelineStepRepoFor(pipelineId))
-      val output = await(outputRepo.insertInternal(pipelineId, Some(step), owner.id, "dry-run-guard-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, Some(step), owner.id, "dry-run-guard-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       // Real run first: passes.
       seedRunWithAssertions(pipelineId, step, passing = true)
@@ -764,7 +764,7 @@ class OutputRoutesSpec
   "GET /outputs/:id/rows" should {
     "200 with the paginated node_snapshots rows for the owner and the editor grantee, 404 for an unrelated caller" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
         JsObject("amount" -> JsNumber(1)),
         JsObject("amount" -> JsNumber(2)),
@@ -792,7 +792,7 @@ class OutputRoutesSpec
     // integer-like-key reordering) can never show the wire order.
     "write each row's keys and `columns` in the Output's schema order, with unnamed keys last (HEL-1705)" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "order-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "order-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       await(outputRepo.updateSchemaInternal(output.id, Vector(SchemaField("zeta", "string"), SchemaField("10", "integer"), SchemaField("alpha", "string"))))
       await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
         JsObject("alpha" -> JsString("a"), "10" -> JsNumber(1), "zeta" -> JsString("z"), "extra" -> JsBoolean(true))
@@ -828,7 +828,7 @@ class OutputRoutesSpec
       await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("root" -> JsString("second")), JsObject("root" -> JsString("second-2"))), explicitRootId = Some(secondRoot.id.value)))
 
       // The Output under test is bound to the SECOND root specifically.
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "second-root-out", OutputKind.Table, explicitRootId = Some(secondRoot.id)))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "second-root-out", OutputKind.Table, explicitRootId = Some(secondRoot.id), actor = AuthenticatedUser(owner.id)))
 
       Get(s"/outputs/${output.id.value}/rows") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -841,7 +841,7 @@ class OutputRoutesSpec
 
     "respects offset/limit" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-2", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-2", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, (1 to 5).map(i => JsObject("i" -> JsNumber(i))), explicitRootId = None))
 
       Get(s"/outputs/${output.id.value}/rows?offset=2&limit=2") ~> routesFor(owner) ~> check {
@@ -858,7 +858,7 @@ class OutputRoutesSpec
 
     "400 a negative offset" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-3", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-3", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       Get(s"/outputs/${output.id.value}/rows?offset=-1") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.BadRequest
       }
@@ -870,7 +870,7 @@ class OutputRoutesSpec
     // a node that ran and legitimately returned zero rows (next test).
     "200 with an empty page and materialized=false for an Output that has never had a successful run" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-4", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-4", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       Get(s"/outputs/${output.id.value}/rows") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
         val paged = responseAs[JsObject]
@@ -887,7 +887,7 @@ class OutputRoutesSpec
     // "run the pipeline" prompt should render.
     "200 with an empty page and materialized=true when a successful run completed after the Output was created" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-5", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "rows-out-5", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       val runId = PipelineRunId(UUID.randomUUID().toString)
       await(pipelineRunRepo.insertRunInternal(runId, pipelineId, Instant.now()))
       await(pipelineRunRepo.updateRunTerminalInternal(runId, "succeeded", Instant.now().plusSeconds(1), Some(0), errorLog = None, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)))
@@ -1155,7 +1155,7 @@ class OutputRoutesSpec
       val pipelineId = newSharedPipeline()
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "hostile-sort-out", OutputKind.Table,
-        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None
+        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("amount" -> JsNumber(1))), explicitRootId = None))
       val hostile = java.net.URLEncoder.encode("'; DROP TABLE node_snapshots; --", "UTF-8")
@@ -1174,7 +1174,7 @@ class OutputRoutesSpec
     def seededOutput(): (PipelineId, OutputId) = {
       val pipelineId = newSharedPipeline()
       val output = await(outputRepo.insertInternal(
-        pipelineId, None, owner.id, "sort-filter-out", OutputKind.Table, schema = amountSchema, explicitRootId = None
+        pipelineId, None, owner.id, "sort-filter-out", OutputKind.Table, schema = amountSchema, explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
         JsObject("amount" -> JsNumber(3), "notes" -> JsString("c")),
@@ -1263,7 +1263,7 @@ class OutputRoutesSpec
       val pipelineId = newSharedPipeline()
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "zero-match-out", OutputKind.Table,
-        schema = Vector(SchemaField("name", "string")), explicitRootId = None
+        schema = Vector(SchemaField("name", "string")), explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
         JsObject("name" -> JsString("alice")),
@@ -1292,7 +1292,7 @@ class OutputRoutesSpec
 
     "the genuinely-never-materialized case is unaffected (no rows, no filter)" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "never-materialized-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "never-materialized-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       Get(s"/outputs/${output.id.value}/rows") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
         responseAs[JsObject].fields("materialized") shouldBe JsBoolean(false)
@@ -1305,7 +1305,7 @@ class OutputRoutesSpec
       val pipelineId = newSharedPipeline()
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "e2e-sort-out", OutputKind.Table,
-        schema = Vector(SchemaField("revenue", "integer")), explicitRootId = None
+        schema = Vector(SchemaField("revenue", "integer")), explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       // 60 rows, revenue ASCENDING by row_index (row_index 0 has revenue 0, ..., row_index 59
       // has revenue 59) -- and one malformed value planted mid-set. Under current main (no
@@ -1348,7 +1348,7 @@ class OutputRoutesSpec
       val pipelineId = newSharedPipeline()
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "e2e-filter-out", OutputKind.Table,
-        schema = Vector(SchemaField("label", "string")), explicitRootId = None
+        schema = Vector(SchemaField("label", "string")), explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       // 60 rows; only 3 (spread beyond the first page) match "target". Current main's
       // `total` is always the RAW row count (60) regardless of any filter (no `filter` param
@@ -1388,7 +1388,7 @@ class OutputRoutesSpec
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "ops-filter-out", OutputKind.Table,
         schema = Vector(SchemaField("signup_date", "timestamp"), SchemaField("region", "string")),
-        explicitRootId = None
+        explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       val fixtureRows = (0 until 60).map { i =>
         val date   = LocalDate.of(2026, 1, 1).plusDays(i.toLong).toString
@@ -1506,7 +1506,7 @@ class OutputRoutesSpec
           SchemaField("notes", "string"),
           SchemaField("body", "string-body")
         ),
-        explicitRootId = None
+        explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       val rows = (0 until 60).map { i =>
         JsObject(
@@ -1544,7 +1544,7 @@ class OutputRoutesSpec
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "fc-out", OutputKind.Table,
         schema = Vector(SchemaField("amount", "integer"), SchemaField("region", "string"), SchemaField("notes", "string-body")),
-        explicitRootId = None
+        explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
         JsObject("amount" -> JsNumber(1), "region" -> JsString("US"), "notes" -> JsString("x")),
@@ -1569,7 +1569,7 @@ class OutputRoutesSpec
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "fc-kinds-out", OutputKind.Table,
         schema = Vector(SchemaField("amount", "integer"), SchemaField("created_at", "timestamp"), SchemaField("region", "string")),
-        explicitRootId = None
+        explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
         JsObject("amount" -> JsNumber(1), "created_at" -> JsString("2026-01-01T00:00:00Z"), "region" -> JsString("US")),
@@ -1594,7 +1594,7 @@ class OutputRoutesSpec
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "dv-out", OutputKind.Table,
         schema = Vector(SchemaField("region", "string"), SchemaField("notes", "string")),
-        explicitRootId = None
+        explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       val regionRows = Seq("US", "US", "US", "EU", "APAC").map(r => JsObject("region" -> JsString(r), "notes" -> JsString(UUID.randomUUID().toString)))
       // Pad with enough distinct `notes` values to push it over the eq/in cardinality cap, while
@@ -1640,7 +1640,7 @@ class OutputRoutesSpec
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "drift-out", OutputKind.Table,
         schema = Vector(SchemaField("amount", "integer"), SchemaField("region", "string"), SchemaField("notes", "string")),
-        explicitRootId = None
+        explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       // amount: 3 distinct values -> eq/in eligible, plus gte/lte/contains (numeric).
       // region: 20 distinct values -> eq/in eligible (under the 50 cap); contains only otherwise (string, no gte/lte).
@@ -1685,7 +1685,7 @@ class OutputRoutesSpec
       val pipelineId = newSharedPipeline()
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "hostile-ops-col-out", OutputKind.Table,
-        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None
+        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("amount" -> JsNumber(1))), explicitRootId = None))
       val hostileColumn = "'; DROP TABLE node_snapshots; --"
@@ -1703,7 +1703,7 @@ class OutputRoutesSpec
       val pipelineId = newSharedPipeline()
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "hostile-dv-col-out", OutputKind.Table,
-        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None
+        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("amount" -> JsNumber(1))), explicitRootId = None))
       val hostile = java.net.URLEncoder.encode("'; DROP TABLE node_snapshots; --", "UTF-8")
@@ -1727,7 +1727,7 @@ class OutputRoutesSpec
       val pipelineId = newSharedPipeline()
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "hostile-ops-val-out", OutputKind.Table,
-        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None
+        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("amount" -> JsNumber(1)), JsObject("amount" -> JsNumber(2))), explicitRootId = None))
       val hostileValue = "'; DROP TABLE node_snapshots; --"
@@ -1746,7 +1746,7 @@ class OutputRoutesSpec
       val pipelineId = newSharedPipeline()
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "hostile-ops-values-out", OutputKind.Table,
-        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None
+        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("amount" -> JsNumber(1)), JsObject("amount" -> JsNumber(2))), explicitRootId = None))
       val hostileValue = "'; DROP TABLE node_snapshots; --"
@@ -1769,7 +1769,7 @@ class OutputRoutesSpec
       val pipelineId = newSharedPipeline()
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "malformed-val-out", OutputKind.Table,
-        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None
+        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("amount" -> JsNumber(1)), JsObject("amount" -> JsNumber(2))), explicitRootId = None))
       val filter = java.net.URLEncoder.encode("""{"ops":[{"column":"amount","op":"eq","value":"not-a-number"}]}""", "UTF-8")
@@ -1784,7 +1784,7 @@ class OutputRoutesSpec
       val pipelineId = newSharedPipeline()
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "malformed-in-out", OutputKind.Table,
-        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None
+        schema = Vector(SchemaField("amount", "integer")), explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
         JsObject("amount" -> JsNumber(1)),
@@ -1807,7 +1807,7 @@ class OutputRoutesSpec
       val pipelineId = newSharedPipeline()
       val output = await(outputRepo.insertInternal(
         pipelineId, None, owner.id, "ops-shape-out", OutputKind.Table,
-        schema = Vector(SchemaField("amount", "integer"), SchemaField("label", "string")), explicitRootId = None
+        schema = Vector(SchemaField("amount", "integer"), SchemaField("label", "string")), explicitRootId = None, actor = AuthenticatedUser(owner.id)
       ))
       await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(JsObject("amount" -> JsNumber(1), "label" -> JsString("a"))), explicitRootId = None))
       output.id
@@ -1877,11 +1877,11 @@ class OutputRoutesSpec
   "GET /outputs (lean paginated list, HEL-906 cycle 7 task 2.6)" should {
     "return only the caller's OWN outputs, paginated, in an OutputsResponse-shaped page" in {
       val pipelineId = newSharedPipeline()
-      await(outputRepo.insertInternal(pipelineId, None, owner.id, "list-out-1", OutputKind.Table, explicitRootId = None))
-      await(outputRepo.insertInternal(pipelineId, None, owner.id, "list-out-2", OutputKind.Table, explicitRootId = None))
+      await(outputRepo.insertInternal(pipelineId, None, owner.id, "list-out-1", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
+      await(outputRepo.insertInternal(pipelineId, None, owner.id, "list-out-2", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       // Owned by grantee, NOT owner -- must not appear in owner's own list (owner-scoped, not
       // sharing-aware, unlike GET /pipelines/:id/outputs).
-      await(outputRepo.insertInternal(pipelineId, None, grantee.id, "grantee-owned-out", OutputKind.Table, explicitRootId = None))
+      await(outputRepo.insertInternal(pipelineId, None, grantee.id, "grantee-owned-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(grantee.id)))
 
       Get("/outputs") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -1894,7 +1894,7 @@ class OutputRoutesSpec
 
     "respects offset/limit" in {
       val pipelineId = newSharedPipeline()
-      (1 to 3).foreach(i => await(outputRepo.insertInternal(pipelineId, None, owner.id, s"page-out-$i", OutputKind.Table, explicitRootId = None)))
+      (1 to 3).foreach(i => await(outputRepo.insertInternal(pipelineId, None, owner.id, s"page-out-$i", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id))))
 
       Get("/outputs?offset=0&limit=1") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -1917,7 +1917,7 @@ class OutputRoutesSpec
     "returns each Output's real persisted config, batched (HEL-946)" in {
       val pipelineId = newSharedPipeline()
       val config = JsObject("legend" -> JsObject("show" -> JsBoolean(true)))
-      val out = await(outputRepo.insertInternal(pipelineId, None, owner.id, "configured-out", OutputKind.Chart, config, explicitRootId = None))
+      val out = await(outputRepo.insertInternal(pipelineId, None, owner.id, "configured-out", OutputKind.Chart, config, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       Get("/outputs") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -1932,8 +1932,8 @@ class OutputRoutesSpec
     // self-rate-limited on a realistic Output count).
     "carries each Output's panelCount, batched, without an N+1 per-Output fetch" in {
       val pipelineId = newSharedPipeline()
-      val boundOutput   = await(outputRepo.insertInternal(pipelineId, None, owner.id, "bound-out", OutputKind.Table, explicitRootId = None))
-      val unboundOutput = await(outputRepo.insertInternal(pipelineId, None, owner.id, "unbound-out", OutputKind.Table, explicitRootId = None))
+      val boundOutput   = await(outputRepo.insertInternal(pipelineId, None, owner.id, "bound-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
+      val unboundOutput = await(outputRepo.insertInternal(pipelineId, None, owner.id, "unbound-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       val (dashboard, _) = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("count-dash")), owner))
       val config = JsObject("outputId" -> JsString(boundOutput.id.value))
       await(panelService.create(CreatePanelRequest(Some(dashboard.id.value), None, Some("output"), Some(config)), owner))
@@ -1952,7 +1952,7 @@ class OutputRoutesSpec
   "POST /pipelines/:id/preview?outputId= (single-Output arm)" should {
     "200 for the owner and the editor grantee (per-Output dry run), 404 for an unrelated caller" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "preview-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "preview-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       Post(s"/pipelines/${pipelineId.value}/preview?outputId=${output.id.value}") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -1977,7 +1977,7 @@ class OutputRoutesSpec
 
     "does not mutate the pipeline's last_run_status/last_run_at (HTTP-level, real DB round-trip)" in {
       val pipelineId = newSharedPipeline()
-      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "preview-unchanged-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "preview-unchanged-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       Post(s"/pipelines/${pipelineId.value}/preview?outputId=${output.id.value}") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -1992,8 +1992,8 @@ class OutputRoutesSpec
   "POST /pipelines/:id/preview (outputId ABSENT — all-Outputs arm, HEL-906 cycle 10)" should {
     "200 for the owner and the editor grantee, 404 for an unrelated caller, with EVERY Output's preview rows in the same envelope shape" in {
       val pipelineId = newSharedPipeline()
-      val outputA = await(outputRepo.insertInternal(pipelineId, None, owner.id, "all-out-a", OutputKind.Table, explicitRootId = None))
-      val outputB = await(outputRepo.insertInternal(pipelineId, None, owner.id, "all-out-b", OutputKind.Table, explicitRootId = None))
+      val outputA = await(outputRepo.insertInternal(pipelineId, None, owner.id, "all-out-a", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
+      val outputB = await(outputRepo.insertInternal(pipelineId, None, owner.id, "all-out-b", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       Post(s"/pipelines/${pipelineId.value}/preview") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -2018,8 +2018,8 @@ class OutputRoutesSpec
 
     "does not mutate the pipeline's last_run_status/last_run_at (HTTP-level, real DB round-trip) -- the risk explicitly named for the all-Outputs path, where more work happens per call" in {
       val pipelineId = newSharedPipeline()
-      await(outputRepo.insertInternal(pipelineId, None, owner.id, "all-unchanged-out-1", OutputKind.Table, explicitRootId = None))
-      await(outputRepo.insertInternal(pipelineId, None, owner.id, "all-unchanged-out-2", OutputKind.Table, explicitRootId = None))
+      await(outputRepo.insertInternal(pipelineId, None, owner.id, "all-unchanged-out-1", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
+      await(outputRepo.insertInternal(pipelineId, None, owner.id, "all-unchanged-out-2", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
 
       Post(s"/pipelines/${pipelineId.value}/preview") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
@@ -2093,7 +2093,7 @@ class OutputRoutesSpec
     "returns the SECOND root's rows for an Output bound to root 1, not root 0's (single-Output arm)" in {
       val (pipelineId, _, root1Id) = newTwoRootPipelineWithDistinctContent()
       val output = await(outputRepo.insertInternal(
-        pipelineId, None, owner.id, "root1-output", OutputKind.Table, explicitRootId = Some(root1Id)
+        pipelineId, None, owner.id, "root1-output", OutputKind.Table, explicitRootId = Some(root1Id), actor = AuthenticatedUser(owner.id)
       ))
 
       Post(s"/pipelines/${pipelineId.value}/preview?outputId=${output.id.value}") ~> routesFor(owner) ~> check {
@@ -2112,9 +2112,9 @@ class OutputRoutesSpec
 
     "returns the SECOND root's rows for an Output bound to root 1, not root 0's (all-Outputs arm)" in {
       val (pipelineId, _, root1Id) = newTwoRootPipelineWithDistinctContent()
-      val outputRoot0 = await(outputRepo.insertInternal(pipelineId, None, owner.id, "root0-output", OutputKind.Table, explicitRootId = None))
+      val outputRoot0 = await(outputRepo.insertInternal(pipelineId, None, owner.id, "root0-output", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       val outputRoot1 = await(outputRepo.insertInternal(
-        pipelineId, None, owner.id, "root1-output-2", OutputKind.Table, explicitRootId = Some(root1Id)
+        pipelineId, None, owner.id, "root1-output-2", OutputKind.Table, explicitRootId = Some(root1Id), actor = AuthenticatedUser(owner.id)
       ))
 
       Post(s"/pipelines/${pipelineId.value}/preview") ~> routesFor(owner) ~> check {

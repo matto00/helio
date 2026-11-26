@@ -44,7 +44,7 @@ class AskPinRealRouteSpec extends AnyWordSpec with Matchers with HelioRouteTest 
       sqlu"""INSERT INTO pipelines (id, name, owner_id, created_at, updated_at) VALUES ($pid, 'pipe', ${owner}::uuid, now(), now())""",
       sqlu"""INSERT INTO pipeline_roots (id, pipeline_id, data_source_id, position) VALUES ($rootId, $pid, $src, 0)"""
     )))
-    rev = awaitDb(outputRepo.insertInternal(PipelineId(pid), None, UserId(owner), "Revenue", OutputKind.Table, JsObject.empty, regionSchema, explicitRootId = Some(PipelineRootId(rootId))))
+    rev = awaitDb(outputRepo.insertInternal(PipelineId(pid), None, UserId(owner), "Revenue", OutputKind.Table, JsObject.empty, regionSchema, explicitRootId = Some(PipelineRootId(rootId)), actor = AuthenticatedUser(UserId(owner))))
     askApi = buildAskApi(ClaudeModelCatalog.HaikuId)
   }
 

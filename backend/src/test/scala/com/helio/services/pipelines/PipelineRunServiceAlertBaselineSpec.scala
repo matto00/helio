@@ -83,7 +83,7 @@ class PipelineRunServiceAlertBaselineSpec extends AnyWordSpec with Matchers with
       )))
       val pipelineId = PipelineId(pid)
       val step = awaitDb(stepRepo.insertInternal(pipelineId, "assert", AssertConfig(Vector.empty[AssertRule]), enabled = true, None, explicitRootId = None))
-      val out  = awaitDb(outputRepo.insertInternal(pipelineId, Some(step.id), user.id, "step-table", OutputKind.Table, explicitRootId = None))
+      val out  = awaitDb(outputRepo.insertInternal(pipelineId, Some(step.id), user.id, "step-table", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(user.id)))
       val now  = Instant.now()
       val rule = awaitDb(ruleRepo.insert(AlertRule(
         id = AlertRuleId(UUID.randomUUID().toString), ownerId = user.id, targetOutputId = out.id, metric = "amount",

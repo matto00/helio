@@ -189,7 +189,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   private def seedOutputAtTrunkLast(pipelineId: PipelineId): OutputId = {
     val existing = await(stepRepo.listByPipelineInternal(pipelineId))
     val nodeId   = stepRepo.trunkOf(existing).lastOption.map(_.id)
-    await(outputRepo.insertInternal(pipelineId, nodeId, dummyUser.id, "test-output", OutputKind.Table, explicitRootId = None)).id
+    await(outputRepo.insertInternal(pipelineId, nodeId, dummyUser.id, "test-output", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id))).id
   }
 
   /** HEL-904 task 4.1: the surviving row-materialization read -- `node_snapshots`
@@ -1258,7 +1258,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val dsId = seedRestDs(RestSuccessUrl)
       val pid  = seedPipeline(dsId)
       val step = await(insertStep(pid, "limit", LimitConfig(10), dummyUser))
-      val output = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "preview-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "preview-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
 
       val result = await(service.previewOutputs(pid, Some(output.id), dummyUser))
       result shouldBe a[Right[_, _]]
@@ -1271,7 +1271,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "previews a SOURCE-bound Output (node.stepId = None) as the raw source rows" in {
       val dsId = seedRestDs(RestSuccessUrl)
       val pid  = seedPipeline(dsId)
-      val output = await(outputRepo.insertInternal(pid, None, dummyUser.id, "source-preview-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pid, None, dummyUser.id, "source-preview-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
 
       val result = await(service.previewOutputs(pid, Some(output.id), dummyUser))
       result shouldBe a[Right[_, _]]
@@ -1290,7 +1290,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val pid1  = seedPipeline(dsId1)
       val dsId2 = seedRestDs(RestSuccessUrl)
       val pid2  = seedPipeline(dsId2)
-      val outputOnPid2 = await(outputRepo.insertInternal(pid2, None, dummyUser.id, "wrong-pipeline-out", OutputKind.Table, explicitRootId = None))
+      val outputOnPid2 = await(outputRepo.insertInternal(pid2, None, dummyUser.id, "wrong-pipeline-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
 
       val result = await(service.previewOutputs(pid1, Some(outputOnPid2.id), dummyUser))
       result shouldBe a[Left[_, _]]
@@ -1305,7 +1305,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
     "does not mutate last_run_status/last_run_at (single-Output arm) -- a REAL run on a different pipeline in between proves the assertion mechanism can detect a mutation" in {
       val dsId = seedRestDs(RestSuccessUrl)
       val pid  = seedPipeline(dsId)
-      val output = await(outputRepo.insertInternal(pid, None, dummyUser.id, "unchanged-out", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pid, None, dummyUser.id, "unchanged-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
 
       val before = await(pipelineRepo.findByIdInternal(pid)).get
       before.lastRunStatus shouldBe None
@@ -1335,8 +1335,8 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val dsId = seedRestDs(RestSuccessUrl)
       val pid  = seedPipeline(dsId)
       val step = await(insertStep(pid, "limit", LimitConfig(10), dummyUser))
-      val sourceOutput = await(outputRepo.insertInternal(pid, None, dummyUser.id, "src-out", OutputKind.Table, explicitRootId = None))
-      val stepOutput   = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "step-out", OutputKind.Table, explicitRootId = None))
+      val sourceOutput = await(outputRepo.insertInternal(pid, None, dummyUser.id, "src-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
+      val stepOutput   = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "step-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
 
       val result = await(service.previewOutputs(pid, None, dummyUser))
       result shouldBe a[Right[_, _]]
@@ -1349,8 +1349,8 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val dsId = seedRestDs(RestSuccessUrl)
       val pid  = seedPipeline(dsId)
       val step = await(insertStep(pid, "limit", LimitConfig(10), dummyUser))
-      val outputA = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "shared-out-a", OutputKind.Table, explicitRootId = None))
-      val outputB = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "shared-out-b", OutputKind.Table, explicitRootId = None))
+      val outputA = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "shared-out-a", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
+      val outputB = await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "shared-out-b", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
 
       val result = await(service.previewOutputs(pid, None, dummyUser))
       result shouldBe a[Right[_, _]]
@@ -1378,8 +1378,8 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val dsId = seedRestDs(RestSuccessUrl)
       val pid  = seedPipeline(dsId)
       val step = await(insertStep(pid, "limit", LimitConfig(10), dummyUser))
-      await(outputRepo.insertInternal(pid, None, dummyUser.id, "unchanged-out-1", OutputKind.Table, explicitRootId = None))
-      await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "unchanged-out-2", OutputKind.Table, explicitRootId = None))
+      await(outputRepo.insertInternal(pid, None, dummyUser.id, "unchanged-out-1", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
+      await(outputRepo.insertInternal(pid, Some(step.id), dummyUser.id, "unchanged-out-2", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
 
       val before = await(pipelineRepo.findByIdInternal(pid)).get
       before.lastRunStatus shouldBe None
@@ -1439,8 +1439,8 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val branchNode = await(stepRepo.insertInternal(
         pid, "limit", LimitConfig(1), enabled = true, parentStepId = Some(stepA.id), explicitRootId = None
       )) // stepA's SECOND child -- off target's closure ({stepA} only), ENABLED (AC3)
-      val targetOutput = await(outputRepo.insertInternal(pid, Some(target.id), dummyUser.id, "closure-guard-target-out", OutputKind.Table, explicitRootId = None))
-      val branchOutput = await(outputRepo.insertInternal(pid, Some(branchNode.id), dummyUser.id, "closure-guard-branch-out", OutputKind.Table, explicitRootId = None))
+      val targetOutput = await(outputRepo.insertInternal(pid, Some(target.id), dummyUser.id, "closure-guard-target-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
+      val branchOutput = await(outputRepo.insertInternal(pid, Some(branchNode.id), dummyUser.id, "closure-guard-branch-out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
       (pid, stepA, stepB, target, branchNode, targetOutput.id, branchOutput.id)
     }
 
@@ -1957,7 +1957,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
         enabled = true, parentStepId = None
       , explicitRootId = None))
       seedOutputAtTrunkLast(pid) // materializes the trunk-last node (the rename step)
-      val tailOutput = await(outputRepo.insertInternal(pid, Some(tail.id), dummyUser.id, "tail-output", OutputKind.Table, explicitRootId = None))
+      val tailOutput = await(outputRepo.insertInternal(pid, Some(tail.id), dummyUser.id, "tail-output", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
@@ -1994,8 +1994,8 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
         enabled = true, parentStepId = Some(midTail.id)
       , explicitRootId = None))
       seedOutputAtTrunkLast(pid)
-      val midOutput = await(outputRepo.insertInternal(pid, Some(midTail.id), dummyUser.id, "mid-output", OutputKind.Table, explicitRootId = None))
-      val terminalOutput = await(outputRepo.insertInternal(pid, Some(terminalTail.id), dummyUser.id, "terminal-output", OutputKind.Table, explicitRootId = None))
+      val midOutput = await(outputRepo.insertInternal(pid, Some(midTail.id), dummyUser.id, "mid-output", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
+      val terminalOutput = await(outputRepo.insertInternal(pid, Some(terminalTail.id), dummyUser.id, "terminal-output", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
@@ -2021,8 +2021,8 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)
       val trunkStep = await(insertStep(pid, "rename", RenameConfig(Map("name" -> "renamed")), dummyUser))
-      val outputA = await(outputRepo.insertInternal(pid, Some(trunkStep.id), dummyUser.id, "output-a", OutputKind.Table, explicitRootId = None))
-      val outputB = await(outputRepo.insertInternal(pid, Some(trunkStep.id), dummyUser.id, "output-b", OutputKind.Table, explicitRootId = None))
+      val outputA = await(outputRepo.insertInternal(pid, Some(trunkStep.id), dummyUser.id, "output-a", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
+      val outputB = await(outputRepo.insertInternal(pid, Some(trunkStep.id), dummyUser.id, "output-b", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
@@ -2050,8 +2050,8 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val pid = seedPipeline(ds0)
       val root1Id = addSecondRoot(pid, ds1)
 
-      val output0 = await(outputRepo.insertInternal(pid, nodeStepId = None, dummyUser.id, "root0-output", OutputKind.Table, explicitRootId = None))
-      val output1 = await(outputRepo.insertInternal(pid, nodeStepId = None, dummyUser.id, "root1-output", OutputKind.Table, explicitRootId = Some(PipelineRootId(root1Id))))
+      val output0 = await(outputRepo.insertInternal(pid, nodeStepId = None, dummyUser.id, "root0-output", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
+      val output1 = await(outputRepo.insertInternal(pid, nodeStepId = None, dummyUser.id, "root1-output", OutputKind.Table, explicitRootId = Some(PipelineRootId(root1Id)), actor = AuthenticatedUser(dummyUser.id)))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]
@@ -2100,7 +2100,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val unmaterializedStep = await(insertStep(pid, "rename", RenameConfig(Map("name" -> "renamed")), dummyUser))
       // Trunk-last step: the ONLY materialized node (has an Output).
       val materializedStep = await(insertStep(pid, "rename", RenameConfig(Map("score" -> "finalScore")), dummyUser))
-      await(outputRepo.insertInternal(pid, Some(materializedStep.id), dummyUser.id, "final-output", OutputKind.Table, explicitRootId = None))
+      await(outputRepo.insertInternal(pid, Some(materializedStep.id), dummyUser.id, "final-output", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id)))
 
       val result = await(service.submit(pid, isDry = false, dummyUser))
       result shouldBe a[Right[_, _]]

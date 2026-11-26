@@ -143,7 +143,7 @@ class WindowRollingSeamSpec
       }
 
       // A real run: an Output on the window step, a submitted (non-dry) run, then the materialized rows.
-      val output = await(outputRepo.insertInternal(pid, Some(PipelineStepId(stepId)), owner.id, "rolling", OutputKind.Table, explicitRootId = None))
+      val output = await(outputRepo.insertInternal(pid, Some(PipelineStepId(stepId)), owner.id, "rolling", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       Post(s"/pipelines/${pid.value}/run") ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
       }

@@ -107,6 +107,12 @@ class PipelineRepository(
         }
     }
 
+  /** HEL-1882: what `user` may do to the pipeline's definition RIGHT NOW (owner, editor, viewer, no access, or the pipeline is
+   *  gone), read on the system context with explicit predicates: the start-of-work check of a background write that acts for a
+   *  user (an Output backfill, an insight refresh). Separate from [[findByIdShared]], which only says the user can SEE it. */
+  def currentWriteAccessInternal(id: PipelineId, user: AuthenticatedUser): Future[WriteAccess] =
+    ctx.withSystemContext(PipelineWriteAccess.currentAction(id.value, user.id.value))
+
   /** Owner-only read. Used for delete / rename where only the pipeline owner
    *  is authorised regardless of any sharing grants.
    *  Returns None for cross-user callers (no existence leak). */

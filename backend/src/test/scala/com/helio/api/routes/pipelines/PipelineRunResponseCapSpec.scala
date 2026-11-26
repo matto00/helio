@@ -94,7 +94,7 @@ class PipelineRunResponseCapSpec extends AnyWordSpec with Matchers with HelioRou
   }
 
   private def seedOutput(pid: PipelineId): OutputId =
-    await(outputRepo.insertInternal(pid, None, dummyUser.id, "out", OutputKind.Table, explicitRootId = None)).id
+    await(outputRepo.insertInternal(pid, None, dummyUser.id, "out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(dummyUser.id))).id
 
   private def makeRoutes(cache: PipelineRunCache): Route = {
     implicit val ec: ExecutionContext = routeEc

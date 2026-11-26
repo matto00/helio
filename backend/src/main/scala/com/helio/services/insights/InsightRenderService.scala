@@ -64,7 +64,9 @@ final class InsightRenderService(
     config: InsightRenderConfig = InsightRenderConfig(),
     /** False when no API key is configured: every render then records a no-model `failed` row before any charge. */
     modelAvailable: Boolean = true,
-    limits: InsightLimits = InsightLimits()
+    limits: InsightLimits = InsightLimits(),
+    /** Called with each started render's `(outputId, result)` once it completes; a no-op in production (a test awaits it). */
+    renderObserver: (String, InsightRenderService.RenderResult) => Unit = (_, _) => ()
 )(implicit ec: ExecutionContext) extends InsightRunTrigger with InsightTickPass {
 
   import InsightRenderService._
@@ -108,7 +110,7 @@ final class InsightRenderService(
       case Left(err) => Left(err)
       case Right((_, acc)) if !InsightAccess.isPrivileged(acc) => Left(ServiceError.Forbidden("Only the pipeline owner or an editor can refresh an insight"))
       case Right((output, _)) =>
-        val (started, done) = startRender(output, trigger, runId = None, automatic = false)
+        val (started, done) = startRender(output, trigger, runId = None, automatic = false, requester = Some(user))
         done.failed.foreach(e => log.warn(s"insight refresh of ${id.value} failed", e))
         Right(InsightRefreshAccepted(id.value, started))
     }
@@ -168,23 +170,40 @@ final class InsightRenderService(
 
   /** Claims the Output (no second render of it in this process) and starts the render. The future never fails. */
   private def startRender(
-      output: Output, trigger: InsightTrigger, runId: Option[String], automatic: Boolean, at: Option[Instant] = None
+      output: Output, trigger: InsightTrigger, runId: Option[String], automatic: Boolean, at: Option[Instant] = None,
+      requester: Option[AuthenticatedUser] = None
   ): (Boolean, Future[RenderResult]) = {
     val id = output.id.value
     if (!inFlight.add(id)) { log.info(s"insight render of $id skipped: one is already in flight"); (false, Future.successful(RenderResult.InFlight)) }
     else {
       val start    = at.getOrElse(clock.now())
       val handedOff = new AtomicBoolean(false)
-      val done = Future.delegate(renderGuarded(output, trigger, runId, automatic, start, () => handedOff.set(true)))
+      val done = Future.delegate(renderGuarded(output, trigger, runId, automatic, start, () => handedOff.set(true), requester))
         .recover { case NonFatal(e) => log.warn(s"insight render of $id (${trigger.wire}) failed unexpectedly", e); RenderResult.Errored }
         .andThen { case _ => if (!handedOff.get()) inFlight.remove(id) }
+        .andThen { case Success(r) => try renderObserver(id, r) catch { case NonFatal(e) => log.warn("insight render observer failed", e) } }
       (true, done)
     }
   }
 
   private def renderGuarded(
       output: Output, trigger: InsightTrigger, runId: Option[String], automatic: Boolean, start: Instant,
-      handOff: () => Unit
+      handOff: () => Unit, requester: Option[AuthenticatedUser]
+  ): Future[RenderResult] =
+    requester match {
+      // HEL-1882 D4: a manual or pin refresh acts for the requester, who must STILL be owner or editor when the render starts: this is
+      // before any attempt row, quota charge or model call, so a refused render writes and charges nothing. Automatic triggers act
+      // for no user (requester None) and are unchanged.
+      case Some(user) =>
+        pipelineRepo.currentWriteAccessInternal(output.node.pipelineId, user).flatMap { access =>
+          if (access.mayWrite) renderAuthorised(output, trigger, runId, automatic, start, handOff)
+          else { log.info(s"insight render of ${output.id.value} refused: the requester no longer has write access ($access)"); Future.successful(RenderResult.Refused) }
+        }
+      case None => renderAuthorised(output, trigger, runId, automatic, start, handOff)
+    }
+
+  private def renderAuthorised(
+      output: Output, trigger: InsightTrigger, runId: Option[String], automatic: Boolean, start: Instant, handOff: () => Unit
   ): Future[RenderResult] = {
     val id = output.id.value
     pipelineRepo.findByIdInternal(output.node.pipelineId).flatMap {
@@ -352,6 +371,8 @@ object InsightRenderService {
     case object Gone      extends RenderResult { val reachedModel = false }
     case object Throttled extends RenderResult { val reachedModel = false }
     case object Errored   extends RenderResult { val reachedModel = false }
+    /** HEL-1882: a manual or pin refresh whose requester lost owner-or-editor access before the render started. */
+    case object Refused   extends RenderResult { val reachedModel = false }
     final case class Wrote(status: InsightStatus, reachedModel: Boolean) extends RenderResult
   }
 

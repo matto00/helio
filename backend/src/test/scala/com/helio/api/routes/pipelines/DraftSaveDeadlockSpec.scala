@@ -235,7 +235,7 @@ class DraftSaveDeadlockSpec extends DraftRaceFixture {
           "pipeline delete" -> (() => h.pipelineRepo.delete(PipelineId(q), owner)),
           "source delete" -> (() => h.dataSourceRepo.delete(DataSourceId(seed.ds2), owner)),
           "step PATCH" -> (() => h.stepRepo.updateInternal(PipelineStepId(seed.t3), Some(LimitConfig(33)), None, None, userA, actor = owner)),
-          "Output create" -> (() => h.outputRepo.insertInternal(pid(seed), Some(PipelineStepId(seed.t3)), UserId(userA), "mixed", OutputKind.Table, JsObject.empty, Vector.empty, None, None)),
+          "Output create" -> (() => h.outputRepo.insertInternal(pid(seed), Some(PipelineStepId(seed.t3)), UserId(userA), "mixed", OutputKind.Table, JsObject.empty, Vector.empty, None, None, actor = AuthenticatedUser(UserId(userA)))),
           "root add" -> (() => h.rootRepo.add(pid(seed), DataSourceId(seed.id("ds3")), owner)),
           "node snapshot" -> (() => snapshotTxn.run(h, seed))
         )

@@ -142,7 +142,7 @@ class ApiRoutesAlertHistoryWiringSpec extends AnyWordSpec with Matchers with Hel
     )))
     val pipelineId = PipelineId(pid)
     val step = awaitDb(stepRepo.insertInternal(pipelineId, "assert", AssertConfig(Vector.empty[AssertRule]), enabled = true, None, explicitRootId = None))
-    val out  = awaitDb(outputRepo.insertInternal(pipelineId, Some(step.id), UserId(ownerId), "step-table", OutputKind.Table, explicitRootId = None))
+    val out  = awaitDb(outputRepo.insertInternal(pipelineId, Some(step.id), UserId(ownerId), "step-table", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(UserId(ownerId))))
     val user = AuthenticatedUser(UserId(ownerId))
     val now  = Instant.now()
     def rule(name: String, condition: JsObject): AlertRuleId =

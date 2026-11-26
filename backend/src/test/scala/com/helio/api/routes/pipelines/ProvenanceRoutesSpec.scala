@@ -77,7 +77,7 @@ class ProvenanceRoutesSpec extends AnyWordSpec with Matchers with HelioRouteTest
       val sa  = fx.filterStep(b.pipelineId, None, Some(b.roots(0)))
       val sb  = fx.filterStep(b.pipelineId, None, Some(b.roots(1)))
       val j   = fx.joinStep(b.pipelineId, sa.id, SecondaryInput.Lane(sb.id.value))
-      val out = await(outputRepo.insertInternal(b.pipelineId, Some(j.id), owner.id, "O", OutputKind.Table, explicitRootId = None))
+      val out = await(outputRepo.insertInternal(b.pipelineId, Some(j.id), owner.id, "O", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner.id)))
       fx.snapshot(b.pipelineId, Some(j.id), None, rows = 5)
       fx.run(b.pipelineId, "succeeded")
 

@@ -102,7 +102,7 @@ class AlertEvaluationServiceSpec extends AnyWordSpec with Matchers with BeforeAn
     val pipeline = await(pipeRepo.create("pipe", Vector(createdSource.id), user)).getOrElse(
       throw new IllegalStateException("seedOutput fixture: pipeline create failed")
     )
-    await(outRepo.insertInternal(PipelineId(pipeline.id), None, owner, "out", OutputKind.Table, explicitRootId = None)).id
+    await(outRepo.insertInternal(PipelineId(pipeline.id), None, owner, "out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(owner))).id
   }
 
   private def condition(comparator: String, threshold: Double): JsValue =

@@ -231,7 +231,7 @@ class PatchSetUndoRoutesSpec
         .getOrElse(fail("apply refused"))
       val applicationId = applied.applicationId.getOrElse(fail("not journaled"))
       val pid = applied.edits.head.newId.getOrElse(fail("no pipeline id"))
-      await(outputRepoF.insertInternal(PipelineId(pid), None, userA.id, "Route later output", OutputKind.Table, explicitRootId = None))
+      await(outputRepoF.insertInternal(PipelineId(pid), None, userA.id, "Route later output", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(userA.id)))
 
       Post(s"/patch-sets/$applicationId/undo") ~> routesFor(userA) ~> check {
         status shouldBe StatusCodes.Conflict

@@ -89,7 +89,7 @@ class CastPipelineRunSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
 
   /** Runs for real with an Output on `last` and returns its persisted snapshot rows. */
   private def runAndRead(pid: PipelineId, last: PipelineStepId): Vector[JsObject] = {
-    await(outputRepo.insertInternal(pid, Some(last), user.id, "out", OutputKind.Table, explicitRootId = None))
+    await(outputRepo.insertInternal(pid, Some(last), user.id, "out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(user.id)))
     await(service.submit(pid, isDry = false, user)) shouldBe a[Right[_, _]]
     await(nodeSnapshotRepo.listRows(pid.value, Some(last.value), explicitRootId = None))
   }

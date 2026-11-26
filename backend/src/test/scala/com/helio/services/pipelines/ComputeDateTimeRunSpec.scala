@@ -100,7 +100,7 @@ class ComputeDateTimeRunSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val cast  = await(stepRepo.insertInternal(pid, "cast", CastConfig(Map("created_at" -> "timestamp", "started_at" -> "timestamp")), enabled = true, None, explicitRootId = None)).id
       val queue = await(stepRepo.insertInternal(pid, "compute", ComputeConfig("queue_s", QueueExpr, None), enabled = true, Some(cast), explicitRootId = None)).id
       val last  = await(stepRepo.insertInternal(pid, "compute", ComputeConfig("day", BucketExpr, None), enabled = true, Some(queue), explicitRootId = None)).id
-      await(outputRepo.insertInternal(pid, Some(last), user.id, "out", OutputKind.Table, explicitRootId = None))
+      await(outputRepo.insertInternal(pid, Some(last), user.id, "out", OutputKind.Table, explicitRootId = None, actor = AuthenticatedUser(user.id)))
       await(service.submit(pid, isDry = false, user)) shouldBe a[Right[_, _]]
       val rows = await(nodeSnapshotRepo.listRows(pid.value, Some(last.value), explicitRootId = None)).sortBy(_.fields("id").compactPrint)
 
