@@ -1181,6 +1181,47 @@ class DataSourceRoutesSpec
       }
     }
 
+    // HEL-1013 D9: pagingNotice only for an unconfigured response that looks paged; a configured request is
+    // validated (400 when malformed) but never followed and never warned.
+    "carry pagingNotice for an unconfigured response whose body looks paged, and omit it otherwise" in {
+      val paged = """{"results": [{"id": 1}], "has_more": true}""".parseJson
+      Post("/api/sources/infer", HttpEntity(ContentTypes.`application/json`, inferConfigBody)) ~> routesWith(successConnector(paged)) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[JsValue].asJsObject.fields.get("pagingNotice").collect { case JsString(v) => v }.exists(_.contains("first page")) shouldBe true
+      }
+      Post("/api/sources/infer", HttpEntity(ContentTypes.`application/json`, inferConfigBody)) ~> routesWith(successConnector(sampleJson)) ~> check {
+        responseAs[JsValue].asJsObject.fields.keySet shouldBe Set("fields")
+      }
+    }
+
+    "carry pagingNotice on the connectorId path for an unconfigured paged body, and key the response to fields only when pagination is set" in {
+      val paged      = """{"results": [{"id": 1}], "has_more": true}""".parseJson
+      val plain      = """{"connectorId": "conn-1", "endpoint": "/items"}"""
+      val configured = """{"connectorId": "conn-1", "endpoint": "/items", "pagination": {"style": "link"}}"""
+      Post("/api/sources/infer", HttpEntity(ContentTypes.`application/json`, plain)) ~> routesWith(successConnector(paged)) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[JsValue].asJsObject.fields.get("pagingNotice").collect { case JsString(v) => v }.exists(_.contains("first page")) shouldBe true
+      }
+      Post("/api/sources/infer", HttpEntity(ContentTypes.`application/json`, configured)) ~> routesWith(successConnector(paged)) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[JsValue].asJsObject.fields.keySet shouldBe Set("fields")
+      }
+    }
+
+    "omit pagingNotice when the request configures pagination, and reject a malformed pagination with 400" in {
+      val paged      = """{"results": [{"id": 1}], "has_more": true}""".parseJson
+      val configured = """{"url": "http://example.com", "pagination": {"style": "link"}}"""
+      Post("/api/sources/infer", HttpEntity(ContentTypes.`application/json`, configured)) ~> routesWith(successConnector(paged)) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[JsValue].asJsObject.fields.keySet shouldBe Set("fields")
+      }
+      val malformed = """{"url": "http://example.com", "pagination": {"style": "offset"}}"""
+      Post("/api/sources/infer", HttpEntity(ContentTypes.`application/json`, malformed)) ~> routesWith(successConnector(paged)) ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[ErrorResponse].message should include("pagination.limit")
+      }
+    }
+
     "return 502 when the connector fetch fails" in {
       Post(
         "/api/sources/infer",

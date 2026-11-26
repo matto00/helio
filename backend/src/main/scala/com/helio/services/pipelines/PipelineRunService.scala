@@ -340,11 +340,14 @@ object PipelineRunService {
 
   /** One truncated source's clause, per design.md Decision 4's exact wording (both branches). */
   private def truncationReadClause(read: TruncatedRead, cap: Int): String =
-    read.availableRowCount match {
-      case Some(available) =>
+    (read.availableRowCount, read.pagesFetched) match {
+      case (None, Some(pages)) =>
+        s"""Source "${read.dataSourceName}" truncated: this run read the first ${read.rowsRead} """ +
+          s"""rows across $pages pages because of the $cap-row run cap, and more rows exist (the total is not known)."""
+      case (Some(available), _) =>
         s"""Source "${read.dataSourceName}" truncated: this run read the first ${read.rowsRead} """ +
           s"""rows returned, out of $available available, because of the $cap-row run cap."""
-      case None =>
+      case (None, None) =>
         s"""Source "${read.dataSourceName}" truncated: this run read the first ${read.rowsRead} """ +
           s"""rows returned because of the $cap-row run cap, and more rows exist (the total is not known)."""
     }

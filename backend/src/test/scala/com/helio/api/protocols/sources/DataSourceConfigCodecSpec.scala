@@ -1,6 +1,7 @@
 package com.helio.api.protocols.sources
 
-import com.helio.domain.model.CsvSourceConfig
+import com.helio.domain.connectors.RestPagination
+import com.helio.domain.model.{CsvSourceConfig, RestApiConfig}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -35,6 +36,34 @@ class DataSourceConfigCodecSpec extends AnyWordSpec with Matchers {
     "still fall back to the legacy filePath key when path is absent" in {
       val cfg = DataSourceConfigCodec.decodeCsv("""{"filePath":"legacy/old.csv"}""")
       cfg shouldBe CsvSourceConfig("legacy/old.csv", None)
+    }
+  }
+
+  // HEL-1013
+  "DataSourceConfigCodec.decodeRest pagination" should {
+
+    "decode a stored config with no pagination key unchanged, with pagination = None" in {
+      val cfg = DataSourceConfigCodec.decodeRest("""{"connectorId":"c1","endpoint":"/x","method":"GET"}""")
+      cfg.map(_.pagination) shouldBe Right(None)
+    }
+
+    "round-trip a pagination config through encode -> decode, echoing exactly what was written" in {
+      val original = RestApiConfig(
+        connectorId = "c1",
+        pagination  = Some(RestPagination.Cursor("meta.next", "after"))
+      )
+      val encoded = DataSourceConfigCodec.encodeRest(original)
+      encoded should include(""""cursorPath":"meta.next"""")
+      DataSourceConfigCodec.decodeRest(encoded) shouldBe Right(original)
+    }
+
+    "omit the key entirely when there is no pagination" in {
+      DataSourceConfigCodec.encodeRest(RestApiConfig(connectorId = "c1")) should not include "pagination"
+    }
+
+    "refuse a stored config whose pagination is invalid, rather than dropping it" in {
+      val cfg = DataSourceConfigCodec.decodeRest("""{"connectorId":"c1","pagination":{"style":"offset"}}""")
+      cfg.left.toOption.get should include("pagination.limit")
     }
   }
 }

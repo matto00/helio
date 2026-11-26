@@ -31,6 +31,7 @@ import type {
   PipelineSummaryResponse,
   PipelineRootSummaryResponse,
   QueryParamsInput,
+  RestPaginationInput,
   RemovePipelineRootResponse,
 } from "../types.js";
 
@@ -53,7 +54,7 @@ export interface CreatePipelineSourceInput {
    *  `name` when omitted. */
   name?: string;
   /** Inline-source branch -- the per-`type` config payload: rest_api -> {connectorId, endpoint?,
-   *  method?, queryParams?, headers?, body?, bodyContentType?, rootSelector?}; sql -> {dialect,
+   *  method?, queryParams?, headers?, body?, bodyContentType?, rootSelector?, pagination?}; sql -> {dialect,
    *  host, port, database, user, password, query}; static -> {columns, rows}. */
   config?: Record<string, unknown>;
 }
@@ -93,6 +94,7 @@ async function resolveSource(
         body: config.body as string | undefined,
         bodyContentType: config.bodyContentType as string | undefined,
         rootSelector: config.rootSelector as string | undefined,
+        pagination: config.pagination as RestPaginationInput | undefined,
       });
       return { sourceDataSourceId: result.source.id, createdSourceId: result.source.id };
     }

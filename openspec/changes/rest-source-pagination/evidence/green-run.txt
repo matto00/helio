@@ -1,0 +1,111 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.13.0.3)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/feature/rest-source-pagination/HEL-1013/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/feature/rest-source-pagination/HEL-1013/backend/)
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+14:33:03,912 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+14:33:03,912 |-INFO in ch.qos.logback.classic.util.ContextInitializer@32fe2bf - No custom configurators were discovered as a service.
+14:33:03,912 |-INFO in ch.qos.logback.classic.util.ContextInitializer@32fe2bf - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+14:33:03,913 |-INFO in ch.qos.logback.classic.util.ContextInitializer@32fe2bf - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+14:33:03,914 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+14:33:03,916 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/feature/rest-source-pagination/HEL-1013/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+14:33:03,945 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+14:33:03,947 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@4fdca3f7 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+14:33:03,947 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+14:33:03,949 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+14:33:03,950 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@4fdca3f7 - value "plain" substituted for "${LOG_APPENDER}"
+14:33:03,950 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+14:33:03,950 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+14:33:03,950 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+14:33:03,952 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+14:33:03,968 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+14:33:03,968 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+14:33:03,968 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+14:33:03,968 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@4fdca3f7 - value "INFO" substituted for "${LOG_LEVEL}"
+14:33:03,968 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+14:33:03,968 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@4fdca3f7 - value "plain" substituted for "${LOG_APPENDER}"
+14:33:03,968 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+14:33:03,968 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@325d5678 - End of configuration.
+14:33:03,969 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@4be26e14 - Registering current configuration as safe fallback point
+14:33:03,971 |-INFO in ch.qos.logback.classic.util.ContextInitializer@32fe2bf - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 56 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+14:33:03.973 INFO  [com-helio-domain-connectors-RestApiConnectorDriverPaginationSpec-pekko.actor.default-dispatcher-4] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] RestApiConnectorDriverPaginationSpec:
+[info] A paged REST fetch
+[info] - should follow Link rel=next across three pages
+[info] - should follow a next_url read from the body across three pages
+[info] - should send a body cursor back in cursorParam across three pages
+[info] - should page by page number, starting at startPage with the page size sent on request one
+[info] - should page by offset, starting at 0 and advancing by the limit
+[info] - should stop at the cap, report paged truncation and request nothing after the cap is exceeded
+[info] - should not report exactly cap rows as truncated
+[info] - should fail loudly, naming the bound and returning no rows, when maxRequests is reached with more pages promised
+[info] - should refuse a followed URL on a blocked host with the guard's own refusal, sending no request to it
+[info] - should refuse a followed URL on another allowed origin without sending a request
+[info] - should fail the whole fetch naming page 2 on a 500, returning no rows
+[info] - should fail the whole fetch naming page 3 on a 429 and never retry
+14:33:04.488 ERROR [com-helio-domain-connectors-RestApiConnectorDriverPaginationSpec-pekko.actor.default-dispatcher-5] c.h.d.c.RestApiConnectorDriver - REST source request failed
+org.apache.pekko.http.scaladsl.model.EntityStreamException: Request too large: Request of size 8388609 was longer than the maximum of 8388608
+	at org.apache.pekko.http.scaladsl.model.HttpEntity.toStrict(HttpEntity.scala:101)
+	at org.apache.pekko.http.scaladsl.model.HttpEntity.toStrict$(HttpEntity.scala:97)
+	at org.apache.pekko.http.scaladsl.model.HttpEntity$Default.toStrict(HttpEntity.scala:401)
+	at com.helio.domain.connectors.RestApiConnectorDriver.$anonfun$issuePage$3(RestApiConnectorDriver.scala:380)
+	at scala.concurrent.impl.Promise$Transformation.run(Promise.scala:470)
+	at org.apache.pekko.dispatch.BatchingExecutor$AbstractBatch.processBatch(BatchingExecutor.scala:73)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.$anonfun$run$1(BatchingExecutor.scala:110)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at scala.concurrent.BlockContext$.withBlockContext(BlockContext.scala:94)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.run(BatchingExecutor.scala:110)
+	at org.apache.pekko.dispatch.TaskInvocation.run(AbstractDispatcher.scala:59)
+	at org.apache.pekko.dispatch.ForkJoinExecutorConfigurator$PekkoForkJoinTask.exec(ForkJoinExecutorConfigurator.scala:61)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)
+[info] - should fail naming page 2 when its body exceeds the per-response limit
+[info] - should refuse a repeated cursor instead of spending the request budget
+14:33:05.501 WARN  [com-helio-domain-connectors-RestApiConnectorDriverPaginationSpec-pekko.actor.default-dispatcher-8] o.a.p.http.impl.engine.client.PoolId - [0 (WaitingForResponseEntitySubscription)]Response entity was not subscribed after 1 second. Make sure to read the response `entity` body or call `entity.discardBytes()` on it -- in case you deal with `HttpResponse`, use the shortcut `response.discardEntityBytes()`. GET /oversize Empty -> 200 OK Default(8388609 bytes)
+[info] - should fail with the time budget error, no rows and no page 3 request, when a page outlasts the deadline
+[info] - should fail with the time budget error, not success, when the last page completes after the deadline
+[info] Schema inference, preview and test over a paged source
+[info] - should read exactly one page and withhold observedRowCount for a configured source
+[info] - should flag an unconfigured response that carries a Link next header, after one request
+[info] - should flag a bare-url response that carries a Link next header
+[info] - should return the raw first page only from fetch(config, ctx)
+[info] A REST fetch with no pagination config (GUARD)
+[info] - should issue exactly one request and return page one with the unchanged truncation fields
+14:33:07.559 INFO  [com-helio-domain-connectors-RestApiConnectorDriverPaginationSpec-pekko.actor.default-dispatcher-17] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[WARN] [11/25/2026 14:33:07.563] [com-helio-domain-connectors-RestApiConnectorDriverPaginationSpec-pekko.actor.default-dispatcher-13] [com-helio-domain-connectors-RestApiConnectorDriverPaginationSpec/Pool(shared->http://localhost:37317)] [0 (WaitingForResponse)]Ongoing request [GET /slowlast Empty] was dropped because pool is shutting down
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] RestPaginationSpec:
+[info] RestPagination.parse
+[info] - should accept each style and round-trip it, omitting unset optional keys
+[info] - should default maxRequests to 20
+[info] - should reject every invalid shape, naming the field
+[info] RestPagination.linkNext
+[info] - should take the first rel=next link among several comma-separated link-values
+[info] - should match rel quoted or unquoted, case-insensitively, among space-separated tokens
+[info] - should respect a comma inside the angle brackets and read every Link header
+[info] - should find nothing without a next relation
+[info] RestPagination.next
+[info] - should resolve a relative Link target against the current request
+[info] - should read a next_url from the body, treating absent, null and emptyObj as the end
+[info] - should send a string or numeric cursor back in cursorParam and refuse any other type
+[info] - should refuse a repeated cursor or next URL
+[info] - should end page and offset on an emptyObj or short page, otherwise advance by one page or by the limit
+[info] RestPagination.firstUri
+[info] - should set page and offset parameters, replacing every existing pair of that name and keeping the others in order
+[info] RestPagination.looksPaged
+[info] - should detect a Link next header, a paging body key, and links.next
+[info] - should stay quiet for an unpaged response
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Run completed in 4 seconds, 807 milliseconds.
+[info] Total number of tests run: 36
+[info] Suites: completed 2, aborted 0
+[info] Tests: succeeded 36, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[success] elapsed time: 5 s, cache 100%, 31 disk cache hits

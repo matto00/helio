@@ -63,7 +63,7 @@ object StepExecutionException {
 /** Per-read truncation stats (HEL-861, design D5) — `SourceReadStats(false, None)` for every
  *  uncapped kind (static/CSV/text/PDF/image), which is factually correct: those paths apply no
  *  cap. REST and SQL populate it from their `FetchOutcome`. */
-final case class SourceReadStats(truncated: Boolean, availableRowCount: Option[Long])
+final case class SourceReadStats(truncated: Boolean, availableRowCount: Option[Long], pagesFetched: Option[Int] = None)
 
 /** HEL-905 (design.md Decision 8): the Phase-1 graph invariant was violated by the given step
  *  tree, identified by the offending node's id string (`"root"` for the virtual pipeline root)
@@ -827,7 +827,7 @@ class InProcessPipelineEngine(
               // pass that same set to every row -- classifying over a subset would let this
               // consumer disagree with `SchemaInferenceEngine`, which infers over the same batch.
               val mapPaths = JsonFlattener.detectMapPaths(outcome.rows.collect { case o: JsObject => o })
-              (outcome.rows.map(PipelineRowJson.jsRowToRow(_, mapPaths)), SourceReadStats(outcome.truncated, outcome.availableRowCount))
+              (outcome.rows.map(PipelineRowJson.jsRowToRow(_, mapPaths)), SourceReadStats(outcome.truncated, outcome.availableRowCount, outcome.pagesFetched))
             }
         }
     case s: SqlSource =>
@@ -866,7 +866,7 @@ class InProcessPipelineEngine(
       loadSource = (ds: DataSource) =>
         loadRowsWithStats(ds, dataSourceRepo).map { case (rows, stats) =>
           if (stats.truncated)
-            truncationSink.record(TruncatedRead(ds.name, rows.size.toLong, stats.availableRowCount))
+            truncationSink.record(TruncatedRead(ds.name, rows.size.toLong, stats.availableRowCount, stats.pagesFetched))
           rows
         },
       assertionSink = assertionSink,

@@ -2,7 +2,7 @@ package com.helio.services.sources
 
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
-import com.helio.domain.connectors.{ConnectorResolveContext, SqlConnectorDriver}
+import com.helio.domain.connectors.{ConnectorResolveContext, RestPagination, SqlConnectorDriver}
 import com.helio.domain.engine.{JsonFlattener, SchemaField}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, InferredFieldResponse, InferredSchemaResponse, PreviewSourceResponse, RestApiConfigPayload, SqlCreateSourceRequest, SqlInferRequest, SqlSourceConfigPayload, TestConnectionResponse}
@@ -152,9 +152,10 @@ final class SourceService(
           else
             // HEL-826 evaluation-1.md cycle-2 CR1: the belt-and-braces rejectBodyOnSafeMethod check must run BEFORE
             // anything is persisted — otherwise a rejected GET+body request still persists an orphaned implicit Connector.
-            RestApiConfig.rejectBodyOnSafeMethod(request.config.method.getOrElse("GET"), request.config.body) match {
+            RestApiConfig.rejectBodyOnSafeMethod(request.config.method.getOrElse("GET"), request.config.body)
+              .flatMap(_ => RestApiConfigPayload.validatePagination(request.config)) match {
               case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
-              case Right(()) =>
+              case Right(pagination) =>
                 val (baseUrl, endpoint, urlQueryParams) = RestSourceConnectorMigration.splitUrl(url)
                 // HEL-844 design.md D6a: the pairs `splitUrl` pulled off the bare URL's own query string are carried
                 // through (concatenated with any explicit `request.config.queryParams`).
@@ -170,7 +171,8 @@ final class SourceService(
                   bodyContentType = request.config.bodyContentType,
                   rootSelector    = request.config.rootSelector,
                   // HEL-983: the caller-supplied HEL-823 template values must reach the persisted source.
-                  parameters      = request.config.parameters.getOrElse(Map.empty)
+                  parameters      = request.config.parameters.getOrElse(Map.empty),
+                  pagination      = pagination
                 )
                 Future.successful(Right(SourceService.RestCreatePlan(restConfig, implicitBaseUrl = Some(baseUrl))))
             }
@@ -348,9 +350,11 @@ final class SourceService(
         toEphemeral(payload) match {
           case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
           case Right(ephemeral) =>
+            // HEL-1013 D9: judged on the payload, before `toEphemeral` dropped the (validated, never followed) pagination.
+            val configured = payload.pagination.exists(_ != JsNull)
             connector.inferSchemaEphemeral(ephemeral).map {
               case Left(err)     => Left(ServiceError.BadGateway(err))
-              case Right(schema) => Right(toInferredSchema(schema))
+              case Right(schema) => Right(toInferredSchema(if (configured) schema.copy(looksPaged = false) else schema))
             }
         }
     }
@@ -391,7 +395,8 @@ final class SourceService(
   private def toEphemeral(payload: RestApiConfigPayload): Either[String, EphemeralRestConfig] = {
     val method = payload.method.getOrElse("GET")
     val body   = payload.body
-    RestApiConfig.rejectBodyOnSafeMethod(method, body).map { _ =>
+    // HEL-1013: validated like create, then dropped -- the ephemeral path never follows pages.
+    RestApiConfigPayload.validatePagination(payload).flatMap(_ => RestApiConfig.rejectBodyOnSafeMethod(method, body)).map { _ =>
       EphemeralRestConfig(
         url             = payload.url.getOrElse(""),
         method          = method,
@@ -526,7 +531,7 @@ final class SourceService(
     val fields = schema.fields.map(f =>
       InferredFieldResponse(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
     ).toVector
-    InferredSchemaResponse(fields)
+    InferredSchemaResponse(fields, pagingNotice = RestPagination.noticeFor(schema.looksPaged))
   }
 }
 

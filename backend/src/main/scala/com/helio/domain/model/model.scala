@@ -1,5 +1,6 @@
 package com.helio.domain.model
 
+import com.helio.domain.connectors.RestPagination
 import com.helio.domain.engine.SchemaField
 import java.time.Instant
 import org.apache.pekko.http.scaladsl.model.{ContentType, ContentTypes}
@@ -300,7 +301,9 @@ final case class RestApiConfig(
     body: Option[String] = None,
     bodyContentType: Option[String] = None,
     rootSelector: Option[String] = None,
-    parameters: Map[String, String] = Map.empty
+    parameters: Map[String, String] = Map.empty,
+    // HEL-1013: how the source pages; `None` is today's single request.
+    pagination: Option[RestPagination] = None
 )
 
 /** HEL-844: an ordered, duplicate-key-preserving sequence of query-param pairs — replaces
@@ -513,7 +516,7 @@ final case class InferredField(name: String, displayName: String, dataType: Data
  *  leaves this `None` rather than guess. Defaulted so all 11 existing construction sites keep
  *  compiling unchanged. Has no spray-json format of its own -- the wire type is the separate
  *  `InferredSchemaResponse`. */
-final case class InferredSchema(fields: Seq[InferredField], observedRowCount: Option[Long] = None)
+final case class InferredSchema(fields: Seq[InferredField], observedRowCount: Option[Long] = None, looksPaged: Boolean = false)
 
 final case class DataField(
     name: String,

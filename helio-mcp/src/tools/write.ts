@@ -312,7 +312,13 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "produce a panel-bindable Output. `queryParams` (HEL-982) accepts EITHER a JSON object " +
         "(unique keys only) OR an ordered `[{name, value}]` array — use the array form to " +
         "express a repeated key (e.g. `?tag=a&tag=b`) or to control the order query params are " +
-        "sent in; the object form cannot express either.",
+        "sent in; the object form cannot express either. `pagination` (HEL-1013) declares how the API pages so a " +
+        "pipeline run follows pages up to the row cap: `{style: 'link'}` (RFC 8288 `Link: rel=\"next\"`), " +
+        "`{style: 'next_url', nextUrlPath}`, `{style: 'cursor', cursorPath, cursorParam}`, `{style: 'page', " +
+        "pageParam?, startPage?, pageSizeParam?, pageSize?}` or `{style: 'offset', limit, offsetParam?, limitParam?}`, " +
+        "each with an optional `maxRequests` (1..100, default 20; breaching it fails the fetch loudly). Without it a " +
+        "source reads ONE request: when the response looks paged the result carries a non-blocking `pagingNotice`. " +
+        "A run that stopped at the row cap after following pages reports `pagesFetched` on its `truncatedReads` entry.",
       inputSchema: createRestDataSourceSchema,
     },
     ({
@@ -325,6 +331,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
       body,
       bodyContentType,
       rootSelector,
+      pagination,
     }) =>
       guarded(async () => {
         const result = await api.createRestDataSource({
@@ -337,6 +344,7 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
           body,
           bodyContentType,
           rootSelector,
+          pagination,
         });
         return { ...result, fetchError: augmentFetchErrorWithConnectorsHint(result.fetchError) };
       }),

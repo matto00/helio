@@ -1,0 +1,69 @@
+MUTATION: drop the deadline.isOverdue() checks (diff of RestPagedFetch.scala, original -> mutant)
+--- /home/matt/Development/helio/.concertino/scratch/HEL-1013/bak/RPF2.bak	2026-11-25 15:18:46.803957473 -0800
++++ src/main/scala/com/helio/domain/connectors/RestPagedFetch.scala	2026-11-25 15:18:46.804400284 -0800
+@@ -42,7 +42,7 @@
+     val result    = Promise[Either[String, PagedRows]]()
+     def budgetError = Left(s"Pagination exceeded its $budgetText total time budget after ${completed.get} completed pages")
+ 
+-    def overdue: Boolean = hit.get || deadline.isOverdue()
++    def overdue: Boolean = hit.get
+     val onDeadline = new Runnable { def run(): Unit = { hit.set(true); result.trySuccess(budgetError); () } }
+     val timer      = startTimer.fold(system.scheduler.scheduleOnce(totalTimeout, onDeadline))(_(totalTimeout, onDeadline))
+ 
+
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.13.0.3)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/feature/rest-source-pagination/HEL-1013/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/feature/rest-source-pagination/HEL-1013/backend/)
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/feature/rest-source-pagination/HEL-1013/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+15:19:05,473 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+15:19:05,473 |-INFO in ch.qos.logback.classic.util.ContextInitializer@466a9549 - No custom configurators were discovered as a service.
+15:19:05,473 |-INFO in ch.qos.logback.classic.util.ContextInitializer@466a9549 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+15:19:05,474 |-INFO in ch.qos.logback.classic.util.ContextInitializer@466a9549 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+15:19:05,475 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+15:19:05,477 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/feature/rest-source-pagination/HEL-1013/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+15:19:05,510 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+15:19:05,512 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@10ec31f4 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+15:19:05,512 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+15:19:05,515 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+15:19:05,516 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@10ec31f4 - value "plain" substituted for "${LOG_APPENDER}"
+15:19:05,516 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+15:19:05,516 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+15:19:05,516 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+15:19:05,519 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+15:19:05,537 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+15:19:05,537 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+15:19:05,537 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+15:19:05,537 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@10ec31f4 - value "INFO" substituted for "${LOG_LEVEL}"
+15:19:05,537 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+15:19:05,537 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@10ec31f4 - value "plain" substituted for "${LOG_APPENDER}"
+15:19:05,537 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+15:19:05,538 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@6b95bebb - End of configuration.
+15:19:05,538 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@1271f11f - Registering current configuration as safe fallback point
+15:19:05,540 |-INFO in ch.qos.logback.classic.util.ContextInitializer@466a9549 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 64 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+15:19:05.543 INFO  [com-helio-domain-connectors-RestPagedFetchDeadlineSpec-pekko.actor.default-dispatcher-4] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] RestPagedFetchDeadlineSpec:
+[info] RestPagedFetch past its deadline
+[info] - should refuse to start another page after a page that finishes late *** FAILED ***
+[info]   Left("Page 2: the next link repeats an earlier page, so paging would never end") was not equal to Left("Pagination exceeded its 50 ms total time budget after 0 completed pages") (RestPagedFetchDeadlineSpec.scala:48)
+[info] - should report the curated budget text, not a page error, for a body discarded after the deadline *** FAILED ***
+[info]   Left("Pagination total time budget exceeded") was not equal to Left("Pagination exceeded its 50 ms total time budget after 0 completed pages") (RestPagedFetchDeadlineSpec.scala:52)
+[info] - should not return a final page as success when it completes after the deadline *** FAILED ***
+[info]   Right(PagedRows(Vector(1), false, 1)) was not equal to Left("Pagination exceeded its 50 ms total time budget after 0 completed pages") (RestPagedFetchDeadlineSpec.scala:55)
+15:19:06.376 INFO  [com-helio-domain-connectors-RestPagedFetchDeadlineSpec-pekko.actor.default-dispatcher-5] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] [hel1468-guard] ScalaTest summary: failed=3 aborted=0 unreadable=0
+[info] Run completed in 1 second, 518 milliseconds.
+[info] Total number of tests run: 3
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 0, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.domain.connectors.RestPagedFetchDeadlineSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 3 s, cache 93%, 27 disk cache hits, 2 onsite tasks

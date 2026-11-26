@@ -174,10 +174,15 @@ private[pipelines] final class PipelineRunQueries(
           availableRowCount = readObj.fields.get("availableRowCount").flatMap {
             case JsNull => None
             case other  => Some(other.convertTo[Long])
+          },
+          // HEL-1013: absent on rows written before paging existed.
+          pagesFetched = readObj.fields.get("pagesFetched").flatMap {
+            case JsNull => None
+            case other  => Some(other.convertTo[Int])
           }
         )
       }.toVector
-      val domainReads = reads.map(r => TruncatedRead(r.dataSourceName, r.rowsRead, r.availableRowCount))
+      val domainReads = reads.map(r => TruncatedRead(r.dataSourceName, r.rowsRead, r.availableRowCount, r.pagesFetched))
       RunTruncationRecord(
         truncated                = reads.nonEmpty,
         primaryAvailableRowCount = primaryAvailableRowCount,

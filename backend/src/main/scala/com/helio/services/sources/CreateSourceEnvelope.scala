@@ -2,7 +2,7 @@ package com.helio.services.sources
 
 import com.helio.api.protocols.sources.{CreateSourceResponse, DataSourceResponse, FieldOverridePayload, InferredFieldResponse, InferredSchemaResponse}
 import com.helio.domain.model.{AuthenticatedUser, DataFieldType, DataSource, InferredSchema}
-import com.helio.domain.connectors.{ConnectorDriver, ConnectorResolveContext}
+import com.helio.domain.connectors.{ConnectorDriver, ConnectorResolveContext, RestPagination}
 import com.helio.domain.engine.InProcessPipelineEngine
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 
@@ -65,12 +65,16 @@ object CreateSourceEnvelope {
                 ov.map(_.dataType).getOrElse(DataFieldType.asString(f.dataType)),
                 f.nullable
               )
-            }).toVector)),
+            }).toVector, pagingNotice = pagingNotice(schema))),
             fetchError   = None,
             rowCapNotice = rowCapNotice(schema)
           )
         }
     }
+
+  /** HEL-1013 D9: non-blocking; the driver sets `looksPaged` only for an unconfigured response. */
+  private def pagingNotice(schema: InferredSchema): Option[String] =
+    RestPagination.noticeFor(schema.looksPaged)
 
   /** HEL-861 (design D6): a forward-looking advisory composed generically from whatever the
    *  connector's `inferSchema` measured -- reads `InProcessPipelineEngine.MaxRunRows` directly

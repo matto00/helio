@@ -1,0 +1,63 @@
+MUTATION (reconstructed after the fact from the edit definitions used to run it; the mutant source itself was restored and not kept):
+helio-mcp/src/tools/pipelinesHandlers.ts (resolveSource rest_api case)
+- pagination: config.pagination as RestPaginationInput | undefined,
+
+ts-jest[config] (WARN) [94mmessage[0m[90m TS151002: [0mUsing hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) [94mmessage[0m[90m TS151002: [0mUsing hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) [94mmessage[0m[90m TS151002: [0mUsing hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) [94mmessage[0m[90m TS151002: [0mUsing hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) [94mmessage[0m[90m TS151002: [0mUsing hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) [94mmessage[0m[90m TS151002: [0mUsing hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) [94mmessage[0m[90m TS151002: [0mUsing hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) [94mmessage[0m[90m TS151002: [0mUsing hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) [94mmessage[0m[90m TS151002: [0mUsing hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+ts-jest[config] (WARN) [94mmessage[0m[90m TS151002: [0mUsing hybrid module kind (Node16/18/Next) is only supported in "isolatedModules: true". Please set "isolatedModules: true" in your tsconfig.json. To disable this message, you can set "diagnostics.ignoreCodes" to include 151002 in your ts-jest config. See more at https://kulshekhar.github.io/ts-jest/docs/getting-started/options/diagnostics
+FAIL helio-mcp/src/tools/restPaginationSeam.test.ts
+  createRestDataSourceSchema pagination
+    ✓ accepts {"style":"link"} (4 ms)
+    ✓ accepts {"style":"next_url","nextUrlPath":"meta.next"}
+    ✓ accepts {"style":"cursor","cursorPath":"meta.next","cursorParam":"after","maxRequests":100} (1 ms)
+    ✓ accepts {"style":"page","pageParam":"p","startPage":0,"pageSizeParam":"per","pageSize":50} (1 ms)
+    ✓ accepts {"style":"offset","limit":25,"offsetParam":"skip","limitParam":"take","maxRequests":1}
+    ✓ rejects {"style":"offset"} (1 ms)
+    ✓ rejects {"style":"cursor","cursorPath":"a"}
+    ✓ rejects {"style":"next_url"}
+    ✓ rejects {"style":"link","maxRequests":0} (1 ms)
+    ✓ rejects {"style":"link","maxRequests":101}
+    ✓ rejects {"style":"link","maxRequests":1.5}
+    ✓ rejects {"style":"offset","limit":0} (1 ms)
+    ✓ rejects {"style":"page","pageSize":0}
+    ✓ rejects {"style":"bogus"}
+    ✓ rejects {}
+    ✓ rejects {"style":"link","surprise":true} (1 ms)
+    ✓ rejects {"style":"link","cursorPath":"a"}
+  HEL-1013 pagination forwarding — real HTTP server
+    ✓ the create_rest_data_source tool handler sends pagination in the POST /api/sources body (18 ms)
+    ✕ an inline rest_api pipeline root sends pagination in the POST /api/sources body (6 ms)
+    ✓ sends no pagination key at all when none is given (1 ms)
+  HEL-1013 pagingNotice relay
+    ✓ relays inferredSchema.pagingNotice into the create result (1 ms)
+    ✓ reports null when the response carried no notice, or no inferred schema (3 ms)
+
+  ● HEL-1013 pagination forwarding — real HTTP server › an inline rest_api pipeline root sends pagination in the POST /api/sources body
+
+    expect(received).toEqual(expected) // deep equality
+
+    Expected: {"cursorParam": "after", "cursorPath": "meta.next", "maxRequests": 7, "style": "cursor"}
+    Received: undefined
+
+      127 |
+      128 |     expect(harness.requests[0]?.path).toBe("/api/sources");
+    > 129 |     expect((harness.requests[0]?.body as { config: { pagination: unknown } }).config.pagination).toEqual(
+          |                                                                                                  ^
+      130 |       pagination,
+      131 |     );
+      132 |   });
+
+      at Object.<anonymous> (helio-mcp/src/tools/restPaginationSeam.test.ts:129:98)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 21 passed, 22 total
+Snapshots:   0 total
+Time:        4.902 s, estimated 5 s
+Ran all test suites matching helio-mcp/src/tools/restPaginationSeam.
